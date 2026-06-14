@@ -19,7 +19,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _formKey = GlobalKey<FormState>();
-  final _gamerTagController = TextEditingController();
   final _bioController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -29,7 +28,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Fetch profile on page load
     Future.microtask(() {
       if (!mounted) return;
       context.read<ProfileCubit>().getProfile();
@@ -38,7 +36,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _gamerTagController.dispose();
     _bioController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -70,12 +67,11 @@ class _HomePageState extends State<HomePage> {
     if (!_formKey.currentState!.validate()) return;
 
     context.read<ProfileCubit>().createProfile(
-          gamerTag: _gamerTagController.text.trim(),
-          bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-          firstName: _firstNameController.text.trim().isEmpty ? null : _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim().isEmpty ? null : _lastNameController.text.trim(),
-          dateOfBirth: _dobController.text.trim().isEmpty ? null : _dobController.text.trim(),
-          phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          bio: _bioController.text.trim(),
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          dateOfBirth: _dobController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
         );
   }
 
@@ -149,13 +145,9 @@ class _HomePageState extends State<HomePage> {
             );
           }
 
-          if (state is ProfileNotFound) {
-            return _buildSetupProfileForm(theme);
-          }
-
           if (state is ProfileLoaded) {
             final profile = state.profile;
-            if (profile.gamerTag == null || profile.gamerTag!.isEmpty) {
+            if (!profile.hasProfile) {
               return _buildSetupProfileForm(theme);
             }
             return _buildProfileDashboard(profile, theme);
@@ -233,7 +225,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Thiết lập Profile mới',
+                          'Hoàn tất hồ sơ',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.primary,
@@ -241,7 +233,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Để tiếp tục trải nghiệm hệ thống, vui lòng tạo hồ sơ cá nhân của bạn.',
+                          'Để tiếp tục trải nghiệm hệ thống, vui lòng điền thông tin cá nhân của bạn.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -254,36 +246,22 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 24),
 
-            // GamerTag field
-            TextFormField(
-              controller: _gamerTagController,
-              decoration: const InputDecoration(
-                labelText: 'Biệt danh (Gamer Tag) *',
-                prefixIcon: Icon(Icons.sports_esports_outlined),
-                border: OutlineInputBorder(),
-                helperText: 'Tên hiển thị độc nhất của bạn khi chơi game.',
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Vui lòng nhập biệt danh';
-                }
-                if (value.trim().length < 3) {
-                  return 'Biệt danh phải tối thiểu 3 ký tự';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
             // Bio field
             TextFormField(
               controller: _bioController,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Mô tả cá nhân (Bio)',
+                labelText: 'Mô tả cá nhân (Bio) *',
                 prefixIcon: Icon(Icons.description_outlined),
                 border: OutlineInputBorder(),
+                helperText: 'Giới thiệu về bản thân bạn',
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng nhập mô tả cá nhân';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -291,10 +269,16 @@ class _HomePageState extends State<HomePage> {
             TextFormField(
               controller: _firstNameController,
               decoration: const InputDecoration(
-                labelText: 'Tên (First Name)',
+                labelText: 'Tên (First Name) *',
                 prefixIcon: Icon(Icons.person_outline),
                 border: OutlineInputBorder(),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng nhập tên';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -302,10 +286,16 @@ class _HomePageState extends State<HomePage> {
             TextFormField(
               controller: _lastNameController,
               decoration: const InputDecoration(
-                labelText: 'Họ (Last Name)',
+                labelText: 'Họ (Last Name) *',
                 prefixIcon: Icon(Icons.person_outline),
                 border: OutlineInputBorder(),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng nhập họ';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -315,7 +305,7 @@ class _HomePageState extends State<HomePage> {
               readOnly: true,
               onTap: () => _selectDate(context),
               decoration: InputDecoration(
-                labelText: 'Ngày sinh (Date of Birth)',
+                labelText: 'Ngày sinh (Date of Birth) *',
                 prefixIcon: const Icon(Icons.calendar_today_outlined),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
@@ -323,6 +313,12 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () => _selectDate(context),
                 ),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng chọn ngày sinh';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -331,10 +327,16 @@ class _HomePageState extends State<HomePage> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
-                labelText: 'Số điện thoại (Phone Number)',
+                labelText: 'Số điện thoại (Phone Number) *',
                 prefixIcon: Icon(Icons.phone_outlined),
                 border: OutlineInputBorder(),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng nhập số điện thoại';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 32),
 
@@ -357,8 +359,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildProfileDashboard(ProfileEntity profile, ThemeData theme) {
-    final gamerTag = profile.gamerTag ?? '';
-    final initials = gamerTag.isNotEmpty ? gamerTag.substring(0, 1).toUpperCase() : '?';
+    final username = profile.username;
+    final initials = username.isNotEmpty ? username.substring(0, 1).toUpperCase() : '?';
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -404,7 +406,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  gamerTag,
+                  username,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -414,7 +416,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '@${profile.username}',
+                  '@$username',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -521,7 +523,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Thông tin liên lạc',
+                          'Thông tin tài khoản',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -530,32 +532,20 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const Divider(height: 24),
                     _buildDetailRow(
-                      icon: Icons.person_outline,
-                      label: 'Họ và tên',
-                      value: _getFullName(profile.firstName, profile.lastName),
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(
                       icon: Icons.favorite_border_rounded,
                       label: 'Karma Points / Điểm uy tín',
                       value: profile.karmaPoints != null ? '${profile.karmaPoints} PTS' : 'Chưa có',
                       theme: theme,
                     ),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(
-                      icon: Icons.calendar_today_outlined,
-                      label: 'Ngày sinh',
-                      value: profile.dateOfBirth ?? 'Chưa cập nhật',
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(
-                      icon: Icons.phone_outlined,
-                      label: 'Số điện thoại',
-                      value: profile.phoneNumber ?? 'Chưa cập nhật',
-                      theme: theme,
-                    ),
+                    if (profile.bio != null && profile.bio!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        icon: Icons.description_outlined,
+                        label: 'Mô tả cá nhân',
+                        value: profile.bio!,
+                        theme: theme,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -652,11 +642,5 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
-  }
-
-  String _getFullName(String? firstName, String? lastName) {
-    if (firstName == null && lastName == null) return 'Chưa cập nhật';
-    final parts = [lastName ?? '', firstName ?? ''].where((p) => p.isNotEmpty);
-    return parts.isEmpty ? 'Chưa cập nhật' : parts.join(' ');
   }
 }

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CreateProfileRequestModel {
 
- String get gamerTag; String? get bio; String? get firstName; String? get lastName; String? get dateOfBirth; String? get phoneNumber;
+ String get bio; String get firstName; String get lastName; String get dateOfBirth; String get phoneNumber;
 /// Create a copy of CreateProfileRequestModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $CreateProfileRequestModelCopyWith<CreateProfileRequestModel> get copyWith => _$
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CreateProfileRequestModel&&(identical(other.gamerTag, gamerTag) || other.gamerTag == gamerTag)&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.firstName, firstName) || other.firstName == firstName)&&(identical(other.lastName, lastName) || other.lastName == lastName)&&(identical(other.dateOfBirth, dateOfBirth) || other.dateOfBirth == dateOfBirth)&&(identical(other.phoneNumber, phoneNumber) || other.phoneNumber == phoneNumber));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CreateProfileRequestModel&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.firstName, firstName) || other.firstName == firstName)&&(identical(other.lastName, lastName) || other.lastName == lastName)&&(identical(other.dateOfBirth, dateOfBirth) || other.dateOfBirth == dateOfBirth)&&(identical(other.phoneNumber, phoneNumber) || other.phoneNumber == phoneNumber));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,gamerTag,bio,firstName,lastName,dateOfBirth,phoneNumber);
+int get hashCode => Object.hash(runtimeType,bio,firstName,lastName,dateOfBirth,phoneNumber);
 
 @override
 String toString() {
-  return 'CreateProfileRequestModel(gamerTag: $gamerTag, bio: $bio, firstName: $firstName, lastName: $lastName, dateOfBirth: $dateOfBirth, phoneNumber: $phoneNumber)';
+  return 'CreateProfileRequestModel(bio: $bio, firstName: $firstName, lastName: $lastName, dateOfBirth: $dateOfBirth, phoneNumber: $phoneNumber)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $CreateProfileRequestModelCopyWith<$Res>  {
   factory $CreateProfileRequestModelCopyWith(CreateProfileRequestModel value, $Res Function(CreateProfileRequestModel) _then) = _$CreateProfileRequestModelCopyWithImpl;
 @useResult
 $Res call({
- String gamerTag, String? bio, String? firstName, String? lastName, String? dateOfBirth, String? phoneNumber
+ String bio, String firstName, String lastName, String dateOfBirth, String phoneNumber
 });
 
 
@@ -65,15 +65,14 @@ class _$CreateProfileRequestModelCopyWithImpl<$Res>
 
 /// Create a copy of CreateProfileRequestModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? gamerTag = null,Object? bio = freezed,Object? firstName = freezed,Object? lastName = freezed,Object? dateOfBirth = freezed,Object? phoneNumber = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? bio = null,Object? firstName = null,Object? lastName = null,Object? dateOfBirth = null,Object? phoneNumber = null,}) {
   return _then(_self.copyWith(
-gamerTag: null == gamerTag ? _self.gamerTag : gamerTag // ignore: cast_nullable_to_non_nullable
-as String,bio: freezed == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
-as String?,firstName: freezed == firstName ? _self.firstName : firstName // ignore: cast_nullable_to_non_nullable
-as String?,lastName: freezed == lastName ? _self.lastName : lastName // ignore: cast_nullable_to_non_nullable
-as String?,dateOfBirth: freezed == dateOfBirth ? _self.dateOfBirth : dateOfBirth // ignore: cast_nullable_to_non_nullable
-as String?,phoneNumber: freezed == phoneNumber ? _self.phoneNumber : phoneNumber // ignore: cast_nullable_to_non_nullable
-as String?,
+bio: null == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
+as String,firstName: null == firstName ? _self.firstName : firstName // ignore: cast_nullable_to_non_nullable
+as String,lastName: null == lastName ? _self.lastName : lastName // ignore: cast_nullable_to_non_nullable
+as String,dateOfBirth: null == dateOfBirth ? _self.dateOfBirth : dateOfBirth // ignore: cast_nullable_to_non_nullable
+as String,phoneNumber: null == phoneNumber ? _self.phoneNumber : phoneNumber // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 
@@ -158,10 +157,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String gamerTag,  String? bio,  String? firstName,  String? lastName,  String? dateOfBirth,  String? phoneNumber)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String bio,  String firstName,  String lastName,  String dateOfBirth,  String phoneNumber)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CreateProfileRequestModel() when $default != null:
-return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
+return $default(_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
   return orElse();
 
 }
@@ -179,10 +178,10 @@ return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.da
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String gamerTag,  String? bio,  String? firstName,  String? lastName,  String? dateOfBirth,  String? phoneNumber)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String bio,  String firstName,  String lastName,  String dateOfBirth,  String phoneNumber)  $default,) {final _that = this;
 switch (_that) {
 case _CreateProfileRequestModel():
-return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
+return $default(_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +198,10 @@ return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.da
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String gamerTag,  String? bio,  String? firstName,  String? lastName,  String? dateOfBirth,  String? phoneNumber)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String bio,  String firstName,  String lastName,  String dateOfBirth,  String phoneNumber)?  $default,) {final _that = this;
 switch (_that) {
 case _CreateProfileRequestModel() when $default != null:
-return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
+return $default(_that.bio,_that.firstName,_that.lastName,_that.dateOfBirth,_that.phoneNumber);case _:
   return null;
 
 }
@@ -214,15 +213,14 @@ return $default(_that.gamerTag,_that.bio,_that.firstName,_that.lastName,_that.da
 @JsonSerializable()
 
 class _CreateProfileRequestModel implements CreateProfileRequestModel {
-  const _CreateProfileRequestModel({required this.gamerTag, this.bio, this.firstName, this.lastName, this.dateOfBirth, this.phoneNumber});
+  const _CreateProfileRequestModel({required this.bio, required this.firstName, required this.lastName, required this.dateOfBirth, required this.phoneNumber});
   factory _CreateProfileRequestModel.fromJson(Map<String, dynamic> json) => _$CreateProfileRequestModelFromJson(json);
 
-@override final  String gamerTag;
-@override final  String? bio;
-@override final  String? firstName;
-@override final  String? lastName;
-@override final  String? dateOfBirth;
-@override final  String? phoneNumber;
+@override final  String bio;
+@override final  String firstName;
+@override final  String lastName;
+@override final  String dateOfBirth;
+@override final  String phoneNumber;
 
 /// Create a copy of CreateProfileRequestModel
 /// with the given fields replaced by the non-null parameter values.
@@ -237,16 +235,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CreateProfileRequestModel&&(identical(other.gamerTag, gamerTag) || other.gamerTag == gamerTag)&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.firstName, firstName) || other.firstName == firstName)&&(identical(other.lastName, lastName) || other.lastName == lastName)&&(identical(other.dateOfBirth, dateOfBirth) || other.dateOfBirth == dateOfBirth)&&(identical(other.phoneNumber, phoneNumber) || other.phoneNumber == phoneNumber));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CreateProfileRequestModel&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.firstName, firstName) || other.firstName == firstName)&&(identical(other.lastName, lastName) || other.lastName == lastName)&&(identical(other.dateOfBirth, dateOfBirth) || other.dateOfBirth == dateOfBirth)&&(identical(other.phoneNumber, phoneNumber) || other.phoneNumber == phoneNumber));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,gamerTag,bio,firstName,lastName,dateOfBirth,phoneNumber);
+int get hashCode => Object.hash(runtimeType,bio,firstName,lastName,dateOfBirth,phoneNumber);
 
 @override
 String toString() {
-  return 'CreateProfileRequestModel(gamerTag: $gamerTag, bio: $bio, firstName: $firstName, lastName: $lastName, dateOfBirth: $dateOfBirth, phoneNumber: $phoneNumber)';
+  return 'CreateProfileRequestModel(bio: $bio, firstName: $firstName, lastName: $lastName, dateOfBirth: $dateOfBirth, phoneNumber: $phoneNumber)';
 }
 
 
@@ -257,7 +255,7 @@ abstract mixin class _$CreateProfileRequestModelCopyWith<$Res> implements $Creat
   factory _$CreateProfileRequestModelCopyWith(_CreateProfileRequestModel value, $Res Function(_CreateProfileRequestModel) _then) = __$CreateProfileRequestModelCopyWithImpl;
 @override @useResult
 $Res call({
- String gamerTag, String? bio, String? firstName, String? lastName, String? dateOfBirth, String? phoneNumber
+ String bio, String firstName, String lastName, String dateOfBirth, String phoneNumber
 });
 
 
@@ -274,15 +272,14 @@ class __$CreateProfileRequestModelCopyWithImpl<$Res>
 
 /// Create a copy of CreateProfileRequestModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? gamerTag = null,Object? bio = freezed,Object? firstName = freezed,Object? lastName = freezed,Object? dateOfBirth = freezed,Object? phoneNumber = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? bio = null,Object? firstName = null,Object? lastName = null,Object? dateOfBirth = null,Object? phoneNumber = null,}) {
   return _then(_CreateProfileRequestModel(
-gamerTag: null == gamerTag ? _self.gamerTag : gamerTag // ignore: cast_nullable_to_non_nullable
-as String,bio: freezed == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
-as String?,firstName: freezed == firstName ? _self.firstName : firstName // ignore: cast_nullable_to_non_nullable
-as String?,lastName: freezed == lastName ? _self.lastName : lastName // ignore: cast_nullable_to_non_nullable
-as String?,dateOfBirth: freezed == dateOfBirth ? _self.dateOfBirth : dateOfBirth // ignore: cast_nullable_to_non_nullable
-as String?,phoneNumber: freezed == phoneNumber ? _self.phoneNumber : phoneNumber // ignore: cast_nullable_to_non_nullable
-as String?,
+bio: null == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
+as String,firstName: null == firstName ? _self.firstName : firstName // ignore: cast_nullable_to_non_nullable
+as String,lastName: null == lastName ? _self.lastName : lastName // ignore: cast_nullable_to_non_nullable
+as String,dateOfBirth: null == dateOfBirth ? _self.dateOfBirth : dateOfBirth // ignore: cast_nullable_to_non_nullable
+as String,phoneNumber: null == phoneNumber ? _self.phoneNumber : phoneNumber // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

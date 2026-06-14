@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/di/injection.dart';
+import 'core/navigation/pages/main_scaffold.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
@@ -37,6 +38,10 @@ class BoardVerseApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: const LoginPage(),
+        routes: {
+          '/login': (context) => const LoginPage(),
+          '/home': (context) => const MainScaffold(),
+        },
       ),
     );
   }

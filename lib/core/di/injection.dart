@@ -12,9 +12,28 @@ import '../../features/profile/data/datasources/profile_remote_datasource.dart';
 import '../../features/profile/data/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
+import '../../features/matchmaking_discovery/data/matchmaking_repository_impl.dart';
+import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
+import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../../features/lobby_management/data/lobby_repository_impl.dart';
+import '../../features/lobby_management/data/lobby_persistence_service.dart';
+import '../../features/lobby_management/domain/repositories/lobby_repository.dart';
+import '../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
+import '../../features/booking_commitment/data/booking_repository_impl.dart';
+import '../../features/booking_commitment/domain/repositories/booking_repository.dart';
+import '../../features/booking_commitment/presentation/cubit/booking_cubit.dart';
+import '../../features/in_game_experience/data/in_game_repository_impl.dart';
+import '../../features/in_game_experience/domain/repositories/in_game_repository.dart';
+import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart';
+import '../../features/match_summary_rating/data/rating_repository_impl.dart';
+import '../../features/match_summary_rating/domain/repositories/rating_repository.dart';
+import '../../features/match_summary_rating/presentation/cubit/rating_cubit.dart';
 
 /// Global service locator instance.
 final sl = GetIt.instance;
+
+/// Alias for sl to allow pages to use getIt directly.
+final getIt = sl;
 
 /// Registers all dependencies.
 ///
@@ -67,6 +86,67 @@ void setupDependencies() {
   sl.registerFactory<ProfileCubit>(
     () => ProfileCubit(
       repository: sl<ProfileRepository>(),
+    ),
+  );
+
+  // ─── Feature: Matchmaking Discovery ──────────────────────────────────
+  sl.registerLazySingleton<MatchmakingRepository>(
+    () => MatchmakingRepositoryImpl(),
+  );
+
+  sl.registerFactory<MatchmakingCubit>(
+    () => MatchmakingCubit(
+      repository: sl<MatchmakingRepository>(),
+      lobbyRepository: sl<LobbyRepository>(),
+    ),
+  );
+
+  // ─── Feature: Lobby Management ────────────────────────────────────────
+  sl.registerLazySingleton<LobbyRepository>(
+    () => LobbyRepositoryImpl(),
+  );
+
+  sl.registerLazySingleton<LobbyPersistenceService>(
+    () => LobbyPersistenceService(storage: sl<FlutterSecureStorage>()),
+  );
+
+  sl.registerFactory<LobbyCubit>(
+    () => LobbyCubit(
+      repository: sl<LobbyRepository>(),
+      persistenceService: sl<LobbyPersistenceService>(),
+    ),
+  );
+
+  // ─── Feature: Booking Commitment ──────────────────────────────────────
+  sl.registerLazySingleton<BookingRepository>(
+    () => BookingRepositoryImpl(),
+  );
+
+  sl.registerFactory<BookingCubit>(
+    () => BookingCubit(
+      repository: sl<BookingRepository>(),
+    ),
+  );
+
+  // ─── Feature: In Game Experience ──────────────────────────────────────
+  sl.registerLazySingleton<InGameRepository>(
+    () => InGameRepositoryImpl(),
+  );
+
+  sl.registerFactory<InGameCubit>(
+    () => InGameCubit(
+      repository: sl<InGameRepository>(),
+    ),
+  );
+
+  // ─── Feature: Match Summary Rating ────────────────────────────────────
+  sl.registerLazySingleton<RatingRepository>(
+    () => RatingRepositoryImpl(),
+  );
+
+  sl.registerFactory<RatingCubit>(
+    () => RatingCubit(
+      repository: sl<RatingRepository>(),
     ),
   );
 }

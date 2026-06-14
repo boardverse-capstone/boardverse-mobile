@@ -4,10 +4,10 @@ import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/navigation/pages/main_scaffold.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import 'register_page.dart';
-import '../../../profile/presentation/pages/home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
           if (state is AuthSuccess) {
             _showToast('Đăng nhập thành công!');
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomePage()),
+              MaterialPageRoute(builder: (_) => const MainScaffold()),
             );
           } else if (state is AuthFailure) {
             _showToast(state.message, isError: true);
