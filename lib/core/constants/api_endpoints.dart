@@ -33,9 +33,57 @@ class ApiEndpoints {
   static const String userProfileProgress = '/api/userprofile/progress';
 
   // ──────────────────────────────────────────────
+  //  Board Games
+  // ──────────────────────────────────────────────
+  static const String boardGames = '/api/BoardGames';
+  static const String boardGameDetail = '/api/BoardGames/{id}';
+  static const String boardGameSearch = '/api/BoardGames/search';
+  static const String boardGameCategories = '/api/BoardGames/categories';
+  static const String similarGames = '/api/BoardGames/{id}/similar';
+
+  // ──────────────────────────────────────────────
+  //  Cafes
+  // ──────────────────────────────────────────────
+  static const String nearbyCafes = '/api/Cafes/nearby';
+  static const String cafeDetail = '/api/Cafes/{id}';
+  static const String cafeGames = '/api/Cafes/{id}/games';
+
+  // ──────────────────────────────────────────────
+  //  Seat Availability (Real-time)
+  // ──────────────────────────────────────────────
+  static const String seatAvailability = '/api/Cafes/{cafeId}/seats';
+  static const String checkSeatsAvailable = '/api/Cafes/{cafeId}/seats/check';
+
+  // ──────────────────────────────────────────────
   //  Health
   // ──────────────────────────────────────────────
   static const String healthStatus = '/api/health/status';
   static const String healthPing = '/api/health/ping';
   static const String healthDbInfo = '/api/health/db-info';
+
+  // ──────────────────────────────────────────────
+  //  Bookings & Payments (Task 2)
+  // ──────────────────────────────────────────────
+  static const String createBooking = '/api/Bookings';
+  static const String bookingDetail = '/api/Bookings/{id}';
+  static const String confirmBooking = '/api/Bookings/{id}/confirm';
+  static const String cancelBooking = '/api/Bookings/{id}/cancel';
+  static const String bookingStatus = '/api/Bookings/{id}/status';
+  static const String bookingHistory = '/api/Bookings/history';
+
+  // ─── Deposit Config ───
+  static const String depositConfig = '/api/Cafes/{cafeId}/deposit-config';
+
+  // ─── Payments ───
+  static const String paymentCreate = '/api/Payments/create-url';
+
+  // ─── Lobbies (Task 3) ────────────────────────────────────────────
+  static const String lobbiesSearch = '/api/Lobbies/search';
+  static const String lobbiesList = '/api/Lobbies';
+  static const String lobbyDetail = '/api/Lobbies/{id}';
+  static const String lobbyJoin = '/api/Lobbies/{id}/join';
+  static const String lobbyLeave = '/api/Lobbies/{id}/leave';
+  static const String lobbyCancel = '/api/Lobbies/{id}/cancel';
+  static const String lobbyStatus = '/api/Lobbies/{id}/status';
+  static const String lobbyAutoBooking = '/api/Lobbies/{id}/auto-booking';
 }

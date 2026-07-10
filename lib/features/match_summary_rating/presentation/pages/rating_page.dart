@@ -4,10 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../profile/presentation/pages/home_page.dart';
 import '../../domain/entities/rating_entity.dart';
+import '../../domain/entities/voting_session.dart';
 import '../cubit/rating_cubit.dart';
 import '../cubit/rating_state.dart';
+import '../cubit/voting_state.dart';
 import '../widgets/player_rating_card.dart';
 import '../widgets/elo_result_display.dart';
+import '../widgets/voting_card.dart';
+import '../widgets/voting_result_dialog.dart';
 
 class RatingPage extends StatefulWidget {
   const RatingPage({super.key});
@@ -52,6 +56,7 @@ class _RatingPageState extends State<RatingPage> {
       0 => 'Đánh giá đồng đội',
       1 => 'Nhập kết quả trận đấu',
       2 => 'Tổng kết trận đấu',
+      3 => 'Bình chọn No-show',
       _ => 'Hoàn tất',
     };
   }
@@ -104,6 +109,11 @@ class _RatingPageState extends State<RatingPage> {
       return _buildEloResultView(context, state);
     }
 
+    // Voting step
+    if (state is RatingComplete && _currentStep == 3) {
+      return _buildVotingView(context);
+    }
+
     if (state is RatingComplete) {
       return _buildCompleteView(context);
     }
@@ -116,7 +126,7 @@ class _RatingPageState extends State<RatingPage> {
 
     return Column(
       children: [
-        // Progress Indicator
+        // Progress Indicator (4 steps)
         Container(
           padding: const EdgeInsets.all(16),
           color: theme.colorScheme.surfaceContainerHighest,
@@ -131,6 +141,10 @@ class _RatingPageState extends State<RatingPage> {
                 child: Container(height: 2, color: theme.colorScheme.outline),
               ),
               _buildStepIndicator(2, 'Tổng kết', false),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.outline),
+              ),
+              _buildStepIndicator(3, 'No-show', false),
             ],
           ),
         ),
@@ -191,7 +205,7 @@ class _RatingPageState extends State<RatingPage> {
 
     return Column(
       children: [
-        // Progress Indicator
+        // Progress Indicator (4 steps)
         Container(
           padding: const EdgeInsets.all(16),
           color: theme.colorScheme.surfaceContainerHighest,
@@ -206,6 +220,10 @@ class _RatingPageState extends State<RatingPage> {
                 child: Container(height: 2, color: theme.colorScheme.outline),
               ),
               _buildStepIndicator(2, 'Tổng kết', false),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.outline),
+              ),
+              _buildStepIndicator(3, 'No-show', false),
             ],
           ),
         ),
@@ -300,13 +318,264 @@ class _RatingPageState extends State<RatingPage> {
             eloResult: state.eloResult,
             onViewLeaderboard: () {},
             onComplete: () {
-              _ratingCubit.completeRating();
-              setState(() => _currentStep = 3);
+              // Check if there are no-show candidates
+              _ratingCubit.checkPendingVotes();
+              final votingState = _ratingCubit.votingState;
+
+              if (votingState is VotingPending) {
+                setState(() => _currentStep = 3);
+              } else {
+                _ratingCubit.completeRating();
+                setState(() => _currentStep = 4);
+              }
             },
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildVotingView(BuildContext context) {
+    final votingState = _ratingCubit.votingState;
+
+    if (votingState is VotingPending) {
+      return _buildVotingPendingView(context, votingState);
+    }
+
+    if (votingState is VotingActive) {
+      return _buildVotingActiveView(context, votingState);
+    }
+
+    if (votingState is VotingResult) {
+      return const SizedBox.shrink();
+    }
+
+    if (votingState is VotingComplete) {
+      return _buildCompleteView(context);
+    }
+
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildVotingPendingView(BuildContext context, VotingPending state) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        // Progress Indicator
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: Row(
+            children: [
+              _buildStepIndicator(0, 'Đánh giá', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.primary),
+              ),
+              _buildStepIndicator(1, 'Kết quả', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.primary),
+              ),
+              _buildStepIndicator(2, 'Tổng kết', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.outline),
+              ),
+              _buildStepIndicator(3, 'No-show', true),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.orange.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Có thành viên vắng mặt',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${state.candidates.length} người có thể bị đánh dấu no-show. Cần ${state.threshold} phiếu để xác nhận.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.orange.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Bình chọn người vắng mặt',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...state.candidates.map((candidate) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OutlinedButton(
+                        onPressed: () => _ratingCubit.startVoting(candidate),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: theme.colorScheme.primaryContainer,
+                              child: Text(
+                                candidate.name[0].toUpperCase(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                candidate.name,
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                      ),
+                    )),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      _ratingCubit.completeVoting();
+                      setState(() => _currentStep = 4);
+                    },
+                    child: const Text('Bỏ qua bình chọn'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVotingActiveView(BuildContext context, VotingActive state) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        // Progress Indicator
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: Row(
+            children: [
+              _buildStepIndicator(0, 'Đánh giá', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.primary),
+              ),
+              _buildStepIndicator(1, 'Kết quả', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.primary),
+              ),
+              _buildStepIndicator(2, 'Tổng kết', true),
+              Expanded(
+                child: Container(height: 2, color: theme.colorScheme.primary),
+              ),
+              _buildStepIndicator(3, 'No-show', true),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bình chọn',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Bạn có đồng ý rằng người này vắng mặt không?',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                VotingCard(
+                  candidate: VotingCandidate(
+                    id: state.session.targetPlayerId,
+                    name: state.session.targetPlayerName,
+                    avatarUrl: state.session.targetPlayerAvatar,
+                  ),
+                  noShowVotes: state.session.noShowVotes,
+                  notNoShowVotes: state.session.notNoShowVotes,
+                  totalVoters: state.session.eligibleVoters.length,
+                  remainingTime: state.session.remainingTime,
+                  onVoteNoShow: () => _onVoteSubmitted(VoteType.noShow),
+                  onVoteNotNoShow: () => _onVoteSubmitted(VoteType.notNoShow),
+                  onSkip: () => _onVoteSubmitted(VoteType.skip),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onVoteSubmitted(VoteType vote) {
+    _ratingCubit.submitVote(vote);
+
+    // Check if voting result is ready
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      final votingState = _ratingCubit.votingState;
+      if (votingState is VotingResult) {
+        VotingResultDialog.show(
+          context: context,
+          noShowPlayers: votingState.noShowPlayers,
+          attendedPlayers: votingState.attendedPlayers,
+          onContinue: () {
+            _ratingCubit.completeVoting();
+            setState(() => _currentStep = 4);
+          },
+        );
+      }
+    });
   }
 
   Widget _buildCompleteView(BuildContext context) {
@@ -328,7 +597,9 @@ class _RatingPageState extends State<RatingPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Đánh giá của bạn đã được gửi thành công.',
+              _currentStep == 4
+                  ? 'Đánh giá và bình chọn của bạn đã được gửi thành công.'
+                  : 'Đánh giá của bạn đã được gửi thành công.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.outline,
               ),

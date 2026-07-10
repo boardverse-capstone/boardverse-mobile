@@ -53,6 +53,21 @@ class InGameCheckoutComplete extends InGameState {
   List<Object?> get props => [totalAmount, depositPaid, remainingAmount];
 }
 
+class InGameSessionEnded extends InGameState {
+  final Duration totalDuration;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  const InGameSessionEnded({
+    required this.totalDuration,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  @override
+  List<Object?> get props => [totalDuration, startTime, endTime];
+}
+
 class InGameFailure extends InGameState {
   final String message;
 

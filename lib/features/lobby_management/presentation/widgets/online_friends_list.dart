@@ -4,12 +4,14 @@ import '../../domain/entities/friend_entity.dart';
 class OnlineFriendsList extends StatelessWidget {
   final List<FriendEntity> friends;
   final Function(FriendEntity)? onInvite;
+  final Function(FriendEntity)? onAdd;
   final Function(FriendEntity)? onViewProfile;
 
   const OnlineFriendsList({
     super.key,
     required this.friends,
     this.onInvite,
+    this.onAdd,
     this.onViewProfile,
   });
 
@@ -83,9 +85,22 @@ class OnlineFriendsList extends StatelessWidget {
               : null,
           trailing: friend.isInLobby
               ? null
-              : FilledButton.tonal(
-                  onPressed: () => onInvite?.call(friend),
-                  child: const Text('Mời'),
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onAdd != null)
+                      FilledButton.tonal(
+                        onPressed: () => onAdd?.call(friend),
+                        child: const Text('Thêm'),
+                      ),
+                    if (onInvite != null && onAdd != null)
+                      const SizedBox(width: 8),
+                    if (onInvite != null)
+                      OutlinedButton(
+                        onPressed: () => onInvite?.call(friend),
+                        child: const Text('Mời'),
+                      ),
+                  ],
                 ),
           onTap: () => onViewProfile?.call(friend),
         );

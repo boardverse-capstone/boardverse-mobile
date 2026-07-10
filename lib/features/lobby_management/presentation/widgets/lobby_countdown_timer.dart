@@ -22,10 +22,15 @@ class _LobbyCountdownTimerState extends State<LobbyCountdownTimer> {
   @override
   void initState() {
     super.initState();
-    _calculateRemainingTime();
+    _remainingTime = _computeRemaining();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       _calculateRemainingTime();
     });
+  }
+
+  Duration _computeRemaining() {
+    final remaining = widget.expiresAt.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
   }
 
   @override
@@ -35,14 +40,15 @@ class _LobbyCountdownTimerState extends State<LobbyCountdownTimer> {
   }
 
   void _calculateRemainingTime() {
-    final remaining = widget.expiresAt.difference(DateTime.now());
+    final remaining = _computeRemaining();
+    if (!mounted) return;
     setState(() {
-      _remainingTime = remaining.isNegative ? Duration.zero : remaining;
+      _remainingTime = remaining;
     });
 
     if (_remainingTime == Duration.zero && widget.onExpired != null) {
-      widget.onExpired!();
       _timer.cancel();
+      widget.onExpired!();
     }
   }
 

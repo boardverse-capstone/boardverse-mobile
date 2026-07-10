@@ -100,6 +100,26 @@ class InGameCubit extends Cubit<InGameState> {
     );
   }
 
+  // ─── End Session (Mock POS) ─────────────────────────────────────────
+
+  void endSession() {
+    _durationTimer?.cancel();
+    final currentState = state;
+    DateTime startTime = DateTime.now().subtract(const Duration(hours: 1));
+    Duration duration = const Duration(hours: 1);
+
+    if (currentState is InGameSessionActive) {
+      startTime = currentState.session.startTime;
+      duration = currentState.currentDuration;
+    }
+
+    emit(InGameSessionEnded(
+      totalDuration: duration,
+      startTime: startTime,
+      endTime: DateTime.now(),
+    ));
+  }
+
   // ─── Load Mock Session (for development) ─────────────────────────────
 
   void loadMockSession() {

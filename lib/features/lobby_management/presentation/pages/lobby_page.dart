@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/di/injection.dart';
-import '../../../booking_commitment/presentation/cubit/booking_cubit.dart';
-import '../../../booking_commitment/presentation/pages/deposit_page.dart';
+import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
+import '../../domain/entities/lobby_entity.dart';
 import '../cubit/lobby_cubit.dart';
 import '../cubit/lobby_state.dart';
 import '../widgets/lobby_player_card.dart';
@@ -41,63 +40,161 @@ class _LobbyPageState extends State<LobbyPage> {
     super.dispose();
   }
 
-  void _showInviteFriendsSheet(BuildContext context) {
+  void _showInviteFriendsSheet(BuildContext context, LobbyEntity lobby) {
     widget.lobbyCubit.loadOnlineFriends();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mời bạn bè',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(),
-              Expanded(
-                child: BlocBuilder<LobbyCubit, LobbyState>(
-                  bloc: widget.lobbyCubit,
-                  builder: (context, state) {
-                    if (state is LobbyFriendsLoaded) {
-                      return OnlineFriendsList(
-                        friends: state.friends,
-                        onInvite: (friend) {
-                          widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.id);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Đã gửi lời mời đến ${friend.name}'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        },
-                      );
-                    }
-                    return const Center(child: CircularProgressIndicator());
-                  },
+      builder: (sheetCtx) => BlocProvider.value(
+        value: widget.lobbyCubit,
+        child: BlocBuilder<LobbyCubit, LobbyState>(
+          builder: (sheetCtx, state) {
+            if (state is LobbyFriendsLoaded) {
+              return _buildFriendsSheetContent(sheetCtx, state);
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFriendsSheetContent(BuildContext sheetCtx, LobbyFriendsLoaded state) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (sheetCtx, scrollController) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Mời bạn bè',
+                  style: Theme.of(sheetCtx).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(sheetCtx),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: OnlineFriendsList(
+                friends: state.friends,
+                onInvite: (friend) {
+                  widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.id);
+                  Navigator.pop(sheetCtx);
+                  ScaffoldMessenger.of(sheetCtx).showSnackBar(
+                    SnackBar(
+                      content: Text('Đã gửi lời mời đến ${friend.name}'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSimulateFriendsSheet(BuildContext context, LobbyEntity lobby) {
+    widget.lobbyCubit.loadSimulateFriends();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetCtx) => BlocProvider.value(
+        value: widget.lobbyCubit,
+        child: BlocBuilder<LobbyCubit, LobbyState>(
+          builder: (sheetCtx, state) {
+            if (state is LobbySimulateFriendsLoaded) {
+              return _buildSimulateFriendsSheetContent(sheetCtx, state);
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimulateFriendsSheetContent(
+      BuildContext sheetCtx, LobbySimulateFriendsLoaded state) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (sheetCtx, scrollController) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'DEV',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Thêm bạn bè (Giả lập)',
+                      style: Theme.of(sheetCtx).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(sheetCtx),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: OnlineFriendsList(
+                friends: state.friends,
+                onAdd: (friend) {
+                  widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.id);
+                  Navigator.pop(sheetCtx);
+                  ScaffoldMessenger.of(sheetCtx).showSnackBar(
+                    SnackBar(
+                      content: Text('${friend.name} đã được thêm vào phòng!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -153,19 +250,15 @@ class _LobbyPageState extends State<LobbyPage> {
             _showDismissDialog(context, state);
           }
           if (state is LobbyReady) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DepositPage(
-                  lobbyId: state.lobby.id,
-                  gameName: state.lobby.gameName,
-                  cafeName: state.lobby.cafeName,
-                  bookingCubit: getIt<BookingCubit>(),
-                ),
-              ),
-            );
+            _openBookingSummary(context, state);
+          }
+          if (state is LobbyAutoBookingCreated) {
+            _onAutoBookingCreated(context, state);
           }
         },
+        buildWhen: (previous, current) =>
+            current is! LobbyFriendsLoaded &&
+            current is! LobbySimulateFriendsLoaded,
         builder: (context, state) {
           if (state is LobbyLoading) {
             return const Scaffold(
@@ -265,7 +358,7 @@ class _LobbyPageState extends State<LobbyPage> {
                       ),
                     ),
                     LobbyCountdownTimer(
-                      expiresAt: lobby.expiresAt,
+                      expiresAt: lobby.timeoutAt,
                       onExpired: () {},
                     ),
                   ],
@@ -324,16 +417,38 @@ class _LobbyPageState extends State<LobbyPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Thành viên (${lobby.currentPlayers}/${lobby.maxPlayers})',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          'Thành viên (${lobby.currentPlayers}/${lobby.maxPlayers})',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => _showInviteFriendsSheet(context),
-                        icon: const Icon(Icons.person_add, size: 18),
-                        label: const Text('Mời bạn bè'),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => _showSimulateFriendsSheet(context, lobby),
+                            icon: const Icon(Icons.smart_toy_outlined, size: 18),
+                            label: const Text('Giả lập'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.purple,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 36),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _showInviteFriendsSheet(context, lobby),
+                            icon: const Icon(Icons.person_add, size: 18),
+                            label: const Text('Mời bạn bè'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 36),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -454,23 +569,14 @@ class _LobbyPageState extends State<LobbyPage> {
               Expanded(
                 flex: 2,
                 child: FilledButton.icon(
-                  onPressed: lobby.currentPlayers >= lobby.minPlayers
-                      ? () {
-                          Navigator.push(
+                  onPressed: lobby.currentPlayers >= lobby.maxPlayers
+                      ? () => _openBookingSummary(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => DepositPage(
-                                lobbyId: lobby.id,
-                                gameName: lobby.gameName,
-                                cafeName: lobby.cafeName,
-                                bookingCubit: getIt<BookingCubit>(),
-                              ),
-                            ),
-                          );
-                        }
+                            LobbyReady(lobby: lobby),
+                          )
                       : null,
                   icon: const Icon(Icons.payment),
-                  label: const Text('Tiến hành đặt cọc'),
+                  label: const Text('Tạo đơn đặt cọc'),
                 ),
               ),
             ],
@@ -530,6 +636,58 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openBookingSummary(BuildContext context, LobbyReady state) {
+    final lobby = state.lobby;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingSummaryPage(
+          lobbyId: lobby.id,
+          cafeId: lobby.cafeId,
+          cafeName: lobby.cafeName,
+          gameId: lobby.gameId,
+          gameName: lobby.gameName,
+          scheduledTime: lobby.scheduledTime,
+          seatCount: lobby.currentPlayers,
+          memberIds: lobby.players.map((p) => p.id).toList(),
+        ),
+      ),
+    );
+  }
+
+  /// Luồng A: lobby đầy → auto-create booking [pendingDeposit] → navigate.
+  /// Spec đã chốt: push BookingSummaryPage cho Host tự xác nhận cọc.
+  void _onAutoBookingCreated(
+    BuildContext context,
+    LobbyAutoBookingCreated state,
+  ) {
+    final lobby = state.lobby;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Phòng đã đủ người! Đang tạo đơn đặt cọc tự động...',
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingSummaryPage(
+          lobbyId: lobby.id,
+          cafeId: lobby.cafeId,
+          cafeName: lobby.cafeName,
+          gameId: lobby.gameId,
+          gameName: lobby.gameName,
+          scheduledTime: lobby.scheduledTime,
+          seatCount: lobby.currentPlayers,
+          memberIds: lobby.players.map((p) => p.id).toList(),
+          autoBookingId: state.bookingId,
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../../../match_summary_rating/presentation/pages/rating_page.dart';
 import '../cubit/in_game_cubit.dart';
 import '../cubit/in_game_state.dart';
 import '../widgets/play_duration_timer.dart';
+import '../widgets/session_ended_notification_dialog.dart';
 
 class InGameSessionPage extends StatefulWidget {
   final String bookingId;
@@ -44,6 +45,30 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const RatingPage()),
+            );
+          }
+          if (state is InGameSessionEnded) {
+            SessionEndedNotificationDialog.show(
+              context: context,
+              totalDuration: state.totalDuration,
+              onRateNow: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RatingPage()),
+                );
+              },
+              onVoteNoShow: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RatingPage()),
+                );
+              },
+              onLater: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RatingPage()),
+                );
+              },
             );
           }
         },
@@ -305,14 +330,30 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
               ],
             ),
             child: SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () =>
-                      _inGameCubit.requestCheckout(session.sessionId),
-                  icon: const Icon(Icons.shopping_cart_checkout),
-                  label: const Text('Yêu cầu tính tiền'),
-                ),
+              child: Column(
+                children: [
+                  // Mock: End Session button
+                  OutlinedButton.icon(
+                    onPressed: () => _inGameCubit.endSession(),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Mock: Kết thúc phiên (POS)'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      foregroundColor: Colors.orange.shade700,
+                      side: BorderSide(color: Colors.orange.shade300),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          _inGameCubit.requestCheckout(session.sessionId),
+                      icon: const Icon(Icons.shopping_cart_checkout),
+                      label: const Text('Yêu cầu tính tiền'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -212,7 +212,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                   ),
                   child: CafeCard(
                     cafe: cafe,
-                    onCreateRoom: () => Navigator.push(
+                    onBookingTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => LobbyConfigPage(

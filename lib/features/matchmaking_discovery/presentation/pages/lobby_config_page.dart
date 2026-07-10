@@ -28,21 +28,51 @@ class LobbyConfigPage extends StatefulWidget {
 }
 
 class _LobbyConfigPageState extends State<LobbyConfigPage> {
+  late DateTime _selectedDate;
   TimeOfDay _selectedTime = TimeOfDay.now();
   bool _isPublic = true;
   int _additionalSlots = 2;
   bool _isCreatingLobby = false;
 
+  // ─── Phase 6: BR-10 + BR-08 inputs ─────────────────────────────────
+  double _searchRadiusKm = 5.0;
+  double _minimumKarma = 0.0;
+  // BR-08 Lead-time do server cấu hình (deposit-config của quán). Hiện mock
+  // mặc định 20 phút — phase sau sẽ lấy từ `BookingRemoteDatasource.getDepositConfig`.
+  final Duration _leadTime = const Duration(minutes: 20);
+
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
     widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 30)),
+      helpText: 'Chọn ngày hẹn',
+      cancelText: 'Huỷ',
+      confirmText: 'Xác nhận',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
+      helpText: 'Chọn giờ hẹn',
     );
     if (picked != null && picked != _selectedTime) {
       setState(() {
@@ -51,15 +81,33 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     }
   }
 
+  String _formatDate(BuildContext context, DateTime date) {
+    const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    final weekday = weekdays[date.weekday % 7];
+    return '$weekday, ${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
   Future<void> _createLobby() async {
-    final now = DateTime.now();
     final scheduledDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
       _selectedTime.hour,
       _selectedTime.minute,
     );
+
+    final now = DateTime.now();
+    if (scheduledDateTime.isBefore(now)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Vui lòng chọn thời gian trong tương lai'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isCreatingLobby = true);
 
@@ -71,6 +119,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       scheduledTime: scheduledDateTime,
       additionalSlots: _additionalSlots,
       isPublic: _isPublic,
+      searchRadiusKm: _searchRadiusKm,
+      minimumKarma: _minimumKarma,
+      leadTime: _leadTime,
     );
 
     if (!mounted) return;
@@ -85,6 +136,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
         scheduledTime: scheduledDateTime,
         additionalSlots: _additionalSlots,
         isPublic: _isPublic,
+        searchRadiusKm: _searchRadiusKm,
+        minimumKarma: _minimumKarma,
+        leadTime: _leadTime,
       );
 
       if (mounted) {
@@ -176,7 +230,44 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Khung giờ hẹn',
+                    'Ngày hẹn',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () => _selectDate(context),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: theme.colorScheme.outline),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _formatDate(context, _selectedDate),
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.edit,
+                            color: theme.colorScheme.outline,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Giờ hẹn',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -297,6 +388,118 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  // ─── BR-10: ngưỡng Karma tối thiểu ────────────────────
+                  Text(
+                    'Điều kiện Karma (BR-10)',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.colorScheme.outline),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Chỉ chấp nhận thành viên Karma ≥',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            Text(
+                              '${_minimumKarma.toInt()} điểm',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _minimumKarma == 0
+                              ? 'Không yêu cầu Karma tối thiểu.'
+                              : _minimumKarma < 60
+                                  ? 'Ngưỡng thấp — dễ kết nối.'
+                                  : _minimumKarma < 80
+                                      ? 'Ngưỡng trung bình — cộng đồng phổ thông.'
+                                      : 'Ngưỡng cao — chỉ player uy tín.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                        Slider(
+                          value: _minimumKarma,
+                          min: 0,
+                          max: 100,
+                          divisions: 20,
+                          label: '${_minimumKarma.toInt()} Karma',
+                          onChanged: (value) =>
+                              setState(() => _minimumKarma = value),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // ─── BR-08: bán kính tìm kiếm ───────────────────────
+                  Text(
+                    'Bán kính tìm kiếm',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.colorScheme.outline),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Tìm lobby khả dụng trong vòng',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            Text(
+                              '${_searchRadiusKm.toStringAsFixed(1)} km',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: _searchRadiusKm,
+                          min: 1,
+                          max: 30,
+                          divisions: 29,
+                          label: '${_searchRadiusKm.toStringAsFixed(1)} km',
+                          onChanged: (value) =>
+                              setState(() => _searchRadiusKm = value),
+                        ),
+                        Text(
+                          'Quán trong bán kính này mới hiện trong danh sách tìm phòng. '
+                          'Bạn có thể điều chỉnh tùy nhu cầu.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,

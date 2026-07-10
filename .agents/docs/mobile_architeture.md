@@ -48,3 +48,49 @@ project/
 ├── l10n.yaml                  # Cấu hình biên dịch tự động cho đa ngôn ngữ.
 ├── pubspec.yaml               # File quản lý thông tin dự án, phiên bản SDK, khai báo thư viện (dependencies) và assets.
 └── firebase.json              # File cấu hình liên kết các dịch vụ của Firebase.
+
+---
+
+## Đề xuất triển khai: Giả lập Backend với Repository Pattern & DataSource Abstraction + Local Storage
+
+Để phục vụ phát triển các tính năng nghiệp vụ khi chưa có backend thực tế (hoặc API chưa hoàn thiện), chúng ta áp dụng mô hình **Repository Pattern với DataSource Abstraction + Local Storage**.
+Mục đích là giữ nguyên cấu trúc tầng Domain và Presentation, khi tích hợp API thực tế chỉ cần thay đổi/bổ sung ở tầng Data mà không ảnh hưởng tới logic của UI/Cubit.
+
+### Mô hình kiến trúc dữ liệu
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Presentation Layer (Cubits, Widgets)                       │
+└─────────────────────────┬───────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Domain Layer: MatchmakingRepository (Abstract Interface)   │
+└─────────────────────────┬───────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Data Layer                                                  │
+│  ┌──────────────────┐         ┌──────────────────────┐      │
+│  │ LocalDataSource  │         │   RemoteDataSource   │      │
+│  │ (CRUD + Cache)   │         │   (Real API)        │      │
+│  └──────────────────┘         └──────────────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Lợi ích chính
+- ✅ **CRUD operations** - Local storage cho phép thêm/sửa/xóa dữ liệu giả lập một cách thực tế.
+- ✅ **1 dòng switch** - Chỉ cần đổi cấu hình `USE_MOCK_DATA=true/false` trong file `.env` hoặc cấu hình Global config.
+- ✅ **Không cần viết lại hệ thống** - Khi có backend thực tế, chỉ cần viết lớp implement cho `RemoteDataSource` mà không cần sửa đổi Domain Layer hay UI.
+- ✅ **Dễ dàng kiểm thử (Easy Testing)** - Mock `LocalDataSource` hoặc `RemoteDataSource` dễ dàng phục vụ viết Unit Test.
+
+---
+
+### Các bước triển khai chi tiết
+
+| Bước | Hoạt động | Mô tả |
+| :--- | :--- | :--- |
+| **1** | Thêm các dependency cần thiết | Thêm `hive` và `hive_flutter` (hoặc giải pháp local storage tương đương) vào `pubspec.yaml` để lưu trữ dữ liệu offline/mock. |
+| **2** | Tạo Local Data Source | Viết lớp `MatchmakingLocalDataSource` thực thi đầy đủ các thao tác CRUD và cache dữ liệu trên thiết bị. |
+| **3** | Định nghĩa Remote Data Source | Tạo interface/lớp `MatchmakingRemoteDataSource` định nghĩa các hàm gọi Real API khi sẵn sàng. |
+| **4** | Cấu hình Repository Implementation | Cập nhật `MatchmakingRepositoryImpl` sử dụng switch logic dựa trên biến môi trường `USE_MOCK_DATA` để điều hướng gọi dữ liệu từ `LocalDataSource` hay `RemoteDataSource`. |
+| **5** | Đăng ký Dependency Injection | Cấu hình trong `lib/core/di/injection.dart` để tự động tiêm (inject) các DataSource và Repository tương ứng tùy theo chế độ chạy ứng dụng. |
+| **6** | Quản lý cấu hình môi trường | Thêm cấu hình `USE_MOCK_DATA=true/false` vào file `.env` (hoặc core config) để dễ dàng bật/tắt chế độ giả lập backend. |

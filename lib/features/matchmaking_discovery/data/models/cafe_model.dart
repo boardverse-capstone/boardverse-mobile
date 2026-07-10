@@ -12,6 +12,15 @@ class CafeModel {
   final double rating;
   final List<String> availableGameIds;
 
+  // ─── Seat-based fields (BR-01) ───────────────────────────────────────
+  final int totalSeats;
+  final int availableSeats;
+  final CafeSeatStatus seatStatus;
+  final double? depositAmount;
+  final int? depositMinutesLimit;
+  final String? openingHours;
+  final String? phoneNumber;
+
   const CafeModel({
     required this.id,
     required this.name,
@@ -23,6 +32,14 @@ class CafeModel {
     this.estimatedWaitMinutes,
     required this.rating,
     required this.availableGameIds,
+    // Seat-based fields
+    required this.totalSeats,
+    required this.availableSeats,
+    required this.seatStatus,
+    this.depositAmount,
+    this.depositMinutesLimit,
+    this.openingHours,
+    this.phoneNumber,
   });
 
   factory CafeModel.fromJson(Map<String, dynamic> json) {
@@ -37,7 +54,26 @@ class CafeModel {
       estimatedWaitMinutes: json['estimatedWaitMinutes'] as int?,
       rating: (json['rating'] as num).toDouble(),
       availableGameIds: List<String>.from(json['availableGameIds'] as List),
+      // Seat-based fields
+      totalSeats: json['totalSeats'] as int? ?? 20,
+      availableSeats: json['availableSeats'] as int? ?? 15,
+      seatStatus: _parseSeatStatus(json['seatStatus'] as String?),
+      depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+      depositMinutesLimit: json['depositMinutesLimit'] as int?,
+      openingHours: json['openingHours'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
     );
+  }
+
+  static CafeSeatStatus _parseSeatStatus(String? status) {
+    switch (status) {
+      case 'limited':
+        return CafeSeatStatus.limited;
+      case 'full':
+        return CafeSeatStatus.full;
+      default:
+        return CafeSeatStatus.available;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -52,6 +88,14 @@ class CafeModel {
       'estimatedWaitMinutes': estimatedWaitMinutes,
       'rating': rating,
       'availableGameIds': availableGameIds,
+      // Seat-based fields
+      'totalSeats': totalSeats,
+      'availableSeats': availableSeats,
+      'seatStatus': seatStatus.name,
+      'depositAmount': depositAmount,
+      'depositMinutesLimit': depositMinutesLimit,
+      'openingHours': openingHours,
+      'phoneNumber': phoneNumber,
     };
   }
 
@@ -66,5 +110,13 @@ class CafeModel {
         estimatedWaitMinutes: estimatedWaitMinutes,
         rating: rating,
         availableGameIds: availableGameIds,
+        // Seat-based fields
+        totalSeats: totalSeats,
+        availableSeats: availableSeats,
+        seatStatus: seatStatus,
+        depositAmount: depositAmount,
+        depositMinutesLimit: depositMinutesLimit,
+        openingHours: openingHours,
+        phoneNumber: phoneNumber,
       );
 }

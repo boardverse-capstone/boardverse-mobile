@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
+import '../config/app_config.dart';
 import '../network/auth_interceptor.dart';
 import '../network/dio_client.dart';
 import '../../features/auth/data/auth_repository_impl.dart';
@@ -13,15 +14,26 @@ import '../../features/profile/data/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/matchmaking_discovery/data/matchmaking_repository_impl.dart';
+import '../../features/matchmaking_discovery/data/datasources/base/matchmaking_datasource.dart';
+import '../../features/matchmaking_discovery/data/datasources/mock_matchmaking_datasource.dart';
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../features/lobby_management/data/lobby_repository_impl.dart';
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
 import '../../features/lobby_management/domain/repositories/lobby_repository.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
-import '../../features/booking_commitment/data/booking_repository_impl.dart';
-import '../../features/booking_commitment/domain/repositories/booking_repository.dart';
-import '../../features/booking_commitment/presentation/cubit/booking_cubit.dart';
+import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
+import '../../features/booking_payment/data/booking_persistence_service.dart';
+import '../../features/booking_payment/data/booking_repository_impl.dart';
+import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/payment_gateway.dart';
+import '../../features/booking_payment/data/datasources/mock/mock_booking_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/mock/mock_payment_gateway.dart';
+import '../../features/booking_payment/data/datasources/remote/booking_remote_datasource_impl.dart';
+import '../../features/booking_payment/domain/repositories/booking_repository.dart';
+import '../../features/booking_payment/presentation/cubit/booking_result_cubit.dart';
+import '../../features/booking_payment/presentation/cubit/booking_summary_cubit.dart';
+import '../../features/booking_payment/presentation/cubit/payment_cubit.dart';
 import '../../features/in_game_experience/data/in_game_repository_impl.dart';
 import '../../features/in_game_experience/domain/repositories/in_game_repository.dart';
 import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart';
@@ -79,19 +91,32 @@ void setupDependencies() {
   );
 
   sl.registerLazySingleton<ProfileRepository>(
-    () => ProfileRepositoryImpl(remoteDatasource: sl<ProfileRemoteDatasource>()),
+    () =>
+        ProfileRepositoryImpl(remoteDatasource: sl<ProfileRemoteDatasource>()),
   );
 
   // Factory: new Cubit instance every time it is requested.
   sl.registerFactory<ProfileCubit>(
-    () => ProfileCubit(
-      repository: sl<ProfileRepository>(),
-    ),
+    () => ProfileCubit(repository: sl<ProfileRepository>()),
   );
 
   // ─── Feature: Matchmaking Discovery ──────────────────────────────────
+  // DataSource: Switch giữa Mock và Remote dựa trên AppConfig
+  if (AppConfig.useMockData) {
+    sl.registerLazySingleton<MatchmakingDatasource>(
+      () => MockMatchmakingDatasource(),
+    );
+  } else {
+    // sl.registerLazySingleton<MatchmakingDatasource>(
+    //   () => MatchmakingRemoteDatasourceImpl(dio: sl<Dio>()),
+    // );
+    sl.registerLazySingleton<MatchmakingDatasource>(
+      () => MockMatchmakingDatasource(), // Fallback to mock
+    );
+  }
+
   sl.registerLazySingleton<MatchmakingRepository>(
-    () => MatchmakingRepositoryImpl(),
+    () => MatchmakingRepositoryImpl(datasource: sl<MatchmakingDatasource>()),
   );
 
   sl.registerFactory<MatchmakingCubit>(
@@ -102,9 +127,7 @@ void setupDependencies() {
   );
 
   // ─── Feature: Lobby Management ────────────────────────────────────────
-  sl.registerLazySingleton<LobbyRepository>(
-    () => LobbyRepositoryImpl(),
-  );
+  sl.registerLazySingleton<LobbyRepository>(() => LobbyRepositoryImpl());
 
   sl.registerLazySingleton<LobbyPersistenceService>(
     () => LobbyPersistenceService(storage: sl<FlutterSecureStorage>()),
@@ -117,37 +140,73 @@ void setupDependencies() {
     ),
   );
 
-  // ─── Feature: Booking Commitment ──────────────────────────────────────
-  sl.registerLazySingleton<BookingRepository>(
-    () => BookingRepositoryImpl(),
+  sl.registerFactory<LobbySearchCubit>(
+    () => LobbySearchCubit(repository: sl<LobbyRepository>()),
   );
 
-  sl.registerFactory<BookingCubit>(
-    () => BookingCubit(
-      repository: sl<BookingRepository>(),
+  // ─── Feature: Booking & Payment ─────────────────────────────────────
+  // Datasource: switch mock vs remote theo AppConfig.useMockData
+  sl.registerLazySingleton<BookingRemoteDatasource>(
+    () => AppConfig.useMockData
+        ? MockBookingRemoteDatasource()
+        : BookingRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  // Mock-only: expose concrete singleton để `BookingDetailPage`
+  // gọi `simulateQrScan` (chỉ tồn tại trên mock). Khi AppConfig chuyển sang
+  // remote, registration sẽ throw — page phải kiểm tra trước khi gọi.
+  sl.registerLazySingleton<MockBookingRemoteDatasource>(
+    () {
+      if (!AppConfig.useMockData) {
+        throw StateError(
+          'MockBookingRemoteDatasource chỉ khả dụng khi AppConfig.useMockData = true. '
+          'Hiện tại: useMockData=false. Không thể resolve MockBookingRemoteDatasource.',
+        );
+      }
+      // Tái sử dụng cùng instance đã được register cho interface.
+      return sl<BookingRemoteDatasource>() as MockBookingRemoteDatasource;
+    },
+  );
+
+  // Payment gateway: hiện tại chỉ có mock; placeholder cho VNPay/MoMo.
+  sl.registerLazySingleton<PaymentGateway>(() => MockPaymentGateway());
+
+  sl.registerLazySingleton<BookingPersistenceService>(
+    () => BookingPersistenceService(storage: sl<FlutterSecureStorage>()),
+  );
+
+  sl.registerLazySingleton<BookingRepository>(
+    () => BookingRepositoryImpl(
+      datasource: sl<BookingRemoteDatasource>(),
+      persistence: sl<BookingPersistenceService>(),
     ),
+  );
+
+  // Factory Cubits — dùng cho BookingSummaryPage / PaymentPage / Success.
+  sl.registerFactory<BookingSummaryCubit>(
+    () => BookingSummaryCubit(repository: sl<BookingRepository>()),
+  );
+  sl.registerFactory<PaymentCubit>(
+    () => PaymentCubit(
+      repository: sl<BookingRepository>(),
+      gateway: sl<PaymentGateway>(),
+    ),
+  );
+  sl.registerFactory<BookingResultCubit>(
+    () => BookingResultCubit(repository: sl<BookingRepository>()),
   );
 
   // ─── Feature: In Game Experience ──────────────────────────────────────
-  sl.registerLazySingleton<InGameRepository>(
-    () => InGameRepositoryImpl(),
-  );
+  sl.registerLazySingleton<InGameRepository>(() => InGameRepositoryImpl());
 
   sl.registerFactory<InGameCubit>(
-    () => InGameCubit(
-      repository: sl<InGameRepository>(),
-    ),
+    () => InGameCubit(repository: sl<InGameRepository>()),
   );
 
   // ─── Feature: Match Summary Rating ────────────────────────────────────
-  sl.registerLazySingleton<RatingRepository>(
-    () => RatingRepositoryImpl(),
-  );
+  sl.registerLazySingleton<RatingRepository>(() => RatingRepositoryImpl());
 
   sl.registerFactory<RatingCubit>(
-    () => RatingCubit(
-      repository: sl<RatingRepository>(),
-    ),
+    () => RatingCubit(repository: sl<RatingRepository>()),
   );
 }
-
