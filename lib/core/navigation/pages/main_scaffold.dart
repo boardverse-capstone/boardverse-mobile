@@ -4,15 +4,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../di/injection.dart';
 import '../../../features/auth/presentation/cubit/auth_cubit.dart';
 import '../../../features/auth/presentation/pages/login_page.dart';
+import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../../features/matchmaking_discovery/presentation/pages/search_page.dart';
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/home_page.dart';
+import '../../../features/tournament/presentation/pages/tournament_page.dart';
+import '../nav_tab.dart';
 import '../navigation_cubit.dart';
 import 'bookings_page.dart';
-import 'leaderboard_page.dart';
-import 'lobbies_page.dart';
+import 'discovery_tab.dart';
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -62,12 +63,18 @@ class _MainScaffoldState extends State<MainScaffold> {
               body: IndexedStack(
                 index: state.currentIndex,
                 children: [
-                  DiscoveryTab(cubits: CubitsHolder(
+                  DiscoveryTab(
                     matchmakingCubit: _matchmakingCubit,
-                  )),
-                  const LobbiesPage(),
+                    lobbyCount: state.lobbyCount,
+                  ),
                   const BookingsPage(),
-                  const LeaderboardPage(),
+                  HomeOverviewPage(
+                    matchmakingCubit: _matchmakingCubit,
+                    onSwitchTab: (index) => context
+                        .read<NavigationCubit>()
+                        .setTab(index),
+                  ),
+                  const TournamentPage(),
                   const ProfileTab(),
                 ],
               ),
@@ -102,25 +109,19 @@ class _MainScaffoldState extends State<MainScaffold> {
         _matchmakingCubit.searchGames();
         break;
       case 1:
-        // Refresh lobbies
-        break;
-      case 2:
         // Refresh bookings
+        break;
+      case 3:
+        // Tournament refresh - hiện đang là mock
         break;
     }
   }
 
   void _handleBackNavigation(BuildContext context, int currentIndex) {
-    switch (currentIndex) {
-      case 0:
-      case 1:
-      case 2:
-      case 3:
-        context.read<NavigationCubit>().setTab(4);
-        break;
-      case 4:
-        _showLogoutDialog(context);
-        break;
+    if (currentIndex != NavTab.home.tabIndex) {
+      context.read<NavigationCubit>().goHome();
+    } else {
+      _showLogoutDialog(context);
     }
   }
 
@@ -148,26 +149,6 @@ class _MainScaffoldState extends State<MainScaffold> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class CubitsHolder {
-  final MatchmakingCubit matchmakingCubit;
-
-  CubitsHolder({required this.matchmakingCubit});
-}
-
-class DiscoveryTab extends StatelessWidget {
-  final CubitsHolder cubits;
-
-  const DiscoveryTab({super.key, required this.cubits});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: cubits.matchmakingCubit,
-      child: SearchPage(matchmakingCubit: cubits.matchmakingCubit),
     );
   }
 }
@@ -215,62 +196,153 @@ class _BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: currentIndex,
-      onDestinationSelected: onTabSelected,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      animationDuration: const Duration(milliseconds: 300),
-      destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.explore_outlined),
-          selectedIcon: Icon(Icons.explore),
-          label: 'Khám phá',
+    final theme = Theme.of(context);
+
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        NavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: onTabSelected,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          animationDuration: const Duration(milliseconds: 300),
+          height: 76,
+          destinations: [
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: lobbyCount > 0,
+                label: Text('$lobbyCount'),
+                child: const Icon(Icons.explore_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: lobbyCount > 0,
+                label: Text('$lobbyCount'),
+                child: const Icon(Icons.explore),
+              ),
+              label: 'Khám phá',
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: hasBookingBadge,
+                backgroundColor: Colors.red,
+                child: const Icon(Icons.calendar_today_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: hasBookingBadge,
+                backgroundColor: Colors.red,
+                child: const Icon(Icons.calendar_today),
+              ),
+              label: 'Lịch hẹn',
+            ),
+            const NavigationDestination(
+              icon: SizedBox.shrink(),
+              selectedIcon: SizedBox.shrink(),
+              label: '',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.emoji_events_outlined),
+              selectedIcon: Icon(Icons.emoji_events),
+              label: 'Giải đấu',
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: friendInviteCount > 0,
+                label: Text('$friendInviteCount'),
+                child: const Icon(Icons.person_outline),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: friendInviteCount > 0,
+                label: Text('$friendInviteCount'),
+                child: const Icon(Icons.person),
+              ),
+              label: 'Cá nhân',
+            ),
+          ],
         ),
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: lobbyCount > 0,
-            label: Text('$lobbyCount'),
-            child: const Icon(Icons.groups_outlined),
-          ),
-          selectedIcon: Badge(
-            isLabelVisible: lobbyCount > 0,
-            label: Text('$lobbyCount'),
-            child: const Icon(Icons.groups),
-          ),
-          label: 'Phòng chờ',
-        ),
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: hasBookingBadge,
-            backgroundColor: Colors.red,
-            child: const Icon(Icons.calendar_today_outlined),
-          ),
-          selectedIcon: Badge(
-            isLabelVisible: hasBookingBadge,
-            backgroundColor: Colors.red,
-            child: const Icon(Icons.calendar_today),
-          ),
-          label: 'Lịch hẹn',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.leaderboard_outlined),
-          selectedIcon: Icon(Icons.leaderboard),
-          label: 'Xếp hạng',
-        ),
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: friendInviteCount > 0,
-            label: Text('$friendInviteCount'),
-            child: const Icon(Icons.person_outline),
-          ),
-          selectedIcon: Badge(
-            isLabelVisible: friendInviteCount > 0,
-            label: Text('$friendInviteCount'),
-            child: const Icon(Icons.person),
-          ),
-          label: 'Cá nhân',
+        _CenterHomeButton(
+          isSelected: currentIndex == NavTab.home.tabIndex,
+          onTap: () => onTabSelected(NavTab.home.tabIndex),
+          theme: theme,
         ),
       ],
+    );
+  }
+}
+
+class _CenterHomeButton extends StatelessWidget {
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ThemeData theme;
+
+  const _CenterHomeButton({
+    required this.isSelected,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.padding.bottom;
+    return Positioned(
+      bottom: 22 + bottomInset,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isSelected
+                      ? [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.tertiary,
+                        ]
+                      : [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.secondary,
+                        ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: theme.colorScheme.surface,
+                  width: 4,
+                ),
+              ),
+              child: Icon(
+                isSelected ? Icons.home_rounded : Icons.home_outlined,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Trang chủ',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -8,7 +8,7 @@ class NavigationState extends Equatable {
   final int friendInviteCount;
 
   const NavigationState({
-    this.currentIndex = 0,
+    this.currentIndex = 2,
     this.lobbyCount = 0,
     this.hasBookingBadge = false,
     this.isPlayingBadge = false,

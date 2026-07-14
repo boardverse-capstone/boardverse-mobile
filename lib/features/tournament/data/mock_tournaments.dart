@@ -1,0 +1,111 @@
+import '../domain/entities/tournament_entity.dart';
+import '../domain/entities/tournament_status.dart';
+
+class MockTournaments {
+  static List<TournamentEntity> getAll() {
+    final now = DateTime.now();
+    return [
+      TournamentEntity(
+        id: 't_001',
+        name: 'Catan Championship District 1',
+        gameName: 'Catan',
+        cafeName: 'Board Game Cafe District 1',
+        organizer: 'BoardVerse HCM',
+        startDate: now.add(const Duration(days: 14)),
+        registrationDeadline: now.add(const Duration(days: 10)),
+        currentParticipants: 12,
+        maxParticipants: 32,
+        minEloRequired: 1200,
+        entryFee: 100000,
+        prizePool: 5000000,
+        status: TournamentStatus.registrationOpen,
+        description:
+            'Giải đấu Catan lớn nhất quận 1 dành cho các tay chơi trên 1200 ELO. Thể thức Swiss 5 vòng.',
+      ),
+      TournamentEntity(
+        id: 't_002',
+        name: 'Ticket to Ride Sprint Night',
+        gameName: 'Ticket to Ride',
+        cafeName: 'Meeple Station',
+        organizer: 'Meeple Station',
+        startDate: now.add(const Duration(days: 4)),
+        registrationDeadline: now.add(const Duration(days: 2)),
+        currentParticipants: 6,
+        maxParticipants: 16,
+        minEloRequired: null,
+        entryFee: 50000,
+        prizePool: 1000000,
+        status: TournamentStatus.registrationOpen,
+        description:
+            'Đêm thi đấu Ticket to Ride nhanh dành cho mọi trình độ. Vòng loại 30 phút.',
+      ),
+      TournamentEntity(
+        id: 't_003',
+        name: 'Pandemic Co-op Cup 2026',
+        gameName: 'Pandemic',
+        cafeName: 'Game Haven',
+        organizer: 'Game Haven',
+        startDate: now.add(const Duration(days: 21)),
+        registrationDeadline: now.add(const Duration(days: 15)),
+        currentParticipants: 4,
+        maxParticipants: 24,
+        minEloRequired: null,
+        entryFee: 80000,
+        prizePool: 3000000,
+        status: TournamentStatus.upcoming,
+        description:
+            'Giải đấu đồng đội 4 người chơi Pandemic. Đội chiến thắng nhận giải thưởng hiện vật.',
+      ),
+      TournamentEntity(
+        id: 't_004',
+        name: 'Coup Bluff Masters',
+        gameName: 'Coup',
+        cafeName: 'Dice & Cards Lounge',
+        organizer: 'Dice & Cards Lounge',
+        startDate: now.add(const Duration(days: 1, hours: 6)),
+        registrationDeadline: now.add(const Duration(hours: 18)),
+        currentParticipants: 10,
+        maxParticipants: 12,
+        minEloRequired: 1000,
+        entryFee: 30000,
+        prizePool: 500000,
+        status: TournamentStatus.ongoing,
+        description: 'Vòng chung kết Coup Bluff Masters, đang diễn ra trực tiếp.',
+      ),
+      TournamentEntity(
+        id: 't_005',
+        name: 'Wingspan Season Opening',
+        gameName: 'Wingspan',
+        cafeName: 'Board Game Cafe District 1',
+        organizer: 'BoardVerse HCM',
+        startDate: now.subtract(const Duration(days: 30)),
+        registrationDeadline: now.subtract(const Duration(days: 40)),
+        currentParticipants: 40,
+        maxParticipants: 40,
+        minEloRequired: null,
+        entryFee: 120000,
+        prizePool: 8000000,
+        status: TournamentStatus.finished,
+        description:
+            'Wingspan Season Opening đã khép lại với người thắng cuộc đến từ đội Phoenix.',
+      ),
+      TournamentEntity(
+        id: 't_006',
+        name: 'Splendor Beginners Open',
+        gameName: 'Splendor',
+        cafeName: 'Meeple Station',
+        organizer: 'Meeple Station',
+        startDate: now.add(const Duration(days: 7)),
+        registrationDeadline: now.add(const Duration(days: 5)),
+        currentParticipants: 8,
+        maxParticipants: 20,
+        minEloRequired: null,
+        entryFee: 0,
+        prizePool: 1000000,
+        status: TournamentStatus.upcoming,
+        description:
+            'Giải đấu dành cho người chơi mới tại Splendor. Không yêu cầu ELO tối thiểu.',
+      ),
+    ];
+  }
+}

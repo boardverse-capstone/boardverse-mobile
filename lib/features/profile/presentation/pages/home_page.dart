@@ -6,6 +6,7 @@ import 'package:delightful_toast/toast/utils/enums.dart';
 
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../../../../core/navigation/pages/leaderboard_page.dart';
 import '../cubit/profile_cubit.dart';
 import '../cubit/profile_state.dart';
 import '../../domain/entities/profile_entity.dart';
@@ -553,9 +554,80 @@ class _HomePageState extends State<HomePage> {
           ),
 
           const SizedBox(height: 40),
+
+          // ── Tiện ích (Xếp hạng, Lịch sử, Cài đặt) ────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      Icons.leaderboard_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Xếp hạng'),
+                    subtitle: const Text(
+                        'Xem bảng xếp hạng ELO & Karma của cộng đồng'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LeaderboardPage(),
+                      ),
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.emoji_events_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Lịch sử đấu'),
+                    subtitle: const Text('Theo dõi các trận đã chơi gần đây'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _showComingSoonToast(context, 'Lịch sử đấu'),
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.settings_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Cài đặt'),
+                    subtitle: const Text('Tùy chỉnh tài khoản và thông báo'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _showComingSoonToast(context, 'Cài đặt'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 40),
         ],
       ),
     );
+  }
+
+  void _showComingSoonToast(BuildContext context, String feature) {
+    _showToast('$feature sắp ra mắt');
   }
 
   Widget _buildStatCard({
