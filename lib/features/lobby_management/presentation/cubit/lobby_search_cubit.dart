@@ -29,6 +29,10 @@ class LobbySearchCubit extends Cubit<LobbyState> {
       filter: filter,
       currentUserKarma: currentUserKarma,
     );
+    // Bỏ qua emit nếu cubit đã bị close (user navigate away trước khi
+    // Future hoàn thành). Nếu không check, sẽ gây:
+    //   Bad state: Cannot emit new states after calling close
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (list) {

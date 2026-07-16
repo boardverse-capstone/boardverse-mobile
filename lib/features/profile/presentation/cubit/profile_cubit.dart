@@ -14,6 +14,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     final result = await repository.getProfile();
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ProfileFailure(message: failure.message)),
       (profile) => emit(ProfileLoaded(profile: profile)),
@@ -39,6 +40,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     final result = await repository.createProfile(request);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ProfileFailure(message: failure.message)),
       (profile) => emit(ProfileLoaded(profile: profile)),

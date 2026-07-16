@@ -11,18 +11,20 @@ class SeatAvailabilityModel {
   final SeatOverallStatus overallStatus;
   final DateTime lastUpdated;
   final DateTime? nextAvailableAt;
+  final DateTime? timeSlot; // Khung giờ áp dụng (BR-05)
 
   const SeatAvailabilityModel({
     required this.cafeId,
-    required this.cafeName,
-    required this.totalSeats,
-    required this.availableSeats,
-    required this.holdingSeats,
-    required this.reservedSeats,
-    required this.inUseSeats,
-    required this.overallStatus,
+    this.cafeName = '',
+    this.totalSeats = 0,
+    this.availableSeats = 0,
+    this.holdingSeats = 0,
+    this.reservedSeats = 0,
+    this.inUseSeats = 0,
+    this.overallStatus = SeatOverallStatus.plenty,
     required this.lastUpdated,
     this.nextAvailableAt,
+    this.timeSlot,
   });
 
   factory SeatAvailabilityModel.fromJson(Map<String, dynamic> json) {
@@ -69,6 +71,7 @@ class SeatAvailabilityModel {
       'overallStatus': overallStatus.name,
       'lastUpdated': lastUpdated.toIso8601String(),
       'nextAvailableAt': nextAvailableAt?.toIso8601String(),
+      'timeSlot': timeSlot?.toIso8601String(),
     };
   }
 

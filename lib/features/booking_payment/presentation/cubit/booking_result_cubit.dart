@@ -21,6 +21,7 @@ class BookingResultCubit extends Cubit<BookingResultState> {
   Future<void> loadById(String bookingId) async {
     emit(const ResultLoading());
     final result = await _repository.getBookingById(bookingId);
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
       (booking) => emit(mapStatusToState(booking)),
@@ -54,6 +55,7 @@ class BookingResultCubit extends Cubit<BookingResultState> {
       bookingId: id,
       reason: reason,
     );
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
       (booking) => emit(ResultCancelled(booking)),
@@ -64,6 +66,7 @@ class BookingResultCubit extends Cubit<BookingResultState> {
   Future<void> loadHistory() async {
     emit(const ResultLoading());
     final result = await _repository.getBookingHistory();
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
       (items) => emit(ResultHistory(items)),
@@ -74,6 +77,7 @@ class BookingResultCubit extends Cubit<BookingResultState> {
   Future<void> loadUpcomingBookings() async {
     emit(const ResultLoading());
     final result = await _repository.getUpcomingBookings();
+    if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
       (bookings) => emit(ResultUpcomingBookings(bookings)),
@@ -98,6 +102,7 @@ class BookingResultCubit extends Cubit<BookingResultState> {
       (list) => list as List<BookingHistoryEntity>,
     );
 
+    if (isClosed) return;
     emit(ResultUpcomingAndHistory(
       upcoming: upcoming,
       history: history,
@@ -109,10 +114,12 @@ class BookingResultCubit extends Cubit<BookingResultState> {
     final idResult = await _repository.getPendingBookingId();
     final id = await idResult.fold((_) async => null, (v) async => v);
     if (id == null || id.isEmpty) {
+      if (isClosed) return;
       emit(const ResumeCleared());
       return;
     }
     final result = await _repository.getBookingById(id);
+    if (isClosed) return;
     result.fold(
       (failure) {
         // Không tìm thấy → clear để tránh vòng lặp.

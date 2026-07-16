@@ -90,7 +90,7 @@ class CafeCard extends StatelessWidget {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                '${cafe.distanceKm.toStringAsFixed(1)} km',
+                                _formatDistance(cafe.distanceMeters),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.outline,
                                 ),
@@ -115,6 +115,42 @@ class CafeCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        // ─── Wait-time badge (BR-03) ────────────────────────
+                        if (cafe.isWaitingForGame &&
+                            cafe.estimatedWaitMinutes != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: Colors.orange.shade300),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.hourglass_bottom,
+                                  size: 12,
+                                  color: Colors.orange.shade800,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Chờ game ~${cafe.estimatedWaitMinutes} phút',
+                                  style:
+                                      theme.textTheme.labelSmall?.copyWith(
+                                    color: Colors.orange.shade900,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -129,6 +165,27 @@ class CafeCard extends StatelessWidget {
                 availability: seatAvailability,
                 showDetailedInfo: showFullDetails,
               ),
+
+              // ─── Table availability (NearbyCafeDto) ───────────────────
+              if (cafe.totalTableCount > 0) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.table_restaurant,
+                      size: 14,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${cafe.availableTableCount}/${cafe.totalTableCount} bàn trống',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
 
               // Deposit Info (BR-06)
               if (cafe.depositAmount != null) ...[
@@ -230,5 +287,14 @@ class CafeCard extends StatelessWidget {
       return '${(amount / 1000).toStringAsFixed(0)}K';
     }
     return amount.toStringAsFixed(0);
+  }
+
+  /// Format khoảng cách từ `distanceMeters` — hiển thị "X m" nếu <1km,
+  /// ngược lại "X.X km".
+  String _formatDistance(double meters) {
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} m';
+    }
+    return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 }

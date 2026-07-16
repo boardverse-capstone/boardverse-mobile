@@ -1,6 +1,9 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
+import '../../domain/entities/game_play_configuration_entity.dart';
+import '../../domain/entities/game_play_navigation_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../../domain/entities/game_category_entity.dart';
@@ -68,12 +71,12 @@ class MatchmakingSearchResults extends MatchmakingState {
 // ─── Game Detail with Seat Info ───────────────────────────────────
 
 class MatchmakingGameDetail extends MatchmakingState {
-  final BoardGameEntity game;
+  final BoardGameDetailEntity game;
   final List<CafeEntity> nearbyCafes;
   final bool isGpsEnabled;
   final bool isOutOfRadius;
   final List<BoardGameEntity>? similarGames;
-  
+
   // Seat-related state
   final SeatAvailabilityEntity? selectedCafeSeats;
   final bool isCheckingSeats;
@@ -93,7 +96,7 @@ class MatchmakingGameDetail extends MatchmakingState {
   });
 
   MatchmakingGameDetail copyWith({
-    BoardGameEntity? game,
+    BoardGameDetailEntity? game,
     List<CafeEntity>? nearbyCafes,
     bool? isGpsEnabled,
     bool? isOutOfRadius,
@@ -228,4 +231,85 @@ class MatchmakingFailure extends MatchmakingState {
 
   @override
   List<Object?> get props => [message];
+}
+
+// ─── Board Game Detail (with components) ─────────────────────────
+
+class MatchmakingBoardGameDetailLoaded extends MatchmakingState {
+  final BoardGameDetailEntity game;
+  final List<CafeEntity> nearbyCafes;
+  final bool isGpsEnabled;
+  final bool isOutOfRadius;
+  final List<BoardGameEntity>? similarGames;
+
+  const MatchmakingBoardGameDetailLoaded({
+    required this.game,
+    required this.nearbyCafes,
+    required this.isGpsEnabled,
+    required this.isOutOfRadius,
+    this.similarGames,
+  });
+
+  @override
+  List<Object?> get props =>
+      [game, nearbyCafes, isGpsEnabled, isOutOfRadius, similarGames];
+}
+
+// ─── Play Configuration ───────────────────────────────────────────
+
+class MatchmakingPlayConfigurationLoaded extends MatchmakingState {
+  final GamePlayConfigurationEntity config;
+  final String gameId;
+
+  const MatchmakingPlayConfigurationLoaded({
+    required this.config,
+    required this.gameId,
+  });
+
+  @override
+  List<Object?> get props => [config, gameId];
+}
+
+// ─── Play Navigation ──────────────────────────────────────────────
+
+class MatchmakingPlayNavigationResolving extends MatchmakingState {
+  final String gameId;
+  final PlayMode mode;
+
+  const MatchmakingPlayNavigationResolving({
+    required this.gameId,
+    required this.mode,
+  });
+
+  @override
+  List<Object?> get props => [gameId, mode];
+}
+
+class MatchmakingPlayNavigationResolved extends MatchmakingState {
+  final GamePlayNavigationEntity navigation;
+
+  const MatchmakingPlayNavigationResolved({required this.navigation});
+
+  @override
+  List<Object?> get props => [navigation];
+}
+
+// ─── Nearby Cafes (with suggestions) ──────────────────────────────
+
+class MatchmakingNearbyCafesLoaded extends MatchmakingState {
+  final String gameId;
+  final List<CafeEntity> cafes;
+  final String? emptyResultMessage;
+  final List<dynamic> alternativeSuggestions; // AlternativeGameSuggestionEntity
+
+  const MatchmakingNearbyCafesLoaded({
+    required this.gameId,
+    required this.cafes,
+    this.emptyResultMessage,
+    this.alternativeSuggestions = const [],
+  });
+
+  @override
+  List<Object?> get props =>
+      [gameId, cafes, emptyResultMessage, alternativeSuggestions];
 }

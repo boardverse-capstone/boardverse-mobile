@@ -33,26 +33,27 @@ class ApiEndpoints {
   static const String userProfileProgress = '/api/userprofile/progress';
 
   // ──────────────────────────────────────────────
-  //  Board Games
+  //  Board Games (Public Catalog)
   // ──────────────────────────────────────────────
-  static const String boardGames = '/api/BoardGames';
-  static const String boardGameDetail = '/api/BoardGames/{id}';
-  static const String boardGameSearch = '/api/BoardGames/search';
-  static const String boardGameCategories = '/api/BoardGames/categories';
-  static const String similarGames = '/api/BoardGames/{id}/similar';
+  // Base: /api/v1/board-games — phục vụ luồng Player tìm kiếm, lọc,
+  // xem chi tiết & điều hướng chế độ chơi (Solo/Group).
+  // Xem chi tiết: .agents/docs/apis_docs/board-games.md
+  static const String boardGames = '/api/v1/board-games';
+  static const String boardGameCategories = '/api/v1/board-games/categories';
+  static const String boardGameDetail = '/api/v1/board-games/{id}';
+  static const String boardGamePlayConfiguration =
+      '/api/v1/board-games/{id}/play-configuration';
+  static const String boardGamePlayNavigation =
+      '/api/v1/board-games/{id}/play-navigation';
 
   // ──────────────────────────────────────────────
-  //  Cafes
+  //  Cafes (Discovery)
   // ──────────────────────────────────────────────
-  static const String nearbyCafes = '/api/Cafes/nearby';
-  static const String cafeDetail = '/api/Cafes/{id}';
-  static const String cafeGames = '/api/Cafes/{id}/games';
-
-  // ──────────────────────────────────────────────
-  //  Seat Availability (Real-time)
-  // ──────────────────────────────────────────────
-  static const String seatAvailability = '/api/Cafes/{cafeId}/seats';
-  static const String checkSeatsAvailable = '/api/Cafes/{cafeId}/seats/check';
+  // Base: /api/cafes — phục vụ luồng Khám phá Quán cho Player.
+  // Xem chi tiết: .agents/docs/apis_docs/cafe.md
+  static const String cafesNearby = '/api/cafes/nearby';
+  static const String cafesNearbyMe = '/api/cafes/nearby/me';
+  static const String cafeDetail = '/api/cafes/{id}';
 
   // ──────────────────────────────────────────────
   //  Health

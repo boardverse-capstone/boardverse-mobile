@@ -45,7 +45,7 @@ class _DiscoveryTabState extends State<DiscoveryTab>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Khám phá'),
+        automaticallyImplyLeading: false,
         centerTitle: false,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),

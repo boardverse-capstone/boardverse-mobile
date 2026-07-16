@@ -42,6 +42,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       method: method,
     );
 
+    if (isClosed) return;
     await openResult.fold(
       (failure) async =>
           emit(PaymentFailed(reason: failure.message)),
@@ -71,6 +72,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       bookingId: _bookingId!,
       reason: reason,
     );
+    if (isClosed) return;
     result.fold(
       (failure) => emit(PaymentFailed(reason: failure.message)),
       (_) => emit(const PaymentFailed(reason: 'Đã huỷ')),
@@ -101,6 +103,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       bookingId: _bookingId!,
       paymentRef: transactionRef,
     );
+    if (isClosed) return;
     result.fold(
       (failure) => emit(PaymentFailed(reason: failure.message)),
       (_) => emit(PaymentSuccess(bookingId: _bookingId!)),
@@ -118,6 +121,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       bookingId: _bookingId!,
       reason: 'Thanh toán thất bại: $reason',
     );
+    if (isClosed) return;
     emit(PaymentFailed(reason: reason));
   }
 
@@ -144,6 +148,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       bookingId: bookingId,
       reason: 'Hết thời gian giữ chỗ (BR-06)',
     );
+    if (isClosed) return;
     emit(const PaymentTimeout());
   }
 

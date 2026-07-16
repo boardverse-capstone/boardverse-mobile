@@ -54,6 +54,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     final result = await _repository.login(request);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(AuthFailure(message: failure.message)),
       (tokens) async {
@@ -121,6 +122,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     final result = await _repository.register(request);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(AuthFailure(message: failure.message)),
       (message) => emit(AuthRegistered(message: message)),
@@ -134,6 +136,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     final result = await _repository.sendEmailVerification(email);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(AuthFailure(message: failure.message)),
       (message) => emit(AuthEmailVerificationSent(message: message)),
@@ -148,6 +151,7 @@ class AuthCubit extends Cubit<AuthState> {
     final request = VerifyEmailRequestModel(token: otpCode);
     final result = await _repository.verifyEmail(request);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(AuthFailure(message: failure.message)),
       (message) => emit(AuthEmailVerified(message: message)),

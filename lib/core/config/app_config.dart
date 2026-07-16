@@ -1,27 +1,26 @@
 /// Centralized configuration for the application.
 ///
 /// **Single source of truth for all app configuration.**
-/// When switching between mock and real backend, only modify [useMockData].
+///
+/// ### Base URL
+/// The actual API base URL comes from `.env` → `DioClient` reads it at runtime.
+/// `AppConfig` does NOT hold the base URL (no hardcoding).
+///
+/// ### Mock Mode
+/// When switching between mock and real backend, modify [useMockData].
+/// Note: Currently Discovery (board-games, cafes) is wired to real API.
+/// Other features (booking, lobbies) may still use mock data.
 class AppConfig {
   AppConfig._(); // Prevent instantiation
 
   // ─── Data Source Mode ───────────────────────────────────────────────
 
   /// Switch between mock data and real backend
-  /// - `true`: Use MockMatchmakingDatasource (for development)
-  /// - `false`: Use MatchmakingRemoteDatasource (for production)
+  /// - `true`: Use Mock datasources (for development)
+  /// - `false`: Use Remote datasources → real backend API (for production)
+  /// NOTE: Discovery features (board-games, cafes) always hit real API
+  ///       regardless of this flag, as their remote impl is complete.
   static const bool useMockData = true;
-
-  // ─── API Configuration ───────────────────────────────────────────────
-
-  /// Base URL for backend API
-  static const String apiBaseUrl = 'https://api.boardverse.com';
-
-  /// API version prefix
-  static const String apiVersion = 'v1';
-
-  /// Full API base URL
-  static String get fullApiBaseUrl => '$apiBaseUrl/api/$apiVersion';
 
   // ─── Cache Configuration ────────────────────────────────────────────
 

@@ -1,8 +1,12 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../core/error/failures.dart';
+import '../domain/entities/board_game_detail_entity.dart';
 import '../domain/entities/board_game_entity.dart';
 import '../domain/entities/cafe_entity.dart';
+import '../domain/entities/game_play_configuration_entity.dart';
+import '../domain/entities/game_play_navigation_entity.dart';
+import '../domain/entities/nearby_cafes_search_result_entity.dart';
 import '../domain/entities/seat_availability_entity.dart';
 import '../domain/entities/search_filter_entity.dart';
 import '../domain/entities/game_category_entity.dart';
@@ -61,6 +65,43 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
   }
 
   @override
+  Future<Either<Failure, List<BoardGameEntity>>> searchBoardGamesPaged({
+    String? query,
+    List<String>? categoryIds,
+    int? playerCount,
+    List<DurationRange>? durationRanges,
+    int pageNumber = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final results = await datasource.getBoardGamesPaged(
+        search: query,
+        categoryIds: categoryIds,
+        playerCount: playerCount,
+        durationRanges: durationRanges,
+        pageNumber: pageNumber,
+        pageSize: pageSize,
+      );
+      return Right(results.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi tìm kiếm phân trang: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, BoardGameDetailEntity?>> getBoardGameDetails(
+      String id) async {
+    try {
+      final detail = await datasource.getBoardGameDetails(id);
+      return Right(detail?.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi lấy chi tiết game: ${e.toString()}'));
+    }
+  }
+
+  @override
   Future<Either<Failure, BoardGameEntity?>> getBoardGameById(String id) async {
     try {
       final game = await datasource.getGameById(id);
@@ -113,6 +154,54 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi lấy danh sách quán: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, NearbyCafesSearchResultEntity>>
+      getNearbyCafesWithGameSearch({
+    required String gameId,
+    required double latitude,
+    required double longitude,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final result = await datasource.getNearbyCafesSearch(
+        gameTemplateId: gameId,
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: radiusKm,
+        pageNumber: pageNumber,
+        pageSize: pageSize,
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi tìm quán gần: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, NearbyCafesSearchResultEntity>>
+      getNearbyCafesForCurrentUser({
+    required String gameId,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final result = await datasource.getNearbyCafesForCurrentUser(
+        gameTemplateId: gameId,
+        radiusKm: radiusKm,
+        pageNumber: pageNumber,
+        pageSize: pageSize,
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi tìm quán gần (me): ${e.toString()}'));
     }
   }
 
@@ -188,6 +277,41 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
       return Right(result);
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi kiểm tra ghế: ${e.toString()}'));
+    }
+  }
+
+  // ─── Play Configuration & Navigation (API mới) ──────────────────────
+
+  @override
+  Future<Either<Failure, GamePlayConfigurationEntity>>
+      getGamePlayConfiguration(String gameId) async {
+    try {
+      final result = await datasource.getGamePlayConfiguration(gameId);
+      if (result == null) {
+        return const Left(
+            ServerFailure(message: 'Không tìm thấy cấu hình chơi'));
+      }
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi lấy cấu hình chơi: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, GamePlayNavigationEntity>> resolvePlayNavigation({
+    required String gameId,
+    required PlayMode mode,
+  }) async {
+    try {
+      final result = await datasource.resolvePlayNavigation(
+        gameId: gameId,
+        mode: mode,
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi điều hướng chế độ chơi: ${e.toString()}'));
     }
   }
 }

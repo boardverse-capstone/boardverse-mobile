@@ -56,6 +56,7 @@ class LobbyCubit extends Cubit<LobbyState> {
       leadTime: leadTime,
     );
 
+    if (isClosed) return;
     result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
       lobby,
     ) {
@@ -95,6 +96,7 @@ class LobbyCubit extends Cubit<LobbyState> {
       leadTime: leadTime,
     );
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (lobby) {
@@ -141,11 +143,16 @@ class LobbyCubit extends Cubit<LobbyState> {
       final failure = joinResult.swap().getOrElse(
             () => throw StateError('unreachable'),
           );
-      emit(LobbyFailure(message: failure.message));
+      if (!isClosed) emit(LobbyFailure(message: failure.message));
       return Left<Failure, LobbyEntity?>(failure);
     }
 
     final lobbyResult = await _repository.getLobbyById(lobbyId);
+    if (isClosed) {
+      return Left<Failure, LobbyEntity?>(
+        const ServerFailure(message: 'Closed'),
+      );
+    }
     return lobbyResult.fold(
       (failure) {
         emit(LobbyFailure(message: failure.message));
@@ -172,6 +179,7 @@ class LobbyCubit extends Cubit<LobbyState> {
 
     final result = await _repository.leaveLobby(lobbyId);
     await _persistenceService.clearAll();
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (_) => emit(const LobbyInitial()),
@@ -182,6 +190,7 @@ class LobbyCubit extends Cubit<LobbyState> {
 
   Future<void> inviteFriend(String lobbyId, String friendId) async {
     final result = await _repository.inviteFriend(lobbyId, friendId);
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (_) {},
@@ -202,6 +211,7 @@ class LobbyCubit extends Cubit<LobbyState> {
         : (currentState as LobbyUpdatedRealtime).lobby;
 
     final result = await _repository.getOnlineFriends();
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (friends) => emit(LobbyFriendsLoaded(friends: friends, lobby: lobby)),
@@ -222,6 +232,7 @@ class LobbyCubit extends Cubit<LobbyState> {
         : (currentState as LobbyUpdatedRealtime).lobby;
 
     final result = await _repository.getOnlineFriends();
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (friends) =>
@@ -236,6 +247,7 @@ class LobbyCubit extends Cubit<LobbyState> {
       lobbyId: lobbyId,
       friendId: friendId,
     );
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (updatedLobby) {
@@ -260,6 +272,9 @@ class LobbyCubit extends Cubit<LobbyState> {
       filter: filter ?? const LobbySearchFilter(),
       currentUserKarma: currentUserKarma,
     );
+
+    // Bỏ qua emit nếu cubit đã bị close (user navigate away).
+    if (isClosed) return;
 
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
@@ -320,6 +335,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     emit(LobbyUpdatedRealtime(lobby: lobby));
 
     final result = await _repository.autoCreateBookingWhenFull(lobby.id);
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(
         message: 'Không thể tự động tạo booking: ${failure.message}',
@@ -406,6 +422,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     await _persistenceService.clearAll();
 
     final result = await _repository.cancelLobby(lobbyId, reasonCode);
+    if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (_) {

@@ -72,7 +72,7 @@ class _TournamentPageState extends State<TournamentPage> {
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            title: const Text('Giải đấu'),
+            automaticallyImplyLeading: false,
             pinned: true,
             centerTitle: false,
             actions: [

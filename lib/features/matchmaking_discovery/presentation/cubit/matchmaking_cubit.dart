@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/cafe_entity.dart';
+import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../../domain/repositories/matchmaking_repository.dart';
 import '../../../lobby_management/domain/repositories/lobby_repository.dart';
@@ -32,6 +33,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
       maxPlayers: maxPlayers,
     );
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
       (games) => emit(
@@ -52,6 +54,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     final result = await repository.searchGames(filter);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
       (games) => emit(
@@ -68,6 +71,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     final currentState = state;
     if (currentState is MatchmakingSearchResults) {
       final result = await repository.getGameCategories();
+      if (isClosed) return;
       result.fold(
         (failure) => null, // Keep current state on failure
         (categories) => emit(currentState.copyWith(categories: categories)),
@@ -85,17 +89,19 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
   }) async {
     emit(const MatchmakingLoading());
 
-    final gameResult = await repository.getBoardGameById(gameId);
+    final gameResult = await repository.getBoardGameDetails(gameId);
     final cafesResult = await repository.getNearbyCafesWithGame(
       gameId: gameId,
       latitude: latitude,
       longitude: longitude,
     );
 
+    if (isClosed) return;
+
     await gameResult.fold(
       (failure) async => emit(MatchmakingFailure(message: failure.message)),
-      (game) async {
-        if (game == null) {
+      (gameDetail) async {
+        if (gameDetail == null) {
           emit(const MatchmakingFailure(message: 'Không tìm thấy game'));
           return;
         }
@@ -106,7 +112,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
             final nearbyCafes = _filterCafesWithGame(cafes, gameId);
 
             if (!isGpsEnabled) {
-              emit(MatchmakingGpsDisabled(selectedGame: game));
+              emit(MatchmakingGpsDisabled(selectedGame: gameDetail.toBoardGameEntity()));
               return;
             }
 
@@ -119,13 +125,14 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
                 latitude: latitude,
                 longitude: longitude,
               );
+              if (isClosed) return;
               similarResult.fold(
                 (failure) => emit(
-                  MatchmakingOutOfRadius(selectedGame: game, similarGames: []),
+                  MatchmakingOutOfRadius(selectedGame: gameDetail.toBoardGameEntity(), similarGames: []),
                 ),
                 (similarGames) => emit(
                   MatchmakingOutOfRadius(
-                    selectedGame: game,
+                    selectedGame: gameDetail.toBoardGameEntity(),
                     similarGames: similarGames,
                   ),
                 ),
@@ -135,7 +142,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
             emit(
               MatchmakingGameDetail(
-                game: game,
+                game: gameDetail,
                 nearbyCafes: nearbyCafes,
                 isGpsEnabled: isGpsEnabled,
                 isOutOfRadius: nearbyCafes.isEmpty,
@@ -161,6 +168,8 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
       latitude: 0,
       longitude: 0,
     );
+
+    if (isClosed) return;
 
     await gameResult.fold(
       (failure) async => emit(MatchmakingFailure(message: failure.message)),
@@ -231,6 +240,8 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         timeSlot: timeSlot ?? DateTime.now(),
       );
 
+      if (isClosed) return;
+
       await result.fold(
         (failure) async {
           emit(currentState.copyWith(
@@ -265,6 +276,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         timeSlot: timeSlot ?? DateTime.now(),
       );
 
+      if (isClosed) return;
       result.fold(
         (failure) => emit(currentState.copyWith(
           isCheckingSeats: false,
@@ -372,5 +384,181 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
       return currentState.seatErrorMessage;
     }
     return null;
+  }
+
+  // ─── New API methods (Backend mới) ─────────────────────────────────
+
+  /// Tìm kiếm + lọc + phân trang — gọi `GET /api/v1/board-games?...`.
+  Future<void> searchWithFilterPaged({
+    String? query,
+    List<String>? categoryIds,
+    int? playerCount,
+    List<DurationRange>? durationRanges,
+    int pageNumber = 1,
+    int pageSize = 10,
+  }) async {
+    emit(const MatchmakingLoading());
+
+    final result = await repository.searchBoardGamesPaged(
+      query: query,
+      categoryIds: categoryIds,
+      playerCount: playerCount,
+      durationRanges: durationRanges,
+      pageNumber: pageNumber,
+      pageSize: pageSize,
+    );
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (games) => emit(
+        MatchmakingSearchResults(
+          games: games,
+          query: query,
+          filter: SearchFilterEntity(
+            query: query,
+            categoryIds: categoryIds,
+            minPlayers: playerCount,
+            durationRanges: durationRanges,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Load chi tiết game đầy đủ (kèm components[]) — `GET /api/v1/board-games/{id}`.
+  Future<void> loadBoardGameDetails(
+    String gameId, {
+    double latitude = 10.7769,
+    double longitude = 106.7009,
+    bool isGpsEnabled = true,
+  }) async {
+    emit(const MatchmakingLoading());
+
+    final detailResult = await repository.getBoardGameDetails(gameId);
+    final cafesEither = await repository.getNearbyCafesWithGame(
+      gameId: gameId,
+      latitude: latitude,
+      longitude: longitude,
+    );
+
+    if (isClosed) return;
+
+    await detailResult.fold(
+      (failure) async => emit(MatchmakingFailure(message: failure.message)),
+      (detail) async {
+        if (detail == null) {
+          emit(const MatchmakingFailure(message: 'Không tìm thấy game'));
+          return;
+        }
+
+        if (isClosed) return;
+        await cafesEither.fold(
+          (failure) async =>
+              emit(MatchmakingFailure(message: failure.message)),
+          (cafes) async {
+            final nearbyCafes = _filterCafesWithGame(cafes, gameId);
+            final isOutOfRadius =
+                cafes.isEmpty && !nearbyCafes.any((c) => c.distanceKm <= 15);
+
+            emit(MatchmakingBoardGameDetailLoaded(
+              game: detail,
+              nearbyCafes: nearbyCafes,
+              isGpsEnabled: isGpsEnabled,
+              isOutOfRadius: isOutOfRadius,
+            ));
+          },
+        );
+      },
+    );
+  }
+
+  /// Load cấu hình chơi của tựa game — `GET /api/v1/board-games/{id}/play-configuration`.
+  Future<void> loadGamePlayConfiguration(String gameId) async {
+    final result = await repository.getGamePlayConfiguration(gameId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (config) => emit(MatchmakingPlayConfigurationLoaded(
+        config: config,
+        gameId: gameId,
+      )),
+    );
+  }
+
+  /// Điều hướng chế độ chơi — `POST /api/v1/board-games/{id}/play-navigation`.
+  /// Trả về cho UI để push sang Lobby (Group) hoặc Solo Booking.
+  Future<void> resolvePlayNavigation({
+    required String gameId,
+    required PlayMode mode,
+  }) async {
+    emit(MatchmakingPlayNavigationResolving(gameId: gameId, mode: mode));
+
+    final result = await repository.resolvePlayNavigation(
+      gameId: gameId,
+      mode: mode,
+    );
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (navigation) => emit(MatchmakingPlayNavigationResolved(
+        navigation: navigation,
+      )),
+    );
+  }
+
+  /// Lấy quán gần dùng vị trí đã lưu — `GET /api/cafes/nearby/me`.
+  Future<void> loadNearbyCafesForCurrentUser({
+    required String gameId,
+    double radiusKm = 15.0,
+  }) async {
+    emit(const MatchmakingLoading());
+
+    final result = await repository.getNearbyCafesForCurrentUser(
+      gameId: gameId,
+      radiusKm: radiusKm,
+    );
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (data) => emit(MatchmakingNearbyCafesLoaded(
+        gameId: gameId,
+        cafes: data.cafes,
+        emptyResultMessage: data.emptyResultMessage,
+        alternativeSuggestions: data.alternativeSuggestions,
+      )),
+    );
+  }
+
+  /// Lấy quán gần theo toạ độ — `GET /api/cafes/nearby?...`.
+  Future<void> loadNearbyCafesWithCoordinates({
+    required String gameId,
+    required double latitude,
+    required double longitude,
+    double radiusKm = 15.0,
+  }) async {
+    emit(const MatchmakingLoading());
+
+    final result = await repository.getNearbyCafesWithGameSearch(
+      gameId: gameId,
+      latitude: latitude,
+      longitude: longitude,
+      radiusKm: radiusKm,
+    );
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (data) => emit(MatchmakingNearbyCafesLoaded(
+        gameId: gameId,
+        cafes: data.cafes,
+        emptyResultMessage: data.emptyResultMessage,
+        alternativeSuggestions: data.alternativeSuggestions,
+      )),
+    );
   }
 }

@@ -15,7 +15,7 @@ import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/matchmaking_discovery/data/matchmaking_repository_impl.dart';
 import '../../features/matchmaking_discovery/data/datasources/base/matchmaking_datasource.dart';
-import '../../features/matchmaking_discovery/data/datasources/mock_matchmaking_datasource.dart';
+import '../../features/matchmaking_discovery/data/datasources/remote/matchmaking_remote_datasource_impl.dart';
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../features/lobby_management/data/lobby_repository_impl.dart';
@@ -101,19 +101,11 @@ void setupDependencies() {
   );
 
   // ─── Feature: Matchmaking Discovery ──────────────────────────────────
-  // DataSource: Switch giữa Mock và Remote dựa trên AppConfig
-  if (AppConfig.useMockData) {
-    sl.registerLazySingleton<MatchmakingDatasource>(
-      () => MockMatchmakingDatasource(),
-    );
-  } else {
-    // sl.registerLazySingleton<MatchmakingDatasource>(
-    //   () => MatchmakingRemoteDatasourceImpl(dio: sl<Dio>()),
-    // );
-    sl.registerLazySingleton<MatchmakingDatasource>(
-      () => MockMatchmakingDatasource(), // Fallback to mock
-    );
-  }
+  // Always use real API — backend endpoints /api/v1/board-games, /api/cafes
+  // are fully implemented and stable.
+  sl.registerLazySingleton<MatchmakingDatasource>(
+    () => MatchmakingRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
 
   sl.registerLazySingleton<MatchmakingRepository>(
     () => MatchmakingRepositoryImpl(datasource: sl<MatchmakingDatasource>()),

@@ -9,12 +9,8 @@ class BookingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lịch hẹn của tôi'),
-        centerTitle: false,
-      ),
-      body: const BookingHistoryPage(),
+    return const Scaffold(
+      body: BookingHistoryPage(),
     );
   }
 }

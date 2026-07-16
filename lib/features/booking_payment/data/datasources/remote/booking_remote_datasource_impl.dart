@@ -136,8 +136,7 @@ class BookingRemoteDatasourceImpl implements BookingRemoteDatasource {
   @override
   Stream<BookingEntity> watchBookingStatus(String bookingId) {
     // Polling 3s — sẽ thay bằng WebSocket ở Task 4.
-    return Stream.periodic(const Duration(seconds: 3))
-        .asyncMap((_) async {
+    return Stream.periodic(const Duration(seconds: 3)).asyncMap((_) async {
       final path = ApiEndpoints.bookingStatus.replaceAll('{id}', bookingId);
       final res = await _dio.get<Map<String, dynamic>>(path);
       return BookingModel.fromJson(res.data ?? {}).toEntity();
@@ -145,7 +144,8 @@ class BookingRemoteDatasourceImpl implements BookingRemoteDatasource {
   }
 
   @override
-  Future<Either<Failure, List<BookingHistoryEntity>>> getBookingHistory() async {
+  Future<Either<Failure, List<BookingHistoryEntity>>>
+  getBookingHistory() async {
     try {
       final res = await _dio.get<List<dynamic>>(ApiEndpoints.bookingHistory);
       final items = (res.data ?? [])
@@ -187,17 +187,11 @@ class BookingRemoteDatasourceImpl implements BookingRemoteDatasource {
           statusCode: code,
         );
       case 409:
-        return ServerFailure(
-          message: apiMsg ?? 'Xung đột',
-          statusCode: code,
-        );
+        return ServerFailure(message: apiMsg ?? 'Xung đột', statusCode: code);
       case 500:
       case 502:
       case 503:
-        return ServerFailure(
-          message: 'Lỗi server ($code)',
-          statusCode: code,
-        );
+        return ServerFailure(message: 'Lỗi server ($code)', statusCode: code);
       default:
         return NetworkFailure(message: e.message ?? 'Không thể kết nối server');
     }

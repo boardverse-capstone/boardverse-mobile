@@ -15,6 +15,7 @@ class BookingSummaryCubit extends Cubit<BookingSummaryState> {
   Future<void> loadConfig(String cafeId) async {
     emit(const SummaryLoading());
     final result = await _repository.getDepositConfig(cafeId);
+    if (isClosed) return;
     result.fold(
       (failure) => emit(
         SummaryFailure(code: 'FETCH_CONFIG', message: failure.message),
@@ -81,6 +82,7 @@ class BookingSummaryCubit extends Cubit<BookingSummaryState> {
       memberIds: memberIds,
     );
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(SummaryFailure(code: 'CREATE', message: failure.message)),
       (booking) => emit(SummarySuccess(
