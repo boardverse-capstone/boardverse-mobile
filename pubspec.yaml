@@ -50,6 +50,11 @@ dependencies:
   url_launcher: ^6.3.2
   intl: ^0.20.3
 
+  # UI & Animation
+  shimmer: ^3.0.0
+  google_fonts: ^6.1.0
+  lucide_icons: ^0.257.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

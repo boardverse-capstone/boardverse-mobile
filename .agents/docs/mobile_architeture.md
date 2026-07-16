@@ -24,6 +24,16 @@ project/
 │   │   ├── network/           # API Client, interceptors, và kiểm tra trạng thái mạng.
 │   │   ├── routing/           # Cấu hình điều hướng tập trung (Router & Routes).
 │   │   ├── theme/             # Cấu hình giao diện tổng thể (Light/Dark mode, Typography).
+│   │   │   ├── app_colors.dart      # Brand colors, semantic colors (Light)
+│   │   │   ├── app_colors_dark.dart # Dark mode colors
+│   │   │   ├── app_typography.dart  # Typography với Be Vietnam Pro
+│   │   │   ├── app_spacing.dart    # 8pt grid spacing system
+│   │   │   ├── app_radius.dart     # Border radius scale
+│   │   │   ├── app_elevation.dart   # Shadow presets
+│   │   │   ├── app_shimmer.dart    # Skeleton loading animations
+│   │   │   ├── app_icons.dart      # Lucide icon mapping
+│   │   │   ├── app_theme.dart      # Main theme definition
+│   │   │   └── theme.dart          # Export file
 │   │   ├── utils/             # Các hàm tiện ích (Format ngày tháng, Validator).
 │   │   └── widgets/           # Các UI Component dùng chung ở nhiều nơi (Button, Dialog, Custom AppBar).
 │   │
@@ -94,3 +104,167 @@ Mục đích là giữ nguyên cấu trúc tầng Domain và Presentation, khi t
 | **4** | Cấu hình Repository Implementation | Cập nhật `MatchmakingRepositoryImpl` sử dụng switch logic dựa trên biến môi trường `USE_MOCK_DATA` để điều hướng gọi dữ liệu từ `LocalDataSource` hay `RemoteDataSource`. |
 | **5** | Đăng ký Dependency Injection | Cấu hình trong `lib/core/di/injection.dart` để tự động tiêm (inject) các DataSource và Repository tương ứng tùy theo chế độ chạy ứng dụng. |
 | **6** | Quản lý cấu hình môi trường | Thêm cấu hình `USE_MOCK_DATA=true/false` vào file `.env` (hoặc core config) để dễ dàng bật/tắt chế độ giả lập backend. |
+
+---
+
+## Quy tắc sử dụng Theme System
+
+### Packages cần thiết
+
+```yaml
+# pubspec.yaml
+dependencies:
+  # Fonts
+  google_fonts: ^6.1.0
+
+  # Icons
+  lucide_icons: ^0.257.0
+
+  # Loading/Animation
+  shimmer: ^3.0.0
+```
+
+### Cách sử dụng Theme
+
+#### 1. Import Theme
+
+```dart
+// Import tất cả theme components
+import 'package:boardverse_mobile/core/theme/theme.dart';
+
+// Hoặc import riêng lẻ
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_theme.dart';
+```
+
+#### 2. Sử dụng Colors
+
+```dart
+// ✅ DÙNG: AppColors constants
+Container(color: AppColors.primary)
+Text('Hello', style: TextStyle(color: AppColors.textSecondary))
+
+// ❌ KHÔNG DÙNG: Hardcoded colors
+Container(color: Color(0xFFE65100))
+```
+
+#### 3. Sử dụng Spacing
+
+```dart
+// ✅ DÙNG: AppSpacing constants
+Padding(padding: EdgeInsets.all(AppSpacing.md))
+SizedBox(height: AppSpacing.sm)
+
+// ❌ KHÔNG DÙNG: Magic numbers
+Padding(padding: EdgeInsets.all(16))
+SizedBox(height: 8)
+```
+
+#### 4. Sử dụng Border Radius
+
+```dart
+// ✅ DÙNG: AppRadius constants
+Container(
+  decoration: BoxDecoration(
+    borderRadius: AppRadius.radiusLg,
+  ),
+)
+
+// ❌ KHÔNG DÙNG: Magic numbers
+Container(
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(20),
+  ),
+)
+```
+
+#### 5. Sử dụng Icons (Lucide Icons)
+
+```dart
+import 'package:lucide_icons/lucide_icons.dart';
+
+// ✅ DÙNG: Lucide Icons
+Icon(LucideIcons.gamepad2)      // Board game
+Icon(LucideIcons.mapPin)         // Location
+Icon(LucideIcons.calendarCheck)  // Booking
+
+// ❌ KHÔNG DÙNG: Material Icons
+Icon(Icons.games)
+Icon(Icons.location_on)
+```
+
+#### 6. Sử dụng Shimmer Loading
+
+```dart
+// ✅ DÙNG: AppShimmer
+AppShimmer.card(context: context)
+AppShimmer.listItem(context: context)
+AppShimmer.box(context: context, width: 100, height: 50)
+
+// ❌ KHÔNG DÙNG: Custom shimmer implementation
+```
+
+#### 7. Setup Main Theme
+
+```dart
+// main.dart
+import 'package:flutter/material.dart';
+import 'package:boardverse_mobile/core/theme/theme.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: AppTheme.appName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
+      home: const HomePage(),
+    );
+  }
+}
+```
+
+### File Structure của Theme System
+
+```
+lib/core/theme/
+├── app_colors.dart       # Brand colors (Primary, Secondary, Accent)
+│                        # Semantic colors (Success, Error, Warning, Info)
+│                        # Neutral colors (Light mode)
+├── app_colors_dark.dart  # Dark mode colors
+├── app_typography.dart   # Text styles với Be Vietnam Pro font
+├── app_spacing.dart      # 8pt grid spacing system
+├── app_radius.dart       # Border radius scale
+├── app_elevation.dart    # Shadow/elevation presets
+├── app_shimmer.dart      # Skeleton loading animations
+├── app_icons.dart        # Lucide icon mapping & constants
+├── app_theme.dart        # Material theme configuration
+└── theme.dart           # Export file
+```
+
+### Design Tokens
+
+| Token | Giá trị | Sử dụng |
+|-------|---------|----------|
+| `AppColors.primary` | `#E65100` | Primary buttons, headers |
+| `AppColors.secondary` | `#00897B` | Secondary actions, cafe elements |
+| `AppColors.accent` | `#FFD600` | Highlights, badges, points |
+| `AppSpacing.md` | `16px` | Default spacing |
+| `AppRadius.radiusLg` | `20px` | Card border radius |
+| `AppElevation.card` | `4px` | Card shadow |
+
+### Nguyên tắc Theme-First Development
+
+1. **Luôn dùng theme constants** - Không hardcode giá trị màu, spacing, radius
+2. **Tách biệt light/dark** - Colors tự động điều chỉnh theo theme
+3. **Responsive spacing** - Sử dụng 8pt grid system
+4. **Consistent icons** - Chỉ dùng Lucide Icons
+5. **Loading states** - Luôn có shimmer cho async content
