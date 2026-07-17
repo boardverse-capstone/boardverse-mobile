@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../../profile/presentation/pages/home_page.dart';
 import '../../domain/entities/rating_entity.dart';
 import '../../domain/entities/voting_session.dart';
@@ -22,7 +23,9 @@ class RatingPage extends StatefulWidget {
 
 class _RatingPageState extends State<RatingPage> {
   final _ratingCubit = getIt<RatingCubit>();
+  final _profileCubit = getIt<ProfileCubit>();
   int _currentStep = 0;
+  EloResult? _lastEloResult;
 
   @override
   void initState() {
@@ -106,6 +109,7 @@ class _RatingPageState extends State<RatingPage> {
     }
 
     if (state is EloResultDisplay) {
+      _lastEloResult = state.eloResult;
       return _buildEloResultView(context, state);
     }
 
@@ -433,41 +437,43 @@ class _RatingPageState extends State<RatingPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...state.candidates.map((candidate) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: OutlinedButton(
-                        onPressed: () => _ratingCubit.startVoting(candidate),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: theme.colorScheme.primaryContainer,
-                              child: Text(
-                                candidate.name[0].toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                candidate.name,
-                                style: theme.textTheme.titleSmall,
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right),
-                          ],
+                ...state.candidates.map(
+                  (candidate) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton(
+                      onPressed: () => _ratingCubit.startVoting(candidate),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    )),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Text(
+                              candidate.name[0].toUpperCase(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              candidate.name,
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -581,6 +587,9 @@ class _RatingPageState extends State<RatingPage> {
   Widget _buildCompleteView(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Kick off profile sync (fire-and-forget — will update in background)
+    _syncProfileToBackend();
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -624,6 +633,15 @@ class _RatingPageState extends State<RatingPage> {
         ),
       ),
     );
+  }
+
+  /// Syncs the player's ELO and level to the backend via
+  /// POST /api/userprofile/progress after a match ends.
+  void _syncProfileToBackend() {
+    final elo = _lastEloResult;
+    if (elo == null) return;
+
+    _profileCubit.updateProgress(globalElo: elo.newElo, level: 1);
   }
 
   Widget _buildStepIndicator(int step, String label, bool isActive) {

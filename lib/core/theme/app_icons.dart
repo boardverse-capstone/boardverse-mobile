@@ -204,6 +204,9 @@ class AppIcons {
   /// ELO rating
   static const IconData elo = Icons.bolt;
 
+  /// Level/Rank badge
+  static const IconData level = Icons.workspace_premium_outlined;
+
   /// Chat/Message
   static const IconData chat = Icons.chat_bubble_outline;
 

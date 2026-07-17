@@ -9,11 +9,11 @@ part of 'create_profile_request_model.dart';
 _CreateProfileRequestModel _$CreateProfileRequestModelFromJson(
   Map<String, dynamic> json,
 ) => _CreateProfileRequestModel(
-  bio: json['bio'] as String,
-  firstName: json['firstName'] as String,
-  lastName: json['lastName'] as String,
-  dateOfBirth: json['dateOfBirth'] as String,
-  phoneNumber: json['phoneNumber'] as String,
+  bio: json['bio'] as String?,
+  firstName: json['firstName'] as String?,
+  lastName: json['lastName'] as String?,
+  dateOfBirth: json['dateOfBirth'] as String?,
+  phoneNumber: json['phoneNumber'] as String?,
 );
 
 Map<String, dynamic> _$CreateProfileRequestModelToJson(

@@ -12,6 +12,11 @@ class ProfileEntity extends Equatable {
   final int level;
   final String? updatedAt;
   final bool hasProfile;
+  // PII from ProfileDetailDto
+  final String? firstName;
+  final String? lastName;
+  final String? dateOfBirth;
+  final String? phoneNumber;
 
   const ProfileEntity({
     required this.userId,
@@ -24,6 +29,10 @@ class ProfileEntity extends Equatable {
     required this.level,
     this.updatedAt,
     required this.hasProfile,
+    this.firstName,
+    this.lastName,
+    this.dateOfBirth,
+    this.phoneNumber,
   });
 
   @override
@@ -38,5 +47,9 @@ class ProfileEntity extends Equatable {
         level,
         updatedAt,
         hasProfile,
+        firstName,
+        lastName,
+        dateOfBirth,
+        phoneNumber,
       ];
 }

@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ─── Network & media (Cloudinary upload + image_picker) ─────────── -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+ scoped media access -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Legacy storage permission (Android 12 and below) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+
     <application
         android:label="boardverse_mobile"
         android:name="${applicationName}"

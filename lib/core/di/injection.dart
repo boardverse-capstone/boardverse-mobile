@@ -5,6 +5,8 @@ import 'package:get_it/get_it.dart';
 import '../config/app_config.dart';
 import '../network/auth_interceptor.dart';
 import '../network/dio_client.dart';
+import '../services/cloudinary/cloudinary_config.dart';
+import '../services/cloudinary/cloudinary_service.dart';
 import '../../features/auth/data/auth_repository_impl.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -201,4 +203,14 @@ void setupDependencies() {
   sl.registerFactory<RatingCubit>(
     () => RatingCubit(repository: sl<RatingRepository>()),
   );
+
+  // ─── Cloudinary (image upload + transformation) ────────────────────────
+  // Only register when env is configured so the app still boots if the
+  // operator hasn't filled in Cloudinary credentials yet. Features that
+  // need upload should `if (sl.isRegistered<CloudinaryService>())` guard.
+  if (CloudinaryConfig.isValid) {
+    sl.registerLazySingleton<CloudinaryService>(
+      () => CloudinaryService.fromEnv(),
+    );
+  }
 }

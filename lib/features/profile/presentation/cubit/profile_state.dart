@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/karma_history_entity.dart';
+import '../../domain/entities/player_location_entity.dart';
 import '../../domain/entities/profile_entity.dart';
 
 sealed class ProfileState extends Equatable {
@@ -41,4 +43,30 @@ class ProfileFailure extends ProfileState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class ProfileDeleted extends ProfileState {
+  const ProfileDeleted();
+}
+
+class ProfileLocationLoaded extends ProfileState {
+  final PlayerLocationEntity location;
+
+  const ProfileLocationLoaded({required this.location});
+
+  @override
+  List<Object?> get props => [location];
+}
+
+class ProfileLocationDeleted extends ProfileState {
+  const ProfileLocationDeleted();
+}
+
+class ProfileKarmaLoaded extends ProfileState {
+  final KarmaHistoryEntity karma;
+
+  const ProfileKarmaLoaded({required this.karma});
+
+  @override
+  List<Object?> get props => [karma];
 }

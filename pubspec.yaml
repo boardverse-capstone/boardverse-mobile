@@ -55,6 +55,13 @@ dependencies:
   shimmer: ^3.0.0
   google_fonts: ^6.1.0
 
+  # ─── Media Upload ───
+  # Cloudinary: cloud image hosting + on-the-fly transformations
+  cloudinary_flutter: ^1.0.0
+  cloudinary_url_gen: ^1.0.0
+  # Native image picker (gallery + camera)
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -18,6 +18,10 @@ _ProfileModel _$ProfileModelFromJson(Map<String, dynamic> json) =>
       level: (json['level'] as num).toInt(),
       updatedAt: json['updatedAt'] as String?,
       hasProfile: json['hasProfile'] as bool,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
     );
 
 Map<String, dynamic> _$ProfileModelToJson(_ProfileModel instance) =>
@@ -32,4 +36,8 @@ Map<String, dynamic> _$ProfileModelToJson(_ProfileModel instance) =>
       'level': instance.level,
       'updatedAt': instance.updatedAt,
       'hasProfile': instance.hasProfile,
+      'firstName': instance.firstName,
+      'lastName': instance.lastName,
+      'dateOfBirth': instance.dateOfBirth,
+      'phoneNumber': instance.phoneNumber,
     };

@@ -7,7 +7,6 @@ import '../../../features/auth/presentation/pages/login_page.dart';
 import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/home_page.dart';
 import '../../../features/tournament/presentation/pages/tournament_page.dart';
 import '../nav_tab.dart';
@@ -186,17 +185,8 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(() {
-      if (mounted) {
-        context.read<ProfileCubit>().getProfile();
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // HomePage calls getProfile() in its own initState — no duplicate call here.
     return const HomePage();
   }
 }

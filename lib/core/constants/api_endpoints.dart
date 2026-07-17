@@ -29,8 +29,13 @@ class ApiEndpoints {
   // ──────────────────────────────────────────────
   //  User Profile
   // ──────────────────────────────────────────────
-  static const String userProfile = '/api/UserProfile';
+  // Base: /api/userprofile — Player profile management.
+  // Docs: .agents/docs/apis_docs/user-profile.md
+  static const String userProfile = '/api/userprofile';
   static const String userProfileProgress = '/api/userprofile/progress';
+  static const String userProfileAvatar = '/api/userprofile/me/avatar';
+  static const String userProfileLocation = '/api/userprofile/me/location';
+  static const String userProfileKarmaHistory = '/api/userprofile/me/karma-history';
 
   // ──────────────────────────────────────────────
   //  Board Games (Public Catalog)
