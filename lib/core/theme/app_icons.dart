@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
-/// Icon System - Sử dụng Lucide Icons thay vì Material Icons
-/// Đảm bảo consistent design với stroke width 2px và rounded corners
+/// Icon System - Sử dụng Material Icons (Icons class)
+/// Đảm bảo consistent design với các icon có sẵn trong Flutter
+/// Xem thêm: https://fonts.google.com/icons
 class AppIcons {
   AppIcons._();
 
@@ -33,338 +33,360 @@ class AppIcons {
   // ========================
 
   /// Explore/Discover tab
-  static const IconData explore = LucideIcons.compass;
+  static const IconData explore = Icons.explore_outlined;
 
   /// Booking/Schedule tab
-  static const IconData booking = LucideIcons.calendarClock;
+  static const IconData booking = Icons.calendar_month_outlined;
 
   /// Tournament/Ranking tab
-  static const IconData tournament = LucideIcons.trophy;
+  static const IconData tournament = Icons.emoji_events_outlined;
 
   /// Profile tab
-  static const IconData profile = LucideIcons.userCircle;
+  static const IconData profile = Icons.account_circle_outlined;
 
   /// Home
-  static const IconData home = LucideIcons.home;
+  static const IconData home = Icons.home_outlined;
 
   /// Back arrow
-  static const IconData back = LucideIcons.arrowLeft;
+  static const IconData back = Icons.arrow_back;
 
   /// Forward arrow
-  static const IconData forward = LucideIcons.arrowRight;
+  static const IconData forward = Icons.arrow_forward;
 
   /// Menu
-  static const IconData menu = LucideIcons.menu;
+  static const IconData menu = Icons.menu;
 
   /// Close
-  static const IconData close = LucideIcons.x;
+  static const IconData close = Icons.close;
 
   /// More options
-  static const IconData moreVertical = LucideIcons.moreVertical;
+  static const IconData moreVertical = Icons.more_vert;
 
   /// More options horizontal
-  static const IconData moreHorizontal = LucideIcons.moreHorizontal;
+  static const IconData moreHorizontal = Icons.more_horiz;
 
   // ========================
   // GAME ICONS
   // ========================
 
   /// Board game
-  static const IconData boardGame = LucideIcons.gamepad2;
+  static const IconData boardGame = Icons.sports_esports_outlined;
 
   /// Card game
-  static const IconData cardGame = LucideIcons.layers;
+  static const IconData cardGame = Icons.layers_outlined;
 
   /// Strategy game
-  static const IconData strategy = LucideIcons.target;
+  static const IconData strategy = Icons.track_changes;
 
   /// Party game
-  static const IconData party = LucideIcons.partyPopper;
+  static const IconData party = Icons.celebration_outlined;
 
   /// Dice
-  static const IconData dice = LucideIcons.dices;
+  static const IconData dice = Icons.casino_outlined;
 
   /// Chess
-  static const IconData chess = LucideIcons.shield;
+  static const IconData chess = Icons.shield_outlined;
 
   /// Puzzle
-  static const IconData puzzle = LucideIcons.puzzle;
+  static const IconData puzzle = Icons.extension_outlined;
 
   /// Game controller
-  static const IconData controller = LucideIcons.gamepad;
+  static const IconData controller = Icons.gamepad_outlined;
 
   // ========================
   // ACTION ICONS
   // ========================
 
   /// Search
-  static const IconData search = LucideIcons.search;
+  static const IconData search = Icons.search;
 
   /// Filter
-  static const IconData filter = LucideIcons.slidersHorizontal;
+  static const IconData filter = Icons.filter_list;
 
   /// Sort
-  static const IconData sort = LucideIcons.arrowUpDown;
+  static const IconData sort = Icons.sort;
 
   /// Add
-  static const IconData add = LucideIcons.plusCircle;
+  static const IconData add = Icons.add_circle_outlined;
 
   /// Add (simple)
-  static const IconData addSimple = LucideIcons.plus;
+  static const IconData addSimple = Icons.add;
 
   /// Edit
-  static const IconData edit = LucideIcons.pencil;
+  static const IconData edit = Icons.edit_outlined;
 
   /// Delete
-  static const IconData delete = LucideIcons.trash2;
+  static const IconData delete = Icons.delete_outline;
 
   /// Share
-  static const IconData share = LucideIcons.share2;
+  static const IconData share = Icons.share_outlined;
 
   /// Copy
-  static const IconData copy = LucideIcons.copy;
+  static const IconData copy = Icons.copy;
 
   /// Download
-  static const IconData download = LucideIcons.download;
+  static const IconData download = Icons.download_outlined;
 
   /// Upload
-  static const IconData upload = LucideIcons.upload;
+  static const IconData upload = Icons.upload_file;
 
   /// Refresh
-  static const IconData refresh = LucideIcons.refreshCcw;
+  static const IconData refresh = Icons.refresh;
 
   /// Reload
-  static const IconData reload = LucideIcons.rotateCcw;
+  static const IconData reload = Icons.replay;
 
   // ========================
   // STATUS ICONS
   // ========================
 
   /// Available/Success
-  static const IconData available = LucideIcons.checkCircle;
+  static const IconData available = Icons.check_circle_outline;
 
   /// Check (simple)
-  static const IconData check = LucideIcons.check;
+  static const IconData check = Icons.check;
 
   /// Busy/Unavailable
-  static const IconData busy = LucideIcons.xCircle;
+  static const IconData busy = Icons.cancel_outlined;
 
   /// Pending/Waiting
-  static const IconData pending = LucideIcons.clock;
+  static const IconData pending = Icons.schedule;
 
   /// Error
-  static const IconData error = LucideIcons.alertCircle;
+  static const IconData error = Icons.error_outline;
 
   /// Warning
-  static const IconData warning = LucideIcons.alertTriangle;
+  static const IconData warning = Icons.warning_amber_outlined;
 
   /// Info
-  static const IconData info = LucideIcons.info;
+  static const IconData info = Icons.info_outline;
 
   /// Help
-  static const IconData help = LucideIcons.helpCircle;
+  static const IconData help = Icons.help_outline;
 
   // ========================
   // USER & SOCIAL ICONS
   // ========================
 
   /// Users/Group
-  static const IconData users = LucideIcons.users;
+  static const IconData users = Icons.group_outlined;
 
   /// User (single)
-  static const IconData user = LucideIcons.user;
+  static const IconData user = Icons.person_outline;
 
   /// User add
-  static const IconData userAdd = LucideIcons.userPlus;
+  static const IconData userAdd = Icons.person_add_outlined;
 
   /// User remove
-  static const IconData userRemove = LucideIcons.userMinus;
+  static const IconData userRemove = Icons.person_remove_outlined;
 
   /// User check
-  static const IconData userCheck = LucideIcons.userCheck;
+  static const IconData userCheck = Icons.person_pin;
 
   /// Rating/Star
-  static const IconData rating = LucideIcons.star;
+  static const IconData rating = Icons.star_outline;
 
   /// Star filled
-  static const IconData starFilled = LucideIcons.star;
+  static const IconData starFilled = Icons.star;
 
   /// Star empty
-  static const IconData starEmpty = LucideIcons.star;
+  static const IconData starEmpty = Icons.star_border;
 
   /// Heart (like/favorite)
-  static const IconData heart = LucideIcons.heart;
+  static const IconData heart = Icons.favorite_border;
 
   /// Heart filled
-  static const IconData heartFilled = LucideIcons.heart;
+  static const IconData heartFilled = Icons.favorite;
 
   /// Karma/Points
-  static const IconData karma = LucideIcons.flame;
+  static const IconData karma = Icons.local_fire_department_outlined;
 
   /// ELO rating
-  static const IconData elo = LucideIcons.zap;
+  static const IconData elo = Icons.bolt;
 
   /// Chat/Message
-  static const IconData chat = LucideIcons.messageCircle;
+  static const IconData chat = Icons.chat_bubble_outline;
 
   // ========================
   // CAFE & LOCATION ICONS
   // ========================
 
   /// Cafe/Store
-  static const IconData cafe = LucideIcons.store;
+  static const IconData cafe = Icons.store_outlined;
 
   /// Location/Map pin
-  static const IconData location = LucideIcons.mapPin;
+  static const IconData location = Icons.location_on_outlined;
 
   /// Phone
-  static const IconData phone = LucideIcons.phone;
+  static const IconData phone = Icons.phone_outlined;
 
   /// Phone call
-  static const IconData phoneCall = LucideIcons.phoneCall;
+  static const IconData phoneCall = Icons.call;
 
   /// Schedule/Calendar
-  static const IconData schedule = LucideIcons.calendar;
+  static const IconData schedule = Icons.calendar_today_outlined;
 
   /// Clock/Time
-  static const IconData clock = LucideIcons.clock;
+  static const IconData clock = Icons.access_time;
 
   /// Globe
-  static const IconData globe = LucideIcons.globe;
+  static const IconData globe = Icons.language;
 
   /// Directions
-  static const IconData directions = LucideIcons.navigation;
+  static const IconData directions = Icons.directions;
 
   // ========================
   // BOOKING ICONS
   // ========================
 
   /// Book/Reserve
-  static const IconData book = LucideIcons.calendarCheck;
+  static const IconData book = Icons.event_available_outlined;
 
   /// Cancel booking
-  static const IconData cancelBooking = LucideIcons.x;
+  static const IconData cancelBooking = Icons.close;
 
   /// Confirm booking
-  static const IconData confirmBooking = LucideIcons.check;
+  static const IconData confirmBooking = Icons.check;
 
   /// Booking history
-  static const IconData bookingHistory = LucideIcons.history;
+  static const IconData bookingHistory = Icons.history;
 
   /// Pending booking
-  static const IconData pendingBooking = LucideIcons.hourglass;
+  static const IconData pendingBooking = Icons.pending_outlined;
 
   // ========================
   // MEDIA ICONS
   // ========================
 
   /// Camera
-  static const IconData camera = LucideIcons.camera;
+  static const IconData camera = Icons.camera_alt_outlined;
 
   /// Camera off
-  static const IconData cameraOff = LucideIcons.cameraOff;
+  static const IconData cameraOff = Icons.no_photography;
 
   /// Image/Gallery
-  static const IconData image = LucideIcons.image;
+  static const IconData image = Icons.image_outlined;
 
   /// QR code
-  static const IconData qrCode = LucideIcons.qrCode;
+  static const IconData qrCode = Icons.qr_code;
 
   /// QR code scanner
-  static const IconData qrScan = LucideIcons.scanLine;
+  static const IconData qrScan = Icons.qr_code_scanner;
 
   /// Video
-  static const IconData video = LucideIcons.video;
+  static const IconData video = Icons.videocam_outlined;
 
   /// Video off
-  static const IconData videoOff = LucideIcons.videoOff;
+  static const IconData videoOff = Icons.videocam_off_outlined;
 
   // ========================
   // SETTINGS ICONS
   // ========================
 
   /// Settings
-  static const IconData settings = LucideIcons.settings;
+  static const IconData settings = Icons.settings_outlined;
 
   /// Bell/Notification
-  static const IconData bell = LucideIcons.bell;
+  static const IconData bell = Icons.notifications_outlined;
 
   /// Bell off
-  static const IconData bellOff = LucideIcons.bellOff;
+  static const IconData bellOff = Icons.notifications_off_outlined;
 
   /// Lock
-  static const IconData lock = LucideIcons.lock;
+  static const IconData lock = Icons.lock_outline;
 
   /// Unlock
-  static const IconData unlock = LucideIcons.unlock;
+  static const IconData unlock = Icons.lock_open_outlined;
 
   /// Eye (show)
-  static const IconData eye = LucideIcons.eye;
+  static const IconData eye = Icons.visibility_outlined;
 
   /// Eye off (hide)
-  static const IconData eyeOff = LucideIcons.eyeOff;
+  static const IconData eyeOff = Icons.visibility_off_outlined;
 
   /// Log out
-  static const IconData logout = LucideIcons.logOut;
+  static const IconData logout = Icons.logout;
 
   /// Login
-  static const IconData login = LucideIcons.logIn;
+  static const IconData login = Icons.login;
 
   /// Moon/Night mode
-  static const IconData moon = LucideIcons.moon;
+  static const IconData moon = Icons.dark_mode_outlined;
 
   /// Sun/Day mode
-  static const IconData sun = LucideIcons.sun;
+  static const IconData sun = Icons.light_mode_outlined;
 
   /// Language
-  static const IconData language = LucideIcons.languages;
+  static const IconData language = Icons.translate;
 
   // ========================
   // MONEY & PAYMENT ICONS
   // ========================
 
   /// Money
-  static const IconData money = LucideIcons.wallet;
+  static const IconData money = Icons.account_balance_wallet_outlined;
 
   /// Credit card
-  static const IconData creditCard = LucideIcons.creditCard;
+  static const IconData creditCard = Icons.credit_card_outlined;
 
   /// Cash
-  static const IconData cash = LucideIcons.banknote;
+  static const IconData cash = Icons.payments_outlined;
 
   /// Discount
-  static const IconData discount = LucideIcons.percent;
+  static const IconData discount = Icons.discount_outlined;
 
   /// Gift
-  static const IconData gift = LucideIcons.gift;
+  static const IconData gift = Icons.card_giftcard_outlined;
 
   // ========================
   // UTILITY ICONS
   // ========================
 
   /// External link
-  static const IconData externalLink = LucideIcons.externalLink;
+  static const IconData externalLink = Icons.open_in_new;
 
   /// Link
-  static const IconData link = LucideIcons.link;
+  static const IconData link = Icons.link;
 
   /// Send
-  static const IconData send = LucideIcons.send;
+  static const IconData send = Icons.send_outlined;
 
   /// Inbox
-  static const IconData inbox = LucideIcons.inbox;
+  static const IconData inbox = Icons.inbox_outlined;
 
   /// Archive
-  static const IconData archive = LucideIcons.archive;
+  static const IconData archive = Icons.archive_outlined;
 
   /// Flag/Report
-  static const IconData flag = LucideIcons.flag;
+  static const IconData flag = Icons.flag_outlined;
 
   /// Bookmark
-  static const IconData bookmark = LucideIcons.bookmark;
+  static const IconData bookmark = Icons.bookmark_outline;
 
   /// Bookmark filled
-  static const IconData bookmarkFilled = LucideIcons.bookmark;
+  static const IconData bookmarkFilled = Icons.bookmark;
+
+  // ========================
+  // AUTH ICONS
+  // ========================
+
+  /// Email
+  static const IconData email = Icons.email_outlined;
+
+  /// Password
+  static const IconData password = Icons.lock_outline;
+
+  /// Visibility on
+  static const IconData visibilityOn = Icons.visibility_outlined;
+
+  /// Visibility off
+  static const IconData visibilityOff = Icons.visibility_off_outlined;
+
+  /// Verified
+  static const IconData verified = Icons.verified_outlined;
+
+  /// Security
+  static const IconData security = Icons.security_outlined;
 
   // ========================
   // HELPER METHODS
@@ -387,11 +409,12 @@ class AppIcons {
   static Widget primaryIcon(
     IconData data, {
     double size = md,
+    Color? color,
   }) {
     return Icon(
       data,
       size: size,
-      color: Colors.orange,
+      color: color ?? Colors.orange,
     );
   }
 
@@ -399,11 +422,12 @@ class AppIcons {
   static Widget secondaryIcon(
     IconData data, {
     double size = md,
+    Color? color,
   }) {
     return Icon(
       data,
       size: size,
-      color: Colors.teal,
+      color: color ?? Colors.teal,
     );
   }
 

@@ -6,8 +6,12 @@ import '../../../core/error/failures.dart';
 import '../domain/repositories/auth_repository.dart';
 import 'datasources/auth_remote_datasource.dart';
 import 'models/auth_tokens_model.dart';
+import 'models/change_password_request_model.dart';
+import 'models/google_login_request_model.dart';
 import 'models/login_request_model.dart';
 import 'models/register_request_model.dart';
+import 'models/request_password_reset_request_model.dart';
+import 'models/reset_password_request_model.dart';
 import 'models/verify_email_request_model.dart';
 
 /// Concrete implementation of [AuthRepository].
@@ -17,7 +21,8 @@ import 'models/verify_email_request_model.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource _remoteDatasource;
 
-  AuthRepositoryImpl({required this._remoteDatasource});
+  AuthRepositoryImpl({required AuthRemoteDatasource remoteDatasource})
+      : _remoteDatasource = remoteDatasource;
 
   // ─── Login ─────────────────────────────────────────────────────────
 
@@ -37,15 +42,33 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  // ─── Google Login ──────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, AuthTokensModel>> googleLogin(
+    GoogleLoginRequestModel request,
+  ) async {
+    try {
+      final response = await _remoteDatasource.googleLogin(request);
+      return Right(response.data!);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
   // ─── Register ──────────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, String>> register(
+  Future<Either<Failure, AuthTokensModel>> register(
     RegisterRequestModel request,
   ) async {
     try {
       final response = await _remoteDatasource.register(request);
-      return Right(response.message);
+      return Right(response.data!);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } on DioException catch (e) {
@@ -89,6 +112,76 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  // ─── Logout ────────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> logout(String refreshToken) async {
+    try {
+      await _remoteDatasource.logout(refreshToken);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  // ─── Request Password Reset ─────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, String>> requestPasswordReset(
+    RequestPasswordResetRequestModel request,
+  ) async {
+    try {
+      final response = await _remoteDatasource.requestPasswordReset(request);
+      return Right(response.message);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  // ─── Reset Password ────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, String>> resetPassword(
+    ResetPasswordRequestModel request,
+  ) async {
+    try {
+      final response = await _remoteDatasource.resetPassword(request);
+      return Right(response.message);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  // ─── Change Password ───────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, String>> changePassword(
+    ChangePasswordRequestModel request,
+  ) async {
+    try {
+      final response = await _remoteDatasource.changePassword(request);
+      return Right(response.message);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────
 
   /// Converts [DioException] to the appropriate [Failure].
@@ -103,7 +196,6 @@ class AuthRepositoryImpl implements AuthRepository {
       case DioExceptionType.connectionError:
         return const NetworkFailure();
       case DioExceptionType.badResponse:
-        // Try to extract the backend message from the envelope.
         final data = e.response?.data;
         if (data is Map<String, dynamic> && data.containsKey('message')) {
           return ServerFailure(

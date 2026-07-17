@@ -38,6 +38,7 @@ dependencies:
   dio: ^5.9.2
   get_it: ^9.2.1
   flutter_secure_storage: ^10.3.1
+  google_sign_in: ^6.2.1
   freezed_annotation: ^3.1.0
   json_annotation: ^4.12.0
   delightful_toast: ^1.1.0
@@ -53,7 +54,6 @@ dependencies:
   # UI & Animation
   shimmer: ^3.0.0
   google_fonts: ^6.1.0
-  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:

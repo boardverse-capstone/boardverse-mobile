@@ -61,6 +61,11 @@ class AppColors {
   static const Color surface = Color(0xFFF5F5F5);
   static const Color surfaceVariant = Color(0xFFEEEEEE);
 
+  /// Dark mode surfaces (for navigation bar)
+  static const Color surfaceDark = Color(0xFF1E1E1E);
+  static const Color surfaceElevatedDark = Color(0xFF2D2D2D);
+  static const Color textSecondaryDark = Color(0xFFB3B3B3);
+
   /// Text colors (Light mode)
   static const Color textPrimary = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF757575);

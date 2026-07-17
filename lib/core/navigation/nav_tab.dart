@@ -1,7 +1,7 @@
 enum NavTab {
-  discovery(0, 'Khám phá'),
-  bookings(1, 'Lịch hẹn'),
-  home(2, 'Trang chủ'),
+  home(0, 'Trang chủ'),
+  bookings(1, 'Phòng chờ'),
+  discovery(2, 'Khám phá'),
   tournament(3, 'Giải đấu'),
   profile(4, 'Cá nhân');
 

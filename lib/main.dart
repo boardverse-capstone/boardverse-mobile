@@ -16,10 +16,7 @@ import 'features/profile/presentation/cubit/profile_cubit.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables from .env file.
   await dotenv.load(fileName: '.env');
-
-  // Register all dependencies via GetIt.
   setupDependencies();
 
   runApp(const BoardVerseApp());
@@ -32,10 +29,8 @@ class BoardVerseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(create: (_) => sl<AuthCubit>()),
+        BlocProvider<AuthCubit>(create: (_) => sl<AuthCubit>()..checkAuthStatus()),
         BlocProvider<ProfileCubit>(create: (_) => sl<ProfileCubit>()),
-        // BookingResultCubit ở app-level để resume flow khi kill app
-        // giữa chừng có thể phát hiện `pendingBookingId` ở secure storage.
         BlocProvider<BookingResultCubit>(
           create: (_) => sl<BookingResultCubit>()..tryRestorePending(),
         ),
@@ -50,7 +45,7 @@ class BoardVerseApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
             useMaterial3: true,
           ),
-          home: const LoginPage(),
+          home: const AuthWrapper(),
           routes: {
             '/login': (context) => const LoginPage(),
             '/home': (context) => const MainScaffold(),
@@ -60,13 +55,7 @@ class BoardVerseApp extends StatelessWidget {
     );
   }
 
-  /// Khi `BookingResultCubit` phát hiện booking pending sau khi mở app:
-  /// - ResumeToPayment → mở PaymentPage
-  /// - ResumeToSuccess → mở BookingSuccessPage
-  /// - ResumeCleared / ResultFailure → không làm gì (đã clear pending id)
   static void _handleResume(BuildContext context, BookingResultState state) {
-    // Chỉ áp dụng khi user đã đăng nhập (đang ở MainScaffold).
-    // Tránh navigate khi còn ở LoginPage.
     final auth = context.read<AuthCubit>().state;
     if (auth is! AuthSuccess) return;
 
@@ -95,3 +84,29 @@ class BoardVerseApp extends StatelessWidget {
   }
 }
 
+/// Wrapper widget that handles initial auth state check and displays
+/// the appropriate screen (Login or MainScaffold) based on auth status.
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        if (state is AuthLoading) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (state is AuthSuccess) {
+          return const MainScaffold();
+        }
+
+        return const LoginPage();
+      },
+    );
+  }
+}

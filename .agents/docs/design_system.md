@@ -1146,54 +1146,51 @@ class ShimmerListItem extends StatelessWidget {
 
 ## 10. Icons System
 
-### 10.1 Lucide Icons
+### 10.1 Material Icons
 
-**Package:** `lucide_icons: ^0.257.0`
+Sử dụng Material Icons (Flutter's built-in Icons class) thay vì Lucide Icons vì:
+- **Native Flutter**: Không cần package bên ngoài, giảm dependency
+- **Stable**: Không có vấn đề tương thích với Flutter SDK mới
+- **Consistent**: Luôn được cập nhật cùng Flutter
+- **Outlined style**: Ưu tiên dùng icons có suffix `_outlined` để đồng nhất với design
 
-Dùng Lucide Icons thay vì Material Icons để đảm bảo:
-- Consistent stroke width (2px)
-- Modern, clean design
-- Rounded corners
-
-```yaml
-# pubspec.yaml
-dependencies:
-  lucide_icons: ^0.257.0
-```
+> **Lưu ý**: Không cần thêm package `lucide_icons` vào pubspec.yaml vì Material Icons đã có sẵn trong Flutter SDK.
 
 #### 10.1.1 Import & Usage
 
 ```dart
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter/material.dart';
+// hoặc sử dụng qua AppIcons class
+import 'core/theme/app_icons.dart';
 
-// Basic usage
-Icon(LucideIcons.gamepad2)           // Board game
-Icon(LucideIcons.mapPin)              // Location
-Icon(LucideIcons.calendarCheck)       // Booking/Reservation
-Icon(LucideIcons.users)               // Group/Players
-Icon(LucideIcons.trophy)              // Ranking/Competition
-Icon(LucideIcons.search)              // Search
-Icon(LucideIcons.filter)               // Filter
-Icon(LucideIcons.bell)                // Notifications
-Icon(LucideIcons.settings)             // Settings
-Icon(LucideIcons.user)                // Profile
-Icon(LucideIcons.logOut)              // Logout
-Icon(LucideIcons.plus)                // Add/Create
-Icon(LucideIcons.minus)               // Remove
-Icon(LucideIcons.x)                   // Close/Cancel
-Icon(LucideIcons.check)               // Confirm/Success
-Icon(LucideIcons.clock)               // Time
-Icon(LucideIcons.star)                // Rating/Favorite
-Icon(LucideIcons.heart)               // Like/Favorite
-Icon(LucideIcons.share)               // Share
-Icon(LucideIcons.camera)              // Camera
-Icon(LucideIcons.qrCode)             // QR Code
+// Basic usage - trực tiếp từ Material
+Icon(Icons.games_outlined)              // Board game
+Icon(Icons.location_on_outlined)        // Location
+Icon(Icons.event_available_outlined)    // Booking/Reservation
+Icon(Icons.group_outlined)              // Group/Players
+Icon(Icons.emoji_events_outlined)       // Ranking/Competition
+Icon(Icons.search)                      // Search
+Icon(Icons.filter_list)                 // Filter
+Icon(Icons.notifications_outlined)      // Notifications
+Icon(Icons.settings_outlined)           // Settings
+Icon(Icons.person_outline)              // Profile
+Icon(Icons.logout)                      // Logout
+Icon(Icons.add)                         // Add/Create
+Icon(Icons.remove)                      // Remove
+Icon(Icons.close)                      // Close/Cancel
+Icon(Icons.check)                       // Confirm/Success
+Icon(Icons.access_time)                 // Time
+Icon(Icons.star)                        // Rating/Favorite
+Icon(Icons.favorite)                    // Like/Favorite
+Icon(Icons.share_outlined)              // Share
+Icon(Icons.camera_alt_outlined)         // Camera
+Icon(Icons.qr_code)                    // QR Code
 ```
 
 #### 10.1.2 Icon Size & Color Guidelines
 
 ```dart
-// Icon sizes theo context
+// Icon sizes theo context - sử dụng AppIcons class
 class AppIconSizes {
   static const double xs = 12.0;   // Inline với text nhỏ
   static const double sm = 16.0;   // Chips, small labels
@@ -1203,11 +1200,11 @@ class AppIconSizes {
   static const double xxl = 48.0;  // Large decorative icons
 }
 
-// Sử dụng với style constants
+// Sử dụng với AppIcons
 Icon(
-  LucideIcons.gamepad2,
-  size: AppIconSizes.lg,
-  color: BrandColors.primary,
+  AppIcons.boardGame,
+  size: AppIcons.lg,
+  color: AppColors.primary,
 )
 ```
 
@@ -1215,87 +1212,90 @@ Icon(
 
 | Icon Type | Color | Ví dụ |
 |-----------|-------|--------|
-| Primary | `BrandColors.primary` | Action icons, nav selected |
-| Secondary | `BrandColors.secondary` | Cafe-related icons |
-| Neutral | `LightNeutrals.textSecondary` | Unselected nav icons |
-| Success | `SemanticColors.success` | Success indicators |
-| Error | `SemanticColors.error` | Error indicators |
+| Primary | `AppColors.primary` | Action icons, nav selected |
+| Secondary | `AppColors.secondary` | Cafe-related icons |
+| Neutral | `AppColors.textSecondary` | Unselected nav icons |
+| Success | `AppColors.success` | Success indicators |
+| Error | `AppColors.error` | Error indicators |
 
-#### 10.1.4 Icon-to-Feature Mapping (BoardVerse)
+#### 10.1.4 AppIcons Class Mapping (BoardVerse)
 
 ```dart
-// BoardVerse-specific icon mapping
-class BoardVerseIcons {
-  // Navigation
-  static const IconData explore = LucideIcons.compass;
-  static const IconData booking = LucideIcons.calendarClock;
-  static const IconData tournament = LucideIcons.trophy;
-  static const IconData profile = LucideIcons.userCircle;
+// Sử dụng AppIcons class cho consistency
+import 'core/theme/app_icons.dart';
 
-  // Games
-  static const IconData boardGame = LucideIcons.gamepad2;
-  static const IconData cardGame = LucideIcons.layers;
-  static const IconData strategy = LucideIcons.target;
-  static const IconData party = LucideIcons.partyPopper;
+// Navigation
+AppIcons.explore      // Icons.explore_outlined
+AppIcons.booking      // Icons.calendar_month_outlined
+AppIcons.tournament   // Icons.emoji_events_outlined
+AppIcons.profile      // Icons.account_circle_outlined
 
-  // Actions
-  static const IconData search = LucideIcons.search;
-  static const IconData filter = LucideIcons.slidersHorizontal;
-  static const IconData sort = LucideIcons.arrowUpDown;
-  static const IconData add = LucideIcons.plusCircle;
-  static const IconData edit = LucideIcons.pencil;
-  static const IconData delete = LucideIcons.trash2;
-  static const IconData share = LucideIcons.share2;
+// Games
+AppIcons.boardGame    // Icons.sports_esports_outlined
+AppIcons.cardGame     // Icons.layers_outlined
+AppIcons.strategy     // Icons.track_changes
+AppIcons.party        // Icons.celebration_outlined
 
-  // Status
-  static const IconData available = LucideIcons.checkCircle;
-  static const IconData busy = LucideIcons.xCircle;
-  static const IconData pending = LucideIcons.clock;
+// Actions
+AppIcons.search       // Icons.search
+AppIcons.filter       // Icons.filter_list
+AppIcons.sort         // Icons.sort
+AppIcons.add          // Icons.add_circle_outlined
+AppIcons.edit         // Icons.edit_outlined
+AppIcons.delete       // Icons.delete_outline
+AppIcons.share        // Icons.share_outlined
 
-  // Users & Social
-  static const IconData players = LucideIcons.users;
-  static const IconData rating = LucideIcons.star;
-  static const IconData karma = LucideIcons.heart;
-  static const IconData elo = LucideIcons.zap;
+// Status
+AppIcons.available    // Icons.check_circle_outline
+AppIcons.busy         // Icons.cancel_outlined
+AppIcons.pending      // Icons.schedule
 
-  // Cafe
-  static const IconData cafe = LucideIcons.store;
-  static const IconData location = LucideIcons.mapPin;
-  static const IconData phone = LucideIcons.phone;
-  static const IconData schedule = LucideIcons.calendar;
+// Users & Social
+AppIcons.users        // Icons.group_outlined
+AppIcons.rating       // Icons.star_outline
+AppIcons.karma        // Icons.local_fire_department_outlined
+AppIcons.elo          // Icons.bolt
 
-  // Booking
-  static const IconData book = LucideIcons.calendarCheck;
-  static const IconData cancel = LucideIcons.x;
-  static const IconData confirm = LucideIcons.check;
+// Cafe
+AppIcons.cafe         // Icons.store_outlined
+AppIcons.location     // Icons.location_on_outlined
+AppIcons.phone        // Icons.phone_outlined
+AppIcons.schedule     // Icons.calendar_today_outlined
 
-  // Media
-  static const IconData camera = LucideIcons.camera;
-  static const IconData qrScan = LucideIcons.scanLine;
-  static const IconData image = LucideIcons.image;
-}
+// Booking
+AppIcons.book         // Icons.event_available_outlined
+AppIcons.cancelBooking // Icons.close
+AppIcons.confirmBooking // Icons.check
+
+// Media
+AppIcons.camera       // Icons.camera_alt_outlined
+AppIcons.qrScan       // Icons.qr_code_scanner
+AppIcons.image        // Icons.image_outlined
 ```
 
 #### 10.1.5 Icon Usage Guidelines
 
 | Quy tắc | Mô tả |
 |---------|--------|
-| **Dùng Lucide thay vì Material** | Đảm bảo consistent design |
-| **Size nhất quán** | Sử dụng AppIconSizes constants |
+| **Ưu tiên Outlined** | Dùng `_outlined` suffix cho consistency |
+| **Size nhất quán** | Sử dụng AppIcons size constants |
 | **Color theo semantic** | Icon màu nên phản ánh trạng thái |
 | **Touch target ≥48px** | Nếu icon là tappable, wrap trong padding |
 
-#### 10.1.6 Icon Fallback
+#### 10.1.6 Material Icons Reference
 
-```dart
-// Fallback icon nếu Lucide không có icon cần thiết
-// Chỉ dùng Material Icons khi thực sự cần thiết và có lý do rõ ràng
+Xem thêm tại: https://fonts.google.com/icons
 
-Icon(
-  LucideIcons.gamepad2,
-  fallback: const Icon(Icons.games),  // Material fallback
-)
-```
+Icons được nhóm theo:
+- **Navigation**: back, forward, menu, close, more_vert
+- **Action**: add, edit, delete, share, copy, refresh
+- **Communication**: email, chat, notifications
+- **Content**: location, calendar, schedule, clock
+- **Device**: camera, qr_code_scanner, videcam
+- **Maps**: location_on, directions, store
+- **Social**: person, group, star, favorite
+- **Status**: check_circle, error, warning, info
+- **Toggle**: visibility, lock, dark_mode
 
 ---
 
@@ -1309,13 +1309,13 @@ lib/
 │   ├── theme/
 │   │   ├── app_theme.dart              # Main theme definition
 │   │   ├── app_colors.dart             # Color constants
-│   │   ├── app_typography.dart         # Text styles
-│   │   ├── app_spacing.dart            # Spacing constants
-│   │   ├── app_radius.dart             # Border radius
-│   │   ├── app_elevation.dart          # Shadows
-│   │   ├── app_shimmer.dart            # Shimmer colors & widgets
-│   │   ├── app_icons.dart              # Lucide icon mapping
-│   │   └── app_colors_dark.dart        # Dark mode colors
+│   │   ├── app_typography.dart        # Text styles
+│   │   ├── app_spacing.dart           # Spacing constants
+│   │   ├── app_radius.dart            # Border radius
+│   │   ├── app_elevation.dart         # Shadows
+│   │   ├── app_shimmer.dart           # Shimmer colors & widgets
+│   │   ├── app_icons.dart             # Material icon mapping
+│   │   └── app_colors_dark.dart       # Dark mode colors
 │   └── ...
 ├── widgets/
 │   └── shimmer/
@@ -1333,11 +1333,11 @@ dependencies:
   # Fonts
   google_fonts: ^6.1.0
 
-  # Icons
-  lucide_icons: ^0.257.0
-
   # Loading/Animation
   shimmer: ^3.0.0
+
+  # Material Icons được include sẵn trong Flutter SDK
+  # Không cần thêm package gì thêm
 
 flutter:
   uses-material-design: true
@@ -1394,8 +1394,8 @@ class MyApp extends StatelessWidget {
 
 - [ ] Thêm packages vào pubspec.yaml:
   - `google_fonts: ^6.1.0`
-  - `lucide_icons: ^0.257.0`
   - `shimmer: ^3.0.0`
+  - **Material Icons**: Đã có sẵn trong Flutter SDK (không cần thêm)
 - [ ] Tạo folder `lib/core/theme/`
 - [ ] Tạo các file theme:
   - `app_colors.dart` - Brand, semantic, neutral colors

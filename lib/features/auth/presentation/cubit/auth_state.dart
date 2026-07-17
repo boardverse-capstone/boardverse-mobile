@@ -70,3 +70,33 @@ class AuthEmailVerified extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+/// Password reset email sent successfully.
+class AuthPasswordResetRequested extends AuthState {
+  final String message;
+
+  const AuthPasswordResetRequested({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Password reset completed successfully.
+class AuthPasswordResetSuccess extends AuthState {
+  final String message;
+
+  const AuthPasswordResetSuccess({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Password changed successfully.
+class AuthPasswordChanged extends AuthState {
+  final String message;
+
+  const AuthPasswordChanged({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
