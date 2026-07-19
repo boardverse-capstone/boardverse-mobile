@@ -42,28 +42,27 @@ class LobbySummary extends Equatable {
   });
 
   int get slotsRemaining => maxPlayers - currentPlayers;
-  bool get canJoin =>
-      status == LobbyStatus.open && currentPlayers < maxPlayers;
+  bool get canJoin => status == LobbyStatus.open && currentPlayers < maxPlayers;
 
   @override
   List<Object?> get props => [
-        id,
-        gameId,
-        gameName,
-        gameImageUrl,
-        cafeId,
-        cafeName,
-        hostName,
-        distanceKm,
-        currentPlayers,
-        maxPlayers,
-        minPlayers,
-        minimumKarma,
-        scheduledTime,
-        timeoutAt,
-        status,
-        isPublic,
-      ];
+    id,
+    gameId,
+    gameName,
+    gameImageUrl,
+    cafeId,
+    cafeName,
+    hostName,
+    distanceKm,
+    currentPlayers,
+    maxPlayers,
+    minPlayers,
+    minimumKarma,
+    scheduledTime,
+    timeoutAt,
+    status,
+    isPublic,
+  ];
 }
 
 /// Bộ lọc cho việc tìm lobby khả dụng.

@@ -66,10 +66,7 @@ class LobbyFriendsLoaded extends LobbyState {
   final List<FriendEntity> friends;
   final LobbyEntity lobby;
 
-  const LobbyFriendsLoaded({
-    required this.friends,
-    required this.lobby,
-  });
+  const LobbyFriendsLoaded({required this.friends, required this.lobby});
 
   @override
   List<Object?> get props => [friends, lobby];
@@ -130,10 +127,7 @@ class LobbyAutoBookingCreated extends LobbyState {
   /// Id booking vừa được server trả về (dùng cho resume / persistence).
   final String bookingId;
 
-  const LobbyAutoBookingCreated({
-    required this.lobby,
-    required this.bookingId,
-  });
+  const LobbyAutoBookingCreated({required this.lobby, required this.bookingId});
 
   @override
   List<Object?> get props => [lobby, bookingId];

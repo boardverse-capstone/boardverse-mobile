@@ -34,9 +34,7 @@ class KarmaRating extends RatingState {
 class MatchResultEntry extends RatingState {
   final bool isWaitingConsensus;
 
-  const MatchResultEntry({
-    this.isWaitingConsensus = false,
-  });
+  const MatchResultEntry({this.isWaitingConsensus = false});
 
   @override
   List<Object?> get props => [isWaitingConsensus];

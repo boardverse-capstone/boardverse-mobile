@@ -5,14 +5,20 @@ part 'player_location_model.freezed.dart';
 part 'player_location_model.g.dart';
 
 /// Response model for GET /api/userprofile/me/location.
+///
+/// When the user has never set a location, the server returns
+/// `{latitude: null, longitude: null, updatedAt: null, source: null}`
+/// together with `hasLocation: false`. We therefore keep the numeric /
+/// timestamp fields nullable so the parser does not throw when `hasLocation`
+/// is false.
 @freezed
 abstract class PlayerLocationModel with _$PlayerLocationModel {
   const factory PlayerLocationModel({
-    required double latitude,
-    required double longitude,
-    required String updatedAt,
+    double? latitude,
+    double? longitude,
+    String? updatedAt,
     /// 0 = Gps (device), 1 = Manual (map picker)
-    required int source,
+    int? source,
     required bool hasLocation,
   }) = _PlayerLocationModel;
 

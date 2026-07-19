@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import '../../../../core/theme/theme.dart';
 import '../cubit/booking_summary_state.dart';
+import 'booking_ui_helpers.dart';
+import 'section_header.dart';
 
 /// Card hiển thị breakdown giá đặt cọc — dùng ở `BookingSummaryPage`.
 class DepositBreakdownCard extends StatelessWidget {
   final Breakdown breakdown;
 
   const DepositBreakdownCard({super.key, required this.breakdown});
-
-  String _formatVnd(double v) {
-    final f = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: '',
-      decimalDigits: 0,
-    );
-    return '${f.format(v).trim()} đ';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,43 +19,80 @@ class DepositBreakdownCard extends StatelessWidget {
       _ => 'Tính theo khối thời gian',
     };
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: AppElevation.shadowXxs,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.cardRadius,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Chi tiết cọc',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.warning.withValues(alpha: 0.12),
+                    AppColors.warning.withValues(alpha: 0.02),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SectionHeader(
+                icon: Icons.receipt_long_rounded,
+                title: 'Chi tiết cọc',
+                subtitle: pricingLabel,
+                accent: AppColors.warning,
               ),
             ),
-            const SizedBox(height: 12),
-            _row(
-              theme,
-              icon: Icons.access_time,
-              label: 'Giá giờ đầu',
-              value: _formatVnd(breakdown.firstHourPrice),
-            ),
-            _row(
-              theme,
-              icon: Icons.recommend,
-              label: 'Cọc khuyến nghị',
-              value: _formatVnd(breakdown.recommendedDeposit),
-              highlight: true,
-            ),
-            _row(
-              theme,
-              icon: Icons.shield_outlined,
-              label: 'Cọc tối đa (BR-03)',
-              value: _formatVnd(breakdown.maxDeposit),
-            ),
-            const Divider(height: 16),
-            Text(
-              'Mô hình giá: $pricingLabel',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: [
+                  _row(
+                    theme,
+                    icon: Icons.access_time_rounded,
+                    label: 'Giá giờ đầu',
+                    value: BookingUiHelpers.formatVnd(breakdown.firstHourPrice),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      borderRadius: AppRadius.radiusXsAll,
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.20),
+                      ),
+                    ),
+                    child: _row(
+                      theme,
+                      icon: Icons.recommend_rounded,
+                      label: 'Cọc khuyến nghị',
+                      value: BookingUiHelpers.formatVnd(
+                          breakdown.recommendedDeposit),
+                      highlight: true,
+                    ),
+                  ),
+                  _row(
+                    theme,
+                    icon: Icons.shield_outlined,
+                    label: 'Cọc tối đa (BR-03)',
+                    value: BookingUiHelpers.formatVnd(breakdown.maxDeposit),
+                  ),
+                ],
               ),
             ),
           ],
@@ -79,26 +109,44 @@ class DepositBreakdownCard extends StatelessWidget {
     bool highlight = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.outline),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: (highlight
+                      ? AppColors.primary
+                      : theme.colorScheme.onSurfaceVariant)
+                  .withValues(alpha: 0.12),
+              borderRadius: AppRadius.radiusXxsAll,
+            ),
+            child: Icon(
+              icon,
+              size: AppIcons.md,
+              color: highlight
+                  ? AppColors.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: highlight ? FontWeight.w600 : FontWeight.normal,
+                fontWeight:
+                    highlight ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ),
           Text(
             value,
             style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: highlight
-                  ? theme.colorScheme.primary
+                  ? AppColors.primary
                   : theme.colorScheme.onSurface,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

@@ -14,18 +14,18 @@ class AppTypography {
   // ========================
 
   static TextTheme get textThemeLight => _buildTextTheme(
-        textColor: AppColors.textPrimary,
-        secondaryColor: AppColors.textSecondary,
-      );
+    textColor: AppColors.textPrimary,
+    secondaryColor: AppColors.textSecondary,
+  );
 
   // ========================
   // TEXT THEME - DARK
   // ========================
 
   static TextTheme get textThemeDark => _buildTextTheme(
-        textColor: Colors.white,
-        secondaryColor: AppColorsDark.textSecondary,
-      );
+    textColor: Colors.white,
+    secondaryColor: AppColorsDark.textSecondary,
+  );
 
   static TextTheme _buildTextTheme({
     required Color textColor,
@@ -147,23 +147,23 @@ class AppTypography {
   /// Lấy style cho price text
   static TextStyle priceStyle(BuildContext context) {
     return Theme.of(context).textTheme.titleLarge!.copyWith(
-          color: AppColors.primary,
-          fontWeight: FontWeight.w700,
-        );
+      color: AppColors.primary,
+      fontWeight: FontWeight.w700,
+    );
   }
 
   /// Lấy style cho badge text
   static TextStyle badgeStyle(BuildContext context) {
     return Theme.of(context).textTheme.labelSmall!.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        );
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+    );
   }
 
   /// Lấy style cho caption
   static TextStyle captionStyle(BuildContext context) {
-    return Theme.of(context).textTheme.bodySmall!.copyWith(
-          color: AppColors.textSecondary,
-        );
+    return Theme.of(
+      context,
+    ).textTheme.bodySmall!.copyWith(color: AppColors.textSecondary);
   }
 }

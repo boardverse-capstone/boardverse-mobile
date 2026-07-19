@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/theme.dart';
 import '../../domain/entities/tournament_entity.dart';
 import '../../domain/entities/tournament_status.dart';
 
@@ -8,45 +9,35 @@ class TournamentListCard extends StatelessWidget {
   final TournamentEntity tournament;
   final VoidCallback? onTap;
 
-  const TournamentListCard({
-    super.key,
-    required this.tournament,
-    this.onTap,
-  });
+  const TournamentListCard({super.key, required this.tournament, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dateFmt = DateFormat('dd/MM/yyyy');
     final timeFmt = DateFormat('HH:mm');
+    final statusColor = _statusColor(theme, tournament.status);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       clipBehavior: Clip.antiAlias,
+      elevation: AppElevation.elevationNone,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardRadius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
       child: InkWell(
         onTap: onTap,
+        borderRadius: AppRadius.cardRadius,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.emoji_events_outlined,
-                      size: 32,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+                  _TournamentIcon(color: statusColor),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,63 +47,83 @@ class TournamentListCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${tournament.gameName} · ${tournament.cafeName}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Row(
+                          children: [
+                            Icon(
+                              AppIcons.boardGame,
+                              size: AppIcons.xs,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: AppSpacing.xxs),
+                            Expanded(
+                              child: Text(
+                                '${tournament.gameName} · ${tournament.cafeName}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.xs),
                   _StatusChip(status: tournament.status),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.xs,
                 children: [
                   _MetaItem(
-                    icon: Icons.calendar_today_outlined,
+                    icon: AppIcons.schedule,
                     label: dateFmt.format(tournament.startDate),
                   ),
-                  const SizedBox(width: 12),
                   _MetaItem(
-                    icon: Icons.schedule,
+                    icon: AppIcons.clock,
                     label: timeFmt.format(tournament.startDate),
                   ),
-                  const Spacer(),
-                  if (tournament.entryFee != null && tournament.entryFee! > 0)
-                    _MetaItem(
-                      icon: Icons.payments_outlined,
-                      label: '${_formatVnd(tournament.entryFee!)}đ',
-                    )
-                  else
-                    _MetaItem(
-                      icon: Icons.local_offer_outlined,
-                      label: 'Miễn phí',
-                    ),
+                  _MetaItem(
+                    icon: AppIcons.cash,
+                    label:
+                        tournament.entryFee != null && tournament.entryFee! > 0
+                        ? '${_formatVnd(tournament.entryFee!)}đ'
+                        : 'Miễn phí',
+                    emphasized:
+                        tournament.entryFee != null && tournament.entryFee! > 0,
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
-                  Icon(Icons.people, size: 16, color: theme.colorScheme.outline),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${tournament.currentParticipants}/${tournament.maxParticipants} người tham gia',
-                    style: theme.textTheme.bodySmall,
+                  Icon(
+                    AppIcons.users,
+                    size: AppIcons.sm,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      '${tournament.currentParticipants}/${tournament.maxParticipants} người tham gia',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
                   if (tournament.requiresElo) ...[
-                    Icon(Icons.trending_up,
-                        size: 16, color: theme.colorScheme.outline),
-                    const SizedBox(width: 4),
+                    Icon(
+                      AppIcons.elo,
+                      size: AppIcons.sm,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
                     Text(
                       'ELO ≥ ${tournament.minEloRequired}',
                       style: theme.textTheme.bodySmall,
@@ -120,40 +131,43 @@ class TournamentListCard extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.radiusFullAll,
                 child: LinearProgressIndicator(
                   value: tournament.fillRatio,
-                  minHeight: 6,
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _progressColor(tournament.status, theme),
-                  ),
+                  minHeight: AppSpacing.xs,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
                 ),
               ),
               if (tournament.prizePool > 0) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.accent.withValues(alpha: 0.14),
+                    borderRadius: AppRadius.radiusSmAll,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.workspace_premium,
-                          size: 18,
-                          color: theme.colorScheme.onTertiaryContainer),
-                      const SizedBox(width: 6),
+                      Icon(
+                        AppIcons.level,
+                        size: AppIcons.sm,
+                        color: AppColors.accentDark,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
                       Text(
                         'Tổng giải thưởng: ${_formatVnd(tournament.prizePool)}đ',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onTertiaryContainer,
+                          color: theme.brightness == Brightness.dark
+                              ? AppColors.accent
+                              : AppColors.accentDark,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -176,18 +190,31 @@ class TournamentListCard extends StatelessWidget {
     }
     return buffer.toString();
   }
+}
 
-  Color _progressColor(TournamentStatus status, ThemeData theme) {
-    switch (status) {
-      case TournamentStatus.upcoming:
-        return theme.colorScheme.tertiary;
-      case TournamentStatus.registrationOpen:
-        return theme.colorScheme.primary;
-      case TournamentStatus.ongoing:
-        return Colors.orange;
-      case TournamentStatus.finished:
-        return theme.colorScheme.outline;
-    }
+class _TournamentIcon extends StatelessWidget {
+  final Color color;
+
+  const _TournamentIcon({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.06),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.radiusMdAll,
+      ),
+      child: Icon(AppIcons.tournament, size: AppIcons.xl, color: color),
+    );
   }
 }
 
@@ -198,64 +225,47 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _color(context, status);
+    final theme = Theme.of(context);
+    final color = _statusColor(theme, status);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.tagRadius,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_icon(status), size: 12, color: color),
-          const SizedBox(width: 4),
+          Icon(_statusIcon(status), size: AppIcons.xs, color: color),
+          const SizedBox(width: AppSpacing.xxs),
           Text(
             status.label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.labelSmall?.copyWith(
               color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
       ),
     );
   }
-
-  Color _color(BuildContext context, TournamentStatus status) {
-    switch (status) {
-      case TournamentStatus.upcoming:
-        return Colors.blueAccent;
-      case TournamentStatus.registrationOpen:
-        return Colors.green;
-      case TournamentStatus.ongoing:
-        return Colors.orange;
-      case TournamentStatus.finished:
-        return Theme.of(context).colorScheme.outline;
-    }
-  }
-
-  IconData _icon(TournamentStatus status) {
-    switch (status) {
-      case TournamentStatus.upcoming:
-        return Icons.schedule;
-      case TournamentStatus.registrationOpen:
-        return Icons.how_to_reg;
-      case TournamentStatus.ongoing:
-        return Icons.play_arrow;
-      case TournamentStatus.finished:
-        return Icons.flag_outlined;
-    }
-  }
 }
 
 class _MetaItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool emphasized;
 
-  const _MetaItem({required this.icon, required this.label});
+  const _MetaItem({
+    required this.icon,
+    required this.label,
+    this.emphasized = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -263,10 +273,48 @@ class _MetaItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: theme.colorScheme.outline),
-        const SizedBox(width: 4),
-        Text(label, style: theme.textTheme.bodySmall),
+        Icon(
+          icon,
+          size: AppIcons.sm,
+          color: emphasized
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: AppSpacing.xxs),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: emphasized ? theme.colorScheme.primary : null,
+            fontWeight: emphasized ? FontWeight.w700 : null,
+          ),
+        ),
       ],
     );
+  }
+}
+
+Color _statusColor(ThemeData theme, TournamentStatus status) {
+  switch (status) {
+    case TournamentStatus.upcoming:
+      return theme.colorScheme.secondary;
+    case TournamentStatus.registrationOpen:
+      return AppColors.success;
+    case TournamentStatus.ongoing:
+      return theme.colorScheme.primary;
+    case TournamentStatus.finished:
+      return theme.colorScheme.onSurfaceVariant;
+  }
+}
+
+IconData _statusIcon(TournamentStatus status) {
+  switch (status) {
+    case TournamentStatus.upcoming:
+      return AppIcons.pending;
+    case TournamentStatus.registrationOpen:
+      return AppIcons.userCheck;
+    case TournamentStatus.ongoing:
+      return Icons.play_circle_outline_rounded;
+    case TournamentStatus.finished:
+      return AppIcons.flag;
   }
 }

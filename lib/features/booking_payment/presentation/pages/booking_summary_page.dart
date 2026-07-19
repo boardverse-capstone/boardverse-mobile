@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/theme.dart';
 import '../cubit/booking_summary_cubit.dart';
 import '../cubit/booking_summary_state.dart';
+import '../widgets/booking_ui_helpers.dart';
 import '../widgets/deposit_breakdown_card.dart';
 import '../widgets/payment_method_selector.dart';
+import '../widgets/section_header.dart';
 
 /// Trang tóm tắt trước khi thanh toán — hiển thị breakdown giá, phương thức
 /// thanh toán, gọi cubit tạo booking rồi push `PaymentPage`.
@@ -62,6 +64,12 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
+        icon: Icon(
+          Icons.help_outline_rounded,
+          size: AppIcons.xxl,
+          color: AppColors.warning,
+        ),
         title: const Text('Rời trang?'),
         content: const Text(
           'Nếu rời bây giờ, thông tin đặt chỗ sẽ bị huỷ. Bạn có chắc?',
@@ -88,42 +96,36 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
       child: BlocConsumer<BookingSummaryCubit, BookingSummaryState>(
         listener: (context, state) {
           if (state is SummarySuccess) {
-            // vì payment flow đang trong giai đoạn fix bugs — bỏ comment khi ready.
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  'Tạo booking thành công! bookingId=${state.bookingId}, '
-                  'cọc=${state.depositAmount}đ (payment tạm khoá)',
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded,
+                        color: AppColors.white, size: AppIcons.md),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Tạo booking thành công! bookingId=${state.bookingId}, '
+                        'cọc=${state.depositAmount}đ (payment tạm khoá)',
+                      ),
+                    ),
+                  ],
                 ),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
                 duration: const Duration(seconds: 5),
               ),
             );
             Navigator.popUntil(context, (route) => route.isFirst);
-            // Navigator.pushReplacement(
-            //   context,
-            //   MaterialPageRoute(
-            //     builder: (_) => PaymentPage(
-            //       bookingId: state.bookingId,
-            //       cafeId: widget.cafeId,
-            //       depositAmount: state.depositAmount,
-            //       deadline: state.deadline,
-            //       config: lastReady?.config,
-            //       method: lastReady?.selectedMethod ?? _defaultMethod,
-            //     ),
-            //   ),
-            // );
           }
           if (state is SummaryFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: Theme.of(context).colorScheme.error,
+                behavior: SnackBarBehavior.floating,
               ),
             );
-          }
-          if (state is SummaryReady) {
-            // _lastReady = state;
           }
         },
         builder: (context, state) {
@@ -147,10 +149,10 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
 
   Widget _buildBody(BuildContext context, BookingSummaryState state) {
     if (state is SummaryInitial || state is SummaryLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildLoadingState(context);
     }
     if (state is SummaryFailure && state.code == 'FETCH_CONFIG') {
-      return _buildError(state.message);
+      return _buildError(context, state.message);
     }
     if (state is SummaryReady) {
       return _buildReady(context, state);
@@ -161,54 +163,115 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
     return const SizedBox.shrink();
   }
 
+  Widget _buildLoadingState(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      children: [
+        AppShimmer.boxRadius(
+          context: context,
+          height: 160,
+          borderRadius: AppRadius.cardRadius,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppShimmer.boxRadius(
+          context: context,
+          height: 200,
+          borderRadius: AppRadius.cardRadius,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppShimmer.boxRadius(
+          context: context,
+          height: 120,
+          borderRadius: AppRadius.cardRadius,
+        ),
+      ],
+    );
+  }
+
   Widget _buildReady(BuildContext context, SummaryReady state) {
     final theme = Theme.of(context);
-    final timeFmt = DateFormat('HH:mm — dd/MM/yyyy');
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Thông tin phòng
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: AppRadius.cardRadius,
+              border: Border.all(
+                color:
+                    theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              boxShadow: AppElevation.shadowXxs,
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadius.cardRadius,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    widget.gameName,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.12),
+                          AppColors.primary.withValues(alpha: 0.02),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: SectionHeader(
+                      icon: AppIcons.cafe,
+                      title: widget.gameName,
+                      subtitle: widget.cafeName,
+                      accent: AppColors.primary,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _kv(theme, 'Quán', widget.cafeName),
-                  _kv(theme, 'Giờ hẹn', timeFmt.format(widget.scheduledTime)),
-                  _kv(theme, 'Số ghế', widget.seatCount.toString()),
-                  _kv(
-                    theme,
-                    'Số thành viên',
-                    widget.memberIds.length.toString(),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _kv(theme, AppIcons.clock, 'Giờ hẹn',
+                            BookingUiHelpers.formatDateTime(
+                                widget.scheduledTime,
+                                pattern: 'HH:mm • dd/MM/yyyy')),
+                        _kv(theme, AppIcons.users, 'Số ghế',
+                            widget.seatCount.toString()),
+                        _kv(theme, AppIcons.users, 'Số thành viên',
+                            widget.memberIds.length.toString()),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           DepositBreakdownCard(breakdown: state.breakdown),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: PaymentMethodSelector(
-                selected: state.selectedMethod,
-                onChanged: _cubit.selectPaymentMethod,
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: AppRadius.cardRadius,
+              border: Border.all(
+                color:
+                    theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
+              boxShadow: AppElevation.shadowXxs,
+            ),
+            child: PaymentMethodSelector(
+              selected: state.selectedMethod,
+              onChanged: _cubit.selectPaymentMethod,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
           FilledButton.icon(
             onPressed: () => _cubit.submit(
               cafeId: widget.cafeId,
@@ -217,10 +280,11 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
               seatCount: widget.seatCount,
               memberIds: widget.memberIds,
             ),
-            icon: const Icon(Icons.lock_outline),
+            icon: const Icon(Icons.lock_outline_rounded),
             label: const Text('Xác nhận & Thanh toán'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              minimumSize: const Size.fromHeight(52),
+              backgroundColor: AppColors.primary,
             ),
           ),
         ],
@@ -228,49 +292,68 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
     );
   }
 
-  Widget _buildError(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
+  Widget _kv(ThemeData theme, IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.10),
+              borderRadius: AppRadius.radiusXxsAll,
             ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => _cubit.loadConfig(widget.cafeId),
-              child: const Text('Thử lại'),
+            child: Icon(icon, size: AppIcons.md, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _kv(ThemeData theme, String label, String value) {
+  Widget _buildError(BuildContext context, String message) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            '$label: ',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
+          Icon(
+            Icons.error_outline_rounded,
+            size: AppIcons.xxl,
+            color: theme.colorScheme.error,
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          FilledButton.icon(
+            onPressed: () => _cubit.loadConfig(widget.cafeId),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Thử lại'),
           ),
         ],
       ),

@@ -44,9 +44,14 @@ class RatingRepositoryImpl implements RatingRepository {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
       return Right(
-          MockRatingDatasource.mockKarmaRatingTags.map((t) => t.toEntity()).toList());
+        MockRatingDatasource.mockKarmaRatingTags
+            .map((t) => t.toEntity())
+            .toList(),
+      );
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy danh sách tag: ${e.toString()}'));
+      return Left(
+        ServerFailure(message: 'Lỗi lấy danh sách tag: ${e.toString()}'),
+      );
     }
   }
 }

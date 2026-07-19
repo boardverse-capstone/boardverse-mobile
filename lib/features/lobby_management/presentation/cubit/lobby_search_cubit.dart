@@ -13,8 +13,7 @@ class LobbySearchCubit extends Cubit<LobbyState> {
 
   static const double currentUserKarma = 70;
 
-  LobbySearchCubit({required this._repository})
-      : super(const LobbyInitial());
+  LobbySearchCubit({required this._repository}) : super(const LobbyInitial());
 
   /// Tìm lobby, trả về `LobbyListLoaded` / `LobbyListEmpty` / `LobbyListLoading`.
   Future<void> searchNearbyLobbies({
@@ -33,19 +32,20 @@ class LobbySearchCubit extends Cubit<LobbyState> {
     // Future hoàn thành). Nếu không check, sẽ gây:
     //   Bad state: Cannot emit new states after calling close
     if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (list) {
-        if (list.isEmpty) {
-          emit(const LobbyListEmpty(
+    result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
+      list,
+    ) {
+      if (list.isEmpty) {
+        emit(
+          const LobbyListEmpty(
             message:
                 'Không có phòng nào phù hợp. Hãy thử nới rộng bán kính hoặc giảm ngưỡng Karma.',
-          ));
-        } else {
-          emit(LobbyListLoaded(lobbies: list));
-        }
-      },
-    );
+          ),
+        );
+      } else {
+        emit(LobbyListLoaded(lobbies: list));
+      }
+    });
   }
 
   void clear() => emit(const LobbyInitial());

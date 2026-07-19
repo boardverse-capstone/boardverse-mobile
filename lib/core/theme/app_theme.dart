@@ -24,42 +24,42 @@ class AppTheme {
   // ========================
 
   static ThemeData get lightTheme => _buildTheme(
-        brightness: Brightness.light,
-        primaryColor: AppColors.primary,
-        secondaryColor: AppColors.secondary,
-        accentColor: AppColors.accent,
-        backgroundColor: AppColors.background,
-        surfaceColor: AppColors.surface,
-        textPrimaryColor: AppColors.textPrimary,
-        textSecondaryColor: AppColors.textSecondary,
-        borderColor: AppColors.border,
-        dividerColor: AppColors.divider,
-        errorColor: AppColors.error,
-        successColor: AppColors.success,
-        warningColor: AppColors.warning,
-        infoColor: AppColors.info,
-      );
+    brightness: Brightness.light,
+    primaryColor: AppColors.primary,
+    secondaryColor: AppColors.secondary,
+    accentColor: AppColors.accent,
+    backgroundColor: AppColors.background,
+    surfaceColor: AppColors.surface,
+    textPrimaryColor: AppColors.textPrimary,
+    textSecondaryColor: AppColors.textSecondary,
+    borderColor: AppColors.border,
+    dividerColor: AppColors.divider,
+    errorColor: AppColors.error,
+    successColor: AppColors.success,
+    warningColor: AppColors.warning,
+    infoColor: AppColors.info,
+  );
 
   // ========================
   // DARK THEME
   // ========================
 
   static ThemeData get darkTheme => _buildTheme(
-        brightness: Brightness.dark,
-        primaryColor: AppColorsDark.primary,
-        secondaryColor: AppColorsDark.secondary,
-        accentColor: AppColorsDark.accent,
-        backgroundColor: AppColorsDark.background,
-        surfaceColor: AppColorsDark.surface,
-        textPrimaryColor: AppColorsDark.textPrimary,
-        textSecondaryColor: AppColorsDark.textSecondary,
-        borderColor: AppColorsDark.border,
-        dividerColor: AppColorsDark.divider,
-        errorColor: AppColorsDark.error,
-        successColor: AppColorsDark.success,
-        warningColor: AppColorsDark.warning,
-        infoColor: AppColorsDark.info,
-      );
+    brightness: Brightness.dark,
+    primaryColor: AppColorsDark.primary,
+    secondaryColor: AppColorsDark.secondary,
+    accentColor: AppColorsDark.accent,
+    backgroundColor: AppColorsDark.background,
+    surfaceColor: AppColorsDark.surface,
+    textPrimaryColor: AppColorsDark.textPrimary,
+    textSecondaryColor: AppColorsDark.textSecondary,
+    borderColor: AppColorsDark.border,
+    dividerColor: AppColorsDark.divider,
+    errorColor: AppColorsDark.error,
+    successColor: AppColorsDark.success,
+    warningColor: AppColorsDark.warning,
+    infoColor: AppColorsDark.info,
+  );
 
   // ========================
   // THEME BUILDER
@@ -109,16 +109,18 @@ class AppTheme {
       onErrorContainer: errorColor,
       surface: surfaceColor,
       onSurface: textPrimaryColor,
-      surfaceContainerHighest:
-          isDark ? AppColorsDark.surfaceVariant : AppColors.surfaceVariant,
+      surfaceContainerHighest: isDark
+          ? AppColorsDark.surfaceVariant
+          : AppColors.surfaceVariant,
       onSurfaceVariant: textSecondaryColor,
       outline: borderColor,
       outlineVariant: dividerColor,
       shadow: Colors.black,
       scrim: Colors.black,
       inverseSurface: isDark ? AppColors.textPrimary : AppColorsDark.surface,
-      onInverseSurface:
-          isDark ? AppColors.textPrimary : AppColorsDark.textPrimary,
+      onInverseSurface: isDark
+          ? AppColors.textPrimary
+          : AppColorsDark.textPrimary,
       inversePrimary: isDark ? AppColors.primaryDark : AppColorsDark.primary,
     );
 
@@ -150,10 +152,7 @@ class AppTheme {
           color: textPrimaryColor,
           fontWeight: FontWeight.w600,
         ),
-        iconTheme: IconThemeData(
-          color: textPrimaryColor,
-          size: AppIcons.lg,
-        ),
+        iconTheme: IconThemeData(color: textPrimaryColor, size: AppIcons.lg),
       ),
 
       // ========================
@@ -187,9 +186,7 @@ class AppTheme {
               fontWeight: FontWeight.w600,
             );
           }
-          return textTheme.labelSmall?.copyWith(
-            color: textSecondaryColor,
-          );
+          return textTheme.labelSmall?.copyWith(color: textSecondaryColor);
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -218,10 +215,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.radiusXs),
           ),
@@ -236,10 +230,7 @@ class AppTheme {
       // ========================
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.radiusXs),
           ),
@@ -254,10 +245,7 @@ class AppTheme {
       // ========================
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.radiusXs),
           ),
@@ -273,10 +261,7 @@ class AppTheme {
       // ========================
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.radiusXs),
           ),
@@ -316,8 +301,9 @@ class AppTheme {
       // ========================
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor:
-            isDark ? AppColorsDark.surfaceVariant : AppColors.surfaceVariant,
+        fillColor: isDark
+            ? AppColorsDark.surfaceVariant
+            : AppColors.surfaceVariant,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -342,15 +328,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadius.radiusXs),
           borderSide: BorderSide(color: errorColor, width: 2),
         ),
-        hintStyle: textTheme.bodyMedium?.copyWith(
-          color: textSecondaryColor,
-        ),
-        labelStyle: textTheme.bodyMedium?.copyWith(
-          color: textSecondaryColor,
-        ),
-        errorStyle: textTheme.bodySmall?.copyWith(
-          color: errorColor,
-        ),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: textSecondaryColor),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: textSecondaryColor),
+        errorStyle: textTheme.bodySmall?.copyWith(color: errorColor),
       ),
 
       // ========================
@@ -380,9 +360,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
         ),
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: textPrimaryColor,
-        ),
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: textPrimaryColor),
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: textSecondaryColor,
         ),
@@ -395,9 +373,7 @@ class AppTheme {
         backgroundColor: surfaceColor,
         elevation: 8,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         dragHandleColor: textSecondaryColor.withValues(alpha: 0.4),
         dragHandleSize: const Size(40, 4),
@@ -408,8 +384,9 @@ class AppTheme {
       // SNACK BAR THEME
       // ========================
       snackBarTheme: SnackBarThemeData(
-        backgroundColor:
-            isDark ? AppColorsDark.surfaceElevated : AppColors.textPrimary,
+        backgroundColor: isDark
+            ? AppColorsDark.surfaceElevated
+            : AppColors.textPrimary,
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: isDark ? AppColorsDark.textPrimary : Colors.white,
         ),
@@ -432,19 +409,16 @@ class AppTheme {
       // LIST TILE THEME
       // ========================
       listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 4,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.radiusXs),
         ),
-        titleTextStyle: textTheme.bodyLarge?.copyWith(
-          color: textPrimaryColor,
-        ),
+        titleTextStyle: textTheme.bodyLarge?.copyWith(color: textPrimaryColor),
         subtitleTextStyle: textTheme.bodySmall?.copyWith(
           color: textSecondaryColor,
         ),
+        tileColor: Colors.transparent,
+        selectedTileColor: primaryColor.withValues(alpha: 0.1),
       ),
 
       // ========================
@@ -454,9 +428,7 @@ class AppTheme {
         labelColor: primaryColor,
         unselectedLabelColor: textSecondaryColor,
         indicatorColor: primaryColor,
-        labelStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         unselectedLabelStyle: textTheme.labelLarge,
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.label,
@@ -500,9 +472,7 @@ class AppTheme {
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         side: BorderSide(color: borderColor, width: 2),
       ),
 
@@ -523,9 +493,7 @@ class AppTheme {
       // ========================
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: isDark
-              ? AppColorsDark.surfaceElevated
-              : AppColors.textPrimary,
+          color: isDark ? AppColorsDark.surfaceElevated : AppColors.textPrimary,
           borderRadius: BorderRadius.circular(AppRadius.radiusXs),
         ),
         textStyle: textTheme.bodySmall?.copyWith(

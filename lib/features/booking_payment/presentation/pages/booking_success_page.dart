@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/theme.dart';
 import '../../data/datasources/mock/mock_booking_remote_datasource.dart';
 import '../../domain/enums/booking_status.dart';
 import '../cubit/booking_result_cubit.dart';
@@ -37,8 +38,6 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
   }
 
   Future<void> _openMaps(String? cafeId) async {
-    // Phase sau sẽ lookup địa chỉ quán từ API để build URL chính xác.
-    // Tạm thời mở Google Maps search theo tên.
     final query = Uri.encodeComponent('board game cafe ${cafeId ?? ''}');
     final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
     if (await canLaunchUrl(url)) {
@@ -61,7 +60,7 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
       context: context,
       datasource: datasource,
       bookingId: widget.bookingId,
-      memberIds: ['user_001', 'user_002', 'user_003'],
+      memberIds: const ['user_001', 'user_002', 'user_003'],
       currentUserId: 'user_001',
     );
   }
@@ -74,9 +73,17 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
       listener: (context, state) {
         if (state is ResultCancelled) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã huỷ đơn đặt chỗ'),
-              backgroundColor: Colors.orange,
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      color: AppColors.white, size: AppIcons.md),
+                  const SizedBox(width: AppSpacing.xs),
+                  const Text('Đã huỷ đơn đặt chỗ'),
+                ],
+              ),
+              backgroundColor: AppColors.warning,
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -85,77 +92,95 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
             SnackBar(
               content: Text(state.message),
               backgroundColor: theme.colorScheme.error,
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
       },
       builder: (context, state) {
         if (state is ResultLoading || state is ResultInitial) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            appBar: AppBar(title: const Text('Đặt chỗ thành công')),
+            body: ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                AppShimmer.boxRadius(
+                  context: context,
+                  height: 96,
+                  borderRadius: AppRadius.radiusMdAll,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppShimmer.card(context: context),
+              ],
+            ),
           );
         }
 
         final booking = _extractBooking(state);
         if (booking == null) {
           return Scaffold(
-            appBar: AppBar(),
-            body: Center(
-              child: Text(state is ResultFailure ? state.message : 'Không tải được đơn'),
+            appBar: AppBar(title: const Text('Đặt chỗ')),
+            body: _ErrorState(
+              message:
+                  state is ResultFailure ? state.message : 'Không tải được đơn',
             ),
           );
         }
 
         final canCancel = booking.status == BookingStatus.confirmed;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Đặt chỗ thành công'),
             automaticallyImplyLeading: false,
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildSuccessHeader(theme),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 BookingQrCard(booking: booking),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 FilledButton.icon(
                   onPressed: () => _openMaps(booking.cafeId),
-                  icon: const Icon(Icons.directions),
+                  icon: const Icon(Icons.directions_rounded),
                   label: const Text('Mở chỉ đường (Google Maps)'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppColors.primary,
                   ),
                 ),
                 if (canCancel) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _cancelBooking,
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text('Huỷ đơn'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: Colors.red.shade700,
-                      side: BorderSide(color: Colors.red.shade300),
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: AppColors.error,
+                      side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 OutlinedButton.icon(
                   onPressed: _mockQrScan,
-                  icon: const Icon(Icons.qr_code_scanner),
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
                   label: const Text('Mock: Quét QR (POS)'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    foregroundColor: Colors.orange.shade700,
-                    side: BorderSide(color: Colors.orange.shade300),
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: AppColors.warning,
+                    side:
+                        BorderSide(color: AppColors.warning.withValues(alpha: 0.5)),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextButton(
-                  onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                  onPressed: () =>
+                      Navigator.popUntil(context, (r) => r.isFirst),
                   child: const Text('Về trang chính'),
                 ),
               ],
@@ -168,31 +193,52 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
 
   Widget _buildSuccessHeader(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade300),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.success.withValues(alpha: 0.15),
+            AppColors.success.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.35),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle, color: Colors.green.shade700, size: 32),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.20),
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: AppIcons.xl,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Đặt cọc thành công!',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade900,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.success,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   'Đưa mã QR cho nhân viên quán để bắt đầu phiên chơi.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.green.shade900,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.success,
                   ),
                 ),
               ],
@@ -209,5 +255,35 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
     if (state is ResultExpired) return state.booking;
     if (state is ResultCancelled) return state.booking;
     return null;
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+
+  const _ErrorState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: AppIcons.xxl,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
   }
 }

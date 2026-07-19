@@ -15,7 +15,7 @@ class LobbyPersistenceService {
   final FlutterSecureStorage _storage;
 
   LobbyPersistenceService({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   /// Save the active lobby ID
   Future<void> saveActiveLobbyId(String lobbyId) async {

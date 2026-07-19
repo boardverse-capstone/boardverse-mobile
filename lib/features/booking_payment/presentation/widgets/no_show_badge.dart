@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/theme.dart';
+
 /// Badge "Vắng" hiển thị cho booking đã đặt cọc nhưng không đến check-in.
 class NoShowBadge extends StatelessWidget {
   const NoShowBadge({super.key});
@@ -8,22 +10,32 @@ class NoShowBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade300),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.error.withValues(alpha: 0.10),
+        borderRadius: AppRadius.tagRadius,
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: 0.30),
+          width: 0.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 14, color: Colors.red.shade700),
-          const SizedBox(width: 4),
+          Icon(
+            Icons.person_off_rounded,
+            size: AppIcons.sm,
+            color: AppColors.error,
+          ),
+          const SizedBox(width: AppSpacing.xxs),
           Text(
             'Vắng',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: Colors.red.shade700,
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppColors.error,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

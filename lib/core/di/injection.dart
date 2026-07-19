@@ -42,6 +42,8 @@ import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart'
 import '../../features/match_summary_rating/data/rating_repository_impl.dart';
 import '../../features/match_summary_rating/domain/repositories/rating_repository.dart';
 import '../../features/match_summary_rating/presentation/cubit/rating_cubit.dart';
+import '../../features/settings/presentation/cubit/theme_cubit.dart';
+import '../services/storage/theme_preferences_service.dart';
 
 /// Global service locator instance.
 final sl = GetIt.instance;
@@ -202,6 +204,15 @@ void setupDependencies() {
 
   sl.registerFactory<RatingCubit>(
     () => RatingCubit(repository: sl<RatingRepository>()),
+  );
+
+  // ─── Theme preferences ────────────────────────────────────────────────
+  sl.registerLazySingleton<ThemePreferencesService>(
+    () => ThemePreferencesService(storage: sl<FlutterSecureStorage>()),
+  );
+
+  sl.registerLazySingleton<ThemeCubit>(
+    () => ThemeCubit(preferences: sl<ThemePreferencesService>()),
   );
 
   // ─── Cloudinary (image upload + transformation) ────────────────────────

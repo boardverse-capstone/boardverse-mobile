@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -83,6 +84,9 @@ class AuthTitle extends StatelessWidget {
 }
 
 /// Link text button cho auth pages
+///
+/// Dùng [Text.rich] để cho phép text + link xuống dòng tự nhiên khi form card
+/// hẹp, tránh RenderFlex overflow. Link vẫn click được đúng vùng.
 class AuthLinkText extends StatelessWidget {
   final String text;
   final String linkText;
@@ -97,21 +101,27 @@ class AuthLinkText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(text, style: TextStyle(color: AppColors.textSecondary)),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            linkText,
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
+    return Align(
+      alignment: Alignment.center,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: text,
+              style: TextStyle(color: AppColors.textSecondary),
             ),
-          ),
+            TextSpan(
+              text: linkText,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+              recognizer: TapGestureRecognizer()..onTap = onTap,
+            ),
+          ],
         ),
-      ],
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }

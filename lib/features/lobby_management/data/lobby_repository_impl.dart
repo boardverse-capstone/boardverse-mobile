@@ -121,7 +121,8 @@ class LobbyRepositoryImpl implements LobbyRepository {
       return Right(model.toEntity());
     } catch (e) {
       return Left(
-          ServerFailure(message: 'Lỗi lấy thông tin phòng: ${e.toString()}'));
+        ServerFailure(message: 'Lỗi lấy thông tin phòng: ${e.toString()}'),
+      );
     }
   }
 
@@ -139,7 +140,8 @@ class LobbyRepositoryImpl implements LobbyRepository {
       }
       if (lobby.status != LobbyStatusModel.open) {
         return const Left(
-            ServerFailure(message: 'Phòng không còn nhận thành viên'));
+          ServerFailure(message: 'Phòng không còn nhận thành viên'),
+        );
       }
       if (lobby.currentPlayers >= lobby.maxPlayers) {
         return const Left(ServerFailure(message: 'Phòng đã đủ người'));
@@ -148,7 +150,8 @@ class LobbyRepositoryImpl implements LobbyRepository {
       return const Right(true);
     } catch (e) {
       return Left(
-          ServerFailure(message: 'Lỗi tham gia phòng: ${e.toString()}'));
+        ServerFailure(message: 'Lỗi tham gia phòng: ${e.toString()}'),
+      );
     }
   }
 
@@ -171,8 +174,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
       await Future.delayed(const Duration(milliseconds: 300));
       return const Right(null);
     } catch (e) {
-      return Left(
-          ServerFailure(message: 'Lỗi mời bạn bè: ${e.toString()}'));
+      return Left(ServerFailure(message: 'Lỗi mời bạn bè: ${e.toString()}'));
     }
   }
 
@@ -180,12 +182,15 @@ class LobbyRepositoryImpl implements LobbyRepository {
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() async {
     try {
       await Future.delayed(const Duration(milliseconds: 400));
-      return Right(MockLobbyDatasource.mockOnlineFriendsList
-          .map((f) => f.toEntity())
-          .toList());
+      return Right(
+        MockLobbyDatasource.mockOnlineFriendsList
+            .map((f) => f.toEntity())
+            .toList(),
+      );
     } catch (e) {
       return Left(
-          ServerFailure(message: 'Lỗi lấy danh sách bạn bè: ${e.toString()}'));
+        ServerFailure(message: 'Lỗi lấy danh sách bạn bè: ${e.toString()}'),
+      );
     }
   }
 
@@ -270,9 +275,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
 
       return Right(filtered.map(_toSummary).toList());
     } catch (e) {
-      return Left(
-        ServerFailure(message: 'Lỗi tìm phòng: ${e.toString()}'),
-      );
+      return Left(ServerFailure(message: 'Lỗi tìm phòng: ${e.toString()}'));
     }
   }
 
@@ -286,8 +289,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
       if (lobby == null) {
         return const Left(ServerFailure(message: 'Không tìm thấy phòng'));
       }
-      if (lobby.status != LobbyStatusModel.full &&
-          !lobby.isFull) {
+      if (lobby.status != LobbyStatusModel.full && !lobby.isFull) {
         return const Left(
           ServerFailure(
             message: 'Phòng chưa đủ người, chưa thể tạo booking tự động',
@@ -303,9 +305,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
       return Right(newBookingId);
     } catch (e) {
       return Left(
-        ServerFailure(
-          message: 'Lỗi auto-create booking: ${e.toString()}',
-        ),
+        ServerFailure(message: 'Lỗi auto-create booking: ${e.toString()}'),
       );
     }
   }
@@ -321,12 +321,15 @@ class LobbyRepositoryImpl implements LobbyRepository {
       if (lobby == null) {
         return const Left(ServerFailure(message: 'Không tìm thấy phòng'));
       }
-      _mutateStore(lobbyId, (m) => m.copyWith(
-            status: LobbyStatusModel.values.firstWhere(
-              (s) => s.name == newStatus.name,
-              orElse: () => LobbyStatusModel.open,
-            ),
-          ));
+      _mutateStore(
+        lobbyId,
+        (m) => m.copyWith(
+          status: LobbyStatusModel.values.firstWhere(
+            (s) => s.name == newStatus.name,
+            orElse: () => LobbyStatusModel.open,
+          ),
+        ),
+      );
       return Right(lobby.toEntity().copyWith(status: newStatus));
     } catch (e) {
       return Left(
@@ -355,16 +358,18 @@ class LobbyRepositoryImpl implements LobbyRepository {
         joinedAt: DateTime.now().toIso8601String(),
         karma: 70,
       );
-      final updated =
-          MockLobbyDatasource.simulateJoinPlayerById(lobbyId, player);
+      final updated = MockLobbyDatasource.simulateJoinPlayerById(
+        lobbyId,
+        player,
+      );
       if (updated == null) {
-        return const Left(ServerFailure(message: 'Phòng đã đầy hoặc không tồn tại'));
+        return const Left(
+          ServerFailure(message: 'Phòng đã đầy hoặc không tồn tại'),
+        );
       }
       return Right(updated.toEntity());
     } catch (e) {
-      return Left(
-        ServerFailure(message: 'Lỗi thêm bạn: ${e.toString()}'),
-      );
+      return Left(ServerFailure(message: 'Lỗi thêm bạn: ${e.toString()}'));
     }
   }
 
@@ -385,23 +390,23 @@ class LobbyRepositoryImpl implements LobbyRepository {
   }
 
   LobbySummary _toSummary(LobbyModel m) => LobbySummary(
-        id: m.id,
-        gameId: m.gameId,
-        gameName: m.gameName,
-        gameImageUrl: m.gameImageUrl ?? '',
-        cafeId: m.cafeId,
-        cafeName: m.cafeName,
-        hostName: m.hostName,
-        distanceKm: m.distanceKm ?? 0,
-        currentPlayers: m.currentPlayers,
-        maxPlayers: m.maxPlayers,
-        minPlayers: m.minPlayers,
-        minimumKarma: m.minimumKarma,
-        scheduledTime: m.scheduledTime,
-        timeoutAt: m.timeoutAt,
-        status: LobbyStatusModelX.toEntity(m.status),
-        isPublic: m.isPublic,
-      );
+    id: m.id,
+    gameId: m.gameId,
+    gameName: m.gameName,
+    gameImageUrl: m.gameImageUrl ?? '',
+    cafeId: m.cafeId,
+    cafeName: m.cafeName,
+    hostName: m.hostName,
+    distanceKm: m.distanceKm ?? 0,
+    currentPlayers: m.currentPlayers,
+    maxPlayers: m.maxPlayers,
+    minPlayers: m.minPlayers,
+    minimumKarma: m.minimumKarma,
+    scheduledTime: m.scheduledTime,
+    timeoutAt: m.timeoutAt,
+    status: LobbyStatusModelX.toEntity(m.status),
+    isPublic: m.isPublic,
+  );
 
   void dispose() {
     MockLobbyDatasource.stopAllTimers();

@@ -36,10 +36,10 @@ class FriendModel {
   }
 
   FriendEntity toEntity() => FriendEntity(
-        id: id,
-        name: name,
-        avatarUrl: avatarUrl,
-        isOnline: isOnline,
-        isInLobby: isInLobby,
-      );
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    isOnline: isOnline,
+    isInLobby: isInLobby,
+  );
 }

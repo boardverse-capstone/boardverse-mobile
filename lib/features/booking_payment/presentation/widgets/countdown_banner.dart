@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/theme.dart';
+
 /// Banner đếm ngược dùng cho [PaymentPage] và [BookingSuccessPage].
 ///
 /// Tự quản lý [Timer.periodic] — caller chỉ cần truyền [deadline] và
@@ -54,42 +56,87 @@ class _CountdownBannerState extends State<CountdownBanner> {
     final mm = _remaining.inMinutes.toString().padLeft(2, '0');
     final ss = (_remaining.inSeconds % 60).toString().padLeft(2, '0');
     final isUrgent = _remaining < const Duration(minutes: 2);
-    final color = isUrgent ? Colors.red.shade700 : theme.colorScheme.primary;
+    final color = isUrgent ? AppColors.error : theme.colorScheme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.12),
+            color.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Row(
         children: [
-          Icon(Icons.timer_outlined, color: color),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(
+              isUrgent ? Icons.timer_off_rounded : Icons.timer_outlined,
+              color: color,
+              size: AppIcons.lg,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      widget.title,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (isUrgent) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: AppRadius.tagRadius,
+                        ),
+                        child: Text(
+                          'GẤP',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$mm:$ss',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: color,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Text(
                   'Đến ${DateFormat('HH:mm').format(widget.deadline)}',
-                  style: theme.textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

@@ -27,7 +27,8 @@ class LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasLocation = location != null && location!.hasLocation;
+    final hasLocation =
+        location != null && location!.hasLocation && location!.latitude != null;
 
     return SectionCard(
       child: Column(
@@ -46,7 +47,7 @@ class LocationCard extends StatelessWidget {
               icon: AppIcons.directions,
               label: 'Toạ độ',
               value:
-                  '${location!.latitude.toStringAsFixed(4)}, ${location!.longitude.toStringAsFixed(4)}',
+                  '${location!.latitude!.toStringAsFixed(4)}, ${location!.longitude!.toStringAsFixed(4)}',
             ),
             const SizedBox(height: AppSpacing.sm),
             DetailRow(

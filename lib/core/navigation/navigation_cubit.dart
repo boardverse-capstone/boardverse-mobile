@@ -8,24 +8,16 @@ part 'navigation_state.dart';
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit() : super(const NavigationState());
 
-  void setTab(int index) =>
-      emit(state.copyWith(currentIndex: index));
+  /// Switches the active tab. Out-of-range indices are clamped (not rejected)
+  /// so a transient bounce-back from the PageView never leaves the nav bar
+  /// in a "nothing is selected" state.
+  void setTab(int index) {
+    final clamped = index.clamp(0, NavTab.values.length - 1);
+    if (clamped == state.currentIndex) return;
+    emit(state.copyWith(currentIndex: clamped));
+  }
 
   void setTabFromEnum(NavTab tab) => setTab(tab.tabIndex);
 
-  void resetToDiscovery() => emit(state.copyWith(currentIndex: NavTab.discovery.tabIndex));
-
-  void goHome() => emit(state.copyWith(currentIndex: NavTab.home.tabIndex));
-
-  void updateLobbyCount(int count) =>
-      emit(state.copyWith(lobbyCount: count));
-
-  void updateBookingBadge({bool hasDepositPending = false, bool isPlaying = false}) =>
-      emit(state.copyWith(
-        hasBookingBadge: hasDepositPending,
-        isPlayingBadge: isPlaying,
-      ));
-
-  void updateFriendInvites(int count) =>
-      emit(state.copyWith(friendInviteCount: count));
+  void goHome() => setTab(NavTab.home.tabIndex);
 }

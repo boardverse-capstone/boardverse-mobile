@@ -17,88 +17,89 @@ class MockLobbyDatasource {
 
   /// Cấu hình giới hạn slider dựa theo thuộc tính số lượng người của game
   static LobbyConfigLimits get mockLobbyConfigLimit => const LobbyConfigLimits(
-        minSlots: 4,
-        maxSlots: 10,
-        suggestedMinSlots: 5,
-        suggestedMaxSlots: 10,
-        gameName: 'Avalon',
-        playerRangeDescription: '5-10 người',
-      );
+    minSlots: 4,
+    maxSlots: 10,
+    suggestedMinSlots: 5,
+    suggestedMaxSlots: 10,
+    gameName: 'Avalon',
+    playerRangeDescription: '5-10 người',
+  );
 
   /// Trạng thái realtime seed cho UI phát triển. Single-instance cố định.
   static LobbyModel get mockLobbyRealtimeUsers {
     final now = DateTime.now();
-    return _lobbiesById['lobby_001'] ?? LobbyModel(
-      id: 'lobby_001',
-      gameId: 'bg_001',
-      gameName: 'Avalon: The Resistance Game',
-      gameImageUrl: 'https://picsum.photos/seed/avalon/200',
-      cafeId: 'cafe_001',
-      cafeName: 'Board Game Hub District 1',
-      hostId: 'user_001',
-      hostName: 'Minh Player',
-      scheduledTime: now.add(const Duration(minutes: 30)),
-      currentPlayers: 5,
-      maxPlayers: 7,
-      minPlayers: 5,
-      isPublic: true,
-      inviteCode: 'AVL2024',
-      status: LobbyStatusModel.open,
-      players: const [
-        LobbyPlayerModel(
-          id: 'user_001',
-          name: 'Minh Player',
-          avatarUrl: 'https://picsum.photos/seed/minh/150',
-          isHost: true,
-          isReady: true,
-          joinedAt: '2024-01-15T10:00:00Z',
-          karma: 92,
-        ),
-        LobbyPlayerModel(
-          id: 'user_002',
-          name: 'Thu Hà',
-          avatarUrl: 'https://picsum.photos/seed/thuha/150',
-          isHost: false,
-          isReady: true,
-          joinedAt: '2024-01-15T10:05:00Z',
-          karma: 78,
-        ),
-        LobbyPlayerModel(
-          id: 'user_003',
-          name: 'Anh Khoa',
-          avatarUrl: 'https://picsum.photos/seed/anhkhoa/150',
-          isHost: false,
-          isReady: false,
-          joinedAt: '2024-01-15T10:08:00Z',
-          karma: 65,
-        ),
-        LobbyPlayerModel(
-          id: 'user_004',
-          name: 'Lan Chi',
-          avatarUrl: 'https://picsum.photos/seed/lanchi/150',
-          isHost: false,
-          isReady: true,
-          joinedAt: '2024-01-15T10:10:00Z',
-          karma: 88,
-        ),
-        LobbyPlayerModel(
-          id: 'user_005',
-          name: 'Hoàng Nam',
-          avatarUrl: 'https://picsum.photos/seed/hoangnam/150',
-          isHost: false,
-          isReady: false,
-          joinedAt: '2024-01-15T10:12:00Z',
-          karma: 55,
-        ),
-      ],
-      createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-      timeoutAt: now.add(const Duration(minutes: 20)),
-      minimumKarma: 50,
-      searchRadiusKm: 10,
-      distanceKm: 2.5,
-      cafeLat: 10.7769,
-      cafeLng: 106.7009,
-    );
+    return _lobbiesById['lobby_001'] ??
+        LobbyModel(
+          id: 'lobby_001',
+          gameId: 'bg_001',
+          gameName: 'Avalon: The Resistance Game',
+          gameImageUrl: 'https://picsum.photos/seed/avalon/200',
+          cafeId: 'cafe_001',
+          cafeName: 'Board Game Hub District 1',
+          hostId: 'user_001',
+          hostName: 'Minh Player',
+          scheduledTime: now.add(const Duration(minutes: 30)),
+          currentPlayers: 5,
+          maxPlayers: 7,
+          minPlayers: 5,
+          isPublic: true,
+          inviteCode: 'AVL2024',
+          status: LobbyStatusModel.open,
+          players: const [
+            LobbyPlayerModel(
+              id: 'user_001',
+              name: 'Minh Player',
+              avatarUrl: 'https://picsum.photos/seed/minh/150',
+              isHost: true,
+              isReady: true,
+              joinedAt: '2024-01-15T10:00:00Z',
+              karma: 92,
+            ),
+            LobbyPlayerModel(
+              id: 'user_002',
+              name: 'Thu Hà',
+              avatarUrl: 'https://picsum.photos/seed/thuha/150',
+              isHost: false,
+              isReady: true,
+              joinedAt: '2024-01-15T10:05:00Z',
+              karma: 78,
+            ),
+            LobbyPlayerModel(
+              id: 'user_003',
+              name: 'Anh Khoa',
+              avatarUrl: 'https://picsum.photos/seed/anhkhoa/150',
+              isHost: false,
+              isReady: false,
+              joinedAt: '2024-01-15T10:08:00Z',
+              karma: 65,
+            ),
+            LobbyPlayerModel(
+              id: 'user_004',
+              name: 'Lan Chi',
+              avatarUrl: 'https://picsum.photos/seed/lanchi/150',
+              isHost: false,
+              isReady: true,
+              joinedAt: '2024-01-15T10:10:00Z',
+              karma: 88,
+            ),
+            LobbyPlayerModel(
+              id: 'user_005',
+              name: 'Hoàng Nam',
+              avatarUrl: 'https://picsum.photos/seed/hoangnam/150',
+              isHost: false,
+              isReady: false,
+              joinedAt: '2024-01-15T10:12:00Z',
+              karma: 55,
+            ),
+          ],
+          createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
+          timeoutAt: now.add(const Duration(minutes: 20)),
+          minimumKarma: 50,
+          searchRadiusKm: 10,
+          distanceKm: 2.5,
+          cafeLat: 10.7769,
+          cafeLng: 106.7009,
+        );
   }
 
   // ─── Multi-Lobby Store (in-memory) ─────────────────────────────────
@@ -270,10 +271,19 @@ class MockLobbyDatasource {
     }
   }
 
-  static List<LobbyPlayerModel> _buildSeedPlayers(int current, String hostName) {
+  static List<LobbyPlayerModel> _buildSeedPlayers(
+    int current,
+    String hostName,
+  ) {
     final names = [
-      'Quốc Bảo', 'Mai Linh', 'Thanh Tùng', 'Kim Anh', 'Hải Đăng',
-      'Phương Thảo', 'Minh Khôi', 'Gia Hân',
+      'Quốc Bảo',
+      'Mai Linh',
+      'Thanh Tùng',
+      'Kim Anh',
+      'Hải Đăng',
+      'Phương Thảo',
+      'Minh Khôi',
+      'Gia Hân',
     ];
     final list = <LobbyPlayerModel>[
       LobbyPlayerModel(
@@ -289,17 +299,20 @@ class MockLobbyDatasource {
       ),
     ];
     for (var i = 1; i < current; i++) {
-      list.add(LobbyPlayerModel(
-        id: 'user_seed_member_${i}_$_idCounter',
-        name: names[i % names.length],
-        avatarUrl: 'https://picsum.photos/seed/seed${names[i % names.length].hashCode}/150',
-        isHost: false,
-        isReady: _rng.nextBool(),
-        joinedAt: DateTime.now()
-            .subtract(Duration(minutes: 14 - i))
-            .toIso8601String(),
-        karma: (40 + _rng.nextInt(50)).toDouble(),
-      ));
+      list.add(
+        LobbyPlayerModel(
+          id: 'user_seed_member_${i}_$_idCounter',
+          name: names[i % names.length],
+          avatarUrl:
+              'https://picsum.photos/seed/seed${names[i % names.length].hashCode}/150',
+          isHost: false,
+          isReady: _rng.nextBool(),
+          joinedAt: DateTime.now()
+              .subtract(Duration(minutes: 14 - i))
+              .toIso8601String(),
+          karma: (40 + _rng.nextInt(50)).toDouble(),
+        ),
+      );
     }
     return list;
   }
@@ -402,8 +415,7 @@ class MockLobbyDatasource {
         final newPlayer = LobbyPlayerModel(
           id: 'user_auto_${DateTime.now().millisecondsSinceEpoch}',
           name: 'Người chơi mới',
-          avatarUrl:
-              'https://picsum.photos/seed/auto${_rng.nextInt(999)}/150',
+          avatarUrl: 'https://picsum.photos/seed/auto${_rng.nextInt(999)}/150',
           isHost: false,
           isReady: false,
           joinedAt: DateTime.now().toIso8601String(),
@@ -433,81 +445,81 @@ class MockLobbyDatasource {
   // ─── Online Friends List ──────────────────────────────────────────────
 
   static List<FriendModel> get mockOnlineFriendsList => const [
-        FriendModel(
-          id: 'friend_001',
-          name: 'Minh Anh',
-          avatarUrl: 'https://picsum.photos/seed/minhanh/150',
-          isOnline: true,
-          isInLobby: false,
-        ),
-        FriendModel(
-          id: 'friend_002',
-          name: 'Thanh Sơn',
-          avatarUrl: 'https://picsum.photos/seed/thanhson/150',
-          isOnline: true,
-          isInLobby: true,
-        ),
-        FriendModel(
-          id: 'friend_003',
-          name: 'Phương Linh',
-          avatarUrl: 'https://picsum.photos/seed/phuonglinh/150',
-          isOnline: true,
-          isInLobby: false,
-        ),
-        FriendModel(
-          id: 'friend_004',
-          name: 'Đức Minh',
-          avatarUrl: 'https://picsum.photos/seed/ducminh/150',
-          isOnline: false,
-          isInLobby: false,
-        ),
-        FriendModel(
-          id: 'friend_005',
-          name: 'Hải Yến',
-          avatarUrl: 'https://picsum.photos/seed/haiyen/150',
-          isOnline: true,
-          isInLobby: false,
-        ),
-      ];
+    FriendModel(
+      id: 'friend_001',
+      name: 'Minh Anh',
+      avatarUrl: 'https://picsum.photos/seed/minhanh/150',
+      isOnline: true,
+      isInLobby: false,
+    ),
+    FriendModel(
+      id: 'friend_002',
+      name: 'Thanh Sơn',
+      avatarUrl: 'https://picsum.photos/seed/thanhson/150',
+      isOnline: true,
+      isInLobby: true,
+    ),
+    FriendModel(
+      id: 'friend_003',
+      name: 'Phương Linh',
+      avatarUrl: 'https://picsum.photos/seed/phuonglinh/150',
+      isOnline: true,
+      isInLobby: false,
+    ),
+    FriendModel(
+      id: 'friend_004',
+      name: 'Đức Minh',
+      avatarUrl: 'https://picsum.photos/seed/ducminh/150',
+      isOnline: false,
+      isInLobby: false,
+    ),
+    FriendModel(
+      id: 'friend_005',
+      name: 'Hải Yến',
+      avatarUrl: 'https://picsum.photos/seed/haiyen/150',
+      isOnline: true,
+      isInLobby: false,
+    ),
+  ];
 
   static FriendModel? getFriendById(String id) {
     return mockOnlineFriendsList.cast<FriendModel?>().firstWhere(
-          (f) => f?.id == id,
-          orElse: () => null,
-        );
+      (f) => f?.id == id,
+      orElse: () => null,
+    );
   }
 
   // ─── Lobby Dismiss Reasons ────────────────────────────────────────────
 
   static List<LobbyDismissReasonModel> get mockLobbyDismissReasons => const [
-        LobbyDismissReasonModel(
-          code: 'TIMEOUT_FAILED',
-          title: 'Hết hạn tuyển người (BR-08)',
-          message:
-              'Đến giờ hẹn chơi trừ đi lead-time mà phòng vẫn chưa đủ số người tối thiểu. Hệ thống đã tự động giải tán để giải phóng ghế.',
-        ),
-        LobbyDismissReasonModel(
-          code: 'HOST_CANCELLED',
-          title: 'Chủ phòng đã hủy',
-          message: 'Trưởng phòng chờ đã chủ động giải tán phòng.',
-        ),
-        LobbyDismissReasonModel(
-          code: 'TABLE_CONFLICT',
-          title: 'Trùng bàn vật lý',
-          message:
-              'Phòng đã bị hủy do xung đột đặt bàn với khách hàng khác tại quán.',
-        ),
-        LobbyDismissReasonModel(
-          code: 'HOST_LEFT',
-          title: 'Chủ phòng rời đi',
-          message: 'Phòng đã bị hủy do chủ phòng đã rời khỏi phòng.',
-        ),
-        LobbyDismissReasonModel(
-          code: 'SYSTEM_ERROR',
-          title: 'Lỗi hệ thống',
-          message: 'Phòng đã bị hủy do lỗi kỹ thuật từ hệ thống.',
-        ),
-      ];
+    LobbyDismissReasonModel(
+      code: 'TIMEOUT_FAILED',
+      title: 'Hết hạn tuyển người (BR-08)',
+      message:
+          'Đến giờ hẹn chơi trừ đi lead-time mà phòng vẫn chưa đủ số người tối thiểu. Hệ thống đã tự động giải tán để giải phóng ghế.',
+    ),
+    LobbyDismissReasonModel(
+      code: 'HOST_CANCELLED',
+      title: 'Chủ phòng đã hủy',
+      message: 'Trưởng phòng chờ đã chủ động giải tán phòng.',
+    ),
+    LobbyDismissReasonModel(
+      code: 'TABLE_CONFLICT',
+      title: 'Trùng bàn vật lý',
+      message:
+          'Phòng đã bị hủy do xung đột đặt bàn với khách hàng khác tại quán.',
+    ),
+    LobbyDismissReasonModel(
+      code: 'HOST_LEFT',
+      title: 'Chủ phòng rời đi',
+      message: 'Phòng đã bị hủy do chủ phòng đã rời khỏi phòng.',
+    ),
+    LobbyDismissReasonModel(
+      code: 'SYSTEM_ERROR',
+      title: 'Lỗi hệ thống',
+      message: 'Phòng đã bị hủy do lỗi kỹ thuật từ hệ thống.',
+    ),
+  ];
 
   // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -533,7 +545,10 @@ class MockLobbyDatasource {
 
   /// Mô phỏng thêm friend vào lobby — dùng cho dev simulate.
   /// Trả về lobby đã cập nhật; null nếu lobby không tồn tại hoặc đã đầy.
-  static LobbyModel? simulateJoinPlayerById(String lobbyId, LobbyPlayerModel player) {
+  static LobbyModel? simulateJoinPlayerById(
+    String lobbyId,
+    LobbyPlayerModel player,
+  ) {
     final lobby = _lobbiesById[lobbyId];
     if (lobby == null) return null;
     if (lobby.isFull) return null;

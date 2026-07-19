@@ -247,9 +247,7 @@ class AppShimmer {
       children: List.generate(lines, (index) {
         final isLastLine = index == lines - 1;
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: isLastLine ? 0 : spacing,
-          ),
+          padding: EdgeInsets.only(bottom: isLastLine ? 0 : spacing),
           child: Container(
             width: isLastLine ? (lastLineWidth ?? 100) : double.infinity,
             height: lineHeight,
@@ -268,10 +266,7 @@ class AppShimmer {
   // ========================
 
   /// Shimmer circle - dùng cho avatar placeholder
-  static Widget circle({
-    required BuildContext context,
-    double size = 48,
-  }) {
+  static Widget circle({required BuildContext context, double size = 48}) {
     return shimmer(
       context: context,
       child: Container(

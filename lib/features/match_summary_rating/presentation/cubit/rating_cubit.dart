@@ -21,38 +21,22 @@ class RatingCubit extends Cubit<RatingState> {
 
   // Mock checked-in members
   final List<VotingCandidate> _mockCandidates = [
-    const VotingCandidate(
-      id: 'user_001',
-      name: 'Bạn',
-      isHost: true,
-    ),
-    const VotingCandidate(
-      id: 'user_002',
-      name: 'Minh',
-      isHost: false,
-    ),
-    const VotingCandidate(
-      id: 'user_003',
-      name: 'Lan',
-      isHost: false,
-    ),
-    const VotingCandidate(
-      id: 'user_004',
-      name: 'Huy',
-      isHost: false,
-    ),
+    const VotingCandidate(id: 'user_001', name: 'Bạn', isHost: true),
+    const VotingCandidate(id: 'user_002', name: 'Minh', isHost: false),
+    const VotingCandidate(id: 'user_003', name: 'Lan', isHost: false),
+    const VotingCandidate(id: 'user_004', name: 'Huy', isHost: false),
   ];
 
   // Mock no-show candidates
   final List<String> _mockNoShowCandidates = ['user_003'];
 
-  RatingCubit({required this._repository})
-      : super(const RatingInitial());
+  RatingCubit({required this._repository}) : super(const RatingInitial());
 
   VotingState get votingState => _votingState;
   List<VotingCandidate> get candidates => _mockCandidates;
-  List<VotingCandidate> get noShowCandidates =>
-      _mockCandidates.where((c) => _mockNoShowCandidates.contains(c.id)).toList();
+  List<VotingCandidate> get noShowCandidates => _mockCandidates
+      .where((c) => _mockNoShowCandidates.contains(c.id))
+      .toList();
 
   // ─── Start Rating Flow ─────────────────────────────────────────────────
 
@@ -62,24 +46,23 @@ class RatingCubit extends Cubit<RatingState> {
 
     final result = await _repository.getAvailableKarmaTags();
 
-    result.fold(
-      (failure) => emit(RatingFailure(message: failure.message)),
-      (tags) {
-        final players = MockRatingDatasource.mockPlayersToRate
-            .map((p) => RatingPlayer(
-                  id: p.id,
-                  name: p.name,
-                  avatarUrl: p.avatarUrl,
-                ))
-            .toList();
+    result.fold((failure) => emit(RatingFailure(message: failure.message)), (
+      tags,
+    ) {
+      final players = MockRatingDatasource.mockPlayersToRate
+          .map(
+            (p) => RatingPlayer(id: p.id, name: p.name, avatarUrl: p.avatarUrl),
+          )
+          .toList();
 
-        emit(KarmaRating(
+      emit(
+        KarmaRating(
           playersToRate: players,
           availableTags: tags,
           playerRatings: {},
-        ));
-      },
-    );
+        ),
+      );
+    });
   }
 
   // ─── Toggle Karma Tag ──────────────────────────────────────────────────
@@ -106,11 +89,13 @@ class RatingCubit extends Cubit<RatingState> {
       updatedRatings[player.id] = player.selectedTagIds;
     }
 
-    emit(KarmaRating(
-      playersToRate: updatedPlayers,
-      availableTags: currentState.availableTags,
-      playerRatings: updatedRatings,
-    ));
+    emit(
+      KarmaRating(
+        playersToRate: updatedPlayers,
+        availableTags: currentState.availableTags,
+        playerRatings: updatedRatings,
+      ),
+    );
   }
 
   // ─── Submit Karma Ratings ──────────────────────────────────────────────

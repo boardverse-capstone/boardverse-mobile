@@ -161,10 +161,7 @@ class AppRadius {
 
   /// Default border side (1px, color from theme)
   static BorderSide borderSide({Color? color, double width = 1.0}) {
-    return BorderSide(
-      color: color ?? Colors.grey.shade300,
-      width: width,
-    );
+    return BorderSide(color: color ?? Colors.grey.shade300, width: width);
   }
 
   /// No border

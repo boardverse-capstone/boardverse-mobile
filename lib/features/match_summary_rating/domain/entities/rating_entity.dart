@@ -20,7 +20,15 @@ class RatingEntity extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, sessionId, playerId, playerName, avatarUrl, karmaTags, karmaScore];
+  List<Object?> get props => [
+    id,
+    sessionId,
+    playerId,
+    playerName,
+    avatarUrl,
+    karmaTags,
+    karmaScore,
+  ];
 }
 
 class KarmaTag extends Equatable {

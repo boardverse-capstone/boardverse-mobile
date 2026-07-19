@@ -67,16 +67,14 @@ class VotingSession extends Equatable {
   });
 
   /// Số vote NO_SHOW hiện tại.
-  int get noShowVotes =>
-      votes.values.where((v) => v == VoteType.noShow).length;
+  int get noShowVotes => votes.values.where((v) => v == VoteType.noShow).length;
 
   /// Số vote NOT_NO_SHOW hiện tại.
   int get notNoShowVotes =>
       votes.values.where((v) => v == VoteType.notNoShow).length;
 
   /// Số vote SKIP hiện tại.
-  int get skipVotes =>
-      votes.values.where((v) => v == VoteType.skip).length;
+  int get skipVotes => votes.values.where((v) => v == VoteType.skip).length;
 
   /// Tổng số vote đã submit.
   int get totalVotes => votes.length;
@@ -142,15 +140,15 @@ class VotingSession extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        sessionId,
-        targetPlayerId,
-        targetPlayerName,
-        targetPlayerAvatar,
-        eligibleVoters,
-        threshold,
-        startedAt,
-        deadline,
-        votes,
-      ];
+    id,
+    sessionId,
+    targetPlayerId,
+    targetPlayerName,
+    targetPlayerAvatar,
+    eligibleVoters,
+    threshold,
+    startedAt,
+    deadline,
+    votes,
+  ];
 }

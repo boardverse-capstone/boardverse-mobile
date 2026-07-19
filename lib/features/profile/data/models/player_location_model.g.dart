@@ -8,10 +8,10 @@ part of 'player_location_model.dart';
 
 _PlayerLocationModel _$PlayerLocationModelFromJson(Map<String, dynamic> json) =>
     _PlayerLocationModel(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      updatedAt: json['updatedAt'] as String,
-      source: (json['source'] as num).toInt(),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      updatedAt: json['updatedAt'] as String?,
+      source: (json['source'] as num?)?.toInt(),
       hasLocation: json['hasLocation'] as bool,
     );
 

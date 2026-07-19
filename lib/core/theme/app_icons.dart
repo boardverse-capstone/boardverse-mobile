@@ -28,6 +28,9 @@ class AppIcons {
   /// Extra extra large - Large decorative icons
   static const double xxl = 48.0;
 
+  /// Massive - Hero/empty-state icons
+  static const double massive = 64.0;
+
   // ========================
   // NAVIGATION ICONS
   // ========================
@@ -396,42 +399,18 @@ class AppIcons {
   // ========================
 
   /// Tạo Icon widget với size và color mặc định
-  static Widget icon(
-    IconData data, {
-    double size = md,
-    Color? color,
-  }) {
-    return Icon(
-      data,
-      size: size,
-      color: color,
-    );
+  static Widget icon(IconData data, {double size = md, Color? color}) {
+    return Icon(data, size: size, color: color);
   }
 
   /// Tạo Icon với primary color
-  static Widget primaryIcon(
-    IconData data, {
-    double size = md,
-    Color? color,
-  }) {
-    return Icon(
-      data,
-      size: size,
-      color: color ?? Colors.orange,
-    );
+  static Widget primaryIcon(IconData data, {double size = md, Color? color}) {
+    return Icon(data, size: size, color: color ?? Colors.orange);
   }
 
   /// Tạo Icon với secondary color
-  static Widget secondaryIcon(
-    IconData data, {
-    double size = md,
-    Color? color,
-  }) {
-    return Icon(
-      data,
-      size: size,
-      color: color ?? Colors.teal,
-    );
+  static Widget secondaryIcon(IconData data, {double size = md, Color? color}) {
+    return Icon(data, size: size, color: color ?? Colors.teal);
   }
 
   /// Tạo Icon với semantic color (success/error/warning/info)
@@ -440,10 +419,6 @@ class AppIcons {
     double size = md,
     required Color color,
   }) {
-    return Icon(
-      data,
-      size: size,
-      color: color,
-    );
+    return Icon(data, size: size, color: color);
   }
 }

@@ -170,7 +170,7 @@ class HomeOverviewPage extends StatelessWidget {
               icon: Icons.groups,
               label: 'Tìm phòng',
               color: Colors.deepPurple,
-              onTap: () => onSwitchTab?.call(0),
+              onTap: () => onSwitchTab?.call(2),
             ),
           ),
           const SizedBox(width: 12),
@@ -268,6 +268,7 @@ class _SuggestionList extends StatelessWidget {
                 ),
               ),
               child: ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(tip.$1, color: theme.colorScheme.primary),
                 title: Text(
                   tip.$2,

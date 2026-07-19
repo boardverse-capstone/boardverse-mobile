@@ -38,12 +38,12 @@ class KarmaTagModel {
   }
 
   KarmaTag toEntity() => KarmaTag(
-        id: id,
-        name: name,
-        icon: icon,
-        isPositive: isPositive,
-        isSelected: isSelected,
-      );
+    id: id,
+    name: name,
+    icon: icon,
+    isPositive: isPositive,
+    isSelected: isSelected,
+  );
 }
 
 class EloResultModel {
@@ -85,12 +85,12 @@ class EloResultModel {
   }
 
   EloResult toEntity() => EloResult(
-        sessionId: sessionId,
-        result: _resultToEntity(result),
-        eloChange: eloChange,
-        currentElo: currentElo,
-        newElo: newElo,
-      );
+    sessionId: sessionId,
+    result: _resultToEntity(result),
+    eloChange: eloChange,
+    currentElo: currentElo,
+    newElo: newElo,
+  );
 
   static MatchResult _resultToEntity(MatchResultModel result) {
     switch (result) {
@@ -124,10 +124,6 @@ class RatingPlayerModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'avatarUrl': avatarUrl,
-    };
+    return {'id': id, 'name': name, 'avatarUrl': avatarUrl};
   }
 }

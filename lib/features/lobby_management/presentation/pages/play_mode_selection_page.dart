@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/theme.dart';
+
 class PlayModeSelectionPage extends StatelessWidget {
   final String gameId;
   final String gameName;
@@ -17,96 +19,163 @@ class PlayModeSelectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chọn chế độ chơi'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+      appBar: AppBar(title: const Text('Chọn chế độ chơi')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ContextCard(
+                gameName: gameName,
+                cafeName: cafeName,
+                theme: theme,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                'Bạn muốn chơi cùng ai?',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Chọn chế độ phù hợp với nhóm của bạn để bắt đầu trải nghiệm BoardVerse.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.extension,
-                      size: 48,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            gameName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                    _PlayModeCard(
+                      icon: AppIcons.user,
+                      title: 'Chơi một mình',
+                      description: 'Đặt bàn trực tiếp tại quán',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Chức năng đặt bàn đơn đang phát triển',
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.local_cafe,
-                                size: 14,
-                                color: theme.colorScheme.outline,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                cafeName,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _PlayModeCard(
+                      icon: AppIcons.users,
+                      title: 'Chơi cùng nhóm',
+                      description: 'Tạo hoặc tham gia phòng chờ online',
+                      isPrimary: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const _LobbyConfigPlaceholder(),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            Expanded(
-              child: Column(
-                children: [
-                  _PlayModeCard(
-                    icon: Icons.person,
-                    title: 'Chơi một mình',
-                    description: 'Đặt bàn trực tiếp tại quán',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Chức năng đặt bàn đơn đang phát triển'),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _PlayModeCard(
-                    icon: Icons.group,
-                    title: 'Chơi cùng nhóm',
-                    description: 'Tạo hoặc tham gia phòng chờ online',
-                    isPrimary: true,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const _LobbyConfigPlaceholder(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _ContextCard extends StatelessWidget {
+  final String gameName;
+  final String cafeName;
+  final ThemeData theme;
+
+  const _ContextCard({
+    required this.gameName,
+    required this.cafeName,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: theme.brightness == Brightness.dark
+              ? AppColorsDark.cardGradientOrange
+              : AppColors.cardGradientOrange,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.cardRadius,
+        boxShadow: AppElevation.shadowMd,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(
+              AppIcons.boardGame,
+              size: AppIcons.xxl,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gameName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Row(
+                  children: [
+                    Icon(
+                      AppIcons.cafe,
+                      size: AppIcons.sm,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
+                    Flexible(
+                      child: Text(
+                        cafeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -130,34 +199,44 @@ class _PlayModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
-    return Card(
-      elevation: isPrimary ? 4 : 1,
-      color: isPrimary ? theme.colorScheme.primaryContainer : null,
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        borderRadius: AppRadius.cardRadius,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isPrimary ? colors.primaryContainer : colors.surface,
+            borderRadius: AppRadius.cardRadius,
+            border: Border.all(
+              color: isPrimary ? colors.primary : colors.outlineVariant,
+              width: isPrimary ? 1.5 : 1,
+            ),
+            boxShadow: isPrimary
+                ? AppElevation.shadowMd
+                : AppElevation.shadowXs,
+          ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   color: isPrimary
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+                      ? colors.primary
+                      : colors.surfaceContainerHighest,
+                  borderRadius: AppRadius.radiusMdAll,
                 ),
                 child: Icon(
                   icon,
-                  size: 32,
-                  color: isPrimary
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.primary,
+                  size: AppIcons.xl,
+                  color: isPrimary ? colors.onPrimary : colors.primary,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,14 +244,16 @@ class _PlayModeCard extends StatelessWidget {
                     Text(
                       title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       description,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
+                        color: isPrimary
+                            ? colors.onPrimaryContainer
+                            : colors.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -180,7 +261,7 @@ class _PlayModeCard extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.outline,
+                color: isPrimary ? colors.onPrimaryContainer : colors.outline,
               ),
             ],
           ),
@@ -196,12 +277,8 @@ class _LobbyConfigPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cấu hình phòng'),
-      ),
-      body: const Center(
-        child: Text('Module 2 - Lobby Config'),
-      ),
+      appBar: AppBar(title: const Text('Cấu hình phòng')),
+      body: const Center(child: Text('Module 2 - Lobby Config')),
     );
   }
 }

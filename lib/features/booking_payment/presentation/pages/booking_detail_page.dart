@@ -5,8 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/theme.dart';
 import '../../data/datasources/mock/mock_booking_remote_datasource.dart';
 import '../../domain/entities/booking_entity.dart';
+import '../widgets/booking_ui_helpers.dart';
+import '../widgets/info_row.dart';
+import '../widgets/section_header.dart';
+import '../widgets/status_pill.dart';
 import 'booking_success_page.dart';
 
 /// Trang chi tiết booking — hiển thị QR code + các actions tùy theo trạng thái.
@@ -111,55 +116,36 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   Color _statusColor() {
     switch (_booking.status.name) {
       case 'confirmed':
-        return Colors.blue;
+        return AppColors.info;
       case 'checkedIn':
-        return Colors.green;
+        return AppColors.success;
       case 'pendingDeposit':
-        return Colors.orange;
+        return AppColors.warning;
       case 'cancelledByPlayer':
       case 'cancelledByCafe':
-        return Colors.grey;
+        return AppColors.textSecondary;
       case 'expired':
-        return Colors.red.shade400;
+        return AppColors.error;
       default:
-        return Colors.grey;
-    }
-  }
-
-  String _statusLabel() {
-    switch (_booking.status.name) {
-      case 'confirmed':
-        return 'Đã xác nhận';
-      case 'checkedIn':
-        return 'Đang chơi';
-      case 'pendingDeposit':
-        return 'Chờ cọc';
-      case 'cancelledByPlayer':
-        return 'Đã hủy';
-      case 'cancelledByCafe':
-        return 'Quán hủy';
-      case 'expired':
-        return 'Hết hạn';
-      default:
-        return _booking.status.name;
+        return AppColors.textSecondary;
     }
   }
 
   IconData _statusIcon() {
     switch (_booking.status.name) {
       case 'confirmed':
-        return Icons.check_circle;
+        return Icons.check_circle_rounded;
       case 'checkedIn':
-        return Icons.sports_esports;
+        return Icons.sports_esports_rounded;
       case 'pendingDeposit':
-        return Icons.hourglass_empty;
+        return Icons.hourglass_top_rounded;
       case 'cancelledByPlayer':
       case 'cancelledByCafe':
-        return Icons.cancel;
+        return Icons.cancel_rounded;
       case 'expired':
-        return Icons.timer_off;
+        return Icons.timer_off_rounded;
       default:
-        return Icons.event;
+        return Icons.event_rounded;
     }
   }
 
@@ -175,15 +161,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       _booking.status.name == 'cancelledByCafe' ||
       _booking.status.name == 'expired' ||
       _booking.status.name == 'pendingDeposit';
-
-  String _formatVnd(double v) {
-    final f = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: '',
-      decimalDigits: 0,
-    );
-    return '${f.format(v).trim()} đ';
-  }
 
   /// Format Duration → "1h 23m 45s" hoặc "23m 45s" hoặc "45s".
   String _formatDuration(Duration d) {
@@ -215,179 +192,58 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
     if (status == 'checkedIn') {
       final elapsed = now.difference(_booking.updatedAt);
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.green.shade100, Colors.green.shade50],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.timer, color: Colors.green.shade700),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Đang chơi',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.green.shade900,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(elapsed),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.green.shade900,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Check-in lúc ${DateFormat('HH:mm').format(_booking.updatedAt)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      return _TimeBanner(
+        icon: Icons.timer_rounded,
+        label: 'Đang chơi',
+        value: _formatDuration(elapsed),
+        subtitle: 'Check-in lúc ${DateFormat('HH:mm').format(_booking.updatedAt)}',
+        backgroundColor: AppColors.success.withValues(alpha: 0.10),
+        borderColor: AppColors.success.withValues(alpha: 0.40),
+        foreground: AppColors.success,
       );
     }
 
     if (status == 'confirmed') {
       final remaining = _booking.scheduledTime.difference(now);
       if (remaining.isNegative) {
-        // Đã qua giờ mà chưa check-in → cảnh báo.
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.red.shade300),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.red.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Đã qua giờ hẹn ${_formatDuration(remaining.abs())}',
-                  style: TextStyle(
-                    color: Colors.red.shade900,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return _TimeBanner(
+          icon: Icons.warning_amber_rounded,
+          label: 'Đã qua giờ hẹn',
+          value: _formatDuration(remaining.abs()),
+          backgroundColor: AppColors.error.withValues(alpha: 0.10),
+          borderColor: AppColors.error.withValues(alpha: 0.40),
+          foreground: AppColors.error,
         );
       }
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.schedule, color: Colors.blue.shade700),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bắt đầu sau',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.blue.shade900,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(remaining),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.blue.shade900,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      return _TimeBanner(
+        icon: Icons.schedule_rounded,
+        label: 'Bắt đầu sau',
+        value: _formatDuration(remaining),
+        backgroundColor: AppColors.info.withValues(alpha: 0.10),
+        borderColor: AppColors.info.withValues(alpha: 0.40),
+        foreground: AppColors.info,
       );
     }
 
     if (status == 'pendingDeposit') {
       final remaining = _booking.remainingGraceTime;
       if (remaining.isNegative) {
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.red.shade300),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.error, color: Colors.red.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Đã quá hạn cọc — booking sẽ bị huỷ',
-                  style: TextStyle(
-                    color: Colors.red.shade900,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return _TimeBanner(
+          icon: Icons.error_rounded,
+          label: 'Đã quá hạn cọc',
+          value: 'Booking sẽ bị huỷ',
+          backgroundColor: AppColors.error.withValues(alpha: 0.10),
+          borderColor: AppColors.error.withValues(alpha: 0.40),
+          foreground: AppColors.error,
         );
       }
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orange.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.hourglass_empty, color: Colors.orange.shade700),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hết hạn cọc sau',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange.shade900,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(remaining),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.orange.shade900,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      return _TimeBanner(
+        icon: Icons.hourglass_top_rounded,
+        label: 'Hết hạn cọc sau',
+        value: _formatDuration(remaining),
+        backgroundColor: AppColors.warning.withValues(alpha: 0.10),
+        borderColor: AppColors.warning.withValues(alpha: 0.40),
+        foreground: AppColors.warning,
       );
     }
 
@@ -397,188 +253,168 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = _statusColor();
+    final accent = _statusColor();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết lịch hẹn'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── Header ────────────────────────────────────────────────
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: color.withValues(alpha: 0.1),
-                          child: Icon(_statusIcon(), color: color, size: 28),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _booking.gameName,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '📍 ${_booking.cafeName}',
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _statusLabel(),
-                            style: TextStyle(
-                              color: color,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today, size: 16, color: theme.colorScheme.outline),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            DateFormat('EEEE, dd/MM/yyyy — HH:mm')
-                                .format(_booking.scheduledTime),
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.group, size: 16, color: theme.colorScheme.outline),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '${_booking.seatCount} người • ${_booking.memberIds.length} thành viên',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.attach_money, size: 16, color: theme.colorScheme.outline),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Đã cọc: ${_formatVnd(_booking.depositAmount)}',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.qr_code, size: 16, color: theme.colorScheme.outline),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Mã: ${_booking.id}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            // ─── Header card ─────────────────────────────────────────
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.cardRadius,
+                color: theme.colorScheme.surface,
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
+                boxShadow: AppElevation.shadowXxs,
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // ─── Countdown / Elapsed Time Banner ───────────────────────
-            _buildTimeBanner(theme),
-
-            const SizedBox(height: 16),
-
-            // ─── QR Code Card ──────────────────────────────────────────
-            if (!_isTerminal) ...[
-              _buildQrSection(theme, color),
-              const SizedBox(height: 16),
-            ],
-
-            // ─── Scan Result ───────────────────────────────────────────
-            if (_scanResult != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _scanResult!.startsWith('✅')
-                      ? Colors.green.shade50
-                      : Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _scanResult!.startsWith('✅')
-                        ? Colors.green.shade300
-                        : Colors.red.shade300,
-                  ),
-                ),
-                child: Row(
+              child: ClipRRect(
+                borderRadius: AppRadius.cardRadius,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      _scanResult!.startsWith('✅')
-                          ? Icons.check_circle
-                          : Icons.error,
-                      color: _scanResult!.startsWith('✅')
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _scanResult!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            accent.withValues(alpha: 0.12),
+                            accent.withValues(alpha: 0.04),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.sm),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.18),
+                              borderRadius: AppRadius.radiusSmAll,
+                            ),
+                            child: Icon(
+                              _statusIcon(),
+                              color: accent,
+                              size: AppIcons.lg,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _booking.gameName,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      AppIcons.location,
+                                      size: AppIcons.sm,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _booking.cafeName,
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusPill(
+                            label: BookingUiHelpers.labelFromStringName(
+                                _booking.status.name),
+                            variant: BookingUiHelpers.variantFromStringName(
+                                _booking.status.name),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        children: [
+                          InfoRow(
+                            icon: AppIcons.schedule,
+                            label: 'Thời gian',
+                            value: BookingUiHelpers.formatLongDateTime(
+                                _booking.scheduledTime),
+                          ),
+                          InfoRow(
+                            icon: AppIcons.users,
+                            label: 'Số người',
+                            value:
+                                '${_booking.seatCount} ghế • ${_booking.memberIds.length} thành viên',
+                          ),
+                          InfoRow(
+                            icon: AppIcons.money,
+                            label: 'Đã cọc',
+                            value: BookingUiHelpers.formatVnd(
+                                _booking.depositAmount),
+                            iconColor: AppColors.primary,
+                          ),
+                          InfoRow(
+                            icon: AppIcons.qrCode,
+                            label: 'Mã đơn',
+                            value: _booking.id,
+                            iconColor: AppColors.secondary,
+                            copyable: true,
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: AppSpacing.md),
 
-            // ─── Action Buttons ────────────────────────────────────────
+            // ─── Countdown / Elapsed Time Banner ────────────────────
+            _buildTimeBanner(theme),
+
+            const SizedBox(height: AppSpacing.md),
+
+            // ─── QR Code Section ────────────────────────────────────
+            if (!_isTerminal) ...[
+              _buildQrSection(theme, accent),
+              const SizedBox(height: AppSpacing.md),
+            ],
+
+            // ─── Scan Result ────────────────────────────────────────
+            if (_scanResult != null)
+              _ScanResultBanner(text: _scanResult!),
+
+            // ─── Action Buttons ─────────────────────────────────────
             if (_canCheckIn) _buildCheckInButton(),
             if (_isInGame) _buildInGameButton(),
             if (_isTerminal) _buildTerminalMessage(theme),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
       ),
@@ -588,32 +424,34 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   Widget _buildQrSection(ThemeData theme, Color color) {
     final hasQr = _booking.qrPayload.isNotEmpty;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.cardRadius,
+        color: theme.colorScheme.surface,
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: AppElevation.shadowXxs,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.qr_code_2, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  'Mã QR Check-in',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
+            SectionHeader(
+              icon: Icons.qr_code_2_rounded,
+              title: 'Mã QR Check-in',
+              subtitle: 'Đưa mã này cho nhân viên quán để bắt đầu phiên chơi',
+              accent: color,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: theme.brightness == Brightness.dark
+                    ? AppColorsDark.surfaceElevated
+                    : AppColors.surface,
+                borderRadius: AppRadius.radiusMdAll,
                 border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: hasQr
@@ -621,17 +459,17 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       data: _booking.qrPayload,
                       version: QrVersions.auto,
                       size: 220,
-                      backgroundColor: Colors.white,
+                      backgroundColor: Colors.transparent,
                       errorCorrectionLevel: QrErrorCorrectLevel.M,
                     )
                   : Column(
                       children: [
                         Icon(
-                          Icons.qr_code_2,
-                          size: 80,
-                          color: theme.colorScheme.outlineVariant,
+                          Icons.qr_code_2_rounded,
+                          size: AppIcons.xxl,
+                          color: theme.colorScheme.outline,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
                           'Chưa có mã QR cho booking này',
                           style: theme.textTheme.bodySmall,
@@ -639,52 +477,18 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ],
                     ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             if (_booking.nonceUsed)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade300),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning_amber, size: 16, color: Colors.orange.shade700),
-                    const SizedBox(width: 8),
-                    Text(
-                      'QR đã được sử dụng',
-                      style: TextStyle(
-                        color: Colors.orange.shade900,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+              _InlineNotice(
+                icon: Icons.warning_amber_rounded,
+                text: 'QR đã được sử dụng',
+                color: AppColors.warning,
               )
             else if (_booking.status.name == 'confirmed')
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Đưa mã này cho nhân viên quán để check-in',
-                      style: TextStyle(
-                        color: Colors.blue.shade900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+              _InlineNotice(
+                icon: Icons.info_outline_rounded,
+                text: 'Đưa mã này cho nhân viên quán để check-in',
+                color: AppColors.info,
               ),
           ],
         ),
@@ -707,10 +511,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.qr_code_scanner),
+            : const Icon(Icons.qr_code_scanner_rounded),
         label: Text(_isScanning ? 'Đang quét...' : 'Mock: Quét QR (POS)'),
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: AppColors.info,
         ),
       ),
     );
@@ -722,10 +526,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       height: 52,
       child: FilledButton.icon(
         onPressed: _openInGameSession,
-        icon: const Icon(Icons.sports_esports),
+        icon: const Icon(Icons.sports_esports_rounded),
         label: const Text('Vào phiên chơi'),
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
         ),
       ),
     );
@@ -739,43 +543,202 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     switch (_booking.status.name) {
       case 'pendingDeposit':
         message = 'Bạn cần hoàn tất đặt cọc để kích hoạt booking này.';
-        icon = Icons.hourglass_empty;
-        color = Colors.orange;
+        icon = Icons.hourglass_top_rounded;
+        color = AppColors.warning;
         break;
       case 'cancelledByPlayer':
       case 'cancelledByCafe':
         message = 'Booking này đã bị hủy.';
-        icon = Icons.cancel;
-        color = Colors.grey;
+        icon = Icons.cancel_rounded;
+        color = AppColors.textSecondary;
         break;
       case 'expired':
         message = 'Booking đã hết hạn. Vui lòng tạo đơn mới.';
-        icon = Icons.timer_off;
-        color = Colors.red.shade400;
+        icon = Icons.timer_off_rounded;
+        color = AppColors.error;
         break;
       default:
         message = 'Booking không khả dụng.';
-        icon = Icons.info_outline;
-        color = Colors.grey;
+        icon = Icons.info_outline_rounded;
+        color = AppColors.textSecondary;
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Row(
         children: [
           Icon(icon, color: color),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner chung cho countdown / elapsed time / expired.
+class _TimeBanner extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? subtitle;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color foreground;
+
+  const _TimeBanner({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.subtitle,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.foreground,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: foreground.withValues(alpha: 0.15),
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(icon, color: foreground, size: AppIcons.lg),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: foreground.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanResultBanner extends StatelessWidget {
+  final String text;
+  const _ScanResultBanner({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ok = text.startsWith('✅');
+    final color = ok ? AppColors.success : AppColors.error;
+    final icon = ok ? Icons.check_circle_rounded : Icons.error_rounded;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineNotice extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _InlineNotice({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: AppRadius.radiusXsAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: AppIcons.sm, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
               ),
             ),
           ),

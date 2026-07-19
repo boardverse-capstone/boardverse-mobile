@@ -1,5 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../core/theme/theme.dart';
 
 class LobbyCountdownTimer extends StatefulWidget {
   final DateTime expiresAt;
@@ -55,47 +58,58 @@ class _LobbyCountdownTimerState extends State<LobbyCountdownTimer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final minutes = _remainingTime.inMinutes;
     final seconds = _remainingTime.inSeconds % 60;
     final isUrgent = _remainingTime.inMinutes < 5;
+    final normalColor = theme.brightness == Brightness.dark
+        ? AppColorsDark.info
+        : AppColors.info;
+    final timerColor = isUrgent ? colors.error : normalColor;
+    final formatted =
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isUrgent
-            ? Colors.red.shade50
-            : theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-        border: isUrgent
-            ? Border.all(color: Colors.red.shade300)
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.timer,
-            size: 18,
-            color: isUrgent ? Colors.red.shade700 : theme.colorScheme.primary,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isUrgent ? Colors.red.shade700 : null,
+    return Semantics(
+      liveRegion: isUrgent,
+      label: 'Còn $minutes phút $seconds giây',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: timerColor.withValues(alpha: 0.11),
+          borderRadius: AppRadius.radiusFullAll,
+          border: Border.all(color: timerColor.withValues(alpha: 0.34)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.clock, size: AppIcons.md, color: timerColor),
+            const SizedBox(width: AppSpacing.xs),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  formatted,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: timerColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  isUrgent ? 'Sắp hết hạn' : 'Thời gian còn lại',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: timerColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'còn lại',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: isUrgent
-                  ? Colors.red.shade700
-                  : theme.colorScheme.outline,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

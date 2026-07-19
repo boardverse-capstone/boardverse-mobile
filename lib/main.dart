@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/di/injection.dart';
 import 'core/navigation/pages/main_scaffold.dart';
+import 'core/theme/theme.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/auth/presentation/pages/login_page.dart';
@@ -11,7 +12,11 @@ import 'features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import 'features/booking_payment/presentation/cubit/booking_result_state.dart';
 import 'features/booking_payment/presentation/pages/booking_success_page.dart';
 import 'features/booking_payment/presentation/pages/payment_page.dart';
+import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
+import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
+import 'features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
+import 'features/settings/presentation/cubit/theme_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,26 +34,37 @@ class BoardVerseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(create: (_) => sl<AuthCubit>()..checkAuthStatus()),
+        BlocProvider<AuthCubit>(
+          create: (_) => sl<AuthCubit>()..checkAuthStatus(),
+        ),
         BlocProvider<ProfileCubit>(create: (_) => sl<ProfileCubit>()),
+        BlocProvider<MatchmakingCubit>(create: (_) => sl<MatchmakingCubit>()),
+        BlocProvider<LobbyCubit>(create: (_) => sl<LobbyCubit>()),
+        BlocProvider<LobbySearchCubit>(create: (_) => sl<LobbySearchCubit>()),
         BlocProvider<BookingResultCubit>(
           create: (_) => sl<BookingResultCubit>()..tryRestorePending(),
+        ),
+        BlocProvider<ThemeCubit>(
+          create: (_) => sl<ThemeCubit>()..load(),
         ),
       ],
       child: BlocListener<BookingResultCubit, BookingResultState>(
         listenWhen: (prev, curr) => prev != curr,
         listener: _handleResume,
-        child: MaterialApp(
-          title: 'BoardVerse',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-            useMaterial3: true,
-          ),
-          home: const AuthWrapper(),
-          routes: {
-            '/login': (context) => const LoginPage(),
-            '/home': (context) => const MainScaffold(),
+        child: BlocBuilder<ThemeCubit, ThemeState>(
+          builder: (context, themeState) {
+            return MaterialApp(
+              title: 'BoardVerse',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeState.mode,
+              home: const AuthWrapper(),
+              routes: {
+                '/login': (context) => const LoginPage(),
+                '/home': (context) => const MainScaffold(),
+              },
+            );
           },
         ),
       ),
@@ -95,9 +111,7 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, state) {
         if (state is AuthLoading) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 

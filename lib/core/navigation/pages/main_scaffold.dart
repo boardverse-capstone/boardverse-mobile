@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../di/injection.dart';
-import '../../../features/auth/presentation/cubit/auth_cubit.dart';
-import '../../../features/auth/presentation/pages/login_page.dart';
 import '../../../features/home/presentation/pages/home_overview_page.dart';
-import '../../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../../features/profile/presentation/pages/home_page.dart';
-import '../../../features/tournament/presentation/pages/tournament_page.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
 import '../widgets/board_verse_nav_bar.dart';
 import 'bookings_page.dart';
 import 'discovery_tab.dart';
+import 'profile_page.dart';
+import 'tournament_page.dart';
 
+/// Single source of truth for tab switching is [PageController] — the Cubit
+/// is treated as a read-only mirror that the nav bar / back handler can
+/// observe but never drive animation directly. This eliminates the
+/// "PageController says X, Cubit says Y" race that previously caused
+/// mismatched highlight / body combinations.
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
 
@@ -23,90 +25,146 @@ class MainScaffold extends StatefulWidget {
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  late final MatchmakingCubit _matchmakingCubit;
-  late final LobbyCubit _lobbyCubit;
+  static const _animationDuration = Duration(milliseconds: 350);
+  static const _initialIndex = 0; // Home
+
   late final PageController _pageController;
-  int _previousIndex = 0;
+  bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
-    _matchmakingCubit = getIt<MatchmakingCubit>();
-    _lobbyCubit = getIt<LobbyCubit>();
-    _pageController = PageController(initialPage: 2); // Start at Discovery (index 2)
+    _pageController = PageController(initialPage: _initialIndex);
+    // Sync the Cubit with the initial page so the nav bar reflects the
+    // starting tab on first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<NavigationCubit>().setTab(_initialIndex);
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _matchmakingCubit.close();
-    _lobbyCubit.close();
     super.dispose();
+  }
+
+  /// Drives [PageController] from a nav-bar tap. Holds the only animation
+  /// trigger — the Cubit is updated as a side effect via [onPageChanged].
+  void _onTabTapped(int index) {
+    final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
+    final current = _pageController.hasClients
+        ? _pageController.page?.round() ?? _initialIndex
+        : _initialIndex;
+    if (clamped == current) {
+      _handleDoubleTap(clamped);
+      return;
+    }
+    if (_isAnimating) return;
+    _isAnimating = true;
+    _pageController
+        .animateToPage(
+      clamped,
+      duration: _animationDuration,
+      curve: Curves.easeOutCubic,
+    )
+        .whenComplete(() {
+      if (mounted) _isAnimating = false;
+    });
+  }
+
+  /// Double-tap logic per tab:
+  /// - Home (0): no-op (scroll-to-top owned by HomeOverviewPage)
+  /// - Bookings (1): reload upcoming + history
+  /// - Discovery (2): reset inner sub-tab to "Khám phá game"
+  /// - Tournament (3): no-op (mock data, no refresh needed yet)
+  /// - Profile (4): no-op (data is already cached)
+  void _handleDoubleTap(int tabIndex) {
+    switch (tabIndex) {
+      case 1:
+        BookingsPage.requestRefresh(context);
+        break;
+      case 2:
+        DiscoveryTab.requestReset(context);
+        break;
+      case 3:
+        TournamentPage.requestRefresh(context);
+        break;
+      case 0:
+      case 4:
+        break;
+    }
+  }
+
+  /// Mirrors the [PageController] page into the [NavigationCubit] so the
+  /// nav bar can rebuild via [BlocSelector]. This is the ONLY place we
+  /// mutate the Cubit from the page-switching path — taps never write to
+  /// the Cubit directly.
+  void _onPageChanged(int index) {
+    final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
+    context.read<NavigationCubit>().setTab(clamped);
+  }
+
+  /// Allows descendants (e.g. HomeOverviewPage quick actions) to request
+  /// a tab switch. Animates the PageController and lets [onPageChanged]
+  /// update the Cubit as a side effect.
+  void _requestTab(int index) {
+    _onTabTapped(index);
+  }
+
+  void _handleBackNavigation(int currentIndex) {
+    if (currentIndex != NavTab.home.tabIndex) {
+      _requestTab(NavTab.home.tabIndex);
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Thoát ứng dụng'),
+        content: const Text('Bạn có chắc muốn thoát BoardVerse?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              SystemNavigator.pop();
+            },
+            child: const Text('Thoát'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<NavigationCubit>(
-          create: (_) => NavigationCubit(),
-        ),
-        BlocProvider<MatchmakingCubit>.value(value: _matchmakingCubit),
-        BlocProvider<LobbyCubit>.value(value: _lobbyCubit),
-      ],
-      child: BlocConsumer<NavigationCubit, NavigationState>(
-        listener: (context, state) {
-          if (state.currentIndex != _previousIndex) {
-            _pageController.animateToPage(
-              state.currentIndex,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutCubic,
-            );
-            _previousIndex = state.currentIndex;
-          }
-        },
+    return BlocProvider<NavigationCubit>(
+      create: (_) => NavigationCubit(),
+      child: BlocBuilder<NavigationCubit, NavigationState>(
+        buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,
         builder: (context, state) {
           return PopScope(
             canPop: false,
-            onPopInvokedWithResult: (didPop, result) {
-              if (!didPop) {
-                _handleBackNavigation(context, state.currentIndex);
-              }
+            onPopInvokedWithResult: (didPop, _) {
+              if (didPop) return;
+              _handleBackNavigation(state.currentIndex);
             },
             child: Scaffold(
-              body: PageView(
+              body: PageView.builder(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
-                onPageChanged: (index) {
-                  if (index != state.currentIndex) {
-                    context.read<NavigationCubit>().setTab(index);
-                  }
-                },
-                children: [
-                  HomeOverviewPage(
-                    matchmakingCubit: _matchmakingCubit,
-                    onSwitchTab: (index) => context
-                        .read<NavigationCubit>()
-                        .setTab(index),
-                  ),
-                  const BookingsPage(), // Phòng chờ
-                  DiscoveryTab(
-                    matchmakingCubit: _matchmakingCubit,
-                    lobbyCount: state.lobbyCount,
-                  ),
-                  const TournamentPage(),
-                  const ProfileTab(),
-                ],
+                onPageChanged: _onPageChanged,
+                itemCount: NavTab.values.length,
+                itemBuilder: (context, index) => _TabPage(
+                  index: index,
+                  onSwitchTab: _requestTab,
+                ),
               ),
               bottomNavigationBar: BoardVerseNavBar(
-                currentIndex: state.currentIndex,
-                lobbyCount: state.lobbyCount,
-                hasBookingBadge: state.hasBookingBadge,
-                isPlayingBadge: state.isPlayingBadge,
-                friendInviteCount: state.friendInviteCount,
-                onTabSelected: (index) {
-                  _handleTabSelection(context, state.currentIndex, index);
-                },
+                onTabSelected: _onTabTapped,
               ),
             ),
           );
@@ -114,79 +172,40 @@ class _MainScaffoldState extends State<MainScaffold> {
       ),
     );
   }
-
-  void _handleTabSelection(BuildContext context, int currentIndex, int newIndex) {
-    if (currentIndex == newIndex) {
-      _handleDoubleTap(context, newIndex);
-    } else {
-      context.read<NavigationCubit>().setTab(newIndex);
-    }
-  }
-
-  void _handleDoubleTap(BuildContext context, int tabIndex) {
-    switch (tabIndex) {
-      case 0:
-        // Home refresh
-        break;
-      case 1:
-        _matchmakingCubit.searchGames();
-        break;
-      case 2:
-        // Refresh bookings
-        break;
-      case 3:
-        // Tournament refresh - hiện đang là mock
-        break;
-    }
-  }
-
-  void _handleBackNavigation(BuildContext context, int currentIndex) {
-    if (currentIndex != NavTab.home.tabIndex) {
-      context.read<NavigationCubit>().goHome();
-    } else {
-      _showLogoutDialog(context);
-    }
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Đăng xuất'),
-        content: const Text('Bạn có chắc muốn đăng xuất không?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.read<AuthCubit>().logout();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-                (route) => false,
-              );
-            },
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class ProfileTab extends StatefulWidget {
-  const ProfileTab({super.key});
+/// Resolves the page widget for a given tab index.
+///
+/// The widget tree is intentionally built once per tab and held in memory
+/// for the lifetime of the PageView.builder, so subsequent tab switches
+/// don't re-create stateful pages.
+class _TabPage extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onSwitchTab;
 
-  @override
-  State<ProfileTab> createState() => _ProfileTabState();
-}
+  const _TabPage({
+    required this.index,
+    required this.onSwitchTab,
+  });
 
-class _ProfileTabState extends State<ProfileTab> {
   @override
   Widget build(BuildContext context) {
-    // HomePage calls getProfile() in its own initState — no duplicate call here.
-    return const HomePage();
+    switch (index) {
+      case 0:
+        return HomeOverviewPage(
+          matchmakingCubit: context.read<MatchmakingCubit>(),
+          onSwitchTab: onSwitchTab,
+        );
+      case 1:
+        return const BookingsPage();
+      case 2:
+        return const DiscoveryTab();
+      case 3:
+        return const TournamentPage();
+      case 4:
+        return const ProfilePage();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

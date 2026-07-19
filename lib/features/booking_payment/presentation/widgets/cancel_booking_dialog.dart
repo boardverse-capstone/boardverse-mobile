@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/theme.dart';
+
 /// Dialog 2 bước để Host huỷ đơn đặt chỗ.
 ///
 /// Trả về `String?` — lý do user nhập nếu xác nhận, `null` nếu huỷ.
@@ -8,7 +10,8 @@ class CancelBookingDialog extends StatefulWidget {
 
   const CancelBookingDialog({super.key, required this.bookingId});
 
-  static Future<String?> show(BuildContext context, {required String bookingId}) {
+  static Future<String?> show(BuildContext context,
+      {required String bookingId}) {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -46,10 +49,18 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
   Widget _buildWarning() {
     final theme = Theme.of(context);
     return AlertDialog(
-      icon: Icon(
-        Icons.warning_amber_rounded,
-        color: Colors.orange.shade700,
-        size: 48,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
+      icon: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.warning_amber_rounded,
+          color: AppColors.warning,
+          size: AppIcons.xl,
+        ),
       ),
       title: const Text('Xác nhận huỷ đơn'),
       content: Text(
@@ -57,22 +68,36 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
         'Vui lòng cho quán biết lý do để họ hỗ trợ bạn tốt hơn.',
         style: theme.textTheme.bodyMedium,
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Không, giữ lại'),
         ),
-        FilledButton.tonal(
+        FilledButton.icon(
           onPressed: () => setState(() => _step = 1),
-          child: const Text('Huỷ đơn'),
+          icon: const Icon(Icons.cancel_outlined),
+          label: const Text('Huỷ đơn'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.error,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildReasonForm() {
+    final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Lý do huỷ'),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
+      title: Row(
+        children: [
+          Icon(Icons.edit_note_rounded,
+              size: AppIcons.lg, color: theme.colorScheme.primary),
+          const SizedBox(width: AppSpacing.xs),
+          const Text('Lý do huỷ'),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -82,24 +107,52 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
             autofocus: true,
             maxLines: 3,
             maxLength: _maxLength,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Ví dụ: Bận đột xuất, không thể đến...',
-              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.4),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.radiusMdAll,
+                borderSide: BorderSide(
+                  color: theme.colorScheme.outlineVariant,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.radiusMdAll,
+                borderSide: BorderSide(
+                  color: theme.colorScheme.outlineVariant,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.radiusMdAll,
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 2,
+                ),
+              ),
             ),
             onChanged: _onReasonChanged,
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Quay lại'),
         ),
-        FilledButton(
+        FilledButton.icon(
           onPressed: _canConfirm
-              ? () => Navigator.pop(context, _reasonController.text.trim())
+              ? () =>
+                  Navigator.pop(context, _reasonController.text.trim())
               : null,
-          child: const Text('Xác nhận huỷ'),
+          icon: const Icon(Icons.check_rounded),
+          label: const Text('Xác nhận huỷ'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.error,
+            disabledBackgroundColor: AppColors.error.withValues(alpha: 0.3),
+          ),
         ),
       ],
     );

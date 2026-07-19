@@ -1,8 +1,10 @@
 import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -34,7 +36,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   // Google Sign-In instance
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: 'YOUR_SERVER_CLIENT_ID.apps.googleusercontent.com', // Replace with actual Server Client ID
+    clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
+    serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_SERVER_CLIENT_ID'],
   );
 
   @override

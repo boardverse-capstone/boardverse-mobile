@@ -27,8 +27,8 @@ class LobbyCubit extends Cubit<LobbyState> {
   LobbyCubit({
     required this._repository,
     LobbyPersistenceService? persistenceService,
-  })  : _persistenceService = persistenceService ?? LobbyPersistenceService(),
-        super(const LobbyInitial());
+  }) : _persistenceService = persistenceService ?? LobbyPersistenceService(),
+       super(const LobbyInitial());
 
   // ─── Create Lobby ─────────────────────────────────────────────────────
 
@@ -97,15 +97,14 @@ class LobbyCubit extends Cubit<LobbyState> {
     );
 
     if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (lobby) {
-        _startCountdown(lobby.timeoutAt);
-        _watchLobbyRealtime(lobby.id);
-        _persistLobby(lobby);
-        emit(LobbyCreated(lobby: lobby));
-      },
-    );
+    result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
+      lobby,
+    ) {
+      _startCountdown(lobby.timeoutAt);
+      _watchLobbyRealtime(lobby.id);
+      _persistLobby(lobby);
+      emit(LobbyCreated(lobby: lobby));
+    });
   }
 
   Future<void> _persistLobby(LobbyEntity lobby) async {
@@ -137,12 +136,11 @@ class LobbyCubit extends Cubit<LobbyState> {
   ) async {
     emit(const LobbyLoading());
 
-    final joinResult =
-        await _repository.joinLobby(lobbyId, inviteCode ?? '');
+    final joinResult = await _repository.joinLobby(lobbyId, inviteCode ?? '');
     if (joinResult.isLeft()) {
       final failure = joinResult.swap().getOrElse(
-            () => throw StateError('unreachable'),
-          );
+        () => throw StateError('unreachable'),
+      );
       if (!isClosed) emit(LobbyFailure(message: failure.message));
       return Left<Failure, LobbyEntity?>(failure);
     }
@@ -248,13 +246,12 @@ class LobbyCubit extends Cubit<LobbyState> {
       friendId: friendId,
     );
     if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (updatedLobby) {
-        _startCountdown(updatedLobby.timeoutAt);
-        emit(LobbyUpdatedRealtime(lobby: updatedLobby));
-      },
-    );
+    result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
+      updatedLobby,
+    ) {
+      _startCountdown(updatedLobby.timeoutAt);
+      emit(LobbyUpdatedRealtime(lobby: updatedLobby));
+    });
   }
 
   // ─── Search Nearby Lobbies (BR-10) ───────────────────────────────────
@@ -276,19 +273,20 @@ class LobbyCubit extends Cubit<LobbyState> {
     // Bỏ qua emit nếu cubit đã bị close (user navigate away).
     if (isClosed) return;
 
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (list) {
-        if (list.isEmpty) {
-          emit(const LobbyListEmpty(
+    result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
+      list,
+    ) {
+      if (list.isEmpty) {
+        emit(
+          const LobbyListEmpty(
             message:
                 'Không có phòng nào phù hợp. Hãy thử nới rộng bán kính hoặc giảm ngưỡng Karma.',
-          ));
-        } else {
-          emit(LobbyListLoaded(lobbies: list));
-        }
-      },
-    );
+          ),
+        );
+      } else {
+        emit(LobbyListLoaded(lobbies: list));
+      }
+    });
   }
 
   // ─── Watch Lobby Realtime ─────────────────────────────────────────────
@@ -298,13 +296,13 @@ class LobbyCubit extends Cubit<LobbyState> {
     _lobbySubscription = _repository
         .watchLobbyRealtime(lobbyId)
         .listen(
-      (lobby) {
-        _onLobbyUpdate(lobby);
-      },
-      onError: (error) {
-        emit(LobbyFailure(message: error.toString()));
-      },
-    );
+          (lobby) {
+            _onLobbyUpdate(lobby);
+          },
+          onError: (error) {
+            emit(LobbyFailure(message: error.toString()));
+          },
+        );
   }
 
   /// Xử lý lobby cập nhật realtime: kiểm tra trigger auto-booking (Luồng A).
@@ -315,8 +313,8 @@ class LobbyCubit extends Cubit<LobbyState> {
     final previousLobby = (currentState is LobbyCreated)
         ? currentState.lobby
         : (currentState is LobbyUpdatedRealtime)
-            ? (currentState).lobby
-            : null;
+        ? (currentState).lobby
+        : null;
 
     // ─── Trigger auto-booking khi lobby vừa đạt FULL (Luồng A) ───────
     if (lobby.currentPlayers >= lobby.maxPlayers &&
@@ -337,9 +335,11 @@ class LobbyCubit extends Cubit<LobbyState> {
     final result = await _repository.autoCreateBookingWhenFull(lobby.id);
     if (isClosed) return;
     result.fold(
-      (failure) => emit(LobbyFailure(
-        message: 'Không thể tự động tạo booking: ${failure.message}',
-      )),
+      (failure) => emit(
+        LobbyFailure(
+          message: 'Không thể tự động tạo booking: ${failure.message}',
+        ),
+      ),
       (bookingId) {
         // Bind bookingId lên lobby để các UI khác (resume flow) dùng.
         final updated = lobby.copyWith(bookingId: bookingId);
@@ -423,23 +423,20 @@ class LobbyCubit extends Cubit<LobbyState> {
 
     final result = await _repository.cancelLobby(lobbyId, reasonCode);
     if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (_) {
-        final reason = const LobbyDismissReason(
-          code: 'HOST_CANCELLED',
-          title: 'Chủ phòng đã hủy',
-          message: 'Trưởng phòng chờ đã chủ động giải tán phòng.',
-        );
-        emit(
-          LobbyDismissed(
-            title: reason.title,
-            message: reason.message,
-            reasonCode: 'HOST_CANCELLED',
-          ),
-        );
-      },
-    );
+    result.fold((failure) => emit(LobbyFailure(message: failure.message)), (_) {
+      final reason = const LobbyDismissReason(
+        code: 'HOST_CANCELLED',
+        title: 'Chủ phòng đã hủy',
+        message: 'Trưởng phòng chờ đã chủ động giải tán phòng.',
+      );
+      emit(
+        LobbyDismissed(
+          title: reason.title,
+          message: reason.message,
+          reasonCode: 'HOST_CANCELLED',
+        ),
+      );
+    });
   }
 
   // ─── Restore Lobby (Check for active lobby on app start) ───────────────

@@ -3,21 +3,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/lobby_management/presentation/pages/nearby_lobbies_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../../features/matchmaking_discovery/presentation/pages/search_page.dart';
 import '../../../features/matchmaking_discovery/presentation/pages/lobby_config_page.dart';
+import '../../../features/matchmaking_discovery/presentation/pages/search_page.dart';
 
 /// Tab Khám phá: bên trong có 2 tab con
-/// - Tab "Khám phá" → SearchPage (tìm game + cafe)
+/// - Tab "Khám phá game" → SearchPage (tìm game + cafe)
 /// - Tab "Phòng chờ" → NearbyLobbiesPage (tìm phòng gần đây)
 class DiscoveryTab extends StatefulWidget {
-  final MatchmakingCubit matchmakingCubit;
-  final int lobbyCount;
+  const DiscoveryTab({super.key});
 
-  const DiscoveryTab({
-    super.key,
-    required this.matchmakingCubit,
-    required this.lobbyCount,
-  });
+  /// Asks the active [DiscoveryTab] (if any) to snap its inner TabBar back
+  /// to the "Khám phá game" sub-tab. Safe to call when not mounted.
+  static void requestReset(BuildContext context) {
+    DiscoveryResetSignal.instance.notify();
+  }
 
   @override
   State<DiscoveryTab> createState() => _DiscoveryTabState();
@@ -31,10 +30,17 @@ class _DiscoveryTabState extends State<DiscoveryTab>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    DiscoveryResetSignal.instance.addListener(_reset);
+  }
+
+  void _reset() {
+    if (!mounted) return;
+    _tabController.animateTo(0);
   }
 
   @override
   void dispose() {
+    DiscoveryResetSignal.instance.removeListener(_reset);
     _tabController.dispose();
     super.dispose();
   }
@@ -76,8 +82,8 @@ class _DiscoveryTabState extends State<DiscoveryTab>
       body: TabBarView(
         controller: _tabController,
         children: [
-          DiscoveryGameTab(matchmakingCubit: widget.matchmakingCubit),
-          NearbyLobbiesPage(),
+          const _DiscoveryGameTab(),
+          const NearbyLobbiesPage(),
         ],
       ),
       floatingActionButton: AnimatedBuilder(
@@ -103,24 +109,34 @@ class _DiscoveryTabState extends State<DiscoveryTab>
           gameName: 'Demo Game',
           cafeId: 'demo_cafe',
           cafeName: 'Demo Cafe',
-          matchmakingCubit: widget.matchmakingCubit,
+          matchmakingCubit: context.read<MatchmakingCubit>(),
         ),
       ),
     );
   }
 }
 
-/// Wrapper riêng để expose SearchPage qua TabBar (giữ logic nguyên bản).
-class DiscoveryGameTab extends StatelessWidget {
-  final MatchmakingCubit matchmakingCubit;
-
-  const DiscoveryGameTab({super.key, required this.matchmakingCubit});
+/// Wraps SearchPage so the discovery tab can resolve the matchmaking cubit
+/// from its own BlocProvider scope (it is provided by the parent MultiBloc
+/// in main.dart).
+class _DiscoveryGameTab extends StatelessWidget {
+  const _DiscoveryGameTab();
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<MatchmakingCubit>.value(
-      value: matchmakingCubit,
-      child: SearchPage(matchmakingCubit: matchmakingCubit),
+    return SearchPage(
+      matchmakingCubit: context.read<MatchmakingCubit>(),
     );
+  }
+}
+
+/// Broadcast notifier used to ask the active DiscoveryTab to reset its
+/// inner sub-tab from the bottom-nav double-tap handler.
+class DiscoveryResetSignal extends ChangeNotifier {
+  DiscoveryResetSignal._();
+  static final DiscoveryResetSignal instance = DiscoveryResetSignal._();
+
+  void notify() {
+    if (hasListeners) notifyListeners();
   }
 }

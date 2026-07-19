@@ -45,75 +45,75 @@ class AppElevation {
 
   /// Extra extra small shadow
   static List<BoxShadow> get shadowXxs => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 2,
-          offset: const Offset(0, 1),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.05),
+      blurRadius: 2,
+      offset: const Offset(0, 1),
+    ),
+  ];
 
   /// Extra small shadow
   static List<BoxShadow> get shadowXs => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 4,
-          offset: const Offset(0, 1),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.08),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
 
   /// Small shadow - Cards, buttons
   static List<BoxShadow> get shadowSm => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.08),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   /// Medium shadow - Floating elements
   static List<BoxShadow> get shadowMd => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.10),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.10),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   /// Large shadow - Modals, dialogs
   static List<BoxShadow> get shadowLg => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.12),
-          blurRadius: 16,
-          offset: const Offset(0, 8),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.12),
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ];
 
   /// Extra large shadow - Bottom sheets
   static List<BoxShadow> get shadowXl => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.14),
-          blurRadius: 24,
-          offset: const Offset(0, 12),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.14),
+      blurRadius: 24,
+      offset: const Offset(0, 12),
+    ),
+  ];
 
   /// Extra extra large shadow
   static List<BoxShadow> get shadowXxl => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.16),
-          blurRadius: 32,
-          offset: const Offset(0, 16),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.16),
+      blurRadius: 32,
+      offset: const Offset(0, 16),
+    ),
+  ];
 
   /// Massive shadow - Maximum elevation
   static List<BoxShadow> get shadowMassive => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.18),
-          blurRadius: 48,
-          offset: const Offset(0, 24),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.18),
+      blurRadius: 48,
+      offset: const Offset(0, 24),
+    ),
+  ];
 
   // ========================
   // CUSTOM ELEVATION
@@ -159,64 +159,64 @@ class AppElevation {
 
   /// Card shadow - với border nhẹ
   static List<BoxShadow> get card => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   /// Card elevated - khi hover/press
   static List<BoxShadow> get cardElevated => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.10),
-          blurRadius: 16,
-          offset: const Offset(0, 8),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.10),
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ];
 
   /// FAB shadow
   static List<BoxShadow> get fab => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.15),
-          blurRadius: 12,
-          offset: const Offset(0, 6),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.15),
+      blurRadius: 12,
+      offset: const Offset(0, 6),
+    ),
+  ];
 
   /// Bottom navigation shadow
   static List<BoxShadow> get bottomNav => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 8,
-          offset: const Offset(0, -2),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.08),
+      blurRadius: 8,
+      offset: const Offset(0, -2),
+    ),
+  ];
 
   /// App bar shadow
   static List<BoxShadow> get appBar => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   /// Dialog shadow
   static List<BoxShadow> get dialog => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.20),
-          blurRadius: 24,
-          offset: const Offset(0, 12),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.20),
+      blurRadius: 24,
+      offset: const Offset(0, 12),
+    ),
+  ];
 
   /// Bottom sheet shadow
   static List<BoxShadow> get bottomSheet => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.15),
-          blurRadius: 20,
-          offset: const Offset(0, -4),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.15),
+      blurRadius: 20,
+      offset: const Offset(0, -4),
+    ),
+  ];
 }

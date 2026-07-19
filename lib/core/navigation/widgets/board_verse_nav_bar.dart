@@ -2,10 +2,13 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_radius.dart';
+import '../nav_tab.dart';
+import '../navigation_cubit.dart';
 
 /// Modern Bottom Navigation Bar - BoardVerse Mobile
 /// Features:
@@ -14,32 +17,43 @@ import '../../theme/app_radius.dart';
 /// - Floating design with margin from bottom
 /// - Smooth animations
 /// - Active indicator with gradient
-class BoardVerseNavBar extends StatefulWidget {
-  final int currentIndex;
-  final int lobbyCount;
-  final bool hasBookingBadge;
-  final bool isPlayingBadge;
-  final int friendInviteCount;
+/// - Center FAB slot for the "Khám phá" discovery action
+class BoardVerseNavBar extends StatelessWidget {
   final Function(int) onTabSelected;
 
   const BoardVerseNavBar({
     super.key,
-    required this.currentIndex,
-    required this.lobbyCount,
-    required this.hasBookingBadge,
-    required this.isPlayingBadge,
-    required this.friendInviteCount,
     required this.onTabSelected,
   });
 
   @override
-  State<BoardVerseNavBar> createState() => _BoardVerseNavBarState();
+  Widget build(BuildContext context) {
+    // BlocSelector rebuilds ONLY this widget when currentIndex changes,
+    // leaving the Scaffold/PageView subtree untouched. This is what kills
+    // the jank that was caused by rebuilding the entire widget tree on
+    // every tab switch.
+    return BlocSelector<NavigationCubit, NavigationState, int>(
+      selector: (state) => state.currentIndex,
+      builder: (context, currentIndex) => _NavBarContent(
+        currentIndex: currentIndex,
+        onTabSelected: onTabSelected,
+      ),
+    );
+  }
 }
 
-class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
+class _NavBarContent extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTabSelected;
+
+  const _NavBarContent({
+    required this.currentIndex,
+    required this.onTabSelected,
+  });
+
   void _onTabTapped(int index) {
     HapticFeedback.selectionClick();
-    widget.onTabSelected(index);
+    onTabSelected(index);
   }
 
   @override
@@ -47,6 +61,14 @@ class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
     final mediaQuery = MediaQuery.of(context);
     final bottomPadding = mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final centerIndex = NavTab.discovery.tabIndex;
+    final centerButtonSize = 56.0;
+
+    // Clamp defensively so a transient out-of-range value (e.g. during a
+    // bounce-back swipe) never causes "no tab is selected".
+    final safeIndex =
+        currentIndex.clamp(0, NavTab.values.length - 1).toInt();
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -56,7 +78,7 @@ class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
       child: ClipRRect(
         borderRadius: AppRadius.radiusXlAll,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             height: 72 + bottomPadding,
             decoration: BoxDecoration(
@@ -92,39 +114,23 @@ class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Navigation items
                   Row(
                     children: [
-                      _NavItemV2(
-                        icon: Icons.home_rounded,
-                        label: 'Trang chủ',
-                        isSelected: widget.currentIndex == 0,
-                        onTap: () => _onTabTapped(0),
-                      ),
-                      _NavItemV2(
-                        icon: Icons.groups_rounded,
-                        label: 'Phòng chờ',
-                        isSelected: widget.currentIndex == 1,
-                        badgeCount: widget.lobbyCount,
-                        onTap: () => _onTabTapped(1),
-                      ),
-                      const SizedBox(width: 56),
-                      _NavItemV2(
-                        icon: Icons.emoji_events_rounded,
-                        label: 'Giải đấu',
-                        isSelected: widget.currentIndex == 3,
-                        onTap: () => _onTabTapped(3),
-                      ),
-                      _NavItemV2(
-                        icon: Icons.person_rounded,
-                        label: 'Cá nhân',
-                        isSelected: widget.currentIndex == 4,
-                        badgeCount: widget.friendInviteCount,
-                        onTap: () => _onTabTapped(4),
-                      ),
+                      for (final tab in NavTab.values)
+                        if (tab.tabIndex == centerIndex)
+                          // Reserved slot for the centered FAB. Width matches
+                          // the FAB so flanking items stay balanced even if
+                          // the FAB size changes.
+                          SizedBox(width: centerButtonSize)
+                        else
+                          _NavItemV2(
+                            icon: _iconFor(tab),
+                            label: tab.label,
+                            isSelected: safeIndex == tab.tabIndex,
+                            onTap: () => _onTabTapped(tab.tabIndex),
+                          ),
                     ],
                   ),
-                  // Center FAB - Khám phá
                   Positioned(
                     left: 0,
                     right: 0,
@@ -132,8 +138,9 @@ class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
                     bottom: 0,
                     child: Center(
                       child: _CenterDiscoveryButton(
-                        isSelected: widget.currentIndex == 2,
-                        onTap: () => _onTabTapped(2),
+                        isSelected: safeIndex == centerIndex,
+                        onTap: () => _onTabTapped(centerIndex),
+                        size: centerButtonSize,
                       ),
                     ),
                   ),
@@ -145,34 +152,43 @@ class _BoardVerseNavBarState extends State<BoardVerseNavBar> {
       ),
     );
   }
+
+  IconData _iconFor(NavTab tab) {
+    switch (tab) {
+      case NavTab.home:
+        return Icons.home_rounded;
+      case NavTab.bookings:
+        return Icons.groups_rounded;
+      case NavTab.discovery:
+        return Icons.explore_rounded;
+      case NavTab.tournament:
+        return Icons.emoji_events_rounded;
+      case NavTab.profile:
+        return Icons.person_rounded;
+    }
+  }
 }
 
 class _NavItemV2 extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
-  final int badgeCount;
   final VoidCallback onTap;
 
   const _NavItemV2({
     required this.icon,
     required this.label,
     required this.isSelected,
-    this.badgeCount = 0,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasBadge = badgeCount > 0;
 
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
+        onTap: onTap,
         behavior: HitTestBehavior.translucent,
         child: SizedBox(
           height: 64,
@@ -195,12 +211,6 @@ class _NavItemV2 extends StatelessWidget {
                               ? AppColors.textSecondaryDark
                               : AppColors.textSecondary),
                     ),
-                    if (hasBadge)
-                      Positioned(
-                        top: -2,
-                        right: 4,
-                        child: _BadgeWidget(count: badgeCount),
-                      ),
                   ],
                 ),
               ),
@@ -225,62 +235,15 @@ class _NavItemV2 extends StatelessWidget {
   }
 }
 
-class _BadgeWidget extends StatelessWidget {
-  final int count;
-
-  const _BadgeWidget({
-    required this.count,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasAlert = count > 0;
-    
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.elasticOut,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            constraints: const BoxConstraints(minWidth: 18),
-            decoration: BoxDecoration(
-              color: hasAlert ? AppColors.error : AppColors.primary,
-              borderRadius: AppRadius.radiusXxsAll,
-              boxShadow: [
-                BoxShadow(
-                  color: (hasAlert ? AppColors.error : AppColors.primary)
-                      .withValues(alpha: 0.4),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Text(
-              count > 99 ? '99+' : '$count',
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _CenterDiscoveryButton extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
+  final double size;
 
   const _CenterDiscoveryButton({
     required this.isSelected,
     required this.onTap,
+    required this.size,
   });
 
   @override
@@ -288,14 +251,11 @@ class _CenterDiscoveryButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
+      onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 56,
-        height: 56,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isSelected

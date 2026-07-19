@@ -505,9 +505,9 @@ class _LeaderboardPageContentState extends State<_LeaderboardPageContent>
   IconData _getRankIcon(int rank) {
     switch (rank) {
       case 1:
-        return Icons.emoji_events;
+        return Icons.workspace_premium;
       case 2:
-        return Icons.emoji_events;
+        return Icons.military_tech;
       case 3:
         return Icons.emoji_events;
       default:

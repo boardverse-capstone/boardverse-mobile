@@ -29,6 +29,7 @@ import 'package:boardverse_mobile/features/profile/presentation/widgets/location
 import 'package:boardverse_mobile/features/profile/presentation/widgets/personal_info_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/stat_card.dart';
+import 'package:boardverse_mobile/features/settings/presentation/widgets/theme_switcher_sheet.dart';
 
 /// Trang chính của feature profile.
 ///
@@ -56,7 +57,6 @@ class _HomePageState extends State<HomePage> {
     Future.microtask(() {
       if (!mounted) return;
       context.read<ProfileCubit>().getProfile();
-      context.read<ProfileCubit>().getLocation();
     });
   }
 
@@ -192,6 +192,10 @@ class _HomePageState extends State<HomePage> {
     _showToast('$feature sắp ra mắt');
   }
 
+  void _openThemeSwitcher() {
+    ThemeSwitcherSheet.show(context);
+  }
+
   // ─── Avatar upload ────────────────────────────────────────────────────
 
   /// Pick an image from the gallery → upload to Cloudinary → save URL on
@@ -260,6 +264,14 @@ class _HomePageState extends State<HomePage> {
   void _onStateChanged(BuildContext context, ProfileState state) {
     if (state is ProfileLoaded) {
       _showToast('Đã tải thông tin cá nhân!');
+      // Load location sau khi profile loaded thành công
+      if (state.profile.hasProfile) {
+        final cubit = context.read<ProfileCubit>();
+        Future.microtask(() {
+          if (!mounted) return;
+          cubit.getLocation();
+        });
+      }
     } else if (state is ProfileFailure) {
       _showToast(state.message, isError: true);
     } else if (state is ProfileDeleted) {
@@ -357,10 +369,16 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: BlocBuilder<ProfileCubit, ProfileState>(
-              builder: (context, locationState) {
-                final location = locationState is ProfileLocationLoaded
-                    ? locationState.location
-                    : null;
+              buildWhen: (previous, current) =>
+                  current is ProfileLocationLoaded ||
+                  current is ProfileLocationDeleted ||
+                  (previous is ProfileLocationLoaded && current is ProfileLoaded),
+              builder: (context, state) {
+                final location = state is ProfileLocationLoaded
+                    ? state.location
+                    : state is ProfileLoaded
+                        ? null
+                        : null;
                 return LocationCard(
                   location: location,
                   onUpdateGpsPressed: () => _updateLocationGps(context),
@@ -409,9 +427,9 @@ class _HomePageState extends State<HomePage> {
         _ActionDivider(color: dividerColor),
         _ActionTile(
           icon: AppIcons.settings,
-          title: 'Cài đặt',
-          subtitle: 'Tùy chỉnh tài khoản và thông báo',
-          onTap: () => _showComingSoonToast('Cài đặt'),
+          title: 'Cài đặt giao diện',
+          subtitle: 'Chuyển đổi chế độ Sáng / Tối / Theo hệ thống',
+          onTap: _openThemeSwitcher,
         ),
       ],
     );
@@ -476,6 +494,8 @@ class _ActionTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
+      tileColor: Colors.transparent,
+      selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.08),
       leading: Icon(icon, color: theme.colorScheme.primary),
       title: Text(title, style: theme.textTheme.bodyLarge),
       subtitle: Text(subtitle, style: theme.textTheme.bodySmall),

@@ -43,10 +43,22 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
     return apiResponse;
   }
 
-  ServerException _createParseException(dynamic e, Response<dynamic>? response) {
+  ServerException _createParseException(dynamic e, DioException? dioException) {
+    if (e is DioException) {
+      return ServerException(
+        message: e.message ?? 'Lỗi kết nối. Vui lòng thử lại.',
+        statusCode: e.response?.statusCode,
+      );
+    }
+    if (e is FormatException || e is TypeError) {
+      return ServerException(
+        message: 'Dữ liệu phản hồi không hợp lệ. Chi tiết: ${e.toString()}',
+        statusCode: dioException?.response?.statusCode,
+      );
+    }
     return ServerException(
-      message: 'Lỗi parse JSON. Chi tiết: $e',
-      statusCode: response?.statusCode,
+      message: 'Đã xảy ra lỗi không mong muốn. Chi tiết: $e',
+      statusCode: dioException?.response?.statusCode,
     );
   }
 
@@ -67,9 +79,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi lấy thông tin cá nhân.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -93,9 +111,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi tạo hồ sơ.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -121,9 +145,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi cập nhật hồ sơ.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -147,9 +177,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi cập nhật ảnh đại diện.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -164,9 +200,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
             : ProfileModel.fromJson(data as Map<String, dynamic>),
       );
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi xoá hồ sơ.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -185,9 +227,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi lấy vị trí.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -211,9 +259,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi cập nhật vị trí.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -225,9 +279,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         response.data as Map<String, dynamic>,
       );
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi xoá vị trí.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -246,9 +306,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi lấy lịch sử karma.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 
@@ -272,9 +338,15 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
         );
       }
       return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.message ?? 'Lỗi kết nối khi cập nhật tiến trình.',
+        statusCode: e.response?.statusCode,
+      );
     } catch (e) {
-      if (e is ServerException) rethrow;
-      throw _createParseException(e, (e as DioException).response);
+      throw _createParseException(e, null);
     }
   }
 }

@@ -66,24 +66,24 @@ class LobbyPlayerModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'avatarUrl': avatarUrl,
-        'isHost': isHost,
-        'isReady': isReady,
-        'joinedAt': joinedAt,
-        'karma': karma,
-      };
+    'id': id,
+    'name': name,
+    'avatarUrl': avatarUrl,
+    'isHost': isHost,
+    'isReady': isReady,
+    'joinedAt': joinedAt,
+    'karma': karma,
+  };
 
   LobbyPlayer toEntity() => LobbyPlayer(
-        id: id,
-        name: name,
-        avatarUrl: avatarUrl,
-        isHost: isHost,
-        isReady: isReady,
-        joinedAt: DateTime.parse(joinedAt),
-        karma: karma,
-      );
+    id: id,
+    name: name,
+    avatarUrl: avatarUrl,
+    isHost: isHost,
+    isReady: isReady,
+    joinedAt: DateTime.parse(joinedAt),
+    karma: karma,
+  );
 }
 
 class LobbyModel {
@@ -171,31 +171,31 @@ class LobbyModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'gameId': gameId,
-        'gameName': gameName,
-        'gameImageUrl': gameImageUrl,
-        'cafeId': cafeId,
-        'cafeName': cafeName,
-        'hostId': hostId,
-        'hostName': hostName,
-        'scheduledTime': scheduledTime.toIso8601String(),
-        'currentPlayers': currentPlayers,
-        'maxPlayers': maxPlayers,
-        'minPlayers': minPlayers,
-        'isPublic': isPublic,
-        'inviteCode': inviteCode,
-        'status': status.name,
-        'players': players.map((e) => e.toJson()).toList(),
-        'createdAt': createdAt.toIso8601String(),
-        'timeoutAt': timeoutAt.toIso8601String(),
-        'bookingId': bookingId,
-        'minimumKarma': minimumKarma,
-        'searchRadiusKm': searchRadiusKm,
-        'distanceKm': distanceKm,
-        'cafeLat': cafeLat,
-        'cafeLng': cafeLng,
-      };
+    'id': id,
+    'gameId': gameId,
+    'gameName': gameName,
+    'gameImageUrl': gameImageUrl,
+    'cafeId': cafeId,
+    'cafeName': cafeName,
+    'hostId': hostId,
+    'hostName': hostName,
+    'scheduledTime': scheduledTime.toIso8601String(),
+    'currentPlayers': currentPlayers,
+    'maxPlayers': maxPlayers,
+    'minPlayers': minPlayers,
+    'isPublic': isPublic,
+    'inviteCode': inviteCode,
+    'status': status.name,
+    'players': players.map((e) => e.toJson()).toList(),
+    'createdAt': createdAt.toIso8601String(),
+    'timeoutAt': timeoutAt.toIso8601String(),
+    'bookingId': bookingId,
+    'minimumKarma': minimumKarma,
+    'searchRadiusKm': searchRadiusKm,
+    'distanceKm': distanceKm,
+    'cafeLat': cafeLat,
+    'cafeLng': cafeLng,
+  };
 
   int get slotsRemaining => maxPlayers - currentPlayers;
   bool get isFull => currentPlayers >= maxPlayers;
@@ -253,33 +253,37 @@ class LobbyModel {
       distanceKm: identical(distanceKm, _sentinel)
           ? this.distanceKm
           : distanceKm as double?,
-      cafeLat: identical(cafeLat, _sentinel) ? this.cafeLat : cafeLat as double?,
-      cafeLng: identical(cafeLng, _sentinel) ? this.cafeLng : cafeLng as double?,
+      cafeLat: identical(cafeLat, _sentinel)
+          ? this.cafeLat
+          : cafeLat as double?,
+      cafeLng: identical(cafeLng, _sentinel)
+          ? this.cafeLng
+          : cafeLng as double?,
     );
   }
 
   LobbyEntity toEntity() => LobbyEntity(
-        id: id,
-        gameId: gameId,
-        gameName: gameName,
-        cafeId: cafeId,
-        cafeName: cafeName,
-        hostId: hostId,
-        hostName: hostName,
-        scheduledTime: scheduledTime,
-        currentPlayers: currentPlayers,
-        maxPlayers: maxPlayers,
-        minPlayers: minPlayers,
-        isPublic: isPublic,
-        inviteCode: inviteCode,
-        status: _statusToEntity(status),
-        players: players.map((p) => p.toEntity()).toList(),
-        createdAt: createdAt,
-        timeoutAt: timeoutAt,
-        bookingId: bookingId,
-        minimumKarma: minimumKarma,
-        searchRadiusKm: searchRadiusKm,
-      );
+    id: id,
+    gameId: gameId,
+    gameName: gameName,
+    cafeId: cafeId,
+    cafeName: cafeName,
+    hostId: hostId,
+    hostName: hostName,
+    scheduledTime: scheduledTime,
+    currentPlayers: currentPlayers,
+    maxPlayers: maxPlayers,
+    minPlayers: minPlayers,
+    isPublic: isPublic,
+    inviteCode: inviteCode,
+    status: _statusToEntity(status),
+    players: players.map((p) => p.toEntity()).toList(),
+    createdAt: createdAt,
+    timeoutAt: timeoutAt,
+    bookingId: bookingId,
+    minimumKarma: minimumKarma,
+    searchRadiusKm: searchRadiusKm,
+  );
 
   static LobbyStatus _statusToEntity(LobbyStatusModel status) {
     switch (status) {

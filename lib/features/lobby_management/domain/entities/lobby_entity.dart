@@ -121,7 +121,9 @@ class LobbyEntity extends Equatable {
       players: players ?? this.players,
       createdAt: createdAt ?? this.createdAt,
       timeoutAt: timeoutAt ?? this.timeoutAt,
-      bookingId: identical(bookingId, _sentinel) ? this.bookingId : bookingId as String?,
+      bookingId: identical(bookingId, _sentinel)
+          ? this.bookingId
+          : bookingId as String?,
       minimumKarma: minimumKarma ?? this.minimumKarma,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
     );
@@ -129,27 +131,27 @@ class LobbyEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        gameId,
-        gameName,
-        cafeId,
-        cafeName,
-        hostId,
-        hostName,
-        scheduledTime,
-        currentPlayers,
-        maxPlayers,
-        minPlayers,
-        isPublic,
-        inviteCode,
-        status,
-        players,
-        createdAt,
-        timeoutAt,
-        bookingId,
-        minimumKarma,
-        searchRadiusKm,
-      ];
+    id,
+    gameId,
+    gameName,
+    cafeId,
+    cafeName,
+    hostId,
+    hostName,
+    scheduledTime,
+    currentPlayers,
+    maxPlayers,
+    minPlayers,
+    isPublic,
+    inviteCode,
+    status,
+    players,
+    createdAt,
+    timeoutAt,
+    bookingId,
+    minimumKarma,
+    searchRadiusKm,
+  ];
 }
 
 /// Sentinel cho phép `copyWith` phân biệt được "không truyền" với "truyền null".
@@ -177,5 +179,13 @@ class LobbyPlayer extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, name, avatarUrl, isHost, isReady, joinedAt, karma];
+  List<Object?> get props => [
+    id,
+    name,
+    avatarUrl,
+    isHost,
+    isReady,
+    joinedAt,
+    karma,
+  ];
 }

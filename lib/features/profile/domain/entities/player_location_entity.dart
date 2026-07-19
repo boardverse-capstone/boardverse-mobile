@@ -4,18 +4,22 @@ import 'package:equatable/equatable.dart';
 enum LocationSource { gps, manual }
 
 /// Domain entity for the player's saved location.
+///
+/// When [hasLocation] is `false`, [latitude], [longitude], [updatedAt] and
+/// [source] are all `null` — UI layers should check [hasLocation] before
+/// reading any coordinate.
 class PlayerLocationEntity extends Equatable {
-  final double latitude;
-  final double longitude;
+  final double? latitude;
+  final double? longitude;
   final String? updatedAt;
   final LocationSource source;
   final bool hasLocation;
 
   const PlayerLocationEntity({
-    required this.latitude,
-    required this.longitude,
+    this.latitude,
+    this.longitude,
     this.updatedAt,
-    required this.source,
+    this.source = LocationSource.gps,
     required this.hasLocation,
   });
 
