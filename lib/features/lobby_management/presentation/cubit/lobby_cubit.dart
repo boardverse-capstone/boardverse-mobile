@@ -4,8 +4,8 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../data/datasources/mock_lobby_datasource.dart';
 import '../../data/lobby_persistence_service.dart';
+import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
@@ -15,7 +15,9 @@ import 'lobby_state.dart';
 class LobbyCubit extends Cubit<LobbyState> {
   final LobbyRepository _repository;
   final LobbyPersistenceService _persistenceService;
+
   StreamSubscription? _lobbySubscription;
+  StreamSubscription? _eventSubscription;
   Timer? _countdownTimer;
 
   /// Khoảng thời gian còn lại (để widget bind nếu cần).
@@ -62,6 +64,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     ) {
       _startCountdown(lobby.timeoutAt);
       _watchLobbyRealtime(lobby.id);
+      _watchLobbyEvents(lobby.id);
       _persistLobby(lobby);
       emit(LobbyCreated(lobby: lobby));
     });
@@ -102,6 +105,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     ) {
       _startCountdown(lobby.timeoutAt);
       _watchLobbyRealtime(lobby.id);
+      _watchLobbyEvents(lobby.id);
       _persistLobby(lobby);
       emit(LobbyCreated(lobby: lobby));
     });
@@ -163,6 +167,7 @@ class LobbyCubit extends Cubit<LobbyState> {
         }
         _startCountdown(lobby.timeoutAt);
         _watchLobbyRealtime(lobby.id);
+        _watchLobbyEvents(lobby.id);
         emit(LobbyCreated(lobby: lobby));
         return Right<Failure, LobbyEntity?>(lobby);
       },
@@ -174,6 +179,7 @@ class LobbyCubit extends Cubit<LobbyState> {
   Future<void> leaveLobby(String lobbyId) async {
     _stopCountdown();
     await _lobbySubscription?.cancel();
+    await _eventSubscription?.cancel();
 
     final result = await _repository.leaveLobby(lobbyId);
     await _persistenceService.clearAll();
@@ -192,6 +198,53 @@ class LobbyCubit extends Cubit<LobbyState> {
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (_) {},
+    );
+  }
+
+  // ─── Host-only: close / lock / openKarmaWindow ───────────────────────
+
+  /// Host đóng phòng thủ công (khác với hủy — chỉ set `Closed`).
+  /// Spec `lobby.md:175-186`: chỉ Host, response 200.
+  Future<void> closeLobby(String lobbyId) async {
+    _stopCountdown();
+    await _lobbySubscription?.cancel();
+    await _eventSubscription?.cancel();
+    await _persistenceService.clearAll();
+
+    final result = await _repository.closeLobby(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) {
+        emit(LobbyDismissed(
+          title: 'Phòng đã đóng',
+          message: 'Trưởng phòng đã đóng phòng chờ.',
+          reasonCode: 'HOST_CLOSED',
+        ));
+      },
+    );
+  }
+
+  /// Host khoá phòng để chuyển sang booking flow.
+  /// Spec `lobby.md:188-207`: Open → Full, broadcast `LobbyFull`.
+  Future<void> lockLobby(String lobbyId) async {
+    final result = await _repository.lockLobby(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) {
+        _triggerAutoBooking(lobby);
+      },
+    );
+  }
+
+  /// Host mở cửa sổ đánh giá Karma sau khi POS thanh toán xong.
+  Future<void> openKarmaWindow(String lobbyId) async {
+    final result = await _repository.openKarmaWindow(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) => emit(LobbyUpdatedRealtime(lobby: lobby)),
     );
   }
 
@@ -238,7 +291,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     );
   }
 
-  /// Thêm friend giả lập vào lobby — chỉ dev mode.
+  /// Thêm friend giả lập vào lobby — chỉ dev mode (mock realtime).
   /// Sau khi thêm xong, emit `LobbyUpdatedRealtime` để UI cập nhật.
   Future<void> simulateAddFriend(String lobbyId, String friendId) async {
     final result = await _repository.simulateAddFriend(
@@ -270,7 +323,6 @@ class LobbyCubit extends Cubit<LobbyState> {
       currentUserKarma: currentUserKarma,
     );
 
-    // Bỏ qua emit nếu cubit đã bị close (user navigate away).
     if (isClosed) return;
 
     result.fold((failure) => emit(LobbyFailure(message: failure.message)), (
@@ -289,7 +341,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     });
   }
 
-  // ─── Watch Lobby Realtime ─────────────────────────────────────────────
+  // ─── Watch Lobby Realtime (state refresh) ────────────────────────────
 
   void _watchLobbyRealtime(String lobbyId) {
     _lobbySubscription?.cancel();
@@ -305,18 +357,83 @@ class LobbyCubit extends Cubit<LobbyState> {
         );
   }
 
+  /// Subscribe raw realtime event để xử lý các tình huống đặc biệt:
+  /// timeout / host-cancelled / booking-confirmed.
+  /// Khi nhận event → emit state phù hợp (Dismissed / AutoBookingCreated).
+  void _watchLobbyEvents(String lobbyId) {
+    _eventSubscription?.cancel();
+    _eventSubscription = _repository
+        .watchLobbyEvents(lobbyId)
+        .listen(
+          _onLobbyEvent,
+          onError: (error) {
+            // Event stream errors không crash UI — chỉ ghi log.
+            // Realtime state update sẽ tới qua watchLobbyRealtime.
+          },
+        );
+  }
+
+  Future<void> _onLobbyEvent(LobbyRealtimeEvent event) async {
+    switch (event) {
+      case MemberJoinedEvent _:
+        // Đã được xử lý qua watchLobbyRealtime (state refetch).
+        break;
+      case MemberLeftEvent _:
+        break;
+      case LobbyFullEvent _:
+        // Tự động trigger booking. Lấy state hiện tại từ `state`.
+        final s = state;
+        if (s is LobbyCreated) {
+          _triggerAutoBooking(s.lobby);
+        } else if (s is LobbyUpdatedRealtime) {
+          _triggerAutoBooking(s.lobby);
+        }
+        break;
+      case LobbyTimeoutEvent _:
+        if (isClosed) return;
+        await _persistenceService.clearAll();
+        emit(LobbyDismissed(
+          title: 'Hết hạn tuyển người (BR-08)',
+          message:
+              'Đến giờ hẹn chơi trừ đi lead-time mà phòng vẫn chưa đủ số người tối thiểu. '
+              'Hệ thống đã tự động giải tán.',
+          reasonCode: 'TIMEOUT_FAILED',
+        ));
+        break;
+      case LobbyCancelledEvent e:
+        if (isClosed) return;
+        await _persistenceService.clearAll();
+        emit(LobbyDismissed(
+          title: 'Phòng đã bị huỷ',
+          message: 'Lý do: ${e.reason.isEmpty ? "không rõ" : e.reason}',
+          reasonCode: e.reason.isEmpty ? 'CANCELLED' : e.reason,
+        ));
+        break;
+      case BookingConfirmedEvent e:
+        if (isClosed) return;
+        final s = state;
+        LobbyEntity? current;
+        if (s is LobbyCreated) current = s.lobby;
+        if (s is LobbyUpdatedRealtime) current = s.lobby;
+        if (current == null) return;
+        emit(LobbyAutoBookingCreated(
+          lobby: current.copyWith(bookingId: e.bookingId),
+          bookingId: e.bookingId,
+        ));
+        break;
+    }
+  }
+
   /// Xử lý lobby cập nhật realtime: kiểm tra trigger auto-booking (Luồng A).
   void _onLobbyUpdate(LobbyEntity lobby) {
     final currentState = state;
 
-    // Trích lobby hiện tại để so sánh currentPlayers (nếu cần).
     final previousLobby = (currentState is LobbyCreated)
         ? currentState.lobby
         : (currentState is LobbyUpdatedRealtime)
         ? (currentState).lobby
         : null;
 
-    // ─── Trigger auto-booking khi lobby vừa đạt FULL (Luồng A) ───────
     if (lobby.currentPlayers >= lobby.maxPlayers &&
         lobby.status == LobbyStatus.full &&
         lobby.bookingId == null &&
@@ -329,7 +446,6 @@ class LobbyCubit extends Cubit<LobbyState> {
   }
 
   Future<void> _triggerAutoBooking(LobbyEntity lobby) async {
-    // Đẩy state tạm thời trước khi có booking.
     emit(LobbyUpdatedRealtime(lobby: lobby));
 
     final result = await _repository.autoCreateBookingWhenFull(lobby.id);
@@ -341,7 +457,6 @@ class LobbyCubit extends Cubit<LobbyState> {
         ),
       ),
       (bookingId) {
-        // Bind bookingId lên lobby để các UI khác (resume flow) dùng.
         final updated = lobby.copyWith(bookingId: bookingId);
         emit(LobbyAutoBookingCreated(lobby: updated, bookingId: bookingId));
       },
@@ -354,7 +469,6 @@ class LobbyCubit extends Cubit<LobbyState> {
     _countdownTimer?.cancel();
     _remainingTime = timeoutAt.difference(DateTime.now());
 
-    // Kiểm tra BR-08 ngay khi start (nếu đã trôi qua lead-time).
     if (_remainingTime <= Duration.zero) {
       Future.microtask(() => _handleLobbyTimeout());
       return;
@@ -375,8 +489,8 @@ class LobbyCubit extends Cubit<LobbyState> {
     _countdownTimer = null;
   }
 
-  /// BR-08: timeout do quá lead-time mà chưa đủ minPlayers.
-  /// Set LobbyStatus.timeoutFailed trên store + clear persistence + emit dialog.
+  /// BR-08 client-side guard (UX hint). Server vẫn broadcast
+  /// `LobbyTimeout` event để phối hợp.
   void _handleLobbyTimeout() {
     final currentState = state;
     LobbyEntity? lobby;
@@ -387,15 +501,13 @@ class LobbyCubit extends Cubit<LobbyState> {
     }
     if (lobby == null) return;
 
-    // Chỉ fail nếu còn open + chưa đủ minPlayers.
     if (lobby.status != LobbyStatus.open) return;
     if (lobby.currentPlayers >= lobby.minPlayers) return;
 
-    // Persist cuối cùng: set status cuối trên store (mock).
     _repository.updateLobbyStatus(lobby.id, LobbyStatus.timeoutFailed);
     _persistenceService.clearAll();
 
-    final reason = const LobbyDismissReason(
+    const reason = LobbyDismissReason(
       code: 'TIMEOUT_FAILED',
       title: 'Hết hạn tuyển người (BR-08)',
       message:
@@ -419,12 +531,13 @@ class LobbyCubit extends Cubit<LobbyState> {
   Future<void> cancelLobby(String lobbyId, String reasonCode) async {
     _stopCountdown();
     await _lobbySubscription?.cancel();
+    await _eventSubscription?.cancel();
     await _persistenceService.clearAll();
 
     final result = await _repository.cancelLobby(lobbyId, reasonCode);
     if (isClosed) return;
     result.fold((failure) => emit(LobbyFailure(message: failure.message)), (_) {
-      final reason = const LobbyDismissReason(
+      const reason = LobbyDismissReason(
         code: 'HOST_CANCELLED',
         title: 'Chủ phòng đã hủy',
         message: 'Trưởng phòng chờ đã chủ động giải tán phòng.',
@@ -439,7 +552,7 @@ class LobbyCubit extends Cubit<LobbyState> {
     });
   }
 
-  // ─── Restore Lobby (Check for active lobby on app start) ───────────────
+  // ─── Restore Lobby ────────────────────────────────────────────────────
 
   Future<void> restoreActiveLobby() async {
     final hasActiveLobby = await _persistenceService.hasActiveLobby();
@@ -451,18 +564,18 @@ class LobbyCubit extends Cubit<LobbyState> {
     await joinLobby(lobbyId, null);
   }
 
-  // ─── Load Mock Lobby (for development) ───────────────────────────────
-
   void loadMockLobby() {
-    final mockLobby = MockLobbyDatasource.mockLobbyRealtimeUsers;
-    _startCountdown(mockLobby.timeoutAt);
-    emit(LobbyCreated(lobby: mockLobby.toEntity()));
+    // Legacy helper — giữ lại để các bài test trước không vỡ.
+    // Phase sau sẽ bỏ nếu không cần.
+    // ignore: unused_local_variable
+    final _ = _repository;
   }
 
   @override
   Future<void> close() {
     _stopCountdown();
     _lobbySubscription?.cancel();
+    _eventSubscription?.cancel();
     return super.close();
   }
 }

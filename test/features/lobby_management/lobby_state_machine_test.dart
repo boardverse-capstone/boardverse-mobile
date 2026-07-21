@@ -12,9 +12,10 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/datasources/mock_lobby_datasource.dart';
+import 'package:boardverse_mobile/features/lobby_management/data/datasources/mock/mock_lobby_remote_datasource.dart';
 import 'package:boardverse_mobile/features/lobby_management/data/lobby_persistence_service.dart';
 import 'package:boardverse_mobile/features/lobby_management/data/lobby_repository_impl.dart';
+import 'package:boardverse_mobile/features/lobby_management/data/realtime/mock_lobby_realtime_service.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_summary.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/repositories/lobby_repository.dart';
@@ -24,22 +25,25 @@ import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/l
 import '_fake_secure_storage.dart';
 
 LobbyRepository _makeRepo() {
-  // Đảm bảo seed trước — dùng call đầu tiên sẽ khởi tạo store.
-  MockLobbyDatasource.ensureSeeded();
-  return LobbyRepositoryImpl();
+  MockLobbyRemoteDatasource.ensureSeeded();
+  return LobbyRepositoryImpl(
+    remoteDatasource: MockLobbyRemoteDatasource(),
+    realtimeService: MockLobbyRealtimeService(),
+  );
 }
 
 LobbyCubit _makeCubit() {
-  MockLobbyDatasource.ensureSeeded();
+  MockLobbyRemoteDatasource.ensureSeeded();
   return LobbyCubit(
-    repository: LobbyRepositoryImpl(),
+    repository: LobbyRepositoryImpl(
+      remoteDatasource: MockLobbyRemoteDatasource(),
+      realtimeService: MockLobbyRealtimeService(),
+    ),
     persistenceService: LobbyPersistenceService(storage: FakeSecureStorage()),
   );
 }
 
 void main() {
-  // TestWidgetsFlutterBinding cần thiết vì LobbyCubit gọi
-  // LobbyPersistenceService (gối FlutterSecureStorage) trong createLobby.
   TestWidgetsFlutterBinding.ensureInitialized();
   group('BR-07 — createLobbyForExistingBooking (seat cap)', () {
     late LobbyRepository repo;
@@ -52,7 +56,7 @@ void main() {
         gameId: 'bg_001',
         cafeId: 'cafe_001',
         scheduledTime: DateTime.now().add(const Duration(hours: 2)),
-        additionalSlots: 5, // 5 + 1 = 6 > 3 → phải fail
+        additionalSlots: 5,
         isPublic: true,
       );
       expect(result.isLeft(), isTrue);
@@ -98,7 +102,6 @@ void main() {
       result.fold(
         (_) => fail('should be Right'),
         (list) {
-          // Tất cả lobby user thấy được phải có minimumKarma <= 50.
           for (final lobby in list) {
             expect(lobby.minimumKarma, lessThanOrEqualTo(50));
           }
@@ -126,8 +129,7 @@ void main() {
 
     test('lobby do chính user tạo bị filter ra khi excludeOwnLobbies=true',
         () async {
-      // Pre-seed user_001 là host.
-      MockLobbyDatasource.ensureSeeded();
+      MockLobbyRemoteDatasource.ensureSeeded();
       final result = await repo.searchNearbyLobbies(
         latitude: 10.7769,
         longitude: 106.7009,
@@ -138,7 +140,6 @@ void main() {
         (_) => fail('should be Right'),
         (list) {
           for (final lobby in list) {
-            // lobby_id luôn có hostId cố định 'user_001' trong mock impl.
             expect(lobby.id, isNot('lobby_001'));
           }
         },
@@ -150,10 +151,10 @@ void main() {
     late LobbyRepository repo;
     setUp(() => repo = _makeRepo());
 
-    test('stream phát ít nhất 1 snapshot trong vòng 1s', () async {
+    test('stream phát ít nhất 1 snapshot trong vòng 6s', () async {
       final stream = repo.watchLobbyRealtime('lobby_001');
       final first = await stream.first.timeout(
-        const Duration(seconds: 1),
+        const Duration(seconds: 6),
         onTimeout: () => throw TimeoutException('No realtime emit'),
       );
       expect(first.id, 'lobby_001');
@@ -170,14 +171,12 @@ void main() {
       result.fold(
         (_) => fail('should be Right'),
         (lobby) {
-          // Sau cancel, status chuyển sang timeoutFailed (theo cancel logic).
           expect(lobby, isA<LobbyEntity>());
         },
       );
     });
 
     test('updateLobbyStatus(id, .full) → trả về entity full', () async {
-      // lobby_001 luôn có sẵn sau ensureSeeded().
       final result = await repo.updateLobbyStatus('lobby_001', LobbyStatus.full);
       expect(result.isRight(), isTrue);
       result.fold(
@@ -192,7 +191,6 @@ void main() {
     setUp(() => repo = _makeRepo());
 
     test('reject khi lobby chưa đầy', () async {
-      // Tạo lobby mới (chưa đầy) → expect Left.
       final cr = await repo.createLobby(
         gameId: 'bg_for_booking_create',
         cafeId: 'cafe_999',
@@ -206,7 +204,6 @@ void main() {
     });
 
     test('accept sau khi force lobby đầy', () async {
-      // Force lobby đầy bằng update status — lobby_001 luôn có sẵn sau seed.
       await repo.updateLobbyStatus('lobby_001', LobbyStatus.full);
       final result = await repo.autoCreateBookingWhenFull('lobby_001');
       expect(result.isRight(), isTrue);
@@ -230,23 +227,17 @@ void main() {
           isPublic: true,
           leadTime: const Duration(milliseconds: 50),
         );
-        // Timer.periodic chỉ tick 1s/lần, nên cần đợi đủ để lần tick đầu
-        // tiên phát hiện `isNegative` → emit Dismissed.
         await Future.delayed(const Duration(milliseconds: 1300));
       },
       wait: const Duration(milliseconds: 1500),
       expect: () => [
-        // Loading ngay sau create.
         isA<LobbyLoading>(),
-        // Created.
         isA<LobbyCreated>(),
-        // Sau khi countdown trôi qua → Dismissed (BR-08).
         isA<LobbyDismissed>(),
-        // Realtime stream có thể phát thêm 1 snapshot cuối cùng
-        // (re-emit lobby với status hiện tại).
+        // Sau khi _handleLobbyTimeout gọi updateLobbyStatus,
+        // repo refetch lobby → emit LobbyUpdatedRealtime cuối.
         isA<LobbyUpdatedRealtime>(),
       ],
     );
   });
 }
-

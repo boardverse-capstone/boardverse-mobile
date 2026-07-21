@@ -20,10 +20,22 @@ import '../../features/matchmaking_discovery/data/datasources/base/matchmaking_d
 import '../../features/matchmaking_discovery/data/datasources/remote/matchmaking_remote_datasource_impl.dart';
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../features/lobby_management/data/lobby_repository_impl.dart';
+import '../../features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
+import '../../features/lobby_management/data/datasources/mock/mock_lobby_remote_datasource.dart';
+import '../../features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
+import '../../features/lobby_management/data/lobby_repository_impl.dart';
+import '../../features/lobby_management/data/realtime/lobby_realtime_service.dart';
+import '../../features/lobby_management/data/realtime/mock_lobby_realtime_service.dart';
+import '../../features/lobby_management/data/realtime/real_lobby_realtime_service.dart';
 import '../../features/lobby_management/domain/repositories/lobby_repository.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
+import '../../features/match/data/datasources/base/match_result_remote_datasource.dart';
+import '../../features/match/data/datasources/mock/mock_match_result_remote_datasource.dart';
+import '../../features/match/data/datasources/remote/real_match_result_remote_datasource.dart';
+import '../../features/match/data/match_result_repository_impl.dart';
+import '../../features/match/domain/repositories/match_result_repository.dart';
+import '../../features/match/presentation/cubit/match_result_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import '../../features/booking_payment/data/booking_persistence_service.dart';
 import '../../features/booking_payment/data/booking_repository_impl.dart';
@@ -123,7 +135,25 @@ void setupDependencies() {
   );
 
   // ─── Feature: Lobby Management ────────────────────────────────────────
-  sl.registerLazySingleton<LobbyRepository>(() => LobbyRepositoryImpl());
+  // Per-feature mock/remote switch — đọc `AppConfig.useMockLobbyData`.
+  // Pattern tương tự booking_payment (line 145-149) nhưng tách riêng vì
+  // Lobby cần mock realtime (SignalR hub chưa sẵn sàng).
+  sl.registerLazySingleton<LobbyRemoteDatasource>(() =>
+      AppConfig.useMockLobbyData
+          ? MockLobbyRemoteDatasource()
+          : RealLobbyRemoteDatasource(dio: sl<Dio>()));
+
+  sl.registerLazySingleton<LobbyRealtimeService>(() =>
+      AppConfig.useMockLobbyData
+          ? MockLobbyRealtimeService()
+          : RealLobbyRealtimeService(storage: sl<FlutterSecureStorage>()));
+
+  sl.registerLazySingleton<LobbyRepository>(
+    () => LobbyRepositoryImpl(
+      remoteDatasource: sl<LobbyRemoteDatasource>(),
+      realtimeService: sl<LobbyRealtimeService>(),
+    ),
+  );
 
   sl.registerLazySingleton<LobbyPersistenceService>(
     () => LobbyPersistenceService(storage: sl<FlutterSecureStorage>()),
@@ -138,6 +168,23 @@ void setupDependencies() {
 
   sl.registerFactory<LobbySearchCubit>(
     () => LobbySearchCubit(repository: sl<LobbyRepository>()),
+  );
+
+  // ─── Feature: Match (Elo consensus) ─────────────────────────────────
+  // Per-feature mock/remote switch — đọc `AppConfig.useMockMatchData`.
+  // Mock state machine resolve consensus trong memory; real sẽ gọi
+  // /api/v1/matches/* qua Dio.
+  sl.registerLazySingleton<MatchResultRemoteDatasource>(() =>
+      AppConfig.useMockMatchData
+          ? MockMatchResultRemoteDatasource()
+          : RealMatchResultRemoteDatasource(dio: sl<Dio>()));
+
+  sl.registerLazySingleton<MatchResultRepository>(
+    () => MatchResultRepositoryImpl(remote: sl<MatchResultRemoteDatasource>()),
+  );
+
+  sl.registerFactory<MatchResultCubit>(
+    () => MatchResultCubit(repository: sl<MatchResultRepository>()),
   );
 
   // ─── Feature: Booking & Payment ─────────────────────────────────────

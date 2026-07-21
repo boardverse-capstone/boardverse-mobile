@@ -22,6 +22,18 @@ class AppConfig {
   ///       regardless of this flag, as their remote impl is complete.
   static const bool useMockData = true;
 
+  /// Per-feature switch for the Lobby module.
+  /// Tách độc lập với [useMockData] vì Lobby cần mock realtime (SignalR
+  /// chưa có backend) trong khi các feature khác có thể đã chuyển remote.
+  /// Khi backend sẵn sàng + SignalR hub được verify → đổi sang `false`.
+  static const bool useMockLobbyData = true;
+
+  /// Per-feature switch cho module Match (Elo consensus).
+  /// Mock hiện tại trong module `match_summary_rating` dùng local — không
+  /// phụ thuộc backend. Khi backend `/api/v1/matches/*` sẵn sàng, đổi sang
+  /// `false` để delegate sang `RealMatchResultRemoteDatasource`.
+  static const bool useMockMatchData = true;
+
   // ─── Cache Configuration ────────────────────────────────────────────
 
   /// Default cache expiry duration

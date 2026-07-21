@@ -51,6 +51,7 @@ lib/
 | State Management | `flutter_bloc` (Cubit) | Quản lý state, sealed classes |
 | DI | `get_it` | Dependency injection |
 | Network | `dio` + `AuthInterceptor` | Gọi REST API |
+| Realtime (Lobby) | `signalr_netcore` ^1.1.1 | SignalR Hub client cho `/hubs/lobby` |
 | Secure Storage | `flutter_secure_storage` | Lưu token, pending booking |
 | QR Code | `qr_flutter` | Hiển thị mã QR booking |
 | URL Launcher | `url_launcher` | Mở app thanh toán, maps |
@@ -61,11 +62,22 @@ lib/
 
 ```dart
 // lib/core/config/app_config.dart
-AppConfig.useMockData = true  // Dùng mock datasource
-AppConfig.useMockData = false // Dùng backend thật
+AppConfig.useMockData = true       // Global — Discovery đã bypass
+AppConfig.useMockLobbyData = true  // Per-feature — Lobby switch riêng (mock realtime)
+AppConfig.useMockMatchData = true  // Per-feature — Match switch riêng (mock consensus)
 ```
 
-**Hiện tại:** `useMockData = true` → tất cả features dùng mock data, không cần backend.
+**Hiện tại:**
+- `useMockData = true` (global) → các feature dùng mock, không cần backend.
+- `useMockLobbyData = true` (per-feature) → Lobby dùng `MockLobbyRemoteDatasource`
+  + `MockLobbyRealtimeService` (Timer.periodic 5s mô phỏng SignalR). Khi backend
+  sẵn sàng, đổi cờ này sang `false` để chuyển sang `RealLobbyRemoteDatasource`
+  + `RealLobbyRealtimeService` (signalr_netcore + JWT bearer).
+- `useMockMatchData = true` (per-feature) → module Match dùng
+  `MockMatchResultRemoteDatasource` (state machine consensus trong memory:
+  `AwaitingSubmissions → Finalized / Conflict` theo AC 4.1, 4.2). Khi backend
+  `/api/v1/matches/*` sẵn sàng, đổi sang `false` để chuyển sang Dio client.
+- Discovery đã dùng real API (`useMockData = false` ngầm cho Discovery).
 
 ---
 
@@ -778,6 +790,18 @@ void initState() {
 4. **Polling → WebSocket**
    - `BookingRemoteDatasourceImpl.watchBookingStatus` hiện polling mỗi 3s
    - Phase sau thay bằng WebSocket để giảm tải server
+   - ✅ **Lobby module**: Đã hoàn thành — `RealLobbyRealtimeService` dùng
+     `signalr_netcore` kết nối `/hubs/lobby` với 6 server→client events
+     (`MemberJoined`, `MemberLeft`, `LobbyFull`, `LobbyCancelled`,
+     `LobbyTimeout`, `BookingConfirmed`). Switch theo cờ
+     `AppConfig.useMockLobbyData`. Booking polling vẫn TODO.
+   - 🔧 **Match module (consensus)**: `RealMatchResultRemoteDatasource
+     .watchMatchResult` đang polling 5s. Docs `matches.md` hiện KHÔNG định
+     nghĩa SignalR Hub riêng → cần verify với backend xem consensus
+     updates sẽ broadcast qua `/hubs/lobby` (event mới như
+     `MatchConsensusUpdated`) hay qua hub riêng (vd. `/hubs/match`). Khi
+     có câu trả lời, thay polling này bằng SignalR subscribe để giảm
+     tải và cập nhật realtime.
 
 5. **Currency formatting**
    - Hiện hiển thị raw số

@@ -55,6 +55,9 @@ dependencies:
   shimmer: ^3.0.0
   google_fonts: ^6.1.0
 
+  # Realtime (SignalR Hub for lobby)
+  signalr_netcore: ^1.1.1
+
   # ─── Media Upload ───
   # Cloudinary: cloud image hosting + on-the-fly transformations
   cloudinary_flutter: ^1.0.0

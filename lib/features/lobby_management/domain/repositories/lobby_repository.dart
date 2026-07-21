@@ -1,9 +1,10 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
-import '../entities/lobby_entity.dart';
-import '../entities/lobby_summary.dart';
-import '../entities/friend_entity.dart';
+import '../../data/realtime/lobby_realtime_service.dart';
+import '../../domain/entities/friend_entity.dart';
+import '../../domain/entities/lobby_entity.dart';
+import '../../domain/entities/lobby_summary.dart';
 
 abstract class LobbyRepository {
   Future<Either<Failure, LobbyEntity>> createLobby({
@@ -47,6 +48,22 @@ abstract class LobbyRepository {
   Stream<LobbyEntity> watchLobbyRealtime(String lobbyId);
 
   Future<Either<Failure, void>> cancelLobby(String lobbyId, String reasonCode);
+
+  /// Host-only: đóng phòng thủ công (`POST /api/v1/lobbies/{id}/close`).
+  Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId);
+
+  /// Host-only: khoá phòng để chuyển sang flow booking
+  /// (`POST /api/v1/lobbies/{id}/lock`). Status: Open → Full.
+  Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId);
+
+  /// Host-only: mở cửa sổ đánh giá Karma sau khi POS thanh toán xong
+  /// (`POST /api/v1/lobbies/{id}/open-karma-window`).
+  Future<Either<Failure, LobbyEntity>> openKarmaWindow(String lobbyId);
+
+  /// Stream raw [LobbyRealtimeEvent] cho 1 lobby — Cubit dùng để xử lý
+  /// các event đặc biệt (timeout, host cancelled, booking confirmed)
+  /// độc lập với việc fetch lại state.
+  Stream<LobbyRealtimeEvent> watchLobbyEvents(String lobbyId);
 
   // ─── Mới cho Task 3 ─────────────────────────────────────────────────
 

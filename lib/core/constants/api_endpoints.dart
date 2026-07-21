@@ -84,12 +84,35 @@ class ApiEndpoints {
   static const String paymentCreate = '/api/Payments/create-url';
 
   // ─── Lobbies (Task 3) ────────────────────────────────────────────
-  static const String lobbiesSearch = '/api/Lobbies/search';
-  static const String lobbiesList = '/api/Lobbies';
-  static const String lobbyDetail = '/api/Lobbies/{id}';
-  static const String lobbyJoin = '/api/Lobbies/{id}/join';
-  static const String lobbyLeave = '/api/Lobbies/{id}/leave';
-  static const String lobbyCancel = '/api/Lobbies/{id}/cancel';
-  static const String lobbyStatus = '/api/Lobbies/{id}/status';
-  static const String lobbyAutoBooking = '/api/Lobbies/{id}/auto-booking';
+  // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
+  static const String lobbiesSearch = '/api/v1/lobbies/search';
+  static const String lobbiesList = '/api/v1/lobbies';
+  static const String lobbyDetail = '/api/v1/lobbies/{id}';
+  static const String lobbyJoin = '/api/v1/lobbies/{id}/join';
+  static const String lobbyLeave = '/api/v1/lobbies/{id}/leave';
+  static const String lobbyClose = '/api/v1/lobbies/{id}/close';
+  static const String lobbyLock = '/api/v1/lobbies/{id}/lock';
+  static const String lobbyOpenKarmaWindow =
+      '/api/v1/lobbies/{id}/open-karma-window';
+
+  // ─── Lobbies: Auto-booking (Luồng A — backend-generated) ────────
+  // Endpoint này không thuộc spec lobby.md nhưng được dùng nội bộ
+  // để bridge sang flow booking (Task 4). Tạm thời giữ cũ.
+  static const String lobbyAutoBooking = '/api/v1/lobbies/{id}/auto-booking';
+
+  // ─── SignalR Hub (realtime) ─────────────────────────────────────
+  // Negotiate endpoint trên cùng host với REST API. Token được truyền
+  // qua query `?access_token=<jwt>` bởi `RealLobbyRealtimeService`.
+  static const String lobbyHubNegotiate = '/hubs/lobby/negotiate';
+  static const String lobbyHubBasePath = '/hubs/lobby';
+
+  // ──────────────────────────────────────────────
+  //  Matches (Elo & consensus) — Task 4
+  // ──────────────────────────────────────────────
+  // Theo spec `.agents/docs/apis_docs/matches.md`. Mọi endpoint xoay
+  // quanh `lobbyId` — MatchHistory neo vào đúng phòng chờ đã chơi.
+  // Chỉ game cạnh tranh (`doi-khang`, `chien-thuat`) mới eligible;
+  // BR-04 backend kiểm tra qua gameTemplateId trên lobby.
+  static const String matchResultByLobby = '/api/v1/matches/results/lobbies/{lobbyId}';
+  static const String matchResultSubmit = '/api/v1/matches/results';
 }
