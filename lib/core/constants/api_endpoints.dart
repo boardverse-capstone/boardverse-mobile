@@ -35,7 +35,8 @@ class ApiEndpoints {
   static const String userProfileProgress = '/api/userprofile/progress';
   static const String userProfileAvatar = '/api/userprofile/me/avatar';
   static const String userProfileLocation = '/api/userprofile/me/location';
-  static const String userProfileKarmaHistory = '/api/userprofile/me/karma-history';
+  static const String userProfileKarmaHistory =
+      '/api/userprofile/me/karma-history';
 
   // ──────────────────────────────────────────────
   //  Board Games (Public Catalog)
@@ -68,7 +69,7 @@ class ApiEndpoints {
   static const String healthDbInfo = '/api/health/db-info';
 
   // ──────────────────────────────────────────────
-  //  Bookings & Payments (Task 2)
+  //  Bookings & Payments
   // ──────────────────────────────────────────────
   static const String createBooking = '/api/Bookings';
   static const String bookingDetail = '/api/Bookings/{id}';
@@ -83,7 +84,7 @@ class ApiEndpoints {
   // ─── Payments ───
   static const String paymentCreate = '/api/Payments/create-url';
 
-  // ─── Lobbies (Task 3) ────────────────────────────────────────────
+  // ─── Lobbies────────────────────────────────────────────
   // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
   static const String lobbiesSearch = '/api/v1/lobbies/search';
   static const String lobbiesList = '/api/v1/lobbies';
@@ -107,12 +108,61 @@ class ApiEndpoints {
   static const String lobbyHubBasePath = '/hubs/lobby';
 
   // ──────────────────────────────────────────────
-  //  Matches (Elo & consensus) — Task 4
+  //  Matches (Elo & consensus)
   // ──────────────────────────────────────────────
   // Theo spec `.agents/docs/apis_docs/matches.md`. Mọi endpoint xoay
   // quanh `lobbyId` — MatchHistory neo vào đúng phòng chờ đã chơi.
   // Chỉ game cạnh tranh (`doi-khang`, `chien-thuat`) mới eligible;
   // BR-04 backend kiểm tra qua gameTemplateId trên lobby.
-  static const String matchResultByLobby = '/api/v1/matches/results/lobbies/{lobbyId}';
+  static const String matchResultByLobby =
+      '/api/v1/matches/results/lobbies/{lobbyId}';
   static const String matchResultSubmit = '/api/v1/matches/results';
+
+  // ──────────────────────────────────────────────
+  //  Tournaments (Player Mobile)
+  // ──────────────────────────────────────────────
+  // Base: /api/v1/tournaments — Player xem giải, đăng ký, xem kết quả.
+  // Docs: .agents/docs/tournament_docs/tournament.md
+  static const String tournamentsOpen = '/api/v1/tournaments/open';
+  static const String tournamentsUpcoming = '/api/v1/tournaments/upcoming';
+  static const String tournamentsMyRegistrations =
+      '/api/v1/tournaments/my-registrations';
+  static const String tournamentsMyEloHistory =
+      '/api/v1/tournaments/my-elo-history';
+  static const String tournamentsLeaderboard =
+      '/api/v1/tournaments/leaderboard';
+
+  /// GET /tournaments/{id}
+  static String tournamentDetail(String id) => '/api/v1/tournaments/$id';
+
+  /// GET /tournaments/{id}/participants
+  static String tournamentParticipants(String id) =>
+      '/api/v1/tournaments/$id/participants';
+
+  /// GET /tournaments/{id}/participants/{participantId}
+  static String tournamentParticipant(
+    String tournamentId,
+    String participantId,
+  ) =>
+      '/api/v1/tournaments/$tournamentId/participants/$participantId';
+
+  /// GET /tournaments/{id}/matches
+  static String tournamentMatches(String id) =>
+      '/api/v1/tournaments/$id/matches';
+
+  /// GET /tournaments/{id}/matches/round/{round}
+  static String tournamentMatchesRound(String id, int round) =>
+      '/api/v1/tournaments/$id/matches/round/$round';
+
+  /// GET /matches/{matchId}
+  static String tournamentMatchById(String matchId) =>
+      '/api/v1/tournaments/matches/$matchId';
+
+  /// POST /tournaments/{id}/register
+  static String tournamentRegister(String id) =>
+      '/api/v1/tournaments/$id/register';
+
+  /// POST /tournaments/{id}/unregister
+  static String tournamentUnregister(String id) =>
+      '/api/v1/tournaments/$id/unregister';
 }

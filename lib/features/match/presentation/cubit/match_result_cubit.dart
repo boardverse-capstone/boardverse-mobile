@@ -50,9 +50,8 @@ class MatchResultFailure extends MatchResultState {
 // ─── Cubit ───────────────────────────────────────────────────────────────
 
 class MatchResultCubit extends Cubit<MatchResultState> {
-  MatchResultCubit({required MatchResultRepository repository})
-      : _repository = repository,
-        super(const MatchResultInitial());
+  MatchResultCubit({required this._repository})
+      : super(const MatchResultInitial());
 
   final MatchResultRepository _repository;
 

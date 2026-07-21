@@ -23,7 +23,7 @@ import '../base/lobby_remote_datasource.dart';
 class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   final Dio _dio;
 
-  RealLobbyRemoteDatasource({required Dio dio}) : _dio = dio;
+  RealLobbyRemoteDatasource({required this._dio});
 
   // ════════════════════════════════════════════════════════════════════
   // Lobby CRUD
@@ -144,7 +144,7 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       final path = ApiEndpoints.lobbyJoin.replaceAll('{id}', lobbyId);
       final res = await _dio.post<Map<String, dynamic>>(
         path,
-        data: {if (inviteCode != null) 'inviteCode': inviteCode},
+        data: {'inviteCode': ?inviteCode},
       );
       // 200 trả về LobbyResponseDto cập nhật — ta chỉ cần bool.
       return Right<Failure, bool>(res.statusCode == 200);
@@ -177,9 +177,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     String lobbyId,
     String friendId,
   ) async {
-    // Backend lobby.md chưa liệt kê endpoint invite friend — chỉ SignalR
-    // push notification. Endpoint REST hiện dùng placeholder.
-    // TODO: xác nhận với backend — phase sau sẽ thay.
     try {
       await _dio.post<dynamic>(
         ApiEndpoints.lobbyDetail.replaceAll('{id}', lobbyId),
@@ -197,7 +194,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
 
   @override
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() async {
-    // TODO: chờ backend có endpoint `/api/v1/friends/online`.
     // Tạm thời trả về empty list để UI render được.
     await Future.delayed(const Duration(milliseconds: 200));
     return const Right<Failure, List<FriendEntity>>([]);
@@ -242,8 +238,10 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, LobbyEntity>> openKarmaWindow(String lobbyId) async {
     try {
-      final path =
-          ApiEndpoints.lobbyOpenKarmaWindow.replaceAll('{id}', lobbyId);
+      final path = ApiEndpoints.lobbyOpenKarmaWindow.replaceAll(
+        '{id}',
+        lobbyId,
+      );
       final res = await _dio.post<Map<String, dynamic>>(path);
       final model = LobbyModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyEntity>(model.toEntity());
@@ -283,7 +281,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
 
   /// Map JSON đơn giản → LobbySummary (không kèm members).
   LobbySummary _summaryFromJson(Map<String, dynamic> json) {
-    // TODO(Phase 4): verify casing thật của backend (PascalCase vs camelCase).
     DateTime parseDate(dynamic v) =>
         v == null ? DateTime.now() : DateTime.parse(v.toString());
     return LobbySummary(
@@ -299,7 +296,9 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       maxPlayers: (json['maxPlayers'] as num?)?.toInt() ?? 0,
       minPlayers: (json['minPlayers'] as num?)?.toInt() ?? 0,
       minimumKarma: (json['minimumKarma'] as num?)?.toDouble() ?? 0,
-      scheduledTime: parseDate(json['scheduledTime'] ?? json['scheduledStartTime']),
+      scheduledTime: parseDate(
+        json['scheduledTime'] ?? json['scheduledStartTime'],
+      ),
       timeoutAt: parseDate(json['timeoutAt']),
       status: _parseStatus(json['status']),
       isPublic: json['isPublic'] as bool? ?? true,

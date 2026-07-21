@@ -9,7 +9,11 @@ class TournamentListCard extends StatelessWidget {
   final TournamentEntity tournament;
   final VoidCallback? onTap;
 
-  const TournamentListCard({super.key, required this.tournament, this.onTap});
+  const TournamentListCard({
+    super.key,
+    required this.tournament,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +47,7 @@ class TournamentListCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          tournament.name,
+                          tournament.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
@@ -61,7 +65,7 @@ class TournamentListCard extends StatelessWidget {
                             const SizedBox(width: AppSpacing.xxs),
                             Expanded(
                               child: Text(
-                                '${tournament.gameName} · ${tournament.cafeName}',
+                                '${tournament.gameTemplateName} · ${tournament.cafeName}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
@@ -85,20 +89,16 @@ class TournamentListCard extends StatelessWidget {
                 children: [
                   _MetaItem(
                     icon: AppIcons.schedule,
-                    label: dateFmt.format(tournament.startDate),
+                    label: dateFmt.format(tournament.startTime),
                   ),
                   _MetaItem(
                     icon: AppIcons.clock,
-                    label: timeFmt.format(tournament.startDate),
+                    label: timeFmt.format(tournament.startTime),
                   ),
                   _MetaItem(
                     icon: AppIcons.cash,
-                    label:
-                        tournament.entryFee != null && tournament.entryFee! > 0
-                        ? '${_formatVnd(tournament.entryFee!)}đ'
-                        : 'Miễn phí',
-                    emphasized:
-                        tournament.entryFee != null && tournament.entryFee! > 0,
+                    label: tournament.isFree ? 'Miễn phí' : '${_formatVnd(tournament.registrationFee!)}đ',
+                    emphasized: !tournament.isFree,
                   ),
                 ],
               ),
@@ -117,7 +117,7 @@ class TournamentListCard extends StatelessWidget {
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
-                  if (tournament.requiresElo) ...[
+                  if (tournament.requiresKarma) ...[
                     Icon(
                       AppIcons.elo,
                       size: AppIcons.sm,
@@ -125,7 +125,7 @@ class TournamentListCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.xxs),
                     Text(
-                      'ELO ≥ ${tournament.minEloRequired}',
+                      'Karma ≥ ${tournament.minKarmaRequirement}',
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
@@ -141,7 +141,7 @@ class TournamentListCard extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation<Color>(statusColor),
                 ),
               ),
-              if (tournament.prizePool > 0) ...[
+              if (tournament.hasPrizePool) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -299,10 +299,14 @@ Color _statusColor(ThemeData theme, TournamentStatus status) {
       return theme.colorScheme.secondary;
     case TournamentStatus.registrationOpen:
       return AppColors.success;
+    case TournamentStatus.registrationClosed:
+      return theme.colorScheme.tertiary;
     case TournamentStatus.ongoing:
       return theme.colorScheme.primary;
-    case TournamentStatus.finished:
+    case TournamentStatus.completed:
       return theme.colorScheme.onSurfaceVariant;
+    case TournamentStatus.cancelled:
+      return theme.colorScheme.error;
   }
 }
 
@@ -312,9 +316,13 @@ IconData _statusIcon(TournamentStatus status) {
       return AppIcons.pending;
     case TournamentStatus.registrationOpen:
       return AppIcons.userCheck;
+    case TournamentStatus.registrationClosed:
+      return AppIcons.lock;
     case TournamentStatus.ongoing:
       return Icons.play_circle_outline_rounded;
-    case TournamentStatus.finished:
+    case TournamentStatus.completed:
       return AppIcons.flag;
+    case TournamentStatus.cancelled:
+      return AppIcons.close;
   }
 }

@@ -13,12 +13,7 @@ import 'package:boardverse_mobile/features/match/data/datasources/base/match_res
 import 'package:boardverse_mobile/features/match/data/datasources/mock/mock_match_result_remote_datasource.dart';
 import 'package:boardverse_mobile/features/match/data/match_result_repository_impl.dart';
 import 'package:boardverse_mobile/features/match/domain/entities/match_consensus_entity.dart';
-import 'package:boardverse_mobile/features/match/domain/repositories/match_result_repository.dart';
 import 'package:boardverse_mobile/features/match/presentation/cubit/match_result_cubit.dart';
-
-MatchResultRepository _makeRepo() => MatchResultRepositoryImpl(
-      remote: MockMatchResultRemoteDatasource(),
-    );
 
 MatchResultCubit _makeCubit() => MatchResultCubit(
       repository: MatchResultRepositoryImpl(

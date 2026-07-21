@@ -25,8 +25,7 @@ import 'lobby_realtime_service.dart';
 /// Event payload là JSON object từ C# — đọc qua
 /// `LobbyMemberPayload.fromJson` / dynamic Map access.
 class RealLobbyRealtimeService implements LobbyRealtimeService {
-  RealLobbyRealtimeService({required FlutterSecureStorage storage})
-      : _storage = storage;
+  RealLobbyRealtimeService({required this._storage});
 
   final FlutterSecureStorage _storage;
   final _events = StreamController<LobbyRealtimeEvent>.broadcast();

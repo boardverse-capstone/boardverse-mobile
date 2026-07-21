@@ -129,7 +129,7 @@ class MockLobbyRemoteDatasource implements LobbyRemoteDatasource {
         id: id,
         gameId: 'bg_seed_${i + 1}',
         gameName: s['gameName'] as String,
-        gameImageUrl: 'https://picsum.photos/seed/${id}/200',
+        gameImageUrl: 'https://picsum.photos/seed/$id/200',
         cafeId: 'cafe_seed_${i + 1}',
         cafeName: s['cafeName'] as String,
         hostId: 'user_seed_${i + 1}',

@@ -54,8 +54,17 @@ import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart'
 import '../../features/match_summary_rating/data/rating_repository_impl.dart';
 import '../../features/match_summary_rating/domain/repositories/rating_repository.dart';
 import '../../features/match_summary_rating/presentation/cubit/rating_cubit.dart';
+import '../../features/tournament/data/datasources/base/tournament_remote_datasource.dart';
+import '../../features/tournament/data/datasources/tournament_remote_datasource_impl.dart';
+import '../../features/tournament/data/tournament_repository_impl.dart';
+import '../../features/tournament/domain/repositories/tournament_repository.dart';
+import '../../features/tournament/presentation/cubit/tournament_list_cubit.dart';
+import '../../features/tournament/presentation/cubit/tournament_detail_cubit.dart';
+import '../../features/tournament/presentation/cubit/my_registrations_cubit.dart';
+import '../../features/tournament/presentation/cubit/elo_history_cubit.dart';
 import '../../features/settings/presentation/cubit/theme_cubit.dart';
 import '../services/storage/theme_preferences_service.dart';
+import '../utils/current_user_resolver.dart';
 
 /// Global service locator instance.
 final sl = GetIt.instance;
@@ -253,6 +262,33 @@ void setupDependencies() {
     () => RatingCubit(repository: sl<RatingRepository>()),
   );
 
+  // ─── Feature: Tournament ────────────────────────────────────────────────
+  // Tournament uses real API - backend endpoints are implemented
+  sl.registerLazySingleton<TournamentRemoteDatasource>(
+    () => TournamentRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<TournamentRepository>(
+    () => TournamentRepositoryImpl(remoteDatasource: sl<TournamentRemoteDatasource>()),
+  );
+
+  // Factory Cubits — dùng cho TournamentPage
+  sl.registerFactory<TournamentListCubit>(
+    () => TournamentListCubit(repository: sl<TournamentRepository>()),
+  );
+
+  sl.registerFactory<TournamentDetailCubit>(
+    () => TournamentDetailCubit(repository: sl<TournamentRepository>()),
+  );
+
+  sl.registerFactory<MyRegistrationsCubit>(
+    () => MyRegistrationsCubit(repository: sl<TournamentRepository>()),
+  );
+
+  sl.registerFactory<EloHistoryCubit>(
+    () => EloHistoryCubit(repository: sl<TournamentRepository>()),
+  );
+
   // ─── Theme preferences ────────────────────────────────────────────────
   sl.registerLazySingleton<ThemePreferencesService>(
     () => ThemePreferencesService(storage: sl<FlutterSecureStorage>()),
@@ -260,6 +296,11 @@ void setupDependencies() {
 
   sl.registerLazySingleton<ThemeCubit>(
     () => ThemeCubit(preferences: sl<ThemePreferencesService>()),
+  );
+
+  // ─── Current user (JWT-based, used to identify "me" in lists) ────────
+  sl.registerLazySingleton<CurrentUserResolver>(
+    () => CurrentUserResolver(sl<FlutterSecureStorage>()),
   );
 
   // ─── Cloudinary (image upload + transformation) ────────────────────────

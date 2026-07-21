@@ -46,11 +46,9 @@ class AuthCubit extends Cubit<AuthState> {
   AuthTokensModel? _pendingTokens;
 
   AuthCubit({
-    required AuthRepository repository,
-    required FlutterSecureStorage storage,
-  })  : _repository = repository,
-        _storage = storage,
-        super(const AuthInitial());
+    required this._repository,
+    required this._storage,
+  })  : super(const AuthInitial());
 
   // ─── Check Auth Status (Auto-login) ────────────────────────────────
 

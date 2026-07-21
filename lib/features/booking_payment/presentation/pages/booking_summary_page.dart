@@ -5,6 +5,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
 import '../cubit/booking_summary_cubit.dart';
 import '../cubit/booking_summary_state.dart';
+import '../../domain/enums/payment_method.dart';
 import '../widgets/booking_ui_helpers.dart';
 import '../widgets/deposit_breakdown_card.dart';
 import '../widgets/payment_method_selector.dart';
@@ -266,9 +267,17 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
               ),
               boxShadow: AppElevation.shadowXxs,
             ),
-            child: PaymentMethodSelector(
-              selected: state.selectedMethod,
-              onChanged: _cubit.selectPaymentMethod,
+            child: RadioGroup<PaymentMethod>(
+              groupValue: state.selectedMethod,
+              onChanged: (method) {
+                if (method != null) {
+                  _cubit.selectPaymentMethod(method);
+                }
+              },
+              child: PaymentMethodSelector(
+                selected: state.selectedMethod,
+                onChanged: _cubit.selectPaymentMethod,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

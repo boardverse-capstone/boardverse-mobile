@@ -21,8 +21,7 @@ import 'models/verify_email_request_model.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource _remoteDatasource;
 
-  AuthRepositoryImpl({required AuthRemoteDatasource remoteDatasource})
-      : _remoteDatasource = remoteDatasource;
+  AuthRepositoryImpl({required this._remoteDatasource});
 
   // ─── Login ─────────────────────────────────────────────────────────
 

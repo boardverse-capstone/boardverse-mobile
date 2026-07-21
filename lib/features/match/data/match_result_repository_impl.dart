@@ -13,8 +13,7 @@ import 'datasources/base/match_result_remote_datasource.dart';
 ///
 /// Repository không tự switch — chỉ delegate xuống datasource đã inject.
 class MatchResultRepositoryImpl implements MatchResultRepository {
-  MatchResultRepositoryImpl({required MatchResultRemoteDatasource remote})
-      : _remote = remote;
+  MatchResultRepositoryImpl({required this._remote});
 
   final MatchResultRemoteDatasource _remote;
 

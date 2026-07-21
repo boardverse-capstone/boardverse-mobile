@@ -147,8 +147,6 @@ class _PaymentMethodTile extends StatelessWidget {
               ),
               Radio<PaymentMethod>(
                 value: method,
-                groupValue: selected ? method : null,
-                onChanged: (_) => onTap(),
               ),
             ],
           ),

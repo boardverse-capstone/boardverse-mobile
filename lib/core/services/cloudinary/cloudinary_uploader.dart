@@ -84,7 +84,7 @@ class CloudinaryUploader {
       ),
       'upload_preset': CloudinaryConfig.uploadPreset,
       'folder': folder,
-      if (publicId != null) 'public_id': publicId,
+      'public_id': ?publicId,
     });
 
     try {

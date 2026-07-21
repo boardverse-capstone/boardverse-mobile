@@ -21,7 +21,7 @@ import '../base/match_result_remote_datasource.dart';
 ///
 /// Chỉ bind trong DI khi `AppConfig.useMockMatchData = false`.
 class RealMatchResultRemoteDatasource implements MatchResultRemoteDatasource {
-  RealMatchResultRemoteDatasource({required Dio dio}) : _dio = dio;
+  RealMatchResultRemoteDatasource({required this._dio});
 
   final Dio _dio;
 

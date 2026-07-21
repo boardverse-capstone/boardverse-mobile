@@ -23,12 +23,10 @@ import 'transformations/cloudinary_transformation.dart';
 /// ```
 class CloudinaryService {
   CloudinaryService._({
-    required CloudinaryUploader uploader,
-    required CloudinaryUrlBuilder urlBuilder,
-    required CloudinaryObject client,
-  })  : _uploader = uploader,
-        _urlBuilder = urlBuilder,
-        _client = client;
+    required this._uploader,
+    required this._urlBuilder,
+    required this._client,
+  });
 
   /// Build the service from `.env` config.
   ///
