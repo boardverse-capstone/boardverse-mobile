@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/navigation/lobby_suggestion_signal.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
@@ -10,7 +11,6 @@ import '../widgets/cafe_card.dart';
 import '../widgets/game_detail_header.dart';
 import '../widgets/gps_warning_banner.dart';
 import '../widgets/similar_games_carousel.dart';
-import 'lobby_config_page.dart';
 import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
 
 class BoardGameDetailPage extends StatefulWidget {
@@ -133,8 +133,16 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     );
   }
 
-  /// Xử lý kết quả từ `play-navigation` — điều hướng sang Lobby (Group) hoặc
-  /// Solo Booking.
+  /// Xử lý kết quả từ `play-navigation` — điều hướng sang Lobby screen
+  /// (group) hoặc Solo Booking (đặt bàn trực tiếp).
+  ///
+  /// Theo phân chia nghiệp vụ mới:
+  /// - Group → KHÔNG nhảy thẳng vào form tạo lobby tại đây. Phát
+  ///   [LobbySuggestionSignal] để MainScaffold chuyển sang tab Discovery,
+  ///   sub-tab "Phòng chờ" (`NearbyLobbiesPage`) với game preselected.
+  ///   Tại đó user có thể chọn "Tìm phòng" (advanced search) hoặc "Tạo
+  ///   phòng mới" (qua game picker đã preselect → `LobbyConfigPage`).
+  /// - Solo → đặt bàn trực tiếp (giữ nguyên flow đặt bàn).
   void _handlePlayNavigation(
       BuildContext context, MatchmakingPlayNavigationResolved state) {
     final nav = state.navigation;
@@ -142,18 +150,38 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     final gameName = nav.gameName ?? '';
 
     if (nav.isLobbyCreation) {
-      // Group mode → tạo lobby như cũ. Chưa có cafeId ở bước này
-      // (sẽ được chọn trong LobbyConfigPage).
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (ctx) => LobbyConfigPage(
-            gameId: gameId,
-            gameName: gameName,
-            cafeId: '',
-            cafeName: '',
-            matchmakingCubit: widget.matchmakingCubit,
-          ),
+      // Phát signal để chuyển sang Lobby screen với game preselected.
+      // Lấy BoardGameEntity từ state hiện tại để NearbyLobbiesPage có đủ
+      // thông tin (name, imageUrl, category, ...).
+      final current = widget.matchmakingCubit.state;
+      BoardGameEntity? gameEntity;
+      if (current is MatchmakingGameDetail) {
+        gameEntity = current.game.toBoardGameEntity();
+      }
+      // Fallback: tạo BoardGameEntity tối thiểu từ nav nếu không có
+      // detail state (ví dụ: vừa load xong play-navigation nhưng state
+      // đã bị thay thế).
+      gameEntity ??= BoardGameEntity(
+        id: gameId,
+        name: gameName.isEmpty ? 'Game' : gameName,
+        description: '',
+        imageUrl: '',
+        minPlayers: nav.roomConfiguration.minPlayers,
+        maxPlayers: nav.roomConfiguration.maxPlayers,
+        estimatedMinutes: 0,
+        category: '',
+        components: const [],
+        mechanics: const [],
+        rating: 0,
+      );
+
+      LobbySuggestionSignal.instance.request(gameEntity);
+
+      // Hiển thị snackbar để user biết đang được chuyển trang.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đang chuyển sang mục Phòng chờ...'),
+          duration: Duration(seconds: 2),
         ),
       );
     } else if (nav.isSoloBooking) {
@@ -388,18 +416,30 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                   ),
                   child: CafeCard(
                     cafe: cafe,
-                    onBookingTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => LobbyConfigPage(
-                          gameId: widget.gameId,
-                          gameName: state.game.name,
-                          cafeId: cafe.id,
-                          cafeName: cafe.name,
-                          matchmakingCubit: widget.matchmakingCubit,
+                    onBookingTap: () {
+                      // "Đặt chỗ ngay" trên cafe card = solo booking (đặt
+                      // bàn trực tiếp tại quán, không qua lobby). Theo
+                      // nghiệp vụ mới, mọi flow lobby phải đi qua screen
+                      // lobby (`NearbyLobbiesPage`). Đặt bàn solo đi thẳng
+                      // tới `BookingSummaryPage` để user chọn khung giờ +
+                      // thanh toán cọc.
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BookingSummaryPage(
+                            lobbyId: '',
+                            cafeId: cafe.id,
+                            cafeName: cafe.name,
+                            gameId: widget.gameId,
+                            gameName: state.game.name,
+                            scheduledTime:
+                                DateTime.now().add(const Duration(hours: 1)),
+                            seatCount: state.game.minPlayers,
+                            memberIds: const [],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 );
               },

@@ -6,13 +6,18 @@ import 'package:boardverse_mobile/features/tournament/domain/entities/tournament
 import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
 
 /// Shows details of a single tournament match.
-/// Uses [TournamentRepository.getMatchById] to fetch fresh data.
+///
+/// Backend không expose endpoint lookup match đơn lẻ (404), nên trang
+/// này bắt buộc nhận `tournamentId` để repo fetch toàn bộ matches rồi
+/// filter client-side. Nếu `initial` được cung cấp thì không cần fetch.
 class MatchDetailPage extends StatefulWidget {
+  final String tournamentId;
   final String matchId;
   final TournamentMatchEntity? initial;
 
   const MatchDetailPage({
     super.key,
+    required this.tournamentId,
     required this.matchId,
     this.initial,
   });
@@ -36,7 +41,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   Future<TournamentMatchEntity> _fetch() async {
     final result =
-        await getIt<TournamentRepository>().getMatchById(widget.matchId);
+        await getIt<TournamentRepository>().getMatchById(
+      widget.tournamentId,
+      widget.matchId,
+    );
     return result.fold(
       (failure) => throw Exception(failure.message),
       (entity) => entity,

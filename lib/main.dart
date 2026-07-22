@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/di/injection.dart';
 import 'core/navigation/pages/main_scaffold.dart';
 import 'core/theme/theme.dart';
+import 'core/widgets/game_loading_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/auth/presentation/pages/login_page.dart';
@@ -15,9 +16,11 @@ import 'features/booking_payment/presentation/pages/payment_page.dart';
 import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
+import 'features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
 import 'features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
 import 'features/settings/presentation/cubit/theme_cubit.dart';
+import 'features/tournament/presentation/cubit/tournament_list_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +45,10 @@ class BoardVerseApp extends StatelessWidget {
         BlocProvider<MatchmakingCubit>(create: (_) => sl<MatchmakingCubit>()),
         BlocProvider<LobbyCubit>(create: (_) => sl<LobbyCubit>()),
         BlocProvider<LobbySearchCubit>(create: (_) => sl<LobbySearchCubit>()),
+        BlocProvider<MyLobbiesCubit>(create: (_) => sl<MyLobbiesCubit>()),
+        BlocProvider<TournamentListCubit>(
+          create: (_) => sl<TournamentListCubit>(),
+        ),
         BlocProvider<BookingResultCubit>(
           create: (_) => sl<BookingResultCubit>()..tryRestorePending(),
         ),
@@ -134,9 +141,7 @@ class AuthWrapper extends StatelessWidget {
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, state) {
         if (state is AuthLoading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const GameLoadingScreen();
         }
 
         if (state is AuthSuccess) {

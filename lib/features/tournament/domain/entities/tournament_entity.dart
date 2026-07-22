@@ -76,6 +76,10 @@ class TournamentEntity {
       status == TournamentStatus.ongoing ||
       status == TournamentStatus.completed;
 
+  /// Tổng số vòng đấu (vòng vòng loại + 1 vòng chung kết).
+  /// Dùng cho hiển thị Swiss score dạng `x/totalRounds`.
+  int get totalRounds => preliminaryRounds + 1;
+
   /// Whether the registration deadline has passed.
   bool get isRegistrationDeadlinePassed =>
       DateTime.now().isAfter(registrationDeadline);

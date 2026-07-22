@@ -40,11 +40,16 @@ lib/features/lobby_management/
     ├── cubit/
     │   ├── lobby_cubit.dart          # Main state management
     │   ├── lobby_state.dart          # Sealed state classes
-    │   └── lobby_search_cubit.dart   # Nearby lobby search
+    │   ├── lobby_search_cubit.dart   # Nearby lobby search
+    │   ├── my_lobbies_cubit.dart     # Section "Phòng chờ của tôi" (hub)
+    │   └── my_lobbies_state.dart     # State cho MyLobbiesCubit
     ├── pages/
     │   ├── lobby_page.dart           # Main lobby room
-    │   ├── nearby_lobbies_page.dart  # Lobby discovery
-    │   └── play_mode_selection_page.dart
+    │   ├── nearby_lobbies_page.dart  # Lobby hub (multi-section: my + bookings + browse)
+    │   ├── lobby_preview_page.dart   # Lobby detail (preview before join)
+    │   ├── join_by_code_page.dart    # Join via share code
+    │   ├── lobby_invites_page.dart   # Pending invites
+    │   └── match_result_page.dart    # Match result + Elo consensus
     └── widgets/
         ├── lobby_player_card.dart
         ├── lobby_countdown_timer.dart
@@ -207,7 +212,6 @@ Member count reaches maxPlayers
 ---
 
 ## 5. Business Rules Implemented
-
 | BR | Rule | Implementation |
 |----|------|----------------|
 | BR-05 | Karma rating window opens after POS payment | `openKarmaWindow()` / `BookingConfirmedEvent` |
@@ -233,6 +237,8 @@ Pre-seeded lobbies:
 - 8 seed lobbies: Catan, Wingspan, Splendor, Gloomhaven, Azul, Codenames, Dixit, Terraforming Mars
 
 Mock online friends: 5 friends (3 online, 1 in lobby, 1 offline)
+
+---
 
 ---
 

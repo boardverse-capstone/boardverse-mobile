@@ -115,12 +115,23 @@ class LobbyFailure extends LobbyState {
 
 /// Danh sách lobby khả dụng (BR-10 filter + radius).
 class LobbyListLoaded extends LobbyState {
+  /// List các lobby — có thể là [LobbySummary] (từ `/search`) hoặc
+  /// [LobbyEntity] (từ `/discoverable`). Page render dựa vào runtime type.
   final List<LobbySummary> lobbies;
 
-  const LobbyListLoaded({required this.lobbies});
+  /// List lobby đầy đủ thông tin từ `/api/v1/lobbies/discoverable`.
+  /// Khi caller dùng `/discoverable`, page sẽ ưu tiên [entities] thay vì
+  /// [lobbies] để có full data (status, scheduledTime, players, ...).
+  /// Mặc định rỗng — chỉ `/discoverable` mới fill.
+  final List<LobbyEntity> entities;
+
+  const LobbyListLoaded({
+    required this.lobbies,
+    this.entities = const [],
+  });
 
   @override
-  List<Object?> get props => [lobbies];
+  List<Object?> get props => [lobbies, entities];
 }
 
 class LobbyListLoading extends LobbyState {

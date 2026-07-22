@@ -34,23 +34,6 @@ class TournamentRepositoryImpl implements TournamentRepository {
   }
 
   @override
-  Future<Either<Failure, List<TournamentEntity>>> getUpcomingTournaments({
-    String? gameTemplateId,
-  }) async {
-    try {
-      final models = await _remoteDatasource.getUpcomingTournaments(
-        gameTemplateId: gameTemplateId,
-      );
-      final entities = models.map((m) => m.toEntity()).toList();
-      return Right(entities);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Unexpected error: $e'));
-    }
-  }
-
-  @override
   Future<Either<Failure, TournamentEntity>> getTournamentDetail(
     String id,
   ) async {
@@ -70,11 +53,17 @@ class TournamentRepositoryImpl implements TournamentRepository {
     String? currentUserId,
   }) async {
     try {
+      // Lấy totalRounds từ tournament detail (cần cho formattedSwissScore).
+      // Nếu lỗi ở detail call thì vẫn fallback trả participants không kèm
+      // totalRounds (số Swiss score thuần vẫn hợp lệ).
+      final detailResult = await _remoteDatasource.getTournamentDetail(id);
+      final totalRounds = detailResult.toEntity().totalRounds;
+
       final models = await _remoteDatasource.getParticipants(id);
       final entities = models.map((m) {
         final isMe =
             currentUserId != null && m.oderId == currentUserId;
-        return m.toEntity(isCurrentUser: isMe);
+        return m.toEntity(isCurrentUser: isMe, totalRounds: totalRounds);
       }).toList();
       return Right(entities);
     } on ServerException catch (e) {
@@ -95,8 +84,20 @@ class TournamentRepositoryImpl implements TournamentRepository {
         tournamentId,
         participantId,
       );
+      // totalRounds optional: nếu fetch detail lỗi thì bỏ qua, hiển thị
+      // swiss score thuần.
+      int? totalRounds;
+      try {
+        final detail =
+            await _remoteDatasource.getTournamentDetail(tournamentId);
+        totalRounds = detail.toEntity().totalRounds;
+      } catch (_) {
+        totalRounds = null;
+      }
       final isMe = currentUserId != null && model.oderId == currentUserId;
-      return Right(model.toEntity(isCurrentUser: isMe));
+      return Right(
+        model.toEntity(isCurrentUser: isMe, totalRounds: totalRounds),
+      );
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
     } catch (e) {
@@ -137,10 +138,14 @@ class TournamentRepositoryImpl implements TournamentRepository {
 
   @override
   Future<Either<Failure, TournamentMatchEntity>> getMatchById(
+    String tournamentId,
     String matchId,
   ) async {
     try {
-      final model = await _remoteDatasource.getMatchById(matchId);
+      final model = await _remoteDatasource.getMatchById(
+        tournamentId,
+        matchId,
+      );
       return Right(model.toEntity());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));

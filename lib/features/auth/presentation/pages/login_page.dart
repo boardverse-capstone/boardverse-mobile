@@ -11,6 +11,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/navigation/pages/main_scaffold.dart';
+import '../../../../core/widgets/game_loading_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import '../widgets/widgets.dart';
@@ -29,12 +30,12 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoggingIn = false;
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
 
-  // Google Sign-In instance
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
     serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_SERVER_CLIENT_ID'],
@@ -59,18 +60,20 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   void _onLogin() {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoggingIn = true);
     context.read<AuthCubit>().login(usernameOrEmail: _emailController.text.trim(), password: _passwordController.text);
   }
 
   Future<void> _onGoogleLogin() async {
     try {
       final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return; // User cancelled
+      if (googleUser == null) return;
 
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken != null && mounted) {
+        setState(() => _isLoggingIn = true);
         context.read<AuthCubit>().googleLogin(idToken: idToken);
       }
     } catch (e) {
@@ -86,18 +89,25 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocConsumer<AuthCubit, AuthState>(
-        listener: (context, state) {
-          if (state is AuthSuccess) {
-            _showToast('Đăng nhập thành công!');
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScaffold()));
-          } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
-          }
-        },
-        builder: (context, state) {
-          return AuthGradientBackground(
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthSuccess) {
+          _showToast('Đăng nhập thành công!');
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScaffold()));
+        } else if (state is AuthFailure) {
+          _showToast(state.message, isError: true);
+          setState(() => _isLoggingIn = false);
+        } else if (state is AuthInitial) {
+          setState(() => _isLoggingIn = false);
+        }
+      },
+      builder: (context, state) {
+        if (_isLoggingIn) {
+          return const GameLoadingScreen(message: 'Đang đăng nhập...');
+        }
+
+        return Scaffold(
+          body: AuthGradientBackground(
             colors: AuthGradientBackground.loginGradient,
             stops: AuthGradientBackground.standardStops,
             child: SafeArea(
@@ -109,9 +119,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 ),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

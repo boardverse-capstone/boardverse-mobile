@@ -40,6 +40,7 @@ import '../../features/match/domain/repositories/match_result_repository.dart';
 import '../../features/match/presentation/cubit/match_result_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
+import '../../features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
 import '../../features/booking_payment/data/booking_persistence_service.dart';
 import '../../features/booking_payment/data/booking_repository_impl.dart';
 import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
@@ -174,7 +175,20 @@ void setupDependencies() {
   );
 
   sl.registerFactory<LobbySearchCubit>(
-    () => LobbySearchCubit(repository: sl<LobbyRepository>()),
+    () => LobbySearchCubit(
+      repository: sl<LobbyRepository>(),
+      realtime: sl<LobbyRealtimeService>(),
+    ),
+  );
+
+  // MyLobbiesCubit — section "Phòng chờ của tôi" trong Discovery → tab
+  // "Phòng chờ". Filter client-side lobby hosted bằng currentUser.userId
+  // kết hợp với LobbyPersistenceService cho lobby đang active.
+  sl.registerFactory<MyLobbiesCubit>(
+    () => MyLobbiesCubit(
+      repository: sl<LobbyRepository>(),
+      persistence: sl<LobbyPersistenceService>(),
+    ),
   );
 
   sl.registerFactory<LobbyInviteCubit>(
@@ -283,11 +297,15 @@ void setupDependencies() {
     () => TournamentRepositoryImpl(remoteDatasource: sl<TournamentRemoteDatasource>()),
   );
 
-  // Factory Cubits — dùng cho TournamentPage
-  sl.registerFactory<TournamentListCubit>(
+  // Lazy singletons — dùng cho các cubit có vòng đời dài (vd Tournament
+  // tab nằm trong PageView nên phải giữ state qua các lần rebuild).
+  // Nếu để `registerFactory`, mỗi lần parent rebuild sẽ tạo instance
+  // mới → loop vô tận với các API async.
+  sl.registerLazySingleton<TournamentListCubit>(
     () => TournamentListCubit(repository: sl<TournamentRepository>()),
   );
 
+  // Factory — các cubit có vòng đời ngắn, mở là tạo mới.
   sl.registerFactory<TournamentDetailCubit>(
     () => TournamentDetailCubit(repository: sl<TournamentRepository>()),
   );

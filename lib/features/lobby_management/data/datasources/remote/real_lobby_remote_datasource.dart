@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 
 import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/friend_management/data/models/friend_model.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
@@ -106,14 +107,13 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }) async {
     try {
       // Backend spec `lobby.md:138-152` — POST body thay vì GET query.
-      // gameTemplateId là REQUIRED; backend `400` nếu thiếu.
-      if (filter.gameId == null) {
-        return const Left<Failure, List<LobbySummary>>(
-          ServerFailure(message: 'Thiếu gameTemplateId'),
-        );
-      }
+      // `gameTemplateId` là REQUIRED ở spec; nếu client không truyền
+      // (luồng "Tìm tất cả phòng gần bạn" từ Discovery tab) thì gửi
+      // kèm latitude/longitude/radiusKm và KHÔNG gửi gameTemplateId
+      // — server sẽ trả 400 nếu strict, ngược lại trả về list mixed.
+      // Hiện tại spec strict: thiếu gameTemplateId → 400.
       final body = <String, dynamic>{
-        'gameTemplateId': filter.gameId,
+        if (filter.gameId != null) 'gameTemplateId': filter.gameId,
         if (filter.radiusKm != null) 'radiusKm': filter.radiusKm,
         if (filter.minKarma != null) 'minKarmaScore': filter.minKarma,
         // latitude/longitude luôn gửi nếu có.
@@ -133,6 +133,32 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       return Left<Failure, List<LobbySummary>>(_mapDioError(e));
     } catch (e) {
       return Left<Failure, List<LobbySummary>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    int limit = 50,
+  }) async {
+    try {
+      // GET /api/v1/lobbies/discoverable?limit=N — flow Browse lobbies.
+      // Server đã filter theo vị trí user + visibility, không cần gửi
+      // location từ client. Pagination chỉ qua `limit` (mặc định 50).
+      final res = await _dio.get<List<dynamic>>(
+        ApiEndpoints.lobbiesDiscoverable,
+        queryParameters: {'limit': limit},
+      );
+      final items = (res.data ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((json) => LobbyModel.fromJson(json).toEntity())
+          .toList();
+      return Right<Failure, List<LobbyEntity>>(items);
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyEntity>>(
         ServerFailure(message: 'Lỗi không xác định: $e'),
       );
     }
@@ -185,11 +211,12 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     String friendId,
   ) async {
     try {
-      await _dio.post<dynamic>(
-        ApiEndpoints.lobbyDetail.replaceAll('{id}', lobbyId),
-        data: {'action': 'invite', 'friendId': friendId},
-      );
-      return const Right<Failure, void>(null);
+      // Spec `lobby-invite.md`: gửi invite qua
+      // `POST /api/v1/lobbies/{lobbyId}/invites` với body `{ inviteeId, message }`.
+      // Method `sendLobbyInvite` đã implement đúng; ta delegate và bỏ
+      // implementation cũ (POST lên `/api/v1/lobbies/{id}` với
+      // `{action, friendId}`) vốn không match backend.
+      return sendLobbyInvite(lobbyId, friendId, null);
     } on DioException catch (e) {
       return Left<Failure, void>(_mapDioError(e));
     } catch (e) {
@@ -201,9 +228,32 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
 
   @override
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() async {
-    // Tạm thời trả về empty list để UI render được.
-    await Future.delayed(const Duration(milliseconds: 200));
-    return const Right<Failure, List<FriendEntity>>([]);
+    try {
+      // GET /api/v1/friends/activity — trả về FriendActivityDto[] (xem
+      // friend.md). Lobby cần filter ra những bạn bè đang `Online` để
+      // hiển thị trong sheet "Mời bạn bè vào phòng".
+      final res = await _dio.get<List<dynamic>>(ApiEndpoints.friendsActivity);
+      final friends = (res.data ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((json) => FriendModel.fromJson(json).toEntity())
+          .toList();
+      // Chỉ trả về bạn bè đang online / recentlyActive để UI render
+      // badge "online" hợp lý. Server có thể trả cả offline; client
+      // filter để giảm noise trong sheet mời.
+      return Right<Failure, List<FriendEntity>>(
+        friends
+            .where((f) =>
+                f.activityStatus == ActivityStatus.online ||
+                f.activityStatus == ActivityStatus.recentlyActive)
+            .toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<FriendEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<FriendEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════

@@ -18,6 +18,7 @@ import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
@@ -29,7 +30,7 @@ import 'package:boardverse_mobile/features/profile/presentation/widgets/location
 import 'package:boardverse_mobile/features/profile/presentation/widgets/personal_info_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/stat_card.dart';
-import 'package:boardverse_mobile/features/settings/presentation/widgets/theme_switcher_sheet.dart';
+import 'package:boardverse_mobile/features/settings/presentation/pages/system_settings_page.dart';
 
 /// Trang chính của feature profile.
 ///
@@ -51,6 +52,11 @@ class _HomePageState extends State<HomePage> {
   final _dobController = TextEditingController();
   final _phoneController = TextEditingController();
 
+  /// Chỉ load location 1 lần sau khi profile đã loaded. Tránh gọi lại
+  /// `getLocation()` mỗi lần `ProfileLoaded` được emit (vd khi refresh
+  /// hoặc sau khi update avatar/profile).
+  bool _locationLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -69,8 +75,6 @@ class _HomePageState extends State<HomePage> {
     _phoneController.dispose();
     super.dispose();
   }
-
-  // ─── Toast / Logout ───────────────────────────────────────────────────
 
   void _showToast(String message, {bool isError = false}) {
     DelightToastBar(
@@ -188,12 +192,20 @@ class _HomePageState extends State<HomePage> {
     ).push(MaterialPageRoute(builder: (_) => const LeaderboardPage()));
   }
 
+  void _openFriendsPage() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const FriendsPage()));
+  }
+
   void _showComingSoonToast(String feature) {
     _showToast('$feature sắp ra mắt');
   }
 
-  void _openThemeSwitcher() {
-    ThemeSwitcherSheet.show(context);
+  void _openSystemSettings() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SystemSettingsPage()));
   }
 
   // ─── Avatar upload ────────────────────────────────────────────────────
@@ -263,9 +275,11 @@ class _HomePageState extends State<HomePage> {
 
   void _onStateChanged(BuildContext context, ProfileState state) {
     if (state is ProfileLoaded) {
-      _showToast('Đã tải thông tin cá nhân!');
-      // Load location sau khi profile loaded thành công
-      if (state.profile.hasProfile) {
+      // Chỉ load location 1 lần — tránh gọi lại sau mỗi lần refresh
+      // profile (vd pull-to-refresh, update avatar) làm `/me/location`
+      // bị spam không cần thiết.
+      if (!_locationLoaded && state.profile.hasProfile) {
+        _locationLoaded = true;
         final cubit = context.read<ProfileCubit>();
         Future.microtask(() {
           if (!mounted) return;
@@ -412,24 +426,28 @@ class _HomePageState extends State<HomePage> {
       dividerColor: dividerColor,
       children: [
         _ActionTile(
+          icon: Icons.people_outline,
+          title: 'Bạn bè',
+          subtitle: 'Xem danh sách bạn bè, lời mời & tìm kiếm',
+          onTap: _openFriendsPage,
+        ),
+        _ActionTile(
           icon: Icons.leaderboard_outlined,
           title: 'Xếp hạng',
           subtitle: 'Xem bảng xếp hạng ELO & Karma của cộng đồng',
           onTap: _openLeaderboard,
         ),
-        _ActionDivider(color: dividerColor),
         _ActionTile(
           icon: Icons.history,
           title: 'Lịch sử đấu',
           subtitle: 'Theo dõi các trận đã chơi gần đây',
           onTap: () => _showComingSoonToast('Lịch sử đấu'),
         ),
-        _ActionDivider(color: dividerColor),
         _ActionTile(
           icon: AppIcons.settings,
-          title: 'Cài đặt giao diện',
+          title: 'Cài đặt hệ thống',
           subtitle: 'Chuyển đổi chế độ Sáng / Tối / Theo hệ thống',
-          onTap: _openThemeSwitcher,
+          onTap: _openSystemSettings,
         ),
       ],
     );
@@ -447,14 +465,24 @@ class _ActionsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+    // Use Material (instead of Container + BoxDecoration) so the ListTile
+    // ink splashes can paint on top of the card's surface color. shape +
+    // borderRadius give the same rounded border look.
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: dividerColor),
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: dividerColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) _ActionDivider(color: dividerColor),
+            children[i],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -494,7 +522,6 @@ class _ActionTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      tileColor: Colors.transparent,
       selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.08),
       leading: Icon(icon, color: theme.colorScheme.primary),
       title: Text(title, style: theme.textTheme.bodyLarge),

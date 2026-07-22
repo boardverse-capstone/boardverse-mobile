@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/friend_entity.dart';
 import '../../domain/repositories/friend_repository.dart';
 import 'friend_list_state.dart';
 
@@ -9,11 +10,15 @@ class FriendListCubit extends Cubit<FriendListState> {
   final FriendRepository _repository;
 
   Future<void> loadFriends() async {
+    if (isClosed) return;
     emit(const FriendListLoading());
 
     final friendsResult = await _repository.getFriendsWithActivity();
+    if (isClosed) return;
     final receivedResult = await _repository.getReceivedRequests();
+    if (isClosed) return;
     final sentResult = await _repository.getSentRequests();
+    if (isClosed) return;
 
     final friends = friendsResult.fold(
       (failure) => <dynamic>[],
@@ -32,6 +37,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     final unreadCount = received.where((r) => !r.isRead).length;
 
+    if (isClosed) return;
     emit(FriendListLoaded(
       friends: List.from(friends),
       receivedRequests: List.from(received),
@@ -54,6 +60,7 @@ class FriendListCubit extends Cubit<FriendListState> {
       message: message,
     );
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(FriendListError(failure.message)),
       (request) {
@@ -72,6 +79,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     final currentState = state;
     final result = await _repository.acceptFriendRequest(requestId);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(FriendListError(failure.message)),
       (updated) {
@@ -94,6 +102,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     final currentState = state;
     final result = await _repository.declineFriendRequest(requestId);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(FriendListError(failure.message)),
       (updated) {
@@ -116,6 +125,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     final currentState = state;
     final result = await _repository.unfriend(friendId);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(FriendListError(failure.message)),
       (_) {
@@ -135,6 +145,7 @@ class FriendListCubit extends Cubit<FriendListState> {
   Future<void> blockUser(String userId) async {
     final result = await _repository.blockUser(userId);
 
+    if (isClosed) return;
     result.fold(
       (failure) => emit(FriendListError(failure.message)),
       (_) => loadFriends(),
@@ -144,6 +155,7 @@ class FriendListCubit extends Cubit<FriendListState> {
   Future<void> markRequestAsRead(String requestId) async {
     await _repository.markRequestAsRead(requestId);
 
+    if (isClosed) return;
     final currentState = state;
     if (currentState is FriendListLoaded) {
       final updated = currentState.receivedRequests.map((r) {
@@ -157,5 +169,13 @@ class FriendListCubit extends Cubit<FriendListState> {
         unreadRequestCount: updated.where((r) => !r.isRead).length,
       ));
     }
+  }
+
+  // ─── Search users ────────────────────────────────────────────────────
+
+  Future<List<UserSearchEntity>> searchUsers(String query) async {
+    if (query.trim().isEmpty) return const [];
+    final result = await _repository.searchUsers(query: query.trim());
+    return result.fold((failure) => const <UserSearchEntity>[], (data) => data);
   }
 }

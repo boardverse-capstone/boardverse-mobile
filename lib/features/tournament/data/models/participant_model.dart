@@ -64,7 +64,10 @@ class TournamentParticipantModel {
     };
   }
 
-  TournamentParticipantEntity toEntity({bool isCurrentUser = false}) {
+  TournamentParticipantEntity toEntity({
+    bool isCurrentUser = false,
+    int? totalRounds,
+  }) {
     return TournamentParticipantEntity(
       id: id,
       oderId: oderId,
@@ -79,6 +82,7 @@ class TournamentParticipantModel {
       eloDelta: eloDelta,
       isWalkIn: isWalkIn,
       isCurrentUser: isCurrentUser,
+      totalRounds: totalRounds,
     );
   }
 }

@@ -22,9 +22,6 @@ class LobbyCubit extends Cubit<LobbyState> {
   /// Khoảng thời gian còn lại (để widget bind nếu cần).
   Duration _remainingTime = const Duration(minutes: 20);
 
-  /// Mock user Karma (task spec: hardcode 70 cho dev phase).
-  static const double currentUserKarma = 70;
-
   LobbyCubit({
     required this._repository,
     LobbyPersistenceService? persistenceService,
@@ -173,6 +170,16 @@ class LobbyCubit extends Cubit<LobbyState> {
     );
   }
 
+  /// GET /api/v1/lobbies/{id} — chỉ fetch chi tiết lobby mà không join.
+  /// Dùng cho flow "Browse lobbies": user xem preview trước khi quyết định
+  /// tham gia (xem `LobbyPreviewPage`).
+  ///
+  /// Trả `Either<Failure, LobbyEntity?>` — caller xử lý failure trực tiếp.
+  /// Không emit state vì đây là read-only, không liên quan đến join flow.
+  Future<Either<Failure, LobbyEntity?>> getLobbyById(String lobbyId) {
+    return _repository.getLobbyById(lobbyId);
+  }
+
   // ─── Leave Lobby ──────────────────────────────────────────────────────
 
   Future<void> leaveLobby(String lobbyId) async {
@@ -308,10 +315,16 @@ class LobbyCubit extends Cubit<LobbyState> {
 
   // ─── Search Nearby Lobbies (BR-10) ───────────────────────────────────
 
+  /// Tìm lobby khả dụng quanh vị trí của user.
+  ///
+  /// [currentUserKarma] (BR-10): điểm Karma của user hiện tại để server
+  /// filter lobby có `minimumKarma <= currentUserKarma`. Caller nên lấy
+  /// từ `ProfileCubit.state.profile.karmaPoints ?? 0`. Mặc định 0.
   Future<void> searchNearbyLobbies({
     required double latitude,
     required double longitude,
     LobbySearchFilter? filter,
+    double currentUserKarma = 0,
   }) async {
     emit(const LobbyListLoading());
 
@@ -380,13 +393,11 @@ class LobbyCubit extends Cubit<LobbyState> {
       case MemberLeftEvent _:
         break;
       case LobbyFullEvent _:
-        // Tự động trigger booking. Lấy state hiện tại từ `state`.
-        final s = state;
-        if (s is LobbyCreated) {
-          _triggerAutoBooking(s.lobby);
-        } else if (s is LobbyUpdatedRealtime) {
-          _triggerAutoBooking(s.lobby);
-        }
+        // Đã được xử lý qua `watchLobbyRealtime` (state refetch sẽ
+        // phát hiện lobby chuyển sang `Full`) — handler `_onLobbyUpdate`
+        // bên dưới sẽ trigger auto-booking. KHÔNG gọi `_triggerAutoBooking`
+        // tại đây: backend đã tự tạo booking khi broadcast `LobbyFull`
+        // và sẽ broadcast tiếp `BookingConfirmed` để navigate.
         break;
       case LobbyTimeoutEvent _:
         if (isClosed) return;
@@ -428,28 +439,38 @@ class LobbyCubit extends Cubit<LobbyState> {
       case EloUpdatedEvent _:
         // Các event invite/match result được xử lý riêng trong UI.
         break;
+      case NearbyLobbyCreatedEvent _:
+      case NearbyLobbyRemovedEvent _:
+      case NearbyLobbyUpdatedEvent _:
+        // Browse broadcasts cho group location-based (NearbyLobbiesPage) —
+        // không liên quan tới 1 lobby cụ thể, `LobbySearchCubit` đã
+        // subscribe và tự reload list. Cubit này ignore.
+        break;
     }
   }
 
-  /// Xử lý lobby cập nhật realtime: kiểm tra trigger auto-booking (Luồng A).
+  /// Xử lý lobby cập nhật realtime: khi lobby chuyển sang `Full` mà chưa
+  /// có `bookingId`, server broadcast `LobbyFull` rồi tới `BookingConfirmed`
+  /// (BR-05). Client chỉ cần:
+  /// 1. Phát hiện lobby đầy → emit `LobbyReady` để UI chuyển sang booking
+  ///    summary page (user sẽ xác nhận & thanh toán cọc).
+  /// 2. `BookingConfirmedEvent` handler sẽ navigate sang cafe check-in.
+  ///
+  /// KHÔNG gọi `_triggerAutoBooking` vì backend `LobbyController` không
+  /// expose `/api/v1/lobbies/{id}/auto-booking` — backend tự tạo booking
+  /// nội bộ và broadcast qua SignalR.
   void _onLobbyUpdate(LobbyEntity lobby) {
-    final currentState = state;
+    final isNowFull = lobby.currentPlayers >= lobby.maxPlayers &&
+        lobby.status == LobbyStatus.full;
 
-    final previousLobby = (currentState is LobbyCreated)
-        ? currentState.lobby
-        : (currentState is LobbyUpdatedRealtime)
-        ? (currentState).lobby
-        : null;
-
-    if (lobby.currentPlayers >= lobby.maxPlayers &&
-        lobby.status == LobbyStatus.full &&
-        lobby.bookingId == null &&
-        (previousLobby == null ||
-            previousLobby.currentPlayers < previousLobby.maxPlayers)) {
-      _triggerAutoBooking(lobby);
-    } else {
-      emit(LobbyUpdatedRealtime(lobby: lobby));
+    if (isNowFull && lobby.bookingId == null) {
+      // Lobby đầy nhưng booking chưa được tạo (server vẫn đang xử lý) →
+      // emit `LobbyReady` để UI chuyển sang booking summary page.
+      emit(LobbyReady(lobby: lobby));
+      return;
     }
+
+    emit(LobbyUpdatedRealtime(lobby: lobby));
   }
 
   Future<void> _triggerAutoBooking(LobbyEntity lobby) async {

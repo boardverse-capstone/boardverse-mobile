@@ -6,7 +6,6 @@ import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../../profile/presentation/cubit/profile_state.dart';
 import '../../../profile/domain/entities/profile_entity.dart';
-import '../../../../core/di/injection.dart';
 import '../widgets/home_news_placeholder.dart';
 import '../widgets/home_quick_action_card.dart';
 import '../widgets/home_section_header.dart';
@@ -23,46 +22,48 @@ class HomeOverviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ProfileCubit>(
-      create: (_) => getIt<ProfileCubit>()..getProfile(),
-      child: Scaffold(
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 8),
-                _buildQuickActions(context),
-                const HomeSectionHeader(
-                  title: 'Tin tức & Sự kiện',
-                  icon: Icons.campaign_outlined,
-                ),
-                HomeNewsPlaceholder(
-                  title: 'Wingspan Season Opening sắp khởi tranh',
-                  description:
-                      'Đăng ký ngay để nhận ưu đãi phí tham gia cho thành viên BoardVerse.',
-                  icon: Icons.emoji_events_outlined,
-                  color: Colors.amber,
-                ),
-                const SizedBox(height: 12),
-                HomeNewsPlaceholder(
-                  title: 'Tính năng đề xuất đối thủ đang phát triển',
-                  description:
-                      'Bản cập nhật tiếp theo sẽ gợi ý đối thủ theo ELO và khoảng cách.',
-                  icon: Icons.bolt_outlined,
-                  color: Colors.deepPurple,
-                ),
-                const SizedBox(height: 12),
-                const HomeSectionHeader(
-                  title: 'Gợi ý cho bạn',
-                  icon: Icons.tips_and_updates_outlined,
-                ),
-                _buildSuggestion(context),
-                const SizedBox(height: 32),
-              ],
-            ),
+    // KHÔNG tạo `BlocProvider<ProfileCubit>` ở đây — cubit đã được
+    // provide ở app root trong `main.dart`. Việc tạo provider trong
+    // `build()` sẽ sinh cubit mới mỗi frame → emit `ProfileLoading`
+    // liên tục → loop vô tận khiến UI kẹt ở skeleton và liên tục
+    // gọi `/api/userprofile` + `/api/userprofile/me/location`.
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 8),
+              _buildQuickActions(context),
+              const HomeSectionHeader(
+                title: 'Tin tức & Sự kiện',
+                icon: Icons.campaign_outlined,
+              ),
+              HomeNewsPlaceholder(
+                title: 'Wingspan Season Opening sắp khởi tranh',
+                description:
+                    'Đăng ký ngay để nhận ưu đãi phí tham gia cho thành viên BoardVerse.',
+                icon: Icons.emoji_events_outlined,
+                color: Colors.amber,
+              ),
+              const SizedBox(height: 12),
+              HomeNewsPlaceholder(
+                title: 'Tính năng đề xuất đối thủ đang phát triển',
+                description:
+                    'Bản cập nhật tiếp theo sẽ gợi ý đối thủ theo ELO và khoảng cách.',
+                icon: Icons.bolt_outlined,
+                color: Colors.deepPurple,
+              ),
+              const SizedBox(height: 12),
+              const HomeSectionHeader(
+                title: 'Gợi ý cho bạn',
+                icon: Icons.tips_and_updates_outlined,
+              ),
+              _buildSuggestion(context),
+              const SizedBox(height: 32),
+            ],
           ),
         ),
       ),
@@ -268,7 +269,6 @@ class _SuggestionList extends StatelessWidget {
                 ),
               ),
               child: ListTile(
-                tileColor: Colors.transparent,
                 leading: Icon(tip.$1, color: theme.colorScheme.primary),
                 title: Text(
                   tip.$2,

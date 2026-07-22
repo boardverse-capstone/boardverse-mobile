@@ -3,12 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/lobby_management/presentation/pages/nearby_lobbies_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../../features/matchmaking_discovery/presentation/pages/lobby_config_page.dart';
 import '../../../features/matchmaking_discovery/presentation/pages/search_page.dart';
+import '../lobby_suggestion_signal.dart';
 
 /// Tab Khám phá: bên trong có 2 tab con
 /// - Tab "Khám phá game" → SearchPage (tìm game + cafe)
-/// - Tab "Phòng chờ" → NearbyLobbiesPage (tìm phòng gần đây)
+/// - Tab "Phòng chờ" → NearbyLobbiesPage (xem/search/join/create lobby)
 class DiscoveryTab extends StatefulWidget {
   const DiscoveryTab({super.key});
 
@@ -31,6 +31,10 @@ class _DiscoveryTabState extends State<DiscoveryTab>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     DiscoveryResetSignal.instance.addListener(_reset);
+    // Listen yêu cầu "chuyển sang Lobby screen cho game X" — khi có,
+    // snap inner TabBar sang "Phòng chờ" (index 1). NearbyLobbiesPage
+    // sẽ consume signal để preselect game.
+    LobbySuggestionSignal.instance.addListener(_switchToLobbyTab);
   }
 
   void _reset() {
@@ -38,9 +42,15 @@ class _DiscoveryTabState extends State<DiscoveryTab>
     _tabController.animateTo(0);
   }
 
+  void _switchToLobbyTab() {
+    if (!mounted) return;
+    _tabController.animateTo(1);
+  }
+
   @override
   void dispose() {
     DiscoveryResetSignal.instance.removeListener(_reset);
+    LobbySuggestionSignal.instance.removeListener(_switchToLobbyTab);
     _tabController.dispose();
     super.dispose();
   }
@@ -89,6 +99,12 @@ class _DiscoveryTabState extends State<DiscoveryTab>
       floatingActionButton: AnimatedBuilder(
         animation: _tabController,
         builder: (context, _) {
+          // FAB chỉ hiển thị khi đang ở sub-tab "Phòng chờ" — đây là CTA
+          // chính cho flow tạo lobby (xem `_onCreateLobbyPressed` trong
+          // `NearbyLobbiesPage`). Không còn mở SearchPage từ đây nữa vì
+          // theo phân chia nghiệp vụ mới, Discovery chỉ tập trung vào
+          // tìm boardgame + cafe gần — mọi flow lobby phải đi qua screen
+          // lobby (`NearbyLobbiesPage`).
           if (_tabController.index != 1) return const SizedBox.shrink();
           return FloatingActionButton.extended(
             heroTag: 'discovery_lobby_fab',
@@ -102,17 +118,18 @@ class _DiscoveryTabState extends State<DiscoveryTab>
   }
 
   void _openCreateLobby(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LobbyConfigPage(
-          gameId: 'demo',
-          gameName: 'Demo Game',
-          cafeId: 'demo_cafe',
-          cafeName: 'Demo Cafe',
-          matchmakingCubit: context.read<MatchmakingCubit>(),
-        ),
-      ),
-    );
+    // Đẩy user xuống `NearbyLobbiesPage` (sub-tab "Phòng chờ") thông qua
+    // cách scroll lên top và trigger create. Vì NearbyLobbiesPage đã có
+    // logic tạo lobby riêng, ta chỉ cần thông báo để nó hiển thị game
+    // picker. Tuy nhiên flow đơn giản nhất: snap vào "Phòng chờ" và để
+    // FAB `NearbyLobbiesPage` xử lý (khi FAB của tab này chỉ là visual,
+    // hành động thực tế đã được NearbyLobbiesPage gắn vào header action).
+    // Tại đây ta chỉ cần đảm bảo FAB đã chuyển tab — phần xử lý game
+    // picker đã được gắn vào IconButton `AppIcons.add` ở AppBar của
+    // NearbyLobbiesPage.
+    if (_tabController.index != 1) {
+      _tabController.animateTo(1);
+    }
   }
 }
 

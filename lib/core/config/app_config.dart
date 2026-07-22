@@ -54,4 +54,15 @@ class AppConfig {
 
   /// Number of similar games to show
   static const int similarGamesLimit = 5;
+
+  // ─── Tournament Configuration ────────────────────────────────────
+
+  /// Default `gameTemplateId` cho Tournament — hiện chỉ hỗ trợ Splendor
+  /// (hardcode theo yêu cầu nghiệp vụ).
+  ///
+  /// Tra cứu từ `GET /api/v1/board-games?search=Splendor` → trả về
+  /// `id = 44444444-4444-4444-4444-444444444444`. Khi backend mở rộng
+  /// sang game khác, đổi giá trị này hoặc cho phép truyền qua UI.
+  static const String defaultSplendorGameTemplateId =
+      '44444444-4444-4444-4444-444444444444';
 }

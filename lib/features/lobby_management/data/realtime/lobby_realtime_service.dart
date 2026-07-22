@@ -201,6 +201,63 @@ class EloUpdatedEvent extends LobbyRealtimeEvent {
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Browse Realtime Events - cho NearbyLobbiesPage realtime refresh
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Server broadcast khi có lobby mới được tạo trong vùng user đang subscribe
+/// (gọi qua `subscribeNearbyLobbies`). Client nên refetch
+/// `/api/v1/lobbies/discoverable` để hiển thị lobby mới.
+///
+/// Backend spec `lobby.md:249` — server publish event này cho group
+/// location-based khi lobby có `visibility = public` và status = open.
+class NearbyLobbyCreatedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String gameTemplateId;
+  final String cafeId;
+  final DateTime scheduledStartTime;
+  final DateTime timestamp;
+
+  const NearbyLobbyCreatedEvent({
+    required this.lobbyId,
+    required this.gameTemplateId,
+    required this.cafeId,
+    required this.scheduledStartTime,
+    required this.timestamp,
+  });
+}
+
+/// Server broadcast khi 1 lobby trong vùng bị cancel / timeout / full-lock
+/// → không còn hiển thị trong `/discoverable`. Client nên refetch hoặc
+/// remove item khỏi list cached.
+class NearbyLobbyRemovedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String reason;
+  final DateTime timestamp;
+
+  const NearbyLobbyRemovedEvent({
+    required this.lobbyId,
+    required this.reason,
+    required this.timestamp,
+  });
+}
+
+/// Server broadcast khi 1 lobby trong vùng vừa đổi sang `full` — client
+/// nên refetch để cập nhật slot count + status badge trên card.
+class NearbyLobbyUpdatedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final int currentMembers;
+  final int maxMembers;
+  final DateTime timestamp;
+
+  const NearbyLobbyUpdatedEvent({
+    required this.lobbyId,
+    required this.currentMembers,
+    required this.maxMembers,
+    required this.timestamp,
+  });
+}
+
 /// Payload của server event `MemberJoined` — chỉ chứa field hiển thị trên UI.
 /// Chi tiết thành viên đầy đủ nếu cần sẽ fetch qua
 /// `GET /api/v1/lobbies/{id}`.

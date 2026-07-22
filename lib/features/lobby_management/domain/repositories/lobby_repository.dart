@@ -75,6 +75,15 @@ abstract class LobbyRepository {
     required double currentUserKarma,
   });
 
+  /// GET /api/v1/lobbies/discoverable — Browse lobbies cho Player.
+  /// Trả về `List<LobbyEntity>` đầy đủ thông tin (không phải summary).
+  /// Server đã filter theo vị trí + visibility + status open/full.
+  /// Không yêu cầu `gameTemplateId`, phù hợp cho flow "xem tất cả
+  /// phòng chờ đang hoạt động" ở Discovery tab.
+  Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    int limit = 50,
+  });
+
   /// Luồng A: khi lobby đầy → tự động tạo booking [pendingDeposit] cho host.
   /// Trả về booking vừa tạo để caller navigate tới BookingSummaryPage.
   Future<Either<Failure, String>> autoCreateBookingWhenFull(String lobbyId);

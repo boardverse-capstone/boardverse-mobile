@@ -51,14 +51,23 @@ class TournamentRoutes {
   }
 
   /// Push match detail page.
+  ///
+  /// Truyền cả [tournamentId] vì backend không expose endpoint lookup
+  /// match đơn lẻ (404). Repo phải fetch toàn bộ matches rồi filter
+  /// client-side.
   static Future<T?> openMatchDetail<T>({
     required BuildContext context,
+    required String tournamentId,
     required String matchId,
     TournamentMatchEntity? initial,
   }) {
     return _push<T>(
       context,
-      MatchDetailPage(matchId: matchId, initial: initial),
+      MatchDetailPage(
+        tournamentId: tournamentId,
+        matchId: matchId,
+        initial: initial,
+      ),
     );
   }
 

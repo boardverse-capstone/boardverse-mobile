@@ -23,6 +23,10 @@ class LobbyEntity extends Equatable {
   final String id;
   final String gameId;
   final String gameName;
+
+  /// URL ảnh game — optional. Chỉ có ở một số endpoint (vd: `/discoverable`).
+  final String? gameImageUrl;
+
   final String cafeId;
   final String cafeName;
   final String hostId;
@@ -34,7 +38,10 @@ class LobbyEntity extends Equatable {
   final int maxPlayers;
   final int minPlayers;
   final bool isPublic;
+
+  /// Optional — chỉ có khi lobby riêng tư & host đã generate share code.
   final String? inviteCode;
+
   final LobbyStatus status;
   final List<LobbyPlayer> players;
   final DateTime createdAt;
@@ -52,10 +59,15 @@ class LobbyEntity extends Equatable {
   /// BR-08: bán kính tìm kiếm lobby khả dụng (km).
   final double searchRadiusKm;
 
+  /// Khoảng cách từ user hiện tại tới lobby (km). Optional — chỉ có khi
+  /// gọi `/discoverable` hoặc `/search` có tính toán distance.
+  final double? distanceKm;
+
   const LobbyEntity({
     required this.id,
     required this.gameId,
     required this.gameName,
+    this.gameImageUrl,
     required this.cafeId,
     required this.cafeName,
     required this.hostId,
@@ -73,6 +85,7 @@ class LobbyEntity extends Equatable {
     this.bookingId,
     this.minimumKarma = 0,
     this.searchRadiusKm = 5,
+    this.distanceKm,
   });
 
   int get slotsRemaining => maxPlayers - currentPlayers;
@@ -96,7 +109,7 @@ class LobbyEntity extends Equatable {
     int? maxPlayers,
     int? minPlayers,
     bool? isPublic,
-    String? inviteCode,
+    Object? inviteCode = _sentinel,
     LobbyStatus? status,
     List<LobbyPlayer>? players,
     DateTime? createdAt,
@@ -104,11 +117,16 @@ class LobbyEntity extends Equatable {
     Object? bookingId = _sentinel,
     double? minimumKarma,
     double? searchRadiusKm,
+    Object? gameImageUrl = _sentinel,
+    Object? distanceKm = _sentinel,
   }) {
     return LobbyEntity(
       id: id ?? this.id,
       gameId: gameId ?? this.gameId,
       gameName: gameName ?? this.gameName,
+      gameImageUrl: identical(gameImageUrl, _sentinel)
+          ? this.gameImageUrl
+          : gameImageUrl as String?,
       cafeId: cafeId ?? this.cafeId,
       cafeName: cafeName ?? this.cafeName,
       hostId: hostId ?? this.hostId,
@@ -118,7 +136,9 @@ class LobbyEntity extends Equatable {
       maxPlayers: maxPlayers ?? this.maxPlayers,
       minPlayers: minPlayers ?? this.minPlayers,
       isPublic: isPublic ?? this.isPublic,
-      inviteCode: inviteCode ?? this.inviteCode,
+      inviteCode: identical(inviteCode, _sentinel)
+          ? this.inviteCode
+          : inviteCode as String?,
       status: status ?? this.status,
       players: players ?? this.players,
       createdAt: createdAt ?? this.createdAt,
@@ -128,6 +148,9 @@ class LobbyEntity extends Equatable {
           : bookingId as String?,
       minimumKarma: minimumKarma ?? this.minimumKarma,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
+      distanceKm: identical(distanceKm, _sentinel)
+          ? this.distanceKm
+          : distanceKm as double?,
     );
   }
 
@@ -136,6 +159,7 @@ class LobbyEntity extends Equatable {
     id,
     gameId,
     gameName,
+    gameImageUrl,
     cafeId,
     cafeName,
     hostId,
@@ -153,6 +177,7 @@ class LobbyEntity extends Equatable {
     bookingId,
     minimumKarma,
     searchRadiusKm,
+    distanceKm,
   ];
 }
 

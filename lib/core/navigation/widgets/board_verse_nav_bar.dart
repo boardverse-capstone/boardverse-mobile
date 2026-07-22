@@ -158,7 +158,7 @@ class _NavBarContent extends StatelessWidget {
       case NavTab.home:
         return Icons.home_rounded;
       case NavTab.bookings:
-        return Icons.groups_rounded;
+        return Icons.calendar_month_rounded;
       case NavTab.discovery:
         return Icons.explore_rounded;
       case NavTab.tournament:

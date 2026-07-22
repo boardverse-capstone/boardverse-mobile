@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/navigation/tournament_routes.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
@@ -13,15 +12,36 @@ import 'package:boardverse_mobile/features/tournament/presentation/widgets/tourn
 import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_list_card.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/utils/tournament_utils.dart';
 
-class TournamentPage extends StatelessWidget {
+/// Tournament tab page.
+///
+/// Tạo `TournamentListCubit` **trong `initState` thay vì trong `build()`**
+/// để tránh vòng lặp vô tận — tương tự bug `HomeOverviewPage` đã fix
+/// trước đó. Nếu tạo cubit trong `build()` qua `BlocProvider(create: ...)`,
+/// mỗi lần parent rebuild (do `NavigationCubit` state change, hoặc do
+/// cubit emit state mới) sẽ tạo instance MỚI → gọi `loadTournaments()` →
+/// emit `TournamentListLoading` → rebuild → loop.
+class TournamentPage extends StatefulWidget {
   const TournamentPage({super.key});
 
   @override
+  State<TournamentPage> createState() => _TournamentPageState();
+}
+
+class _TournamentPageState extends State<TournamentPage> {
+  @override
+  void initState() {
+    super.initState();
+    // `PostFrameCallback` đảm bảo `BlocProvider` cha (app root) đã sẵn sàng
+    // trước khi `read<TournamentListCubit>()` chạy.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<TournamentListCubit>().loadTournaments();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<TournamentListCubit>()..loadTournaments(),
-      child: const _TournamentPageContent(),
-    );
+    return const _TournamentPageContent();
   }
 }
 
@@ -33,7 +53,9 @@ class _TournamentPageContent extends StatefulWidget {
 }
 
 class _TournamentPageContentState extends State<_TournamentPageContent> {
-  static const _heroHeight = 224.0;
+  /// Chiều cao hero — chỉ dùng cho gradient + icon trang trí
+  /// (đã bỏ hết text trong TournamentHero để UI gọn hơn).
+  static const _heroHeight = 140.0;
   int _selectedFilter = 0;
 
   @override
@@ -212,15 +234,15 @@ class _TournamentEmptyPlaceholder extends StatelessWidget {
             Text(
               'Không có giải đấu nào',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Hãy quay lại sau để cập nhật thông tin mới nhất.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
               textAlign: TextAlign.center,
             ),
           ],

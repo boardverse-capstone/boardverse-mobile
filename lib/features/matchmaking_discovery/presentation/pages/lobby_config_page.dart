@@ -129,17 +129,16 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     setState(() => _isCreatingLobby = false);
 
     if (result.success && result.lobbyId != null) {
+      // KHÔNG gọi `lobbyCubit.createLobby` ở đây — đã được tạo qua
+      // `matchmakingCubit.createLobby` ở trên (1 lần duy nhất). Trước
+      // đây code gọi thêm `lobbyCubit.createLobby` gây tạo lobby 2 lần
+      // trên server. Giờ chỉ cần:
+      // 1. Lấy `LobbyCubit` để truyền vào `LobbyPage` (cubit dùng để
+      //    join/leave/realtime).
+      // 2. Navigate sang `LobbyPage` với lobbyId vừa tạo — LobbyPage
+      //    sẽ gọi `joinLobby(lobbyId, null)` để set state + subscribe
+      //    realtime.
       final lobbyCubit = getIt<LobbyCubit>();
-      lobbyCubit.createLobby(
-        gameId: widget.gameId,
-        cafeId: widget.cafeId,
-        scheduledTime: scheduledDateTime,
-        additionalSlots: _additionalSlots,
-        isPublic: _isPublic,
-        searchRadiusKm: _searchRadiusKm,
-        minimumKarma: _minimumKarma,
-        leadTime: _leadTime,
-      );
 
       if (mounted) {
         Navigator.pushReplacement(

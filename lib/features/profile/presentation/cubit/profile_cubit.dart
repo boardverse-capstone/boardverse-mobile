@@ -8,6 +8,13 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   ProfileCubit({required this.repository}) : super(const ProfileInitial());
 
+  /// Resets the cubit to its initial state. Used when the user logs out
+  /// so a fresh profile fetch happens on the next login.
+  void reset() {
+    if (isClosed) return;
+    emit(const ProfileInitial());
+  }
+
   Future<void> getProfile() async {
     emit(const ProfileLoading());
 

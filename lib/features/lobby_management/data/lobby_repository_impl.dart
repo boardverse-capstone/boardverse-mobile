@@ -176,6 +176,9 @@ class LobbyRepositoryImpl implements LobbyRepository {
       InviteCancelledEvent e => e.lobbyId == lobbyId,
       MatchResultSubmittedEvent e => e.lobbyId == lobbyId,
       EloUpdatedEvent e => e.lobbyId == lobbyId,
+      NearbyLobbyCreatedEvent e => e.lobbyId == lobbyId,
+      NearbyLobbyRemovedEvent e => e.lobbyId == lobbyId,
+      NearbyLobbyUpdatedEvent e => e.lobbyId == lobbyId,
     };
   }
 
@@ -216,6 +219,12 @@ class LobbyRepositoryImpl implements LobbyRepository {
         filter: filter,
         currentUserKarma: currentUserKarma,
       );
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    int limit = 50,
+  }) =>
+      _remote.discoverableLobbies(limit: limit);
 
   @override
   Future<Either<Failure, String>> autoCreateBookingWhenFull(String lobbyId) {

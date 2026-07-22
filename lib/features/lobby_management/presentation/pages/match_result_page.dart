@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/utils/current_user_resolver.dart';
 import '../cubit/match_result_cubit.dart';
 import '../cubit/match_result_state.dart';
 import '../widgets/outcome_selector.dart';
@@ -11,6 +13,9 @@ class MatchResultPage extends StatefulWidget {
   final MatchResultCubit matchResultCubit;
   final String lobbyId;
   final String gameName;
+
+  /// Optional override; nếu trống sẽ resolve từ JWT qua
+  /// [CurrentUserResolver.resolveUserId].
   final String currentUserId;
   final VoidCallback? onComplete;
 
@@ -28,11 +33,25 @@ class MatchResultPage extends StatefulWidget {
 }
 
 class _MatchResultPageState extends State<MatchResultPage> {
+  String? _resolvedUserId;
+
   @override
   void initState() {
     super.initState();
     widget.matchResultCubit.loadMatchResult(widget.lobbyId);
+    if (widget.currentUserId.isEmpty) {
+      _resolveCurrentUser();
+    }
   }
+
+  Future<void> _resolveCurrentUser() async {
+    final id = await getIt<CurrentUserResolver>().resolveUserId();
+    if (!mounted) return;
+    setState(() => _resolvedUserId = id);
+  }
+
+  String get _effectiveUserId =>
+      widget.currentUserId.isNotEmpty ? widget.currentUserId : (_resolvedUserId ?? '');
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +236,7 @@ class _MatchResultPageState extends State<MatchResultPage> {
           // Consensus status section
           ConsensusStatusCard(
             result: result,
-            currentUserId: widget.currentUserId,
+            currentUserId: _effectiveUserId,
           ),
 
           // Finalized: Show Elo changes
@@ -234,7 +253,7 @@ class _MatchResultPageState extends State<MatchResultPage> {
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: EloChangeDisplay(
                     eloUpdate: elo,
-                    isCurrentUser: elo.odId == widget.currentUserId,
+                    isCurrentUser: elo.odId == _effectiveUserId,
                   ),
                 )),
           ],

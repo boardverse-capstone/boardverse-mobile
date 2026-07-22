@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../di/injection.dart';
-import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../widgets/leaderboard_card.dart';
 
+/// Trang Leaderboard mock (đang dùng data giả).
+///
+/// KHÔNG tạo `BlocProvider<ProfileCubit>` ở đây — `ProfileCubit` đã
+/// được provide ở app root. Việc tạo provider trong `build()` gây
+/// vòng lặp vô tận khi page rebuild (xem bug `HomeOverviewPage`).
+/// Khi chuyển sang dùng data thật, hãy dùng cubit từ root qua
+/// `context.read<ProfileCubit>()`.
 class LeaderboardPage extends StatelessWidget {
   const LeaderboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ProfileCubit>(
-      create: (_) => getIt<ProfileCubit>()..getProfile(),
-      child: const _LeaderboardPageContent(),
-    );
+    return const _LeaderboardPageContent();
   }
 }
 

@@ -144,27 +144,84 @@ class LobbyModel {
   });
 
   factory LobbyModel.fromJson(Map<String, dynamic> json) {
+    // Schema `/discoverable` mới trả field camelCase khác với `/search`
+    // và `/lobbies/{id}` cũ:
+    //   `gameTemplateId`      ↔ `gameId`
+    //   `currentMembers`      ↔ `currentPlayers`
+    //   `maxMembers`          ↔ `maxPlayers`
+    //   `visibility`          ↔ `isPublic`  ("public" / "private")
+    //   `scheduledStartTime`  ↔ `scheduledTime`
+    //   `memberAvatars[]`     ↔ `players[]`  (chỉ list URL, không full DTO)
+    // `/discoverable` response **không có** `hostName`, `cafeName`, `minPlayers`,
+    // `timeoutAt`, `bookingId`, `inviteCode`, `minimumKarma`, `distanceKm` —
+    // ta fallback giá trị mặc định an toàn cho các field optional này.
+    final hostId = (json['hostId'] ?? json['hostId'] ?? '') as String;
+    final gameId = (json['gameId'] ?? json['gameTemplateId'] ?? '') as String;
+    final currentPlayers =
+        (json['currentPlayers'] ?? json['currentMembers'] ?? 0) as int;
+    final maxPlayers = (json['maxPlayers'] ?? json['maxMembers'] ?? 0) as int;
+    final isPublic = _parseVisibility(json['isPublic'] ?? json['visibility']);
+
+    // scheduledTime: bắt buộc trong cả 2 schema, nhưng đặt tên khác nhau.
+    final scheduledTimeRaw = (json['scheduledTime'] ??
+            json['scheduledStartTime'] ??
+            DateTime.now().toIso8601String())
+        as String;
+
+    // createdAt: bắt buộc cũ, optional mới — fallback now().
+    final createdAtRaw = (json['createdAt'] ??
+            json['scheduledStartTime'] ??
+            DateTime.now().toIso8601String())
+        as String;
+
+    // timeoutAt: optional ở `/discoverable`. Fallback `+6h` để UI không crash.
+    final timeoutAtRaw = (json['timeoutAt'] ??
+            DateTime.now()
+                .add(const Duration(hours: 6))
+                .toIso8601String())
+        as String;
+
+    // Players: chỉ /discoverable mới có `memberAvatars` (List<String>),
+    // không có full DTO (id/name/karma/joinedAt). Convert thành LobbyPlayerModel
+    // tối thiểu để UI vẫn render được avatar (URL có thể trống).
+    final playersJson = (json['players'] ?? json['memberAvatars']) as List?;
+    final players = playersJson == null
+        ? <LobbyPlayerModel>[]
+        : (playersJson.first is Map
+            ? (playersJson)
+                .map((e) => LobbyPlayerModel.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : (playersJson)
+                .map((url) => LobbyPlayerModel(
+                      id: '',
+                      name: '',
+                      avatarUrl: url as String,
+                      isHost: false,
+                      isReady: false,
+                      joinedAt: DateTime.now().toIso8601String(),
+                    ))
+                .toList());
+
     return LobbyModel(
       id: json['id'] as String,
-      gameId: json['gameId'] as String,
-      gameName: json['gameName'] as String,
+      gameId: gameId,
+      gameName: (json['gameName'] ?? '') as String,
       gameImageUrl: json['gameImageUrl'] as String?,
-      cafeId: json['cafeId'] as String,
-      cafeName: json['cafeName'] as String,
-      hostId: json['hostId'] as String,
-      hostName: json['hostName'] as String,
-      scheduledTime: DateTime.parse(json['scheduledTime'] as String),
-      currentPlayers: json['currentPlayers'] as int,
-      maxPlayers: json['maxPlayers'] as int,
-      minPlayers: json['minPlayers'] as int,
-      isPublic: json['isPublic'] as bool,
+      cafeId: (json['cafeId'] ?? '') as String,
+      cafeName: (json['cafeName'] ?? '') as String,
+      hostId: hostId,
+      hostName: (json['hostName'] ?? '') as String,
+      scheduledTime: DateTime.parse(scheduledTimeRaw),
+      currentPlayers: currentPlayers,
+      maxPlayers: maxPlayers,
+      // `/discoverable` không trả `minPlayers` — fallback = 2 (BR-07 min).
+      minPlayers: (json['minPlayers'] as int?) ?? 2,
+      isPublic: isPublic,
       inviteCode: json['inviteCode'] as String?,
       status: LobbyStatusModel.fromWire(json['status'] as String?),
-      players: (json['players'] as List)
-          .map((e) => LobbyPlayerModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      timeoutAt: DateTime.parse(json['timeoutAt'] as String),
+      players: players,
+      createdAt: DateTime.parse(createdAtRaw),
+      timeoutAt: DateTime.parse(timeoutAtRaw),
       bookingId: json['bookingId'] as String?,
       minimumKarma: (json['minimumKarma'] as num?)?.toDouble() ?? 0,
       searchRadiusKm: (json['searchRadiusKm'] as num?)?.toDouble() ?? 5,
@@ -172,6 +229,17 @@ class LobbyModel {
       cafeLat: (json['cafeLat'] as num?)?.toDouble(),
       cafeLng: (json['cafeLng'] as num?)?.toDouble(),
     );
+  }
+
+  /// Parse `visibility` từ cả schema cũ (`isPublic: bool`) và mới
+  /// (`visibility: "public" | "private" | "invite_only"`).
+  static bool _parseVisibility(dynamic raw) {
+    if (raw is bool) return raw;
+    if (raw is String) {
+      final normalized = raw.toLowerCase().trim();
+      return normalized == 'public' || normalized.isEmpty;
+    }
+    return true; // mặc định an toàn — public.
   }
 
   Map<String, dynamic> toJson() => {

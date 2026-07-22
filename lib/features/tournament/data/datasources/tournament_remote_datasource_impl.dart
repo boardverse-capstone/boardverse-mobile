@@ -10,6 +10,21 @@ import 'package:boardverse_mobile/features/tournament/data/models/leaderboard_mo
 import 'package:boardverse_mobile/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
 
 /// Implementation of TournamentRemoteDatasource using Dio client.
+///
+/// **Quan trọng — Backend response envelope:**
+/// Mọi response từ BoardVerse API đều được wrap trong envelope:
+/// ```json
+/// {
+///   "statusCode": 200,
+///   "message": "OK",
+///   "data": { ... actual payload ... },
+///   "timestamp": "...",
+///   "path": "..."
+/// }
+/// ```
+/// Method [_unwrapMap] / [_unwrapList] sẽ bóc lớp `data` trước khi truyền
+/// cho [Model.fromJson]. Nếu backend trả error envelope (`data: null`),
+/// Dio sẽ throw exception — không cần xử lý riêng.
 class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   final Dio _dio;
 
@@ -29,32 +44,9 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         queryParameters: queryParams,
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) => TournamentModel.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } on DioException catch (e) {
-      throw _mapDioError(e);
-    }
-  }
-
-  @override
-  Future<List<TournamentModel>> getUpcomingTournaments({
-    String? gameTemplateId,
-  }) async {
-    try {
-      final queryParams = gameTemplateId != null
-          ? {'gameTemplateId': gameTemplateId}
-          : null;
-
-      final response = await _dio.get(
-        ApiEndpoints.tournamentsUpcoming,
-        queryParameters: queryParams,
-      );
-
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) => TournamentModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => TournamentModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
@@ -68,7 +60,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentDetail(tournamentId),
       );
 
-      return TournamentModel.fromJson(response.data as Map<String, dynamic>);
+      return TournamentModel.fromJson(_unwrapMap(response.data));
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -83,10 +75,9 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentParticipants(tournamentId),
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) =>
-              TournamentParticipantModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => TournamentParticipantModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
@@ -103,9 +94,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentParticipant(tournamentId, participantId),
       );
 
-      return TournamentParticipantModel.fromJson(
-        response.data as Map<String, dynamic>,
-      );
+      return TournamentParticipantModel.fromJson(_unwrapMap(response.data));
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -118,13 +107,40 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentMatches(tournamentId),
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) =>
-              TournamentMatchModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => TournamentMatchModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
+    }
+  }
+
+  /// Lấy chi tiết 1 match từ danh sách matches của tournament.
+  ///
+  /// Backend hiện **không expose** endpoint `GET /tournaments/matches/{id}`
+  /// (trả 404). Do đó mobile fetch toàn bộ matches rồi filter client-side
+  /// theo [matchId]. Phù hợp với 4 round Swiss (≤ ~8 matches / tournament).
+  @override
+  Future<TournamentMatchModel> getMatchById(
+    String tournamentId,
+    String matchId,
+  ) async {
+    try {
+      final matches = await getMatches(tournamentId);
+      return matches.firstWhere(
+        (m) => m.id == matchId,
+        orElse: () => throw ServerException(
+          message: 'Không tìm thấy trận đấu trong giải.',
+          statusCode: 404,
+        ),
+      );
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    } catch (e) {
+      throw ServerException(message: 'Lỗi không xác định: $e');
     }
   }
 
@@ -138,26 +154,10 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentMatchesRound(tournamentId, roundNumber),
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) =>
-              TournamentMatchModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => TournamentMatchModel.fromJson(json))
           .toList();
-    } on DioException catch (e) {
-      throw _mapDioError(e);
-    }
-  }
-
-  @override
-  Future<TournamentMatchModel> getMatchById(String matchId) async {
-    try {
-      final response = await _dio.get(
-        ApiEndpoints.tournamentMatchById(matchId),
-      );
-
-      return TournamentMatchModel.fromJson(
-        response.data as Map<String, dynamic>,
-      );
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -197,9 +197,9 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         queryParameters: queryParams,
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) => TournamentModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => TournamentModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
@@ -213,9 +213,9 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         ApiEndpoints.tournamentsMyEloHistory,
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) => EloHistoryModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => EloHistoryModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
@@ -232,14 +232,55 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
         queryParameters: {'topCount': topCount},
       );
 
-      final data = response.data as List<dynamic>;
-      return data
-          .map((json) =>
-              LeaderboardEntryModel.fromJson(json as Map<String, dynamic>))
+      final list = _unwrapList(response.data);
+      return list
+          .map((json) => LeaderboardEntryModel.fromJson(json))
           .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────
+
+  /// Bóc lớp `data` của envelope `{ statusCode, message, data, ... }`.
+  /// Trả về Map trong `data` nếu hợp lệ; throw nếu response không đúng format.
+  Map<String, dynamic> _unwrapMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) {
+      final data = raw['data'];
+      if (data is Map<String, dynamic>) return data;
+      // Nếu `data` null nhưng statusCode là success, có thể backend trả
+      // empty body — trả về envelope để Model.fromJson tự xử lý.
+      if (data == null) return raw;
+      // Trường hợp data là primitive hoặc list — không phải object model,
+      // trả về envelope để tránh mất thông tin message.
+      return raw;
+    }
+    throw ServerException(
+      message: 'Response không đúng định dạng envelope',
+      statusCode: null,
+    );
+  }
+
+  /// Bóc lớp `data` của envelope và cast sang `List<dynamic>`.
+  List<dynamic> _unwrapList(dynamic raw) {
+    if (raw is List) return raw;
+    if (raw is Map<String, dynamic>) {
+      final data = raw['data'];
+      if (data is List) return data;
+      // Một số endpoint (vd `leaderboard`) wrap thêm 1 cấp:
+      // `{ statusCode, data: { data: [...], totalPlayers: N } }`
+      if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is List) return inner;
+      }
+      // Nếu data null và là success envelope → trả list rỗng
+      if (data == null) return const [];
+    }
+    throw ServerException(
+      message: 'Response không đúng định dạng envelope (expected array)',
+      statusCode: null,
+    );
   }
 
   ServerException _mapDioError(DioException e) {

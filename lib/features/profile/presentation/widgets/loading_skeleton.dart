@@ -41,7 +41,6 @@ class _HeaderSkeleton extends StatelessWidget {
         bottom: Radius.circular(AppRadius.radiusHuge),
       ),
       child: Container(
-        height: 280,
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -57,6 +56,7 @@ class _HeaderSkeleton extends StatelessWidget {
           AppSpacing.xxl,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             AppShimmer.circle(context: context, size: 96),

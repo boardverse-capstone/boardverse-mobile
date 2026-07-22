@@ -132,6 +132,13 @@ class ApiEndpoints {
   // ─── Lobbies────────────────────────────────────────────
   // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
   static const String lobbiesSearch = '/api/v1/lobbies/search';
+
+  /// GET /api/v1/lobbies/discoverable?limit=N — endpoint browse lobbies
+  /// cho Player. Trả về danh sách lobby đang hoạt động (status = open/full),
+  /// đã được server lọc theo vị trí + quyền riêng tư. **Không yêu cầu
+  /// `gameTemplateId`** như `/search`, nên phù hợp cho flow "Browse all
+  /// lobbies" ở Discovery tab.
+  static const String lobbiesDiscoverable = '/api/v1/lobbies/discoverable';
   static const String lobbiesList = '/api/v1/lobbies';
   static const String lobbyDetail = '/api/v1/lobbies/{id}';
   static const String lobbyJoin = '/api/v1/lobbies/{id}/join';
@@ -180,8 +187,13 @@ class ApiEndpoints {
   // ──────────────────────────────────────────────
   // Base: /api/v1/tournaments — Player xem giải, đăng ký, xem kết quả.
   // Docs: .agents/docs/tournament_docs/tournament.md
+  //
+  // Lưu ý:
+  // - `/tournaments/open?gameTemplateId=...` bắt buộc `gameTemplateId`.
+  // - KHÔNG tồn tại `/tournaments/upcoming` (404) — bỏ qua.
+  // - KHÔNG tồn tại `/tournaments/matches/{id}` (404) — chỉ fetch all rồi
+  //   filter client-side.
   static const String tournamentsOpen = '/api/v1/tournaments/open';
-  static const String tournamentsUpcoming = '/api/v1/tournaments/upcoming';
   static const String tournamentsMyRegistrations =
       '/api/v1/tournaments/my-registrations';
   static const String tournamentsMyEloHistory =
@@ -210,10 +222,6 @@ class ApiEndpoints {
   /// GET /tournaments/{id}/matches/round/{round}
   static String tournamentMatchesRound(String id, int round) =>
       '/api/v1/tournaments/$id/matches/round/$round';
-
-  /// GET /matches/{matchId}
-  static String tournamentMatchById(String matchId) =>
-      '/api/v1/tournaments/matches/$matchId';
 
   /// POST /tournaments/{id}/register
   static String tournamentRegister(String id) =>

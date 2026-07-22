@@ -137,6 +137,13 @@ class RealLobbyRealtimeService implements LobbyRealtimeService {
     // Match result events
     conn.on('MatchResultSubmitted', _onMatchResultSubmitted);
     conn.on('EloUpdated', _onEloUpdated);
+
+    // Browse realtime events (cho NearbyLobbiesPage refresh)
+    // — server publish lên group location-based khi user gọi
+    // `SubscribeNearbyLobbies(latitude, longitude, radiusKm)`.
+    conn.on('NearbyLobbyCreated', _onNearbyLobbyCreated);
+    conn.on('NearbyLobbyRemoved', _onNearbyLobbyRemoved);
+    conn.on('NearbyLobbyUpdated', _onNearbyLobbyUpdated);
   }
 
   void _onMemberJoined(List<Object?>? args) {
@@ -339,5 +346,67 @@ class RealLobbyRealtimeService implements LobbyRealtimeService {
       return DateTime.tryParse(raw) ?? DateTime.now();
     }
     return DateTime.now();
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Browse Realtime Event Handlers
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /// Server push khi có lobby public mới được tạo trong vùng mà client
+  /// đang subscribe qua `subscribeNearbyLobbies`. Payload lấy từ
+  /// `LobbyResponseDto` thu gọn (id + gameTemplateId + cafeId +
+  /// scheduledStartTime).
+  void _onNearbyLobbyCreated(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(NearbyLobbyCreatedEvent(
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        gameTemplateId:
+            (raw['GameTemplateId'] ?? raw['gameTemplateId'] ?? '').toString(),
+        cafeId: (raw['CafeId'] ?? raw['cafeId'] ?? '').toString(),
+        scheduledStartTime: _parseTimestamp(
+          raw['ScheduledStartTime'] ?? raw['scheduledStartTime'],
+        ),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  /// Server push khi 1 lobby trong vùng bị cancel / timeout / close.
+  /// `Reason` có thể là: `host_cancelled`, `timeout_failed`, `closed`,
+  /// `locked`, ...
+  void _onNearbyLobbyRemoved(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(NearbyLobbyRemovedEvent(
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        reason: (raw['Reason'] ?? raw['reason'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  /// Server push khi 1 lobby trong vùng vừa đổi số thành viên (member join/
+  /// leave) hoặc đạt `Full`. Client nên refetch để cập nhật slot count.
+  void _onNearbyLobbyUpdated(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(NearbyLobbyUpdatedEvent(
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        currentMembers:
+            (raw['CurrentMembers'] ?? raw['currentMembers'] ?? 0) as int,
+        maxMembers: (raw['MaxMembers'] ?? raw['maxMembers'] ?? 0) as int,
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
   }
 }

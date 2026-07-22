@@ -60,6 +60,20 @@ abstract class LobbyRemoteDatasource {
     required double currentUserKarma,
   });
 
+  /// GET /api/v1/lobbies/discoverable?limit=N — flow Browse lobbies cho
+  /// Player. Server trả về các lobby đang hoạt động (`status = open|full`)
+  /// đã được filter theo vị trí + visibility của user. **Không yêu cầu
+  /// `gameTemplateId`** nên phù hợp cho tab "Phòng chờ".
+  ///
+  /// Trả về `List<LobbyEntity>` (đầy đủ thông tin) thay vì `LobbySummary`
+  /// để caller có thể hiển thị Preview Page mà không cần gọi thêm
+  /// `getLobbyById`. Lưu ý: response có field alias khác
+  /// (`gameTemplateId` ↔ `gameId`, `memberAvatars[]` ↔ `players[]`, ...)
+  /// — đã được xử lý trong `LobbyModel.fromJson`.
+  Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    int limit = 50,
+  });
+
   /// POST /api/v1/lobbies/{lobbyId}/close — Host only.
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId);
 

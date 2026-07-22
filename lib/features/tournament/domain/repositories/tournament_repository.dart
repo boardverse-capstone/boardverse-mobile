@@ -9,13 +9,10 @@ import '../entities/leaderboard_entity.dart';
 
 /// Abstract repository interface for tournament operations.
 abstract class TournamentRepository {
-  /// Lấy danh sách giải đang mở đăng ký.
+  /// Lấy danh sách giải Splendor đang mở đăng ký.
+  /// Backend filter theo `Status = RegistrationOpen`, deadline chưa qua,
+  /// còn slot. Theo docs chỉ có endpoint `/open` (không có `/upcoming`).
   Future<Either<Failure, List<TournamentEntity>>> getOpenTournaments({
-    String? gameTemplateId,
-  });
-
-  /// Lấy danh sách giải sắp diễn ra (chưa mở đăng ký).
-  Future<Either<Failure, List<TournamentEntity>>> getUpcomingTournaments({
     String? gameTemplateId,
   });
 
@@ -35,7 +32,7 @@ abstract class TournamentRepository {
     String? currentUserId,
   });
 
-  /// Danh sách tất cả matches.
+  /// Danh sách tất cả matches của tournament.
   Future<Either<Failure, List<TournamentMatchEntity>>> getMatches(String id);
 
   /// Matches theo round.
@@ -45,7 +42,14 @@ abstract class TournamentRepository {
   );
 
   /// Chi tiết 1 match.
-  Future<Either<Failure, TournamentMatchEntity>> getMatchById(String matchId);
+  ///
+  /// Backend hiện không expose `GET /tournaments/matches/{id}` (trả 404),
+  /// nên repo fetch toàn bộ matches rồi filter client-side.
+  /// Cần truyền [tournamentId] vì backend không cho lookup match ngược.
+  Future<Either<Failure, TournamentMatchEntity>> getMatchById(
+    String tournamentId,
+    String matchId,
+  );
 
   /// Đăng ký tham gia giải.
   Future<Either<Failure, void>> register(String id);

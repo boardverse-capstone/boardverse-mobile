@@ -89,6 +89,7 @@ class _TournamentMatchesTabState extends State<TournamentMatchesTab> {
                 onTap: () {
                   TournamentRoutes.openMatchDetail(
                     context: context,
+                    tournamentId: widget.tournamentId,
                     matchId: match.id,
                     initial: match,
                   );

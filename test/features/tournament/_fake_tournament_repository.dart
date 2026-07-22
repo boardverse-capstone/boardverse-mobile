@@ -18,7 +18,6 @@ import 'package:boardverse_mobile/features/tournament/domain/repositories/tourna
 
 class FakeTournamentRepository implements TournamentRepository {
   List<TournamentEntity> openTournaments;
-  List<TournamentEntity> upcomingTournaments;
   List<TournamentEntity> myRegistrations;
   List<EloHistoryEntity> eloHistory;
   List<LeaderboardEntryEntity> leaderboard;
@@ -32,7 +31,6 @@ class FakeTournamentRepository implements TournamentRepository {
 
   FakeTournamentRepository({
     List<TournamentEntity>? openTournaments,
-    List<TournamentEntity>? upcomingTournaments,
     List<TournamentEntity>? myRegistrations,
     List<EloHistoryEntity>? eloHistory,
     List<LeaderboardEntryEntity>? leaderboard,
@@ -44,7 +42,6 @@ class FakeTournamentRepository implements TournamentRepository {
     this.failure,
     this.registerFailure,
   })  : openTournaments = openTournaments ?? <TournamentEntity>[],
-        upcomingTournaments = upcomingTournaments ?? <TournamentEntity>[],
         myRegistrations = myRegistrations ?? <TournamentEntity>[],
         eloHistory = eloHistory ?? <EloHistoryEntity>[],
         leaderboard = leaderboard ?? <LeaderboardEntryEntity>[],
@@ -61,14 +58,6 @@ class FakeTournamentRepository implements TournamentRepository {
   }) async {
     if (failure != null) return Left(failure!);
     return Right(openTournaments);
-  }
-
-  @override
-  Future<Either<Failure, List<TournamentEntity>>> getUpcomingTournaments({
-    String? gameTemplateId,
-  }) async {
-    if (failure != null) return Left(failure!);
-    return Right(upcomingTournaments);
   }
 
   @override
@@ -128,6 +117,7 @@ class FakeTournamentRepository implements TournamentRepository {
 
   @override
   Future<Either<Failure, TournamentMatchEntity>> getMatchById(
+    String tournamentId,
     String matchId,
   ) async {
     if (failure != null) return Left(failure!);

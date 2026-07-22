@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
 import '../widgets/board_verse_nav_bar.dart';
@@ -29,23 +30,38 @@ class _MainScaffoldState extends State<MainScaffold> {
   static const _initialIndex = 0; // Home
 
   late final PageController _pageController;
+  late final NavigationCubit _navigationCubit;
   bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
+    _navigationCubit = NavigationCubit();
     _pageController = PageController(initialPage: _initialIndex);
     // Sync the Cubit with the initial page so the nav bar reflects the
     // starting tab on first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<NavigationCubit>().setTab(_initialIndex);
+      _navigationCubit.setTab(_initialIndex);
     });
+    // Listen yêu cầu "chuyển sang Lobby screen cho game X" từ
+    // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm"). Đây là cầu nối
+    // nghiệp vụ: Discovery → Lobby screen.
+    LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
+  }
+
+  void _handleLobbySuggestion() {
+    // Chuyển sang tab Discovery (index 2). DiscoveryTab sẽ tự switch
+    // sub-tab sang "Phòng chờ" và NearbyLobbiesPage sẽ consume signal để
+    // preselect game.
+    _onTabTapped(NavTab.discovery.tabIndex);
   }
 
   @override
   void dispose() {
+    LobbySuggestionSignal.instance.removeListener(_handleLobbySuggestion);
     _pageController.dispose();
+    _navigationCubit.close();
     super.dispose();
   }
 
@@ -102,7 +118,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   /// the Cubit directly.
   void _onPageChanged(int index) {
     final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
-    context.read<NavigationCubit>().setTab(clamped);
+    _navigationCubit.setTab(clamped);
   }
 
   /// Allows descendants (e.g. HomeOverviewPage quick actions) to request
@@ -141,8 +157,8 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<NavigationCubit>(
-      create: (_) => NavigationCubit(),
+    return BlocProvider<NavigationCubit>.value(
+      value: _navigationCubit,
       child: BlocBuilder<NavigationCubit, NavigationState>(
         buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,
         builder: (context, state) {

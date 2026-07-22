@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
 import 'package:boardverse_mobile/features/booking_payment/presentation/pages/booking_summary_page.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
@@ -26,10 +28,21 @@ class _LobbyPageState extends State<LobbyPage> {
   final _chatController = TextEditingController();
   final List<ChatMessage> _chatMessages = [];
 
+  /// Id của current user lấy từ JWT (nameIdentifier claim).
+  /// Cache sau khi load để dùng trong build.
+  String? _currentUserId;
+
   @override
   void initState() {
     super.initState();
     widget.lobbyCubit.joinLobby(widget.lobbyId, null);
+    _resolveCurrentUser();
+  }
+
+  Future<void> _resolveCurrentUser() async {
+    final id = await getIt<CurrentUserResolver>().resolveUserId();
+    if (!mounted) return;
+    setState(() => _currentUserId = id);
   }
 
   @override
@@ -51,8 +64,7 @@ class _LobbyPageState extends State<LobbyPage> {
             if (state is LobbyFriendsLoaded) {
               return _FriendsSheet(
                 state: state,
-                onInvite: (friend) =>
-                    _completeFriendAction(friend, lobby, invite: true),
+                onInvite: (friend) => _completeFriendAction(friend, lobby),
                 onClose: () => Navigator.pop(sheetCtx),
                 showDevBadge: false,
                 sheetContext: sheetCtx,
@@ -65,56 +77,13 @@ class _LobbyPageState extends State<LobbyPage> {
     );
   }
 
-  void _showSimulateFriendsSheet(BuildContext context, LobbyEntity lobby) {
-    widget.lobbyCubit.loadSimulateFriends();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetCtx) => BlocProvider.value(
-        value: widget.lobbyCubit,
-        child: BlocBuilder<LobbyCubit, LobbyState>(
-          builder: (sheetCtx, state) {
-            if (state is LobbySimulateFriendsLoaded) {
-              return _FriendsSheet(
-                state: state,
-                onInvite: (friend) =>
-                    _completeFriendAction(friend, lobby, simulate: true),
-                onClose: () => Navigator.pop(sheetCtx),
-                showDevBadge: true,
-                sheetContext: sheetCtx,
-              );
-            }
-            return const _SheetLoading(
-              label: 'Đang tải danh sách bạn bè (giả lập)...',
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _completeFriendAction(
-    FriendEntity friend,
-    LobbyEntity lobby, {
-    bool invite = false,
-    bool simulate = false,
-  }) {
-    if (invite) {
-      widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.odId);
-    }
-    if (simulate) {
-      widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.odId);
-    }
+  void _completeFriendAction(FriendEntity friend, LobbyEntity lobby) {
+    widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.odId);
 
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          invite
-              ? 'Đã gửi lời mời đến ${friend.username}'
-              : '${friend.username} đã được thêm vào phòng!',
-        ),
+        content: Text('Đã gửi lời mời đến ${friend.username}'),
       ),
     );
   }
@@ -252,7 +221,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
                 final lobbyPanel = _MembersSection(
                   lobby: lobby,
-                  onSimulate: () => _showSimulateFriendsSheet(context, lobby),
+                  currentUserId: _currentUserId ?? '',
                   onInvite: () => _showInviteFriendsSheet(context, lobby),
                 );
 
@@ -701,12 +670,12 @@ class _HeaderStat extends StatelessWidget {
 
 class _MembersSection extends StatelessWidget {
   final LobbyEntity lobby;
-  final VoidCallback onSimulate;
+  final String currentUserId;
   final VoidCallback onInvite;
 
   const _MembersSection({
     required this.lobby,
-    required this.onSimulate,
+    required this.currentUserId,
     required this.onInvite,
   });
 
@@ -728,16 +697,6 @@ class _MembersSection extends StatelessWidget {
               ),
             ),
             TextButton.icon(
-              onPressed: onSimulate,
-              icon: const Icon(AppIcons.refresh, size: AppIcons.sm),
-              label: const Text('Giả lập'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.info,
-                minimumSize: const Size(0, 40),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            TextButton.icon(
               onPressed: onInvite,
               icon: const Icon(AppIcons.userAdd, size: AppIcons.sm),
               label: const Text('Mời bạn bè'),
@@ -752,7 +711,7 @@ class _MembersSection extends StatelessWidget {
         LobbyPlayerGrid(
           players: lobby.players,
           maxSlots: lobby.maxPlayers,
-          currentUserId: 'user_001',
+          currentUserId: currentUserId,
         ),
       ],
     );

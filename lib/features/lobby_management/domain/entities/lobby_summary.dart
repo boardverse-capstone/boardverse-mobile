@@ -22,6 +22,9 @@ class LobbySummary extends Equatable {
   final LobbyStatus status;
   final bool isPublic;
 
+  /// Optional — chỉ lobby private mới có. Dùng để invite qua share code.
+  final String? inviteCode;
+
   const LobbySummary({
     required this.id,
     required this.gameId,
@@ -39,6 +42,7 @@ class LobbySummary extends Equatable {
     required this.timeoutAt,
     required this.status,
     required this.isPublic,
+    this.inviteCode,
   });
 
   int get slotsRemaining => maxPlayers - currentPlayers;
@@ -62,6 +66,7 @@ class LobbySummary extends Equatable {
     timeoutAt,
     status,
     isPublic,
+    inviteCode,
   ];
 }
 

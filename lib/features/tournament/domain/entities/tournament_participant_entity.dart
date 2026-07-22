@@ -8,11 +8,21 @@ class TournamentParticipantEntity {
   final int karma;
   final ParticipantStatus status;
   final int swissScore;
+
+  /// Tổng điểm prestige tích luỹ (lifetime).
   final int prestigePoints;
+
+  /// Hạng cuối cùng trong giải (chỉ có khi `status == finished`).
   final int? finalRank;
+
+  /// Chênh lệch Elo sau giải.
   final int eloDelta;
   final bool isWalkIn;
   final bool isCurrentUser;
+
+  /// Tổng số vòng Swiss của giải — dùng để format `swissScore/totalRounds`.
+  /// Optional vì participants có thể đứng độc lập (test fixture, mock).
+  final int? totalRounds;
 
   const TournamentParticipantEntity({
     required this.id,
@@ -28,6 +38,7 @@ class TournamentParticipantEntity {
     required this.eloDelta,
     required this.isWalkIn,
     this.isCurrentUser = false,
+    this.totalRounds,
   });
 
   /// Whether this participant is the current user.
@@ -39,8 +50,15 @@ class TournamentParticipantEntity {
   /// Whether this participant is an active competitor.
   bool get isActive => status == ParticipantStatus.active;
 
-  /// Formatted Swiss score display (e.g., "2.5/3").
-  String get formattedSwissScore => '$swissScore/$swissScore';
+  /// Formatted Swiss score display (e.g., `"2.5/3"`).
+  ///
+  /// Nếu biết [totalRounds] thì hiển thị `score/totalRounds`.
+  /// Ngược lại chỉ hiển thị điểm Swiss thuần (cho trường hợp không
+  /// có ngữ cảnh giải).
+  String get formattedSwissScore {
+    if (totalRounds == null) return swissScore.toString();
+    return '$swissScore/$totalRounds';
+  }
 }
 
 /// Participant status enum.
