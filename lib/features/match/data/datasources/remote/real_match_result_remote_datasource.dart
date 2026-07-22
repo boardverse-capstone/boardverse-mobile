@@ -63,7 +63,7 @@ class RealMatchResultRemoteDatasource implements MatchResultRemoteDatasource {
         'outcome': outcome.apiValue,
       };
       final res = await _dio.post<Map<String, dynamic>>(
-        ApiEndpoints.matchResultSubmit,
+        ApiEndpoints.matchResultsSubmit,
         data: body,
       );
       final raw = _unwrap(res.data);

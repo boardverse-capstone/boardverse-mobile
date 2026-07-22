@@ -84,6 +84,51 @@ class ApiEndpoints {
   // ─── Payments ───
   static const String paymentCreate = '/api/Payments/create-url';
 
+  // ──────────────────────────────────────────────
+  //  Friends
+  // ──────────────────────────────────────────────
+  // Theo spec `.agents/docs/lobby_docs/friend.md`
+  static const String friends = '/api/v1/friends';
+  static const String friendsActivity = '/api/v1/friends/activity';
+  static const String friendRequests = '/api/v1/friends/requests';
+  static const String friendRequestsReceived = '/api/v1/friends/requests/received';
+  static const String friendRequestsSent = '/api/v1/friends/requests/sent';
+  static const String friendSearch = '/api/v1/friends/search';
+  static const String friendSuggestions = '/api/v1/friends/suggestions';
+  static const String friendPrivacy = '/api/v1/friends/privacy';
+  static const String friendNotes = '/api/v1/friends/notes';
+  static const String friendReports = '/api/v1/friends/reports';
+
+  /// GET /api/v1/friends/requests/{id}/accept
+  static String friendRequestAccept(String id) => '/api/v1/friends/requests/$id/accept';
+
+  /// POST /api/v1/friends/requests/{id}/decline
+  static String friendRequestDecline(String id) => '/api/v1/friends/requests/$id/decline';
+
+  /// POST /api/v1/friends/requests/{id}/read
+  static String friendRequestRead(String id) => '/api/v1/friends/requests/$id/read';
+
+  /// DELETE /api/v1/friends/{id} - unfriend
+  static String friendUnfriend(String id) => '/api/v1/friends/$id';
+
+  /// POST /api/v1/friends/block/{userId}
+  static String friendBlock(String userId) => '/api/v1/friends/block/$userId';
+
+  /// DELETE /api/v1/friends/block/{userId} - unblock
+  static String friendUnblock(String userId) => '/api/v1/friends/block/$userId';
+
+  /// GET /api/v1/friends/{otherUserId}/mutual - mutual friends
+  static String friendMutual(String otherUserId) => '/api/v1/friends/$otherUserId/mutual';
+
+  /// GET /api/v1/friends/{otherUserId}/list - friend's friend list
+  static String friendList(String otherUserId) => '/api/v1/friends/$otherUserId/list';
+
+  /// PUT /api/v1/friends/notes/{friendUserId}
+  static String friendNoteUpdate(String friendUserId) => '/api/v1/friends/notes/$friendUserId';
+
+  /// DELETE /api/v1/friends/notes/{noteId}
+  static String friendNoteDelete(String noteId) => '/api/v1/friends/notes/$noteId';
+
   // ─── Lobbies────────────────────────────────────────────
   // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
   static const String lobbiesSearch = '/api/v1/lobbies/search';
@@ -101,6 +146,17 @@ class ApiEndpoints {
   // để bridge sang flow booking (Task 4). Tạm thời giữ cũ.
   static const String lobbyAutoBooking = '/api/v1/lobbies/{id}/auto-booking';
 
+  // ─── Lobbies: Share Code & Invites ─────────────────────────────────────
+  // Theo spec `.agents/docs/apis_docs/lobby-invite.md`
+  static const String lobbyShareInfo = '/api/v1/lobbies/{lobbyId}/share-info';
+  static const String lobbyJoinByCode = '/api/v1/lobbies/join-by-code';
+  static const String lobbyInvitesPending = '/api/v1/lobbies/invites/me/pending';
+  static const String lobbyInvitesMe = '/api/v1/lobbies/invites/me';
+  static const String lobbyInvites = '/api/v1/lobbies/{lobbyId}/invites';
+  static const String lobbyInviteAccept = '/api/v1/lobbies/invites/{inviteId}/accept';
+  static const String lobbyInviteDecline = '/api/v1/lobbies/invites/{inviteId}/decline';
+  static const String lobbyInviteDetail = '/api/v1/lobbies/invites/{inviteId}';
+
   // ─── SignalR Hub (realtime) ─────────────────────────────────────
   // Negotiate endpoint trên cùng host với REST API. Token được truyền
   // qua query `?access_token=<jwt>` bởi `RealLobbyRealtimeService`.
@@ -116,7 +172,8 @@ class ApiEndpoints {
   // BR-04 backend kiểm tra qua gameTemplateId trên lobby.
   static const String matchResultByLobby =
       '/api/v1/matches/results/lobbies/{lobbyId}';
-  static const String matchResultSubmit = '/api/v1/matches/results';
+  static const String matchResults = '/api/v1/matches/results';
+  static const String matchResultsSubmit = '/api/v1/matches/results';
 
   // ──────────────────────────────────────────────
   //  Tournaments (Player Mobile)

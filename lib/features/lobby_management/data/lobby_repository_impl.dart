@@ -2,25 +2,15 @@ import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 
-import '../../../core/error/failures.dart';
+import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../domain/entities/lobby_entity.dart';
 import '../domain/entities/lobby_summary.dart';
-import '../domain/entities/friend_entity.dart';
 import '../domain/repositories/lobby_repository.dart';
 import 'datasources/base/lobby_remote_datasource.dart';
-import 'datasources/mock/mock_lobby_remote_datasource.dart';
-import 'models/lobby_model.dart';
 import 'realtime/lobby_realtime_service.dart';
 
-/// Triển khai [LobbyRepository] dùng chung cho cả 2 mode (mock / remote).
-///
-/// Mode được quyết định bởi DI (xem `lib/core/di/injection.dart`):
-/// - `AppConfig.useMockLobbyData = true`  → MockLobbyRemoteDatasource
-/// - `AppConfig.useMockLobbyData = false` → RealLobbyRemoteDatasource
-///
-/// Repository không tự switch — chỉ delegate xuống datasource + realtime
-/// service đã inject. Behavior BR-07/BR-08 được đảm bảo bởi backend
-/// (hoặc mock tương đương).
+/// Implementation của [LobbyRepository].
 class LobbyRepositoryImpl implements LobbyRepository {
   LobbyRepositoryImpl({
     required LobbyRemoteDatasource remoteDatasource,
@@ -126,7 +116,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() =>
       _remote.getOnlineFriends();
 
-  // ─── Host-only actions (Phase 4 — wired to backend /mock store) ────
+  // ─── Host-only actions ─────────────────────────────────────────────────
 
   @override
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId) =>
@@ -144,20 +134,13 @@ class LobbyRepositoryImpl implements LobbyRepository {
 
   @override
   Stream<LobbyEntity> watchLobbyRealtime(String lobbyId) {
-    // 1. Đảm bảo hub đã connect (idempotent ở cả 2 impl).
+    // 1. Đảm bảo hub đã connect.
     unawaited(_realtime.connect());
 
-    // 2. Subscribe group của lobby (no-op nếu mock).
+    // 2. Subscribe group của lobby.
     unawaited(_realtime.joinLobby(lobbyId));
 
     // 3. Forward event đã lọc `lobbyId` ra Stream<LobbyEntity>.
-    //    - `MemberJoined` / `MemberLeft` / `LobbyFull` / `LobbyCancelled` /
-    //      `LobbyTimeout` → trigger `getLobbyById` để lấy state mới nhất.
-    //    - `BookingConfirmed` → set bookingId qua state mới.
-    //
-    // Vì `LobbyEntity` không thay đổi theo từng event riêng, ta ghép
-    // chúng bằng cách fetch lại lobby và emit state mới. Đây là cách
-    // đơn giản nhất — UI luôn thấy state đầy đủ nhất.
     return _realtime.events
         .where((event) => _eventMatchesLobby(event, lobbyId))
         .asyncMap((_) async {
@@ -171,8 +154,6 @@ class LobbyRepositoryImpl implements LobbyRepository {
         .cast<LobbyEntity>();
   }
 
-  /// Subscribe trực tiếp tới raw event — Cubit dùng để dispatch đặc biệt
-  /// (timeout, host cancelled, booking confirmed).
   @override
   Stream<LobbyRealtimeEvent> watchLobbyEvents(String lobbyId) {
     unawaited(_realtime.connect());
@@ -189,6 +170,12 @@ class LobbyRepositoryImpl implements LobbyRepository {
       LobbyCancelledEvent e => e.lobbyId == lobbyId,
       LobbyTimeoutEvent e => e.lobbyId == lobbyId,
       BookingConfirmedEvent e => e.lobbyId == lobbyId,
+      LobbyInviteReceivedEvent e => e.lobbyId == lobbyId,
+      InviteAcceptedEvent e => e.lobbyId == lobbyId,
+      InviteDeclinedEvent e => e.lobbyId == lobbyId,
+      InviteCancelledEvent e => e.lobbyId == lobbyId,
+      MatchResultSubmittedEvent e => e.lobbyId == lobbyId,
+      EloUpdatedEvent e => e.lobbyId == lobbyId,
     };
   }
 
@@ -199,13 +186,10 @@ class LobbyRepositoryImpl implements LobbyRepository {
     String lobbyId,
     String reasonCode,
   ) async {
-    // reasonCode mapping theo backend spec `lobby.md:215-226`:
+    // reasonCode mapping:
     // - 'HOST_CANCELLED' → closeLobby
-    // - 'TIMEOUT_FAILED'  → setTimeout (sẽ tự broadcast `LobbyTimeout`)
-    // - các reason khác    → fallback to `closeLobby`
+    // - 'TIMEOUT_FAILED'  → backend tự trigger
     if (reasonCode == 'TIMEOUT_FAILED') {
-      // Backend tự động check BR-08 và broadcast LobbyTimeout — client
-      // không gọi API riêng. Giữ no-op.
       await _realtime.leaveLobby(lobbyId);
       return const Right(null);
     }
@@ -233,71 +217,18 @@ class LobbyRepositoryImpl implements LobbyRepository {
         currentUserKarma: currentUserKarma,
       );
 
-  /// Luồng A: khi lobby đầy → tự động tạo booking.
-  /// Ở real backend: server tự trigger sau `LobbyFull` event — endpoint
-  /// này chỉ dùng cho mock mode khi client muốn chủ động tạo booking
-  /// trước khi nhận event `BookingConfirmed`.
   @override
-  Future<Either<Failure, String>> autoCreateBookingWhenFull(String lobbyId) async {
-    // BR-07 guard: chỉ tạo booking khi lobby đã đầy.
-    if (_remote is MockLobbyRemoteDatasource) {
-      final lobby =
-          MockLobbyRemoteDatasource.getLobbyByIdStatic(lobbyId);
-      if (lobby == null) {
-        return const Left<Failure, String>(
-          ServerFailure(message: 'Không tìm thấy phòng'),
-        );
-      }
-      // BR-07 guard: lobby đầy = `currentPlayers >= maxPlayers` HOẶC
-      // status đã được flip sang `full` (do mock test force).
-      final isFull = lobby.isFull || lobby.status == LobbyStatusModel.full;
-      if (!isFull) {
-        return const Left<Failure, String>(
-          ServerFailure(message: 'Lobby chưa đầy — không thể tạo booking'),
-        );
-      }
-    }
+  Future<Either<Failure, String>> autoCreateBookingWhenFull(String lobbyId) {
     return _remote.autoCreateBooking(lobbyId);
   }
 
-  /// Update status (timeoutFailed / hostCancelled / ...).
-  /// Ở real backend: status tự động chuyển do server. Endpoint này chỉ
-  /// dùng cho mock. Phase sau sẽ bỏ hẳn nếu backend không cần.
   @override
   Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
     String lobbyId,
     LobbyStatus newStatus,
-  ) async {
-    // Mock-only path: route qua MockLobbyRemoteDatasource static store.
-    if (_remote is MockLobbyRemoteDatasource) {
-      final lobby =
-          MockLobbyRemoteDatasource.getLobbyByIdStatic(lobbyId)?.toEntity();
-      if (lobby == null) {
-        return const Left(ServerFailure(message: 'Không tìm thấy phòng'));
-      }
-      // Ghi trực tiếp vào store.
-      final modelStatus = LobbyStatusModel.values.firstWhere(
-        (s) => s.name == newStatus.name,
-        orElse: () => LobbyStatusModel.open,
-      );
-      final existing =
-          MockLobbyRemoteDatasource.getLobbyByIdStatic(lobbyId);
-      if (existing != null) {
-        MockLobbyRemoteDatasource.setLobby(
-          lobbyId,
-          existing.copyWith(status: modelStatus),
-        );
-      }
-      return Right(lobby.copyWith(status: newStatus));
-    }
-    // Real mode: backend không expose endpoint này — coi như noop.
-    // Cubit nên dựa vào SignalR event thay vì gọi thủ công.
-    return Left(
-      ServerFailure(
-        message:
-            'updateLobbyStatus không khả dụng ở real mode — server tự trigger thông qua SignalR.',
-      ),
-    );
+  ) {
+    // Real mode: delegate to remote datasource
+    return _remote.updateLobbyStatus(lobbyId, newStatus);
   }
 
   // ─── Dev simulation ──────────────────────────────────────────────────
@@ -307,45 +238,16 @@ class LobbyRepositoryImpl implements LobbyRepository {
     required String lobbyId,
     required String friendId,
   }) async {
-    // Chỉ mock mode mới hỗ trợ.
-    if (_remote is MockLobbyRemoteDatasource) {
-      try {
-        final friendModel =
-            MockLobbyRemoteDatasource.mockOnlineFriendsList.cast<dynamic>().firstWhere(
-                  (f) => (f as dynamic).id == friendId,
-                  orElse: () => null,
-                );
-        if (friendModel == null) {
-          return const Left(ServerFailure(message: 'Không tìm thấy bạn bè'));
-        }
-        final player = LobbyPlayerModel(
-          id: friendModel.id as String,
-          name: friendModel.name as String,
-          avatarUrl: friendModel.avatarUrl as String,
-          isHost: false,
-          isReady: false,
-          joinedAt: DateTime.now().toIso8601String(),
-          karma: 70,
-        );
-        final existing = MockLobbyRemoteDatasource.getLobbyByIdStatic(lobbyId);
-        if (existing == null) {
-          return const Left(ServerFailure(message: 'Không tìm thấy phòng'));
-        }
-        final updated = existing.copyWith(
-          currentPlayers: existing.currentPlayers + 1,
-          players: [...existing.players, player],
-          status: (existing.currentPlayers + 1 >= existing.maxPlayers)
-              ? LobbyStatusModel.full
-              : existing.status,
-        );
-        MockLobbyRemoteDatasource.setLobby(lobbyId, updated);
-        return Right(updated.toEntity());
-      } catch (e) {
-        return Left(ServerFailure(message: 'Lỗi thêm bạn: $e'));
-      }
-    }
-    return const Left<Failure, LobbyEntity>(
-      ServerFailure(message: 'simulateAddFriend chỉ khả dụng ở mock mode.'),
+    // Real mode: gọi inviteFriend thay vì simulate
+    final inviteResult = await inviteFriend(lobbyId, friendId);
+    return inviteResult.fold(
+      (failure) => Left(failure),
+      (_) => getLobbyById(lobbyId).then((result) => result.fold(
+            (failure) => Left(failure),
+            (lobby) => lobby == null
+                ? const Left(ServerFailure(message: 'Không tìm thấy phòng'))
+                : Right(lobby),
+          )),
     );
   }
 }

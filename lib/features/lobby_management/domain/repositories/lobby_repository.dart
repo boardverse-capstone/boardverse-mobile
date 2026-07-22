@@ -1,8 +1,8 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/error/failures.dart';
+import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
-import '../../domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
 

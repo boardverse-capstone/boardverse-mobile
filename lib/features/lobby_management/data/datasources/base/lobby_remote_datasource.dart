@@ -1,9 +1,13 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../../core/error/failures.dart';
-import '../../../domain/entities/friend_entity.dart';
+import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
+import '../../../domain/entities/lobby_invite_entity.dart';
+import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
+import '../../../domain/entities/match_result_entity.dart';
+import '../../models/elo_update_model.dart';
 
 /// Abstraction cho tầng Data của Lobby — tách khỏi [LobbyRepository] (domain).
 ///
@@ -74,4 +78,58 @@ abstract class LobbyRemoteDatasource {
   Future<Either<Failure, void>> inviteFriend(String lobbyId, String friendId);
 
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends();
+
+  // ─── Share Code & Invite Methods ───────────────────────────────────────────
+
+  /// GET /api/v1/lobbies/{lobbyId}/share-info
+  /// Lấy thông tin share code của lobby.
+  Future<Either<Failure, LobbyShareInfo>> getShareInfo(String lobbyId);
+
+  /// POST /api/v1/lobbies/join-by-code
+  /// Join lobby bằng share code.
+  Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode);
+
+  /// GET /api/v1/lobbies/invites/me/pending
+  /// Lấy danh sách lời mời đang chờ.
+  Future<Either<Failure, List<LobbyInviteEntity>>> getPendingInvites();
+
+  /// GET /api/v1/lobbies/invites/me?status={status}
+  /// Lấy tất cả lời mời với filter status (optional).
+  Future<Either<Failure, List<LobbyInviteEntity>>> getAllInvites(LobbyInviteStatus? status);
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/accept
+  /// Accept lời mời (tự động join lobby).
+  Future<Either<Failure, LobbyEntity>> acceptInvite(String inviteId);
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/decline
+  /// Decline lời mời.
+  Future<Either<Failure, void>> declineInvite(String inviteId);
+
+  /// DELETE /api/v1/lobbies/invites/{inviteId}
+  /// Host hủy lời mời đã gửi.
+  Future<Either<Failure, void>> cancelInvite(String inviteId);
+
+  /// POST /api/v1/lobbies/{lobbyId}/invites
+  /// Gửi lời mời tham gia lobby.
+  Future<Either<Failure, void>> sendLobbyInvite(String lobbyId, String inviteeId, String? message);
+
+  // ─── Match Results Methods ─────────────────────────────────────────────────
+
+  /// GET /api/v1/matches/results/lobbies/{lobbyId}
+  /// Lấy trạng thái đồng thuận kết quả trận đấu.
+  Future<Either<Failure, MatchResultEntity>> getMatchResultStatus(String lobbyId);
+
+  /// POST /api/v1/matches/results
+  /// Submit kết quả trận đấu.
+  Future<Either<Failure, MatchResultSubmitResponseModel>> submitMatchResult({
+    required String lobbyId,
+    required MatchOutcome outcome,
+  });
+
+  /// Update lobby status (timeoutFailed / hostCancelled / ...).
+  /// Note: Backend usually auto-transitions status; this is for special cases.
+  Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
+    String lobbyId,
+    LobbyStatus newStatus,
+  );
 }

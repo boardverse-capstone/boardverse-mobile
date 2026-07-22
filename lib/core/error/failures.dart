@@ -39,3 +39,33 @@ class CacheFailure extends Failure {
     super.message = 'Lỗi lưu trữ cục bộ.',
   });
 }
+
+/// Failure caused by invalid request (400).
+class BadRequestFailure extends Failure {
+  const BadRequestFailure({required super.message});
+}
+
+/// Failure caused by unauthorized access (401).
+class UnauthorizedFailure extends Failure {
+  const UnauthorizedFailure({required super.message});
+}
+
+/// Failure caused by forbidden access (403).
+class ForbiddenFailure extends Failure {
+  const ForbiddenFailure({required super.message});
+}
+
+/// Failure caused by resource not found (404).
+class NotFoundFailure extends Failure {
+  const NotFoundFailure({required super.message});
+}
+
+/// Failure caused by data conflict (409).
+class ConflictFailure extends Failure {
+  const ConflictFailure({required super.message});
+}
+
+/// Failure caused by rate limiting (429).
+class RateLimitFailure extends Failure {
+  const RateLimitFailure({required super.message});
+}

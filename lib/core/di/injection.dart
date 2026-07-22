@@ -21,22 +21,25 @@ import '../../features/matchmaking_discovery/data/datasources/remote/matchmaking
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
-import '../../features/lobby_management/data/datasources/mock/mock_lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
 import '../../features/lobby_management/data/lobby_repository_impl.dart';
 import '../../features/lobby_management/data/realtime/lobby_realtime_service.dart';
-import '../../features/lobby_management/data/realtime/mock_lobby_realtime_service.dart';
 import '../../features/lobby_management/data/realtime/real_lobby_realtime_service.dart';
 import '../../features/lobby_management/domain/repositories/lobby_repository.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
+import '../../features/friend_management/data/datasources/base/friend_remote_datasource.dart';
+import '../../features/friend_management/data/datasources/remote/real_friend_remote_datasource.dart';
+import '../../features/friend_management/data/friend_repository_impl.dart';
+import '../../features/friend_management/domain/repositories/friend_repository.dart';
+import '../../features/friend_management/presentation/cubit/friend_list_cubit.dart';
 import '../../features/match/data/datasources/base/match_result_remote_datasource.dart';
-import '../../features/match/data/datasources/mock/mock_match_result_remote_datasource.dart';
 import '../../features/match/data/datasources/remote/real_match_result_remote_datasource.dart';
 import '../../features/match/data/match_result_repository_impl.dart';
 import '../../features/match/domain/repositories/match_result_repository.dart';
 import '../../features/match/presentation/cubit/match_result_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
+import '../../features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
 import '../../features/booking_payment/data/booking_persistence_service.dart';
 import '../../features/booking_payment/data/booking_repository_impl.dart';
 import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
@@ -144,18 +147,13 @@ void setupDependencies() {
   );
 
   // ─── Feature: Lobby Management ────────────────────────────────────────
-  // Per-feature mock/remote switch — đọc `AppConfig.useMockLobbyData`.
-  // Pattern tương tự booking_payment (line 145-149) nhưng tách riêng vì
-  // Lobby cần mock realtime (SignalR hub chưa sẵn sàng).
-  sl.registerLazySingleton<LobbyRemoteDatasource>(() =>
-      AppConfig.useMockLobbyData
-          ? MockLobbyRemoteDatasource()
-          : RealLobbyRemoteDatasource(dio: sl<Dio>()));
+  sl.registerLazySingleton<LobbyRemoteDatasource>(
+    () => RealLobbyRemoteDatasource(dio: sl<Dio>()),
+  );
 
-  sl.registerLazySingleton<LobbyRealtimeService>(() =>
-      AppConfig.useMockLobbyData
-          ? MockLobbyRealtimeService()
-          : RealLobbyRealtimeService(storage: sl<FlutterSecureStorage>()));
+  sl.registerLazySingleton<LobbyRealtimeService>(
+    () => RealLobbyRealtimeService(storage: sl<FlutterSecureStorage>()),
+  );
 
   sl.registerLazySingleton<LobbyRepository>(
     () => LobbyRepositoryImpl(
@@ -179,14 +177,27 @@ void setupDependencies() {
     () => LobbySearchCubit(repository: sl<LobbyRepository>()),
   );
 
+  sl.registerFactory<LobbyInviteCubit>(
+    () => LobbyInviteCubit(remoteDatasource: sl<LobbyRemoteDatasource>()),
+  );
+
+  // ─── Feature: Friend Management ─────────────────────────────────────
+  sl.registerLazySingleton<FriendRemoteDatasource>(
+    () => RealFriendRemoteDatasource(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<FriendRepository>(
+    () => FriendRepositoryImpl(datasource: sl<FriendRemoteDatasource>()),
+  );
+
+  sl.registerFactory<FriendListCubit>(
+    () => FriendListCubit(repository: sl<FriendRepository>()),
+  );
+
   // ─── Feature: Match (Elo consensus) ─────────────────────────────────
-  // Per-feature mock/remote switch — đọc `AppConfig.useMockMatchData`.
-  // Mock state machine resolve consensus trong memory; real sẽ gọi
-  // /api/v1/matches/* qua Dio.
-  sl.registerLazySingleton<MatchResultRemoteDatasource>(() =>
-      AppConfig.useMockMatchData
-          ? MockMatchResultRemoteDatasource()
-          : RealMatchResultRemoteDatasource(dio: sl<Dio>()));
+  sl.registerLazySingleton<MatchResultRemoteDatasource>(
+    () => RealMatchResultRemoteDatasource(dio: sl<Dio>()),
+  );
 
   sl.registerLazySingleton<MatchResultRepository>(
     () => MatchResultRepositoryImpl(remote: sl<MatchResultRemoteDatasource>()),

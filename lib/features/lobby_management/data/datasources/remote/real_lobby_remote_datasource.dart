@@ -1,12 +1,19 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
-import '../../../../../core/constants/api_endpoints.dart';
-import '../../../../../core/error/failures.dart';
-import '../../../domain/entities/friend_entity.dart';
+import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
+import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
+import '../../../domain/entities/lobby_invite_entity.dart';
+import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
+import '../../../domain/entities/match_result_entity.dart';
 import '../../models/lobby_model.dart';
+import '../../models/lobby_invite_model.dart';
+import '../../models/lobby_share_info_model.dart';
+import '../../models/match_result_model.dart';
+import '../../models/elo_update_model.dart';
 import '../base/lobby_remote_datasource.dart';
 
 /// Triển khai gọi REST API thật theo spec `.agents/docs/apis_docs/lobby.md`.
@@ -268,6 +275,203 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     );
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // Share Code & Invite Methods
+  // ════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<Either<Failure, LobbyShareInfo>> getShareInfo(String lobbyId) async {
+    try {
+      final path = ApiEndpoints.lobbyShareInfo.replaceAll('{lobbyId}', lobbyId);
+      final res = await _dio.get<Map<String, dynamic>>(path);
+      final model = LobbyShareInfoModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyShareInfo>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyShareInfo>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyShareInfo>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.lobbyJoinByCode,
+        data: {'shareCode': shareCode},
+      );
+      final model = LobbyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getPendingInvites() async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        ApiEndpoints.lobbyInvitesPending,
+      );
+      final items = (res.data ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((json) => LobbyInviteModel.fromJson(json).toEntity())
+          .toList();
+      return Right<Failure, List<LobbyInviteEntity>>(items);
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getAllInvites(
+    LobbyInviteStatus? status,
+  ) async {
+    try {
+      final queryParams = status != null ? {'status': status.name} : <String, dynamic>{};
+      final res = await _dio.get<List<dynamic>>(
+        ApiEndpoints.lobbyInvitesMe,
+        queryParameters: queryParams,
+      );
+      final items = (res.data ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((json) => LobbyInviteModel.fromJson(json).toEntity())
+          .toList();
+      return Right<Failure, List<LobbyInviteEntity>>(items);
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> acceptInvite(String inviteId) async {
+    try {
+      final path = ApiEndpoints.lobbyInviteAccept.replaceAll('{inviteId}', inviteId);
+      final res = await _dio.post<Map<String, dynamic>>(path);
+      final model = LobbyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> declineInvite(String inviteId) async {
+    try {
+      final path = ApiEndpoints.lobbyInviteDecline.replaceAll('{inviteId}', inviteId);
+      await _dio.post<Map<String, dynamic>>(path);
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> cancelInvite(String inviteId) async {
+    try {
+      final path = ApiEndpoints.lobbyInviteDetail.replaceAll('{inviteId}', inviteId);
+      await _dio.delete<Map<String, dynamic>>(path);
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> sendLobbyInvite(
+    String lobbyId,
+    String inviteeId,
+    String? message,
+  ) async {
+    try {
+      final path = ApiEndpoints.lobbyInvites.replaceAll('{lobbyId}', lobbyId);
+      await _dio.post<Map<String, dynamic>>(
+        path,
+        data: {
+          'inviteeId': inviteeId,
+          ...?message != null ? {'message': message} : null,
+        },
+      );
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // Match Results Methods
+  // ════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<Either<Failure, MatchResultEntity>> getMatchResultStatus(String lobbyId) async {
+    try {
+      final path = ApiEndpoints.matchResultByLobby.replaceAll('{lobbyId}', lobbyId);
+      final res = await _dio.get<Map<String, dynamic>>(path);
+      final model = MatchResultModel.fromJson(_unwrap(res.data));
+      return Right<Failure, MatchResultEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, MatchResultEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, MatchResultEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, MatchResultSubmitResponseModel>> submitMatchResult({
+    required String lobbyId,
+    required MatchOutcome outcome,
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.matchResultsSubmit,
+        data: {
+          'lobbyId': lobbyId,
+          'outcome': outcome.value,
+        },
+      );
+      final model = MatchResultSubmitResponseModel.fromJson(_unwrap(res.data));
+      return Right<Failure, MatchResultSubmitResponseModel>(model);
+    } on DioException catch (e) {
+      return Left<Failure, MatchResultSubmitResponseModel>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, MatchResultSubmitResponseModel>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────
 
   /// Backend trả envelope `{ "data": { ... } }` (theo convention chung của
@@ -316,6 +520,10 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       case 'in_progress':
       case 'in-progress':
         return LobbyStatus.inProgress;
+      case 'ratingopen':
+      case 'rating_open':
+      case 'rating-open':
+        return LobbyStatus.ratingOpen;
       case 'closed':
         return LobbyStatus.closed;
       case 'timeoutfailed':
@@ -328,6 +536,23 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
         return LobbyStatus.hostCancelled;
       default:
         return LobbyStatus.open;
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
+    String lobbyId,
+    LobbyStatus newStatus,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiEndpoints.lobbiesList}/$lobbyId/status',
+        data: {'status': newStatus.name},
+      );
+      final lobby = LobbyModel.fromJson(response.data as Map<String, dynamic>);
+      return Right(lobby.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
     }
   }
 

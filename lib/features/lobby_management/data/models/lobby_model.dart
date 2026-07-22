@@ -8,6 +8,7 @@ enum LobbyStatusModel {
   open,
   full,
   inProgress,
+  ratingOpen,
   closed,
   timeoutFailed,
   hostCancelled;
@@ -29,6 +30,9 @@ enum LobbyStatusModel {
         return LobbyStatusModel.hostCancelled;
       case 'expired':
         return LobbyStatusModel.timeoutFailed;
+      case 'ratingopen':
+      case 'rating_open':
+        return LobbyStatusModel.ratingOpen;
     }
     return LobbyStatusModel.open;
   }
@@ -293,6 +297,8 @@ class LobbyModel {
         return LobbyStatus.full;
       case LobbyStatusModel.inProgress:
         return LobbyStatus.inProgress;
+      case LobbyStatusModel.ratingOpen:
+        return LobbyStatus.ratingOpen;
       case LobbyStatusModel.closed:
         return LobbyStatus.closed;
       case LobbyStatusModel.timeoutFailed:

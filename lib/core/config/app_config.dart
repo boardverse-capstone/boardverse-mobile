@@ -7,34 +7,20 @@
 /// `AppConfig` does NOT hold the base URL (no hardcoding).
 ///
 /// ### Mock Mode
-/// When switching between mock and real backend, modify [useMockData].
-/// Note: Currently Discovery (board-games, cafes) is wired to real API.
-/// Other features (booking, lobbies) may still use mock data.
+/// Booking feature still uses mock data because backend APIs are not ready yet.
+/// All other features (lobby, friend, match, discovery, auth, profile) use real APIs.
 class AppConfig {
   AppConfig._(); // Prevent instantiation
 
   // ─── Data Source Mode ───────────────────────────────────────────────
 
-  /// Switch between mock data and real backend
+  /// Switch for Booking & Payment feature only.
   /// - `true`: Use Mock datasources (for development)
   /// - `false`: Use Remote datasources → real backend API (for production)
-  /// NOTE: Discovery features (board-games, cafes) always hit real API
-  ///       regardless of this flag, as their remote impl is complete.
+  /// NOTE: Booking APIs pending backend implementation.
   static const bool useMockData = true;
 
-  /// Per-feature switch for the Lobby module.
-  /// Tách độc lập với [useMockData] vì Lobby cần mock realtime (SignalR
-  /// chưa có backend) trong khi các feature khác có thể đã chuyển remote.
-  /// Khi backend sẵn sàng + SignalR hub được verify → đổi sang `false`.
-  static const bool useMockLobbyData = true;
-
-  /// Per-feature switch cho module Match (Elo consensus).
-  /// Mock hiện tại trong module `match_summary_rating` dùng local — không
-  /// phụ thuộc backend. Khi backend `/api/v1/matches/*` sẵn sàng, đổi sang
-  /// `false` để delegate sang `RealMatchResultRemoteDatasource`.
-  static const bool useMockMatchData = true;
-
-  // ─── Cache Configuration ────────────────────────────────────────────
+  // ─── Cache Configuration ───────────────────────────────────────────
 
   /// Default cache expiry duration
   static const Duration cacheExpiry = Duration(hours: 24);
@@ -61,7 +47,7 @@ class AppConfig {
   /// Default seat hold duration in minutes (pending payment)
   static const int defaultSeatHoldMinutes = 5;
 
-  // ─── UI Configuration ───────────────────────────────────────────────
+  // ─── UI Configuration ─────────────────────────────────────────────
 
   /// Debounce duration for search input
   static const Duration searchDebounceMs = Duration(milliseconds: 500);

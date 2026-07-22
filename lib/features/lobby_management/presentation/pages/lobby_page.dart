@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/theme/theme.dart';
-import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
-import '../../domain/entities/friend_entity.dart';
+import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/features/booking_payment/presentation/pages/booking_summary_page.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../cubit/lobby_cubit.dart';
 import '../cubit/lobby_state.dart';
@@ -101,10 +101,10 @@ class _LobbyPageState extends State<LobbyPage> {
     bool simulate = false,
   }) {
     if (invite) {
-      widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.id);
+      widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.odId);
     }
     if (simulate) {
-      widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.id);
+      widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.odId);
     }
 
     Navigator.of(context).pop();
@@ -112,8 +112,8 @@ class _LobbyPageState extends State<LobbyPage> {
       SnackBar(
         content: Text(
           invite
-              ? 'Đã gửi lời mời đến ${friend.name}'
-              : '${friend.name} đã được thêm vào phòng!',
+              ? 'Đã gửi lời mời đến ${friend.username}'
+              : '${friend.username} đã được thêm vào phòng!',
         ),
       ),
     );

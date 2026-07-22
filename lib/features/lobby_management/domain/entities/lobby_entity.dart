@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 /// - [open]          : đang tuyển người (BR-08 timer đang chạy).
 /// - [full]          : đủ người, chờ auto-create booking (Luồng A).
 /// - [inProgress]    : cả nhóm đã check-in tại quán (Task 4).
+/// - [ratingOpen]    : sau thanh toán POS, đang đánh giá Karma (Task 5).
 /// - [closed]        : phiên kết thúc, rating cross được phép (Task 5).
 /// - [timeoutFailed] : BR-08 — Lead-time trôi qua mà chưa đạt [minPlayers].
 /// - [hostCancelled] : Host主动 hủy khi còn [open].
@@ -12,6 +13,7 @@ enum LobbyStatus {
   open,
   full,
   inProgress,
+  ratingOpen,
   closed,
   timeoutFailed,
   hostCancelled,

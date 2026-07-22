@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
-import '../../domain/entities/friend_entity.dart';
+import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 
 class OnlineFriendsList extends StatelessWidget {
   final List<FriendEntity> friends;
@@ -70,9 +70,9 @@ class _FriendTile extends StatelessWidget {
         : AppColors.warningDark;
     final canInteract = !friend.isInLobby;
     final hasAvatar = friend.avatarUrl.trim().isNotEmpty;
-    final initial = friend.name.trim().isEmpty
+    final initial = friend.username.trim().isEmpty
         ? '?'
-        : friend.name.trim().characters.first.toUpperCase();
+        : friend.username.trim().characters.first.toUpperCase();
 
     return Material(
       color: colors.surface,
@@ -132,7 +132,7 @@ class _FriendTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          friend.name,
+                          friend.username,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleSmall?.copyWith(

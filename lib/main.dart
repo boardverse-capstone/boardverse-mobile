@@ -12,6 +12,7 @@ import 'features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import 'features/booking_payment/presentation/cubit/booking_result_state.dart';
 import 'features/booking_payment/presentation/pages/booking_success_page.dart';
 import 'features/booking_payment/presentation/pages/payment_page.dart';
+import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import 'features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
@@ -60,9 +61,32 @@ class BoardVerseApp extends StatelessWidget {
               darkTheme: AppTheme.darkTheme,
               themeMode: themeState.mode,
               home: const AuthWrapper(),
-              routes: {
-                '/login': (context) => const LoginPage(),
-                '/home': (context) => const MainScaffold(),
+              initialRoute: '/',
+              onGenerateRoute: (settings) {
+                // Try lobby routes first
+                final lobbyRoute = lobbyRouteGenerator(settings);
+                if (lobbyRoute != null) return lobbyRoute;
+
+                // Fall back to named routes
+                switch (settings.name) {
+                  case '/login':
+                    return MaterialPageRoute(
+                      builder: (_) => const LoginPage(),
+                    );
+                  case '/home':
+                    return MaterialPageRoute(
+                      builder: (_) => const MainScaffold(),
+                    );
+                  default:
+                    return MaterialPageRoute(
+                      builder: (_) => const MainScaffold(),
+                    );
+                }
+              },
+              onUnknownRoute: (settings) {
+                return MaterialPageRoute(
+                  builder: (_) => const MainScaffold(),
+                );
               },
             );
           },

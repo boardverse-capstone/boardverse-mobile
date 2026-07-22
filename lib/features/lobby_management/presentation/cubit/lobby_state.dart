@@ -1,8 +1,24 @@
 import 'package:equatable/equatable.dart';
 
+import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
-import '../../domain/entities/friend_entity.dart';
+
+/// Pre-defined reasons for lobby dismissal.
+class LobbyDismissReason extends Equatable {
+  final String code;
+  final String title;
+  final String message;
+
+  const LobbyDismissReason({
+    required this.code,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  List<Object?> get props => [code, title, message];
+}
 
 sealed class LobbyState extends Equatable {
   const LobbyState();

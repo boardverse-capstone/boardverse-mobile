@@ -87,6 +87,120 @@ class BookingConfirmedEvent extends LobbyRealtimeEvent {
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Invite Events - cho Lobby Invite System
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Server thông báo có lời mời lobby mới.
+class LobbyInviteReceivedEvent extends LobbyRealtimeEvent {
+  final String inviteId;
+  final String lobbyId;
+  final String inviterName;
+  final String inviterAvatar;
+  final String gameName;
+  final String cafeName;
+  final DateTime timestamp;
+
+  const LobbyInviteReceivedEvent({
+    required this.inviteId,
+    required this.lobbyId,
+    required this.inviterName,
+    required this.inviterAvatar,
+    required this.gameName,
+    required this.cafeName,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo invite đã được accept bởi invitee.
+class InviteAcceptedEvent extends LobbyRealtimeEvent {
+  final String inviteId;
+  final String lobbyId;
+  final String inviteeName;
+  final DateTime timestamp;
+
+  const InviteAcceptedEvent({
+    required this.inviteId,
+    required this.lobbyId,
+    required this.inviteeName,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo invite đã được decline.
+class InviteDeclinedEvent extends LobbyRealtimeEvent {
+  final String inviteId;
+  final String lobbyId;
+  final String inviteeName;
+  final DateTime timestamp;
+
+  const InviteDeclinedEvent({
+    required this.inviteId,
+    required this.lobbyId,
+    required this.inviteeName,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo invite đã được cancel bởi inviter.
+class InviteCancelledEvent extends LobbyRealtimeEvent {
+  final String inviteId;
+  final String lobbyId;
+  final DateTime timestamp;
+
+  const InviteCancelledEvent({
+    required this.inviteId,
+    required this.lobbyId,
+    required this.timestamp,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Match Result Events - cho Match Result System
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Server thông báo có member submit kết quả trận đấu.
+class MatchResultSubmittedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String odId;
+  final String username;
+  final String outcome;
+  final int submittedCount;
+  final int requiredCount;
+  final DateTime timestamp;
+
+  const MatchResultSubmittedEvent({
+    required this.lobbyId,
+    required this.odId,
+    required this.username,
+    required this.outcome,
+    required this.submittedCount,
+    required this.requiredCount,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo Elo đã được update sau khi match finalized.
+class EloUpdatedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String odId;
+  final String username;
+  final int eloBefore;
+  final int eloAfter;
+  final int eloDelta;
+  final DateTime timestamp;
+
+  const EloUpdatedEvent({
+    required this.lobbyId,
+    required this.odId,
+    required this.username,
+    required this.eloBefore,
+    required this.eloAfter,
+    required this.eloDelta,
+    required this.timestamp,
+  });
+}
+
 /// Payload của server event `MemberJoined` — chỉ chứa field hiển thị trên UI.
 /// Chi tiết thành viên đầy đủ nếu cần sẽ fetch qua
 /// `GET /api/v1/lobbies/{id}`.

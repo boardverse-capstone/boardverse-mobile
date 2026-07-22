@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/error/failures.dart';
+import 'package:boardverse_mobile/core/error/failures.dart';
 import '../../data/lobby_persistence_service.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
-import '../../domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../../domain/repositories/lobby_repository.dart';
@@ -420,6 +419,14 @@ class LobbyCubit extends Cubit<LobbyState> {
           lobby: current.copyWith(bookingId: e.bookingId),
           bookingId: e.bookingId,
         ));
+        break;
+      case LobbyInviteReceivedEvent _:
+      case InviteAcceptedEvent _:
+      case InviteDeclinedEvent _:
+      case InviteCancelledEvent _:
+      case MatchResultSubmittedEvent _:
+      case EloUpdatedEvent _:
+        // Các event invite/match result được xử lý riêng trong UI.
         break;
     }
   }

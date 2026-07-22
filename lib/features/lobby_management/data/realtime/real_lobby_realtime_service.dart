@@ -120,12 +120,23 @@ class RealLobbyRealtimeService implements LobbyRealtimeService {
   // ════════════════════════════════════════════════════════════════════
 
   void _registerHandlers(HubConnection conn) {
+    // Lobby events
     conn.on('MemberJoined', _onMemberJoined);
     conn.on('MemberLeft', _onMemberLeft);
     conn.on('LobbyFull', _onLobbyFull);
     conn.on('LobbyCancelled', _onLobbyCancelled);
     conn.on('LobbyTimeout', _onLobbyTimeout);
     conn.on('BookingConfirmed', _onBookingConfirmed);
+
+    // Invite events
+    conn.on('LobbyInviteReceived', _onLobbyInviteReceived);
+    conn.on('InviteAccepted', _onInviteAccepted);
+    conn.on('InviteDeclined', _onInviteDeclined);
+    conn.on('InviteCancelled', _onInviteCancelled);
+
+    // Match result events
+    conn.on('MatchResultSubmitted', _onMatchResultSubmitted);
+    conn.on('EloUpdated', _onEloUpdated);
   }
 
   void _onMemberJoined(List<Object?>? args) {
@@ -208,6 +219,112 @@ class RealLobbyRealtimeService implements LobbyRealtimeService {
         lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
         bookingId: (raw['BookingId'] ?? raw['bookingId'] ?? '').toString(),
         message: (raw['Message'] ?? raw['message'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Invite Event Handlers
+  // ════════════════════════════════════════════════════════════════════════════
+
+  void _onLobbyInviteReceived(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(LobbyInviteReceivedEvent(
+        inviteId: (raw['InviteId'] ?? raw['inviteId'] ?? '').toString(),
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        inviterName: (raw['InviterName'] ?? raw['inviterName'] ?? '').toString(),
+        inviterAvatar: (raw['InviterAvatar'] ?? raw['inviterAvatar'] ?? '').toString(),
+        gameName: (raw['GameName'] ?? raw['gameName'] ?? '').toString(),
+        cafeName: (raw['CafeName'] ?? raw['cafeName'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  void _onInviteAccepted(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(InviteAcceptedEvent(
+        inviteId: (raw['InviteId'] ?? raw['inviteId'] ?? '').toString(),
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        inviteeName: (raw['InviteeName'] ?? raw['inviteeName'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  void _onInviteDeclined(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(InviteDeclinedEvent(
+        inviteId: (raw['InviteId'] ?? raw['inviteId'] ?? '').toString(),
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        inviteeName: (raw['InviteeName'] ?? raw['inviteeName'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  void _onInviteCancelled(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(InviteCancelledEvent(
+        inviteId: (raw['InviteId'] ?? raw['inviteId'] ?? '').toString(),
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Match Result Event Handlers
+  // ════════════════════════════════════════════════════════════════════════════
+
+  void _onMatchResultSubmitted(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(MatchResultSubmittedEvent(
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        odId: (raw['OdId'] ?? raw['odId'] ?? '').toString(),
+        username: (raw['Username'] ?? raw['username'] ?? '').toString(),
+        outcome: (raw['Outcome'] ?? raw['outcome'] ?? '').toString(),
+        submittedCount: (raw['SubmittedCount'] ?? raw['submittedCount'] ?? 0) as int,
+        requiredCount: (raw['RequiredCount'] ?? raw['requiredCount'] ?? 0) as int,
+        timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
+      ));
+    } on Exception {
+      // ignore malformed payload
+    }
+  }
+
+  void _onEloUpdated(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final raw = args.first as Map<String, dynamic>;
+      _events.add(EloUpdatedEvent(
+        lobbyId: (raw['LobbyId'] ?? raw['lobbyId'] ?? '').toString(),
+        odId: (raw['OdId'] ?? raw['odId'] ?? '').toString(),
+        username: (raw['Username'] ?? raw['username'] ?? '').toString(),
+        eloBefore: (raw['EloBefore'] ?? raw['eloBefore'] ?? 0) as int,
+        eloAfter: (raw['EloAfter'] ?? raw['eloAfter'] ?? 0) as int,
+        eloDelta: (raw['EloDelta'] ?? raw['eloDelta'] ?? 0) as int,
         timestamp: _parseTimestamp(raw['Timestamp'] ?? raw['timestamp']),
       ));
     } on Exception {
