@@ -155,12 +155,15 @@ class LobbyModel {
     // `/discoverable` response **không có** `hostName`, `cafeName`, `minPlayers`,
     // `timeoutAt`, `bookingId`, `inviteCode`, `minimumKarma`, `distanceKm` —
     // ta fallback giá trị mặc định an toàn cho các field optional này.
-    final hostId = (json['hostId'] ?? json['hostId'] ?? '') as String;
+    final hostId = (json['hostId'] ?? json['hostUserId'] ?? '') as String;
     final gameId = (json['gameId'] ?? json['gameTemplateId'] ?? '') as String;
     final currentPlayers =
         (json['currentPlayers'] ?? json['currentMembers'] ?? 0) as int;
     final maxPlayers = (json['maxPlayers'] ?? json['maxMembers'] ?? 0) as int;
-    final isPublic = _parseVisibility(json['isPublic'] ?? json['visibility']);
+    final isPublic = _parseVisibility(
+      json['isPublic'] ?? json['visibility'],
+      json['isPrivate'],
+    );
 
     // scheduledTime: bắt buộc trong cả 2 schema, nhưng đặt tên khác nhau.
     final scheduledTimeRaw = (json['scheduledTime'] ??
@@ -233,10 +236,16 @@ class LobbyModel {
 
   /// Parse `visibility` từ cả schema cũ (`isPublic: bool`) và mới
   /// (`visibility: "public" | "private" | "invite_only"`).
-  static bool _parseVisibility(dynamic raw) {
-    if (raw is bool) return raw;
-    if (raw is String) {
-      final normalized = raw.toLowerCase().trim();
+  ///
+  /// Hỗ trợ field `isPrivate` từ backend (true = private, false = public).
+  static bool _parseVisibility(dynamic isPublic, [dynamic isPrivate]) {
+    // Nếu có `isPrivate` field → đảo ngược giá trị (isPrivate: true = private lobby)
+    if (isPrivate != null && isPrivate is bool) {
+      return !isPrivate;
+    }
+    if (isPublic is bool) return isPublic;
+    if (isPublic is String) {
+      final normalized = isPublic.toLowerCase().trim();
       return normalized == 'public' || normalized.isEmpty;
     }
     return true; // mặc định an toàn — public.

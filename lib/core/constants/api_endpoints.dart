@@ -31,12 +31,12 @@ class ApiEndpoints {
   // ──────────────────────────────────────────────
   // Base: /api/userprofile — Player profile management.
   // Docs: .agents/docs/apis_docs/user-profile.md
-  static const String userProfile = '/api/userprofile';
-  static const String userProfileProgress = '/api/userprofile/progress';
-  static const String userProfileAvatar = '/api/userprofile/me/avatar';
-  static const String userProfileLocation = '/api/userprofile/me/location';
+  static const String userProfile = '/api/Userprofile';
+  static const String userProfileProgress = '/api/Userprofile/progress';
+  static const String userProfileAvatar = '/api/Userprofile/me/avatar';
+  static const String userProfileLocation = '/api/Userprofile/me/location';
   static const String userProfileKarmaHistory =
-      '/api/userprofile/me/karma-history';
+      '/api/Userprofile/me/karma-history';
 
   // ──────────────────────────────────────────────
   //  Board Games (Public Catalog)
@@ -91,7 +91,8 @@ class ApiEndpoints {
   static const String friends = '/api/v1/friends';
   static const String friendsActivity = '/api/v1/friends/activity';
   static const String friendRequests = '/api/v1/friends/requests';
-  static const String friendRequestsReceived = '/api/v1/friends/requests/received';
+  static const String friendRequestsReceived =
+      '/api/v1/friends/requests/received';
   static const String friendRequestsSent = '/api/v1/friends/requests/sent';
   static const String friendSearch = '/api/v1/friends/search';
   static const String friendSuggestions = '/api/v1/friends/suggestions';
@@ -100,13 +101,16 @@ class ApiEndpoints {
   static const String friendReports = '/api/v1/friends/reports';
 
   /// GET /api/v1/friends/requests/{id}/accept
-  static String friendRequestAccept(String id) => '/api/v1/friends/requests/$id/accept';
+  static String friendRequestAccept(String id) =>
+      '/api/v1/friends/requests/$id/accept';
 
   /// POST /api/v1/friends/requests/{id}/decline
-  static String friendRequestDecline(String id) => '/api/v1/friends/requests/$id/decline';
+  static String friendRequestDecline(String id) =>
+      '/api/v1/friends/requests/$id/decline';
 
   /// POST /api/v1/friends/requests/{id}/read
-  static String friendRequestRead(String id) => '/api/v1/friends/requests/$id/read';
+  static String friendRequestRead(String id) =>
+      '/api/v1/friends/requests/$id/read';
 
   /// DELETE /api/v1/friends/{id} - unfriend
   static String friendUnfriend(String id) => '/api/v1/friends/$id';
@@ -118,16 +122,20 @@ class ApiEndpoints {
   static String friendUnblock(String userId) => '/api/v1/friends/block/$userId';
 
   /// GET /api/v1/friends/{otherUserId}/mutual - mutual friends
-  static String friendMutual(String otherUserId) => '/api/v1/friends/$otherUserId/mutual';
+  static String friendMutual(String otherUserId) =>
+      '/api/v1/friends/$otherUserId/mutual';
 
   /// GET /api/v1/friends/{otherUserId}/list - friend's friend list
-  static String friendList(String otherUserId) => '/api/v1/friends/$otherUserId/list';
+  static String friendList(String otherUserId) =>
+      '/api/v1/friends/$otherUserId/list';
 
   /// PUT /api/v1/friends/notes/{friendUserId}
-  static String friendNoteUpdate(String friendUserId) => '/api/v1/friends/notes/$friendUserId';
+  static String friendNoteUpdate(String friendUserId) =>
+      '/api/v1/friends/notes/$friendUserId';
 
   /// DELETE /api/v1/friends/notes/{noteId}
-  static String friendNoteDelete(String noteId) => '/api/v1/friends/notes/$noteId';
+  static String friendNoteDelete(String noteId) =>
+      '/api/v1/friends/notes/$noteId';
 
   // ─── Lobbies────────────────────────────────────────────
   // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
@@ -148,6 +156,27 @@ class ApiEndpoints {
   static const String lobbyOpenKarmaWindow =
       '/api/v1/lobbies/{id}/open-karma-window';
 
+  /// POST /api/v1/lobbies/{id}/transfer-host — Host chuyển quyền host cho thành viên khác.
+  static String lobbyTransferHost(String id) => '/api/v1/lobbies/$id/transfer-host';
+
+  /// POST /api/v1/lobbies/{id}/kick — Host kick thành viên khỏi lobby.
+  static String lobbyKick(String id) => '/api/v1/lobbies/$id/kick';
+
+  /// POST /api/v1/lobbies/{id}/ready — Member bấm Ready/Unready khi lobby FULL.
+  static String lobbyReady(String id) => '/api/v1/lobbies/$id/ready';
+
+  /// POST /api/v1/lobbies/{id}/report — Báo cáo phòng chờ vi phạm.
+  static String lobbyReport(String id) => '/api/v1/lobbies/$id/report';
+
+  /// POST /api/v1/lobbies/{id}/messages — Gửi tin nhắn chat trong lobby.
+  static String lobbyMessages(String id) => '/api/v1/lobbies/$id/messages';
+
+  /// GET /api/v1/lobbies/hosted — Lấy danh sách lobby do user này host.
+  static const String lobbyHosted = '/api/v1/lobbies/hosted';
+
+  /// GET /api/v1/lobbies/joined — Lấy danh sách lobby mà user đang tham gia.
+  static const String lobbyJoined = '/api/v1/lobbies/joined';
+
   // ─── Lobbies: Auto-booking (Luồng A — backend-generated) ────────
   // Endpoint này không thuộc spec lobby.md nhưng được dùng nội bộ
   // để bridge sang flow booking (Task 4). Tạm thời giữ cũ.
@@ -157,11 +186,14 @@ class ApiEndpoints {
   // Theo spec `.agents/docs/apis_docs/lobby-invite.md`
   static const String lobbyShareInfo = '/api/v1/lobbies/{lobbyId}/share-info';
   static const String lobbyJoinByCode = '/api/v1/lobbies/join-by-code';
-  static const String lobbyInvitesPending = '/api/v1/lobbies/invites/me/pending';
+  static const String lobbyInvitesPending =
+      '/api/v1/lobbies/invites/me/pending';
   static const String lobbyInvitesMe = '/api/v1/lobbies/invites/me';
   static const String lobbyInvites = '/api/v1/lobbies/{lobbyId}/invites';
-  static const String lobbyInviteAccept = '/api/v1/lobbies/invites/{inviteId}/accept';
-  static const String lobbyInviteDecline = '/api/v1/lobbies/invites/{inviteId}/decline';
+  static const String lobbyInviteAccept =
+      '/api/v1/lobbies/invites/{inviteId}/accept';
+  static const String lobbyInviteDecline =
+      '/api/v1/lobbies/invites/{inviteId}/decline';
   static const String lobbyInviteDetail = '/api/v1/lobbies/invites/{inviteId}';
 
   // ─── SignalR Hub (realtime) ─────────────────────────────────────
@@ -212,8 +244,7 @@ class ApiEndpoints {
   static String tournamentParticipant(
     String tournamentId,
     String participantId,
-  ) =>
-      '/api/v1/tournaments/$tournamentId/participants/$participantId';
+  ) => '/api/v1/tournaments/$tournamentId/participants/$participantId';
 
   /// GET /tournaments/{id}/matches
   static String tournamentMatches(String id) =>

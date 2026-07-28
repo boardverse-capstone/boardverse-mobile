@@ -94,6 +94,53 @@ abstract class LobbyRepository {
     LobbyStatus newStatus,
   );
 
+  // ─── Host Actions ─────────────────────────────────────────────────
+
+  /// POST /api/v1/lobbies/{lobbyId}/transfer-host
+  /// Host chuyển quyền host cho thành viên khác.
+  Future<Either<Failure, LobbyEntity>> transferHost({
+    required String lobbyId,
+    required String newHostId,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/kick
+  /// Host kick thành viên khỏi lobby.
+  Future<Either<Failure, LobbyEntity>> kickMember({
+    required String lobbyId,
+    required String memberId,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/ready
+  /// Member bấm Ready/Unready khi lobby FULL.
+  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId);
+
+  // ─── Lobby Lists ─────────────────────────────────────────────────
+
+  /// GET /api/v1/lobbies/hosted
+  /// Lấy danh sách lobby do user này host.
+  Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies();
+
+  /// GET /api/v1/lobbies/joined
+  /// Lấy danh sách lobby mà user đang tham gia.
+  Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
+
+  // ─── Lobby Social ─────────────────────────────────────────────────
+
+  /// POST /api/v1/lobbies/{lobbyId}/report
+  /// Báo cáo phòng chờ vi phạm.
+  Future<Either<Failure, void>> reportLobby({
+    required String lobbyId,
+    required String reason,
+    String? description,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/messages
+  /// Gửi tin nhắn chat trong lobby.
+  Future<Either<Failure, void>> sendChatMessage({
+    required String lobbyId,
+    required String content,
+  });
+
   // ─── Dev simulation ─────────────────────────────────────────────────
 
   /// Mô phỏng thêm friend vào lobby (chỉ dev mode).

@@ -100,12 +100,28 @@ class ProfileCubit extends Cubit<ProfileState> {
   }
 
   Future<void> getLocation() async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
     final result = await repository.getLocation();
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
-      (location) => emit(ProfileLocationLoaded(location: location)),
+      (failure) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: currentState.location,
+          karma: currentState.karma,
+          supplementaryError: failure.message,
+        ),
+      ),
+      (location) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: location,
+          karma: currentState.karma,
+        ),
+      ),
     );
   }
 
@@ -114,6 +130,9 @@ class ProfileCubit extends Cubit<ProfileState> {
     required double longitude,
     required int source,
   }) async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
     final result = await repository.updateLocation(
       latitude: latitude,
       longitude: longitude,
@@ -122,28 +141,69 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
-      (location) => emit(ProfileLocationLoaded(location: location)),
+      (failure) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: currentState.location,
+          karma: currentState.karma,
+          supplementaryError: failure.message,
+        ),
+      ),
+      (location) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: location,
+          karma: currentState.karma,
+        ),
+      ),
     );
   }
 
   Future<void> deleteLocation() async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
     final result = await repository.deleteLocation();
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
-      (_) => emit(const ProfileLocationDeleted()),
+      (failure) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: currentState.location,
+          karma: currentState.karma,
+          supplementaryError: failure.message,
+        ),
+      ),
+      (_) => emit(
+        ProfileLoaded(profile: currentState.profile, karma: currentState.karma),
+      ),
     );
   }
 
   Future<void> getKarmaHistory() async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
     final result = await repository.getKarmaHistory();
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
-      (karma) => emit(ProfileKarmaLoaded(karma: karma)),
+      (failure) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: currentState.location,
+          karma: currentState.karma,
+          supplementaryError: failure.message,
+        ),
+      ),
+      (karma) => emit(
+        ProfileLoaded(
+          profile: currentState.profile,
+          location: currentState.location,
+          karma: karma,
+        ),
+      ),
     );
   }
 

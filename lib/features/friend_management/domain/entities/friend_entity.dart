@@ -177,3 +177,96 @@ enum FriendshipStatus {
   accepted,
   blocked,
 }
+
+/// Friend note entity.
+class FriendNoteEntity extends Equatable {
+  final String noteId;
+  final String friendUserId;
+  final String alias;
+  final String? note;
+  final List<String>? tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const FriendNoteEntity({
+    required this.noteId,
+    required this.friendUserId,
+    required this.alias,
+    this.note,
+    this.tags,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  @override
+  List<Object?> get props => [
+        noteId,
+        friendUserId,
+        alias,
+        note,
+        tags,
+        createdAt,
+        updatedAt,
+      ];
+}
+
+/// Friend privacy settings entity.
+class FriendPrivacyEntity extends Equatable {
+  final bool isFriendListPublic;
+  final String? acceptFriendRequestsFrom;
+  final int friendLimit;
+
+  const FriendPrivacyEntity({
+    required this.isFriendListPublic,
+    this.acceptFriendRequestsFrom,
+    required this.friendLimit,
+  });
+
+  @override
+  List<Object?> get props => [
+        isFriendListPublic,
+        acceptFriendRequestsFrom,
+        friendLimit,
+      ];
+}
+
+/// Friend report category.
+enum FriendReportCategory {
+  spam,
+  harassment,
+  inappropriate,
+  cheating,
+  other,
+}
+
+/// Friend report entity.
+class FriendReportEntity extends Equatable {
+  final String reportId;
+  final String targetUserId;
+  final String targetUsername;
+  final FriendReportCategory category;
+  final String reason;
+  final DateTime createdAt;
+  final String status;
+
+  const FriendReportEntity({
+    required this.reportId,
+    required this.targetUserId,
+    required this.targetUsername,
+    required this.category,
+    required this.reason,
+    required this.createdAt,
+    required this.status,
+  });
+
+  @override
+  List<Object?> get props => [
+        reportId,
+        targetUserId,
+        targetUsername,
+        category,
+        reason,
+        createdAt,
+        status,
+      ];
+}

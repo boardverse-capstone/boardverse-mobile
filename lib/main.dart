@@ -52,9 +52,7 @@ class BoardVerseApp extends StatelessWidget {
         BlocProvider<BookingResultCubit>(
           create: (_) => sl<BookingResultCubit>()..tryRestorePending(),
         ),
-        BlocProvider<ThemeCubit>(
-          create: (_) => sl<ThemeCubit>()..load(),
-        ),
+        BlocProvider<ThemeCubit>(create: (_) => sl<ThemeCubit>()..load()),
       ],
       child: BlocListener<BookingResultCubit, BookingResultState>(
         listenWhen: (prev, curr) => prev != curr,
@@ -77,9 +75,7 @@ class BoardVerseApp extends StatelessWidget {
                 // Fall back to named routes
                 switch (settings.name) {
                   case '/login':
-                    return MaterialPageRoute(
-                      builder: (_) => const LoginPage(),
-                    );
+                    return MaterialPageRoute(builder: (_) => const LoginPage());
                   case '/home':
                     return MaterialPageRoute(
                       builder: (_) => const MainScaffold(),
@@ -91,9 +87,7 @@ class BoardVerseApp extends StatelessWidget {
                 }
               },
               onUnknownRoute: (settings) {
-                return MaterialPageRoute(
-                  builder: (_) => const MainScaffold(),
-                );
+                return MaterialPageRoute(builder: (_) => const MainScaffold());
               },
             );
           },

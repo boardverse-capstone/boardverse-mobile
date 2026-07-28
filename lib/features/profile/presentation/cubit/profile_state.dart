@@ -20,11 +20,19 @@ class ProfileLoading extends ProfileState {
 
 class ProfileLoaded extends ProfileState {
   final ProfileEntity profile;
+  final PlayerLocationEntity? location;
+  final KarmaHistoryEntity? karma;
+  final String? supplementaryError;
 
-  const ProfileLoaded({required this.profile});
+  const ProfileLoaded({
+    required this.profile,
+    this.location,
+    this.karma,
+    this.supplementaryError,
+  });
 
   @override
-  List<Object?> get props => [profile];
+  List<Object?> get props => [profile, location, karma, supplementaryError];
 }
 
 class ProfileNotFound extends ProfileState {

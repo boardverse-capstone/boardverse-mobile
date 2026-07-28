@@ -15,8 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PlayerLocationModel {
 
- double? get latitude; double? get longitude; String? get updatedAt;/// 0 = Gps (device), 1 = Manual (map picker)
- int? get source; bool get hasLocation;
+ double? get latitude; double? get longitude; String? get updatedAt;/// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
+/// this enum as either a number or its string name.
+@JsonKey(fromJson: _locationSourceFromJson) int? get source; bool get hasLocation;
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -49,7 +50,7 @@ abstract mixin class $PlayerLocationModelCopyWith<$Res>  {
   factory $PlayerLocationModelCopyWith(PlayerLocationModel value, $Res Function(PlayerLocationModel) _then) = _$PlayerLocationModelCopyWithImpl;
 @useResult
 $Res call({
- double? latitude, double? longitude, String? updatedAt, int? source, bool hasLocation
+ double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation
 });
 
 
@@ -158,7 +159,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt,  int? source,  bool hasLocation)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel() when $default != null:
 return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
@@ -179,7 +180,7 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt,  int? source,  bool hasLocation)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel():
 return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
@@ -199,7 +200,7 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? latitude,  double? longitude,  String? updatedAt,  int? source,  bool hasLocation)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel() when $default != null:
 return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
@@ -214,14 +215,15 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 @JsonSerializable()
 
 class _PlayerLocationModel implements PlayerLocationModel {
-  const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, this.source, required this.hasLocation});
+  const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, @JsonKey(fromJson: _locationSourceFromJson) this.source, required this.hasLocation});
   factory _PlayerLocationModel.fromJson(Map<String, dynamic> json) => _$PlayerLocationModelFromJson(json);
 
 @override final  double? latitude;
 @override final  double? longitude;
 @override final  String? updatedAt;
-/// 0 = Gps (device), 1 = Manual (map picker)
-@override final  int? source;
+/// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
+/// this enum as either a number or its string name.
+@override@JsonKey(fromJson: _locationSourceFromJson) final  int? source;
 @override final  bool hasLocation;
 
 /// Create a copy of PlayerLocationModel
@@ -257,7 +259,7 @@ abstract mixin class _$PlayerLocationModelCopyWith<$Res> implements $PlayerLocat
   factory _$PlayerLocationModelCopyWith(_PlayerLocationModel value, $Res Function(_PlayerLocationModel) _then) = __$PlayerLocationModelCopyWithImpl;
 @override @useResult
 $Res call({
- double? latitude, double? longitude, String? updatedAt, int? source, bool hasLocation
+ double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation
 });
 
 

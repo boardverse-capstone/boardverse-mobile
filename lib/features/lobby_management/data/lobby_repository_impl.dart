@@ -240,6 +240,64 @@ class LobbyRepositoryImpl implements LobbyRepository {
     return _remote.updateLobbyStatus(lobbyId, newStatus);
   }
 
+  // ─── Host Actions ─────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, LobbyEntity>> transferHost({
+    required String lobbyId,
+    required String newHostId,
+  }) {
+    return _remote.transferHost(lobbyId: lobbyId, newHostId: newHostId);
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> kickMember({
+    required String lobbyId,
+    required String memberId,
+  }) {
+    return _remote.kickMember(lobbyId: lobbyId, memberId: memberId);
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId) {
+    return _remote.setReady(lobbyId);
+  }
+
+  // ─── Lobby Lists ─────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies() {
+    return _remote.getHostedLobbies();
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies() {
+    return _remote.getJoinedLobbies();
+  }
+
+  // ─── Lobby Social ─────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> reportLobby({
+    required String lobbyId,
+    required String reason,
+    String? description,
+  }) {
+    return _remote.reportLobby(
+      lobbyId: lobbyId,
+      reason: reason,
+      description: description,
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> sendChatMessage({
+    required String lobbyId,
+    required String content,
+  }) {
+    return _remote.sendChatMessage(lobbyId: lobbyId, content: content);
+  }
+
   // ─── Dev simulation ──────────────────────────────────────────────────
 
   @override

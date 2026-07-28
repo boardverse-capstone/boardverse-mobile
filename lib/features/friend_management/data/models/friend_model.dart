@@ -276,3 +276,168 @@ class UserSearchModel {
         mutualFriendsCount: mutualFriendsCount,
       );
 }
+
+class FriendNoteModel {
+  final String noteId;
+  final String friendUserId;
+  final String alias;
+  final String? note;
+  final List<String>? tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const FriendNoteModel({
+    required this.noteId,
+    required this.friendUserId,
+    required this.alias,
+    this.note,
+    this.tags,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory FriendNoteModel.fromJson(Map<String, dynamic> json) {
+    return FriendNoteModel(
+      noteId: (json['noteId'] ?? json['id'] ?? '').toString(),
+      friendUserId: (json['friendUserId'] ?? json['userId'] ?? '').toString(),
+      alias: (json['alias'] ?? '').toString(),
+      note: json['note'] as String?,
+      tags: _parseTags(json['tags']),
+      createdAt: _parseDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDateTime(json['updatedAt']) ?? DateTime.now(),
+    );
+  }
+
+  static List<String>? _parseTags(dynamic value) {
+    if (value == null) return null;
+    if (value is List) return value.map((e) => e.toString()).toList();
+    if (value is String) return value.split(',').map((e) => e.trim()).toList();
+    return null;
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'alias': alias,
+      if (note != null) 'note': note,
+      if (tags != null) 'tags': tags!.join(','),
+    };
+  }
+
+  FriendNoteEntity toEntity() => FriendNoteEntity(
+        noteId: noteId,
+        friendUserId: friendUserId,
+        alias: alias,
+        note: note,
+        tags: tags,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
+}
+
+class FriendPrivacyModel {
+  final bool isFriendListPublic;
+  final String? acceptFriendRequestsFrom;
+  final int friendLimit;
+
+  const FriendPrivacyModel({
+    required this.isFriendListPublic,
+    this.acceptFriendRequestsFrom,
+    required this.friendLimit,
+  });
+
+  factory FriendPrivacyModel.fromJson(Map<String, dynamic> json) {
+    return FriendPrivacyModel(
+      isFriendListPublic: json['isFriendListPublic'] as bool? ?? true,
+      acceptFriendRequestsFrom: json['acceptFriendRequestsFrom'] as String?,
+      friendLimit: (json['friendLimit'] ?? 5000) as int,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'isFriendListPublic': isFriendListPublic,
+      if (acceptFriendRequestsFrom != null)
+        'acceptFriendRequestsFrom': acceptFriendRequestsFrom,
+      'friendLimit': friendLimit,
+    };
+  }
+
+  FriendPrivacyEntity toEntity() => FriendPrivacyEntity(
+        isFriendListPublic: isFriendListPublic,
+        acceptFriendRequestsFrom: acceptFriendRequestsFrom,
+        friendLimit: friendLimit,
+      );
+}
+
+class FriendReportModel {
+  final String reportId;
+  final String targetUserId;
+  final String targetUsername;
+  final String category;
+  final String reason;
+  final DateTime createdAt;
+  final String status;
+
+  const FriendReportModel({
+    required this.reportId,
+    required this.targetUserId,
+    required this.targetUsername,
+    required this.category,
+    required this.reason,
+    required this.createdAt,
+    required this.status,
+  });
+
+  factory FriendReportModel.fromJson(Map<String, dynamic> json) {
+    return FriendReportModel(
+      reportId: (json['reportId'] ?? json['id'] ?? '').toString(),
+      targetUserId: (json['targetUserId'] ?? '').toString(),
+      targetUsername:
+          (json['targetUsername'] ?? json['targetUser']?['username'] ?? '').toString(),
+      category: (json['category'] ?? '').toString(),
+      reason: (json['reason'] ?? '').toString(),
+      createdAt: _parseDateTime(json['createdAt']) ?? DateTime.now(),
+      status: (json['status'] ?? 'pending').toString(),
+    );
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'targetUserId': targetUserId,
+      'category': category,
+      'reason': reason,
+    };
+  }
+
+  FriendReportEntity toEntity() => FriendReportEntity(
+        reportId: reportId,
+        targetUserId: targetUserId,
+        targetUsername: targetUsername,
+        category: _parseCategory(category),
+        reason: reason,
+        createdAt: createdAt,
+        status: status,
+      );
+
+  static FriendReportCategory _parseCategory(String value) {
+    final normalized = value.toLowerCase();
+    for (final cat in FriendReportCategory.values) {
+      if (cat.name == normalized) return cat;
+    }
+    return FriendReportCategory.other;
+  }
+}

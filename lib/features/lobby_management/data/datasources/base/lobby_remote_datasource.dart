@@ -89,6 +89,47 @@ abstract class LobbyRemoteDatasource {
   /// trừ khi mock). Giữ lại để tương thích `LobbyRepository` cũ.
   Future<Either<Failure, String>> autoCreateBooking(String lobbyId);
 
+  /// POST /api/v1/lobbies/{lobbyId}/transfer-host
+  /// Host chuyển quyền host cho thành viên khác.
+  Future<Either<Failure, LobbyEntity>> transferHost({
+    required String lobbyId,
+    required String newHostId,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/kick
+  /// Host kick thành viên khỏi lobby.
+  Future<Either<Failure, LobbyEntity>> kickMember({
+    required String lobbyId,
+    required String memberId,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/ready
+  /// Member bấm Ready/Unready khi lobby FULL.
+  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId);
+
+  /// GET /api/v1/lobbies/hosted
+  /// Lấy danh sách lobby do user này host (cả active lẫn đã đóng).
+  Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies();
+
+  /// GET /api/v1/lobbies/joined
+  /// Lấy danh sách lobby mà user đang tham gia.
+  Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
+
+  /// POST /api/v1/lobbies/{lobbyId}/report
+  /// Báo cáo phòng chờ vi phạm.
+  Future<Either<Failure, void>> reportLobby({
+    required String lobbyId,
+    required String reason,
+    String? description,
+  });
+
+  /// POST /api/v1/lobbies/{lobbyId}/messages
+  /// Gửi tin nhắn chat trong lobby.
+  Future<Either<Failure, void>> sendChatMessage({
+    required String lobbyId,
+    required String content,
+  });
+
   Future<Either<Failure, void>> inviteFriend(String lobbyId, String friendId);
 
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends();

@@ -580,6 +580,75 @@ class LobbyCubit extends Cubit<LobbyState> {
     });
   }
 
+  // ─── Host Actions ─────────────────────────────────────────────────────
+
+  /// Host chuyển quyền host cho thành viên khác.
+  Future<void> transferHost(String lobbyId, String newHostId) async {
+    final result = await _repository.transferHost(
+      lobbyId: lobbyId,
+      newHostId: newHostId,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) => emit(LobbyHostTransferred(
+        lobby: lobby,
+        newHostId: newHostId,
+      )),
+    );
+  }
+
+  /// Host kick thành viên khỏi lobby.
+  Future<void> kickMember(String lobbyId, String memberId) async {
+    final result = await _repository.kickMember(
+      lobbyId: lobbyId,
+      memberId: memberId,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) => emit(LobbyMemberKicked(
+        lobby: lobby,
+        kickedMemberId: memberId,
+      )),
+    );
+  }
+
+  /// Member bấm Ready/Unready khi lobby FULL.
+  Future<void> setReady(String lobbyId) async {
+    final result = await _repository.setReady(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) {
+        // Tìm current user và emit ready status changed
+        emit(LobbyReadyStatusChanged(
+          lobby: lobby,
+          memberId: '', // Caller nên pass thêm currentUserId
+          isReady: true,
+        ));
+      },
+    );
+  }
+
+  /// Report lobby vi phạm.
+  Future<void> reportLobby({
+    required String lobbyId,
+    required String reason,
+    String? description,
+  }) async {
+    final result = await _repository.reportLobby(
+      lobbyId: lobbyId,
+      reason: reason,
+      description: description,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (_) => emit(const LobbyReportSubmitted()),
+    );
+  }
+
   // ─── Restore Lobby ────────────────────────────────────────────────────
 
   Future<void> restoreActiveLobby() async {

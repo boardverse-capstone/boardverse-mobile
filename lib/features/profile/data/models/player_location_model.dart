@@ -4,6 +4,16 @@ import '../../domain/entities/player_location_entity.dart';
 part 'player_location_model.freezed.dart';
 part 'player_location_model.g.dart';
 
+int? _locationSourceFromJson(Object? value) {
+  return switch (value) {
+    null => null,
+    num number => number.toInt(),
+    String name when name.toLowerCase() == 'gps' => 0,
+    String name when name.toLowerCase() == 'manual' => 1,
+    _ => throw FormatException('Unsupported location source: $value'),
+  };
+}
+
 /// Response model for GET /api/userprofile/me/location.
 ///
 /// When the user has never set a location, the server returns
@@ -17,8 +27,10 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
     double? latitude,
     double? longitude,
     String? updatedAt,
-    /// 0 = Gps (device), 1 = Manual (map picker)
-    int? source,
+
+    /// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
+    /// this enum as either a number or its string name.
+    @JsonKey(fromJson: _locationSourceFromJson) int? source,
     required bool hasLocation,
   }) = _PlayerLocationModel;
 
@@ -28,10 +40,10 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
 
 extension PlayerLocationModelX on PlayerLocationModel {
   PlayerLocationEntity toEntity() => PlayerLocationEntity(
-        latitude: latitude,
-        longitude: longitude,
-        updatedAt: updatedAt,
-        source: source == 0 ? LocationSource.gps : LocationSource.manual,
-        hasLocation: hasLocation,
-      );
+    latitude: latitude,
+    longitude: longitude,
+    updatedAt: updatedAt,
+    source: source == 0 ? LocationSource.gps : LocationSource.manual,
+    hasLocation: hasLocation,
+  );
 }

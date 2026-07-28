@@ -178,4 +178,154 @@ class FriendListCubit extends Cubit<FriendListState> {
     final result = await _repository.searchUsers(query: query.trim());
     return result.fold((failure) => const <UserSearchEntity>[], (data) => data);
   }
+
+  // ─── Friend Notes ──────────────────────────────────────────────────────────
+
+  Future<void> loadNotes() async {
+    if (isClosed) return;
+    final result = await _repository.getAllNotes();
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (notes) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(notes: notes));
+        }
+      },
+    );
+  }
+
+  Future<void> saveNote({
+    required String friendUserId,
+    required String alias,
+    String? note,
+    List<String>? tags,
+  }) async {
+    if (isClosed) return;
+    final result = await _repository.upsertNote(
+      friendUserId: friendUserId,
+      alias: alias,
+      note: note,
+      tags: tags,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (savedNote) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          final existingIndex =
+              currentState.notes.indexWhere((n) => n.friendUserId == friendUserId);
+          List notes;
+          if (existingIndex >= 0) {
+            notes = List.from(currentState.notes)..[existingIndex] = savedNote;
+          } else {
+            notes = [...currentState.notes, savedNote];
+          }
+          emit(currentState.copyWith(notes: List.from(notes)));
+        } else {
+          emit(FriendNoteSaved(savedNote));
+        }
+      },
+    );
+  }
+
+  Future<void> deleteNote(String noteId) async {
+    if (isClosed) return;
+    final result = await _repository.deleteNote(noteId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (_) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(
+            notes: currentState.notes.where((n) => n.noteId != noteId).toList(),
+          ));
+        } else {
+          emit(FriendNoteDeleted(noteId));
+        }
+      },
+    );
+  }
+
+  // ─── Friend Privacy ───────────────────────────────────────────────────────
+
+  Future<void> loadPrivacySettings() async {
+    if (isClosed) return;
+    final result = await _repository.getPrivacySettings();
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (privacy) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(privacySettings: privacy));
+        }
+      },
+    );
+  }
+
+  Future<void> updatePrivacySettings({
+    bool? isFriendListPublic,
+    String? acceptFriendRequestsFrom,
+    int? friendLimit,
+  }) async {
+    if (isClosed) return;
+    final result = await _repository.updatePrivacySettings(
+      isFriendListPublic: isFriendListPublic,
+      acceptFriendRequestsFrom: acceptFriendRequestsFrom,
+      friendLimit: friendLimit,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (privacy) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(privacySettings: privacy));
+        } else {
+          emit(FriendPrivacyUpdated(privacy));
+        }
+      },
+    );
+  }
+
+  // ─── Friend Reports ───────────────────────────────────────────────────────
+
+  Future<void> createReport({
+    required String targetUserId,
+    required String category,
+    required String reason,
+  }) async {
+    if (isClosed) return;
+    final result = await _repository.createReport(
+      targetUserId: targetUserId,
+      category: category,
+      reason: reason,
+    );
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (_) {
+        emit(FriendReportCreated(targetUserId));
+      },
+    );
+  }
+
+  Future<void> loadMyReports() async {
+    if (isClosed) return;
+    final result = await _repository.getMyReports();
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(FriendListError(failure.message)),
+      (reports) {
+        final currentState = state;
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(myReports: reports));
+        }
+      },
+    );
+  }
 }

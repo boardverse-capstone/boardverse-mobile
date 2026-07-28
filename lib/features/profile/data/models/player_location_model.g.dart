@@ -11,7 +11,7 @@ _PlayerLocationModel _$PlayerLocationModelFromJson(Map<String, dynamic> json) =>
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       updatedAt: json['updatedAt'] as String?,
-      source: (json['source'] as num?)?.toInt(),
+      source: _locationSourceFromJson(json['source']),
       hasLocation: json['hasLocation'] as bool,
     );
 

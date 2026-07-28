@@ -182,12 +182,10 @@ void setupDependencies() {
   );
 
   // MyLobbiesCubit — section "Phòng chờ của tôi" trong Discovery → tab
-  // "Phòng chờ". Filter client-side lobby hosted bằng currentUser.userId
-  // kết hợp với LobbyPersistenceService cho lobby đang active.
+  // "Phòng chờ". Sử dụng real API endpoints /hosted và /joined.
   sl.registerFactory<MyLobbiesCubit>(
     () => MyLobbiesCubit(
       repository: sl<LobbyRepository>(),
-      persistence: sl<LobbyPersistenceService>(),
     ),
   );
 

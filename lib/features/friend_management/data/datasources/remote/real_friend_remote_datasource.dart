@@ -274,6 +274,192 @@ class RealFriendRemoteDatasource implements FriendRemoteDatasource {
     }
   }
 
+  // ─── Get Friend List of Another User ──────────────────────────────────────
+
+  @override
+  Future<Either<Failure, List<FriendEntity>>> getFriendList(String otherUserId) async {
+    try {
+      final path = ApiEndpoints.friendList(otherUserId);
+      final res = await _dio.get<List<dynamic>>(path);
+      final models = (res.data ?? [])
+          .map((json) => FriendModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      return Right<Failure, List<FriendEntity>>(
+        models.map((m) => m.toEntity()).toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<FriendEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<FriendEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  // ─── Friend Notes ──────────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, List<FriendNoteEntity>>> getAllNotes() async {
+    try {
+      final res = await _dio.get<List<dynamic>>(ApiEndpoints.friendNotes);
+      final models = (res.data ?? [])
+          .map((json) => FriendNoteModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      return Right<Failure, List<FriendNoteEntity>>(
+        models.map((m) => m.toEntity()).toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<FriendNoteEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<FriendNoteEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, FriendNoteEntity>> upsertNote({
+    required String friendUserId,
+    required String alias,
+    String? note,
+    List<String>? tags,
+  }) async {
+    try {
+      final path = ApiEndpoints.friendNoteUpdate(friendUserId);
+      final body = <String, dynamic>{'alias': alias};
+      if (note != null && note.isNotEmpty) {
+        body['note'] = note;
+      }
+      if (tags != null && tags.isNotEmpty) {
+        body['tags'] = tags.join(',');
+      }
+      final res = await _dio.put<Map<String, dynamic>>(
+        path,
+        data: body,
+      );
+      final model = FriendNoteModel.fromJson(_unwrap(res.data));
+      return Right<Failure, FriendNoteEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, FriendNoteEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, FriendNoteEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteNote(String noteId) async {
+    try {
+      final path = ApiEndpoints.friendNoteDelete(noteId);
+      await _dio.delete(path);
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  // ─── Friend Privacy ────────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, FriendPrivacyEntity>> getPrivacySettings() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(ApiEndpoints.friendPrivacy);
+      final model = FriendPrivacyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, FriendPrivacyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, FriendPrivacyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, FriendPrivacyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, FriendPrivacyEntity>> updatePrivacySettings({
+    bool? isFriendListPublic,
+    String? acceptFriendRequestsFrom,
+    int? friendLimit,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (isFriendListPublic != null) {
+        body['isFriendListPublic'] = isFriendListPublic;
+      }
+      if (acceptFriendRequestsFrom != null) {
+        body['acceptFriendRequestsFrom'] = acceptFriendRequestsFrom;
+      }
+      if (friendLimit != null) {
+        body['friendLimit'] = friendLimit;
+      }
+      final res = await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.friendPrivacy,
+        data: body,
+      );
+      final model = FriendPrivacyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, FriendPrivacyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, FriendPrivacyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, FriendPrivacyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  // ─── Friend Reports ────────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> createReport({
+    required String targetUserId,
+    required String category,
+    required String reason,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.friendReports,
+        data: {
+          'targetUserId': targetUserId,
+          'category': category,
+          'reason': reason,
+        },
+      );
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<FriendReportEntity>>> getMyReports() async {
+    try {
+      final res = await _dio.get<List<dynamic>>(ApiEndpoints.friendReports);
+      final models = (res.data ?? [])
+          .map((json) => FriendReportModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      return Right<Failure, List<FriendReportEntity>>(
+        models.map((m) => m.toEntity()).toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<FriendReportEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<FriendReportEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
   Map<String, dynamic> _unwrap(Map<String, dynamic>? data) {
     return data ?? {};
   }

@@ -105,7 +105,9 @@ class LobbySearchCubit extends Cubit<LobbyState> {
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (list) {
-        if (list.isEmpty) {
+        // Filter out private lobbies (isPublic = false)
+        final publicList = list.where((lobby) => lobby.isPublic).toList();
+        if (publicList.isEmpty) {
           emit(
             const LobbyListEmpty(
               message:
@@ -113,10 +115,7 @@ class LobbySearchCubit extends Cubit<LobbyState> {
             ),
           );
         } else {
-          // Lưu ý: truyền vào [entities] thay vì [lobbies] (summary) để
-          // page có full data mở thẳng `LobbyPreviewPage` mà không cần
-          // gọi thêm `getLobbyById`.
-          emit(LobbyListLoaded(lobbies: const [], entities: list));
+          emit(LobbyListLoaded(lobbies: const [], entities: publicList));
         }
       },
     );
@@ -173,7 +172,9 @@ class LobbySearchCubit extends Cubit<LobbyState> {
         // Realtime refresh fail → giữ state cũ, không spam error.
       },
       (list) {
-        if (list.isEmpty) {
+        // Filter out private lobbies (isPublic = false)
+        final publicList = list.where((lobby) => lobby.isPublic).toList();
+        if (publicList.isEmpty) {
           emit(
             const LobbyListEmpty(
               message:
@@ -181,7 +182,7 @@ class LobbySearchCubit extends Cubit<LobbyState> {
             ),
           );
         } else {
-          emit(LobbyListLoaded(lobbies: const [], entities: list));
+          emit(LobbyListLoaded(lobbies: const [], entities: publicList));
         }
       },
     );

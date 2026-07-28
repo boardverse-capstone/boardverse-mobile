@@ -5,10 +5,9 @@ import '../../domain/entities/lobby_entity.dart';
 /// State cho [MyLobbiesCubit] — dùng ở section "Phòng chờ của tôi" trong
 /// Discovery → tab "Phòng chờ".
 ///
-/// Luồng lấy dữ liệu: gọi `/api/v1/lobbies/discoverable` rồi filter
-/// client-side theo `hostId == currentUserId` (backend chưa có endpoint
-/// `/lobbies/mine` riêng). Kết hợp với [LobbyPersistenceService] để lấy
-/// active lobby mà user đang tham gia (host hoặc member).
+/// Sử dụng real API endpoints:
+/// - `GET /api/v1/lobbies/hosted` — lobby do user host
+/// - `GET /api/v1/lobbies/joined` — lobby user đã tham gia
 sealed class MyLobbiesState extends Equatable {
   const MyLobbiesState();
 
@@ -25,23 +24,21 @@ class MyLobbiesLoading extends MyLobbiesState {
 }
 
 class MyLobbiesLoaded extends MyLobbiesState {
-  /// Lobby do current user HOST (hostId == currentUserId).
+  /// Lobby do current user HOST.
   final List<LobbyEntity> hosted;
 
-  /// Lobby hiện tại user đang là member (lưu local qua LobbyPersistenceService).
-  /// Có thể null nếu user không tham gia lobby nào.
-  final LobbyEntity? active;
+  /// Lobby user đã THAM GIA (không phải host).
+  final List<LobbyEntity> joined;
 
   const MyLobbiesLoaded({
     required this.hosted,
-    this.active,
+    required this.joined,
   });
 
-  /// Có dữ liệu nào để hiển thị hay không (phục vụ empty state).
-  bool get isEmpty => hosted.isEmpty && active == null;
+  bool get isEmpty => hosted.isEmpty && joined.isEmpty;
 
   @override
-  List<Object?> get props => [hosted, active];
+  List<Object?> get props => [hosted, joined];
 }
 
 class MyLobbiesFailure extends MyLobbiesState {

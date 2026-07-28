@@ -159,3 +159,66 @@ class LobbyAutoBookingCreated extends LobbyState {
   @override
   List<Object?> get props => [lobby, bookingId];
 }
+
+// ─── Host Actions States ─────────────────────────────────────────────────
+
+/// Host đã chuyển quyền host thành công.
+class LobbyHostTransferred extends LobbyState {
+  final LobbyEntity lobby;
+  final String newHostId;
+
+  const LobbyHostTransferred({required this.lobby, required this.newHostId});
+
+  @override
+  List<Object?> get props => [lobby, newHostId];
+}
+
+/// Host đã kick thành viên thành công.
+class LobbyMemberKicked extends LobbyState {
+  final LobbyEntity lobby;
+  final String kickedMemberId;
+
+  const LobbyMemberKicked({required this.lobby, required this.kickedMemberId});
+
+  @override
+  List<Object?> get props => [lobby, kickedMemberId];
+}
+
+/// Member đã thay đổi ready status.
+class LobbyReadyStatusChanged extends LobbyState {
+  final LobbyEntity lobby;
+  final String memberId;
+  final bool isReady;
+
+  const LobbyReadyStatusChanged({
+    required this.lobby,
+    required this.memberId,
+    required this.isReady,
+  });
+
+  @override
+  List<Object?> get props => [lobby, memberId, isReady];
+}
+
+/// Report đã được gửi thành công.
+class LobbyReportSubmitted extends LobbyState {
+  const LobbyReportSubmitted();
+}
+
+// ─── My Lobbies States ─────────────────────────────────────────────────
+
+/// Danh sách lobby đã host / đã tham gia.
+class LobbyMyLobbiesLoaded extends LobbyState {
+  final List<LobbyEntity> hosted;
+  final List<LobbyEntity> joined;
+
+  const LobbyMyLobbiesLoaded({
+    required this.hosted,
+    required this.joined,
+  });
+
+  bool get isEmpty => hosted.isEmpty && joined.isEmpty;
+
+  @override
+  List<Object?> get props => [hosted, joined];
+}

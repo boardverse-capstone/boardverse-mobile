@@ -13,11 +13,9 @@ import 'discovery_tab.dart';
 import 'profile_page.dart';
 import 'tournament_page.dart';
 
-/// Single source of truth for tab switching is [PageController] — the Cubit
-/// is treated as a read-only mirror that the nav bar / back handler can
-/// observe but never drive animation directly. This eliminates the
-/// "PageController says X, Cubit says Y" race that previously caused
-/// mismatched highlight / body combinations.
+/// Main scaffold with bottom navigation bar.
+///
+/// Uses IndexedStack for instant tab switching without animation effects.
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
 
@@ -26,24 +24,15 @@ class MainScaffold extends StatefulWidget {
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  static const _animationDuration = Duration(milliseconds: 350);
   static const _initialIndex = 0; // Home
 
-  late final PageController _pageController;
   late final NavigationCubit _navigationCubit;
-  bool _isAnimating = false;
+  int _currentIndex = _initialIndex;
 
   @override
   void initState() {
     super.initState();
     _navigationCubit = NavigationCubit();
-    _pageController = PageController(initialPage: _initialIndex);
-    // Sync the Cubit with the initial page so the nav bar reflects the
-    // starting tab on first frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _navigationCubit.setTab(_initialIndex);
-    });
     // Listen yêu cầu "chuyển sang Lobby screen cho game X" từ
     // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm"). Đây là cầu nối
     // nghiệp vụ: Discovery → Lobby screen.
@@ -60,33 +49,22 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   void dispose() {
     LobbySuggestionSignal.instance.removeListener(_handleLobbySuggestion);
-    _pageController.dispose();
     _navigationCubit.close();
     super.dispose();
   }
 
-  /// Drives [PageController] from a nav-bar tap. Holds the only animation
-  /// trigger — the Cubit is updated as a side effect via [onPageChanged].
+  /// Drives tab switching without animation. Uses IndexedStack for instant
+  /// page display.
   void _onTabTapped(int index) {
     final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
-    final current = _pageController.hasClients
-        ? _pageController.page?.round() ?? _initialIndex
-        : _initialIndex;
-    if (clamped == current) {
+    if (clamped == _currentIndex) {
       _handleDoubleTap(clamped);
       return;
     }
-    if (_isAnimating) return;
-    _isAnimating = true;
-    _pageController
-        .animateToPage(
-      clamped,
-      duration: _animationDuration,
-      curve: Curves.easeOutCubic,
-    )
-        .whenComplete(() {
-      if (mounted) _isAnimating = false;
+    setState(() {
+      _currentIndex = clamped;
     });
+    _navigationCubit.setTab(clamped);
   }
 
   /// Double-tap logic per tab:
@@ -112,18 +90,8 @@ class _MainScaffoldState extends State<MainScaffold> {
     }
   }
 
-  /// Mirrors the [PageController] page into the [NavigationCubit] so the
-  /// nav bar can rebuild via [BlocSelector]. This is the ONLY place we
-  /// mutate the Cubit from the page-switching path — taps never write to
-  /// the Cubit directly.
-  void _onPageChanged(int index) {
-    final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
-    _navigationCubit.setTab(clamped);
-  }
-
   /// Allows descendants (e.g. HomeOverviewPage quick actions) to request
-  /// a tab switch. Animates the PageController and lets [onPageChanged]
-  /// update the Cubit as a side effect.
+  /// a tab switch.
   void _requestTab(int index) {
     _onTabTapped(index);
   }
@@ -166,18 +134,21 @@ class _MainScaffoldState extends State<MainScaffold> {
             canPop: false,
             onPopInvokedWithResult: (didPop, _) {
               if (didPop) return;
-              _handleBackNavigation(state.currentIndex);
+              _handleBackNavigation(_currentIndex);
             },
             child: Scaffold(
-              body: PageView.builder(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                onPageChanged: _onPageChanged,
-                itemCount: NavTab.values.length,
-                itemBuilder: (context, index) => _TabPage(
-                  index: index,
-                  onSwitchTab: _requestTab,
-                ),
+              body: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  HomeOverviewPage(
+                    matchmakingCubit: context.read<MatchmakingCubit>(),
+                    onSwitchTab: _requestTab,
+                  ),
+                  const BookingsPage(),
+                  const DiscoveryTab(),
+                  const TournamentPage(),
+                  const ProfilePage(),
+                ],
               ),
               bottomNavigationBar: BoardVerseNavBar(
                 onTabSelected: _onTabTapped,
@@ -187,41 +158,5 @@ class _MainScaffoldState extends State<MainScaffold> {
         },
       ),
     );
-  }
-}
-
-/// Resolves the page widget for a given tab index.
-///
-/// The widget tree is intentionally built once per tab and held in memory
-/// for the lifetime of the PageView.builder, so subsequent tab switches
-/// don't re-create stateful pages.
-class _TabPage extends StatelessWidget {
-  final int index;
-  final ValueChanged<int> onSwitchTab;
-
-  const _TabPage({
-    required this.index,
-    required this.onSwitchTab,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    switch (index) {
-      case 0:
-        return HomeOverviewPage(
-          matchmakingCubit: context.read<MatchmakingCubit>(),
-          onSwitchTab: onSwitchTab,
-        );
-      case 1:
-        return const BookingsPage();
-      case 2:
-        return const DiscoveryTab();
-      case 3:
-        return const TournamentPage();
-      case 4:
-        return const ProfilePage();
-      default:
-        return const SizedBox.shrink();
-    }
   }
 }

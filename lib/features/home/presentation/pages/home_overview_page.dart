@@ -262,24 +262,27 @@ class _SuggestionList extends StatelessWidget {
             (tip) => Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                 ),
               ),
-              child: ListTile(
-                leading: Icon(tip.$1, color: theme.colorScheme.primary),
-                title: Text(
-                  tip.$2,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+              child: Material(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  leading: Icon(tip.$1, color: theme.colorScheme.primary),
+                  title: Text(
+                    tip.$2,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                subtitle: Text(tip.$3),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.outline,
+                  subtitle: Text(tip.$3),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ),
             ),

@@ -22,12 +22,18 @@ class FriendListLoaded extends FriendListState {
   final List<FriendRequestEntity> receivedRequests;
   final List<FriendRequestEntity> sentRequests;
   final int unreadRequestCount;
+  final List<FriendNoteEntity> notes;
+  final FriendPrivacyEntity? privacySettings;
+  final List<FriendReportEntity> myReports;
 
   const FriendListLoaded({
     required this.friends,
     this.receivedRequests = const [],
     this.sentRequests = const [],
     this.unreadRequestCount = 0,
+    this.notes = const [],
+    this.privacySettings,
+    this.myReports = const [],
   });
 
   @override
@@ -36,6 +42,9 @@ class FriendListLoaded extends FriendListState {
         receivedRequests,
         sentRequests,
         unreadRequestCount,
+        notes,
+        privacySettings,
+        myReports,
       ];
 
   FriendListLoaded copyWith({
@@ -43,12 +52,18 @@ class FriendListLoaded extends FriendListState {
     List<FriendRequestEntity>? receivedRequests,
     List<FriendRequestEntity>? sentRequests,
     int? unreadRequestCount,
+    List<FriendNoteEntity>? notes,
+    FriendPrivacyEntity? privacySettings,
+    List<FriendReportEntity>? myReports,
   }) {
     return FriendListLoaded(
       friends: friends ?? this.friends,
       receivedRequests: receivedRequests ?? this.receivedRequests,
       sentRequests: sentRequests ?? this.sentRequests,
       unreadRequestCount: unreadRequestCount ?? this.unreadRequestCount,
+      notes: notes ?? this.notes,
+      privacySettings: privacySettings ?? this.privacySettings,
+      myReports: myReports ?? this.myReports,
     );
   }
 }
@@ -88,4 +103,46 @@ class FriendUnfriended extends FriendListState {
 
   @override
   List<Object?> get props => [friendId];
+}
+
+// ─── Note States ──────────────────────────────────────────────────────────────
+
+class FriendNoteSaved extends FriendListState {
+  final FriendNoteEntity note;
+
+  const FriendNoteSaved(this.note);
+
+  @override
+  List<Object?> get props => [note];
+}
+
+class FriendNoteDeleted extends FriendListState {
+  final String noteId;
+
+  const FriendNoteDeleted(this.noteId);
+
+  @override
+  List<Object?> get props => [noteId];
+}
+
+// ─── Privacy States ───────────────────────────────────────────────────────────
+
+class FriendPrivacyUpdated extends FriendListState {
+  final FriendPrivacyEntity privacy;
+
+  const FriendPrivacyUpdated(this.privacy);
+
+  @override
+  List<Object?> get props => [privacy];
+}
+
+// ─── Report States ────────────────────────────────────────────────────────────
+
+class FriendReportCreated extends FriendListState {
+  final String targetUserId;
+
+  const FriendReportCreated(this.targetUserId);
+
+  @override
+  List<Object?> get props => [targetUserId];
 }

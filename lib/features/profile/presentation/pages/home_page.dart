@@ -19,6 +19,7 @@ import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
+import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
@@ -286,6 +287,9 @@ class _HomePageState extends State<HomePage> {
           cubit.getLocation();
         });
       }
+      if (state.supplementaryError != null) {
+        _showToast(state.supplementaryError!, isError: true);
+      }
     } else if (state is ProfileFailure) {
       _showToast(state.message, isError: true);
     } else if (state is ProfileDeleted) {
@@ -313,7 +317,7 @@ class _HomePageState extends State<HomePage> {
           onSubmit: _onCreateProfile,
         );
       }
-      return _buildDashboard(context, profile);
+      return _buildDashboard(context, profile, location: state.location);
     }
 
     if (state is ProfileFailure) {
@@ -328,7 +332,11 @@ class _HomePageState extends State<HomePage> {
 
   // ─── Dashboard composition ─────────────────────────────────────────────
 
-  Widget _buildDashboard(BuildContext context, ProfileEntity profile) {
+  Widget _buildDashboard(
+    BuildContext context,
+    ProfileEntity profile, {
+    PlayerLocationEntity? location,
+  }) {
     _prefillForm(profile);
 
     return SingleChildScrollView(
@@ -336,10 +344,7 @@ class _HomePageState extends State<HomePage> {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          AvatarHeader(
-            profile: profile,
-            onAvatarTap: _changeAvatar,
-          ),
+          AvatarHeader(profile: profile, onAvatarTap: _changeAvatar),
           const SizedBox(height: AppSpacing.lg),
 
           // ── ELO & Level stats ────────────────────────────────────
@@ -382,24 +387,11 @@ class _HomePageState extends State<HomePage> {
           // ── Location ─────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: BlocBuilder<ProfileCubit, ProfileState>(
-              buildWhen: (previous, current) =>
-                  current is ProfileLocationLoaded ||
-                  current is ProfileLocationDeleted ||
-                  (previous is ProfileLocationLoaded && current is ProfileLoaded),
-              builder: (context, state) {
-                final location = state is ProfileLocationLoaded
-                    ? state.location
-                    : state is ProfileLoaded
-                        ? null
-                        : null;
-                return LocationCard(
-                  location: location,
-                  onUpdateGpsPressed: () => _updateLocationGps(context),
-                  onDeletePressed: () =>
-                      context.read<ProfileCubit>().deleteLocation(),
-                );
-              },
+            child: LocationCard(
+              location: location,
+              onUpdateGpsPressed: () => _updateLocationGps(context),
+              onDeletePressed: () =>
+                  context.read<ProfileCubit>().deleteLocation(),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
