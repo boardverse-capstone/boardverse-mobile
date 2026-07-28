@@ -151,7 +151,6 @@ class _SettingsCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       ),
-      borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [

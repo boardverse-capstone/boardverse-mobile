@@ -237,7 +237,23 @@ class _HomePageState extends State<HomePage> {
     if (picked == null) return;
     if (!mounted) return;
 
-    _showToast('Đang tải ảnh lên...');
+    // Show loading dialog
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(
+              'Đang tải ảnh lên...',
+              style: Theme.of(dialogContext).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
 
     try {
       final url = await sl<CloudinaryService>().uploadImage(
@@ -245,9 +261,17 @@ class _HomePageState extends State<HomePage> {
         folder: 'boardverse/avatars',
       );
       if (!mounted) return;
+
+      // Dismiss loading dialog
+      if (context.mounted) Navigator.of(context).pop();
+
       context.read<ProfileCubit>().updateAvatar(url);
     } on Object catch (e) {
       if (!mounted) return;
+
+      // Dismiss loading dialog on error
+      if (context.mounted) Navigator.of(context).pop();
+
       _showToast('Upload thất bại: $e', isError: true);
     }
   }

@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import 'package:boardverse_mobile/core/error/failures.dart';
-import '../entities/friend_entity.dart';
+import '../entities/entities.dart';
 
 /// Repository interface cho Friend Management.
 /// Chi tiết API: `.agents/docs/lobby_docs/friend.md`

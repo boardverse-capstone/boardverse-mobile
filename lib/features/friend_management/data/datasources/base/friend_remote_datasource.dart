@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import 'package:boardverse_mobile/core/error/failures.dart';
-import '../../../domain/entities/friend_entity.dart';
+import '../../../domain/entities/entities.dart';
 
 /// Data source interface cho Friend Management.
 /// Implementations:

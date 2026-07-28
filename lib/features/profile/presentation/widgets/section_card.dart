@@ -6,6 +6,9 @@ import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
 /// Bọc ngoài thống nhất cho mọi "card" trong profile:
 /// border 1px outlineVariant + radius [AppRadius.radiusMd], shadow mềm.
+///
+/// Dùng [Material] thay vì [Container] để ListTile bên trong có thể vẽ
+/// ink splashes trên surface của card.
 class SectionCard extends StatelessWidget {
   const SectionCard({
     super.key,
@@ -19,26 +22,19 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final borderColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.6);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: borderColor, width: 1),
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-          width: 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
       ),
-      padding: padding,
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
     );
   }
 }

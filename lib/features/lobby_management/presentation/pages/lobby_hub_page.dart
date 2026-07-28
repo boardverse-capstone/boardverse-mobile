@@ -41,7 +41,7 @@ class LobbyHubPage extends StatefulWidget {
 }
 
 class _LobbyHubPageState extends State<LobbyHubPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static final DateFormat _timeFormatter = DateFormat('HH:mm');
 
   late final TabController _tabController;
@@ -54,6 +54,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   late final BookingResultCubit _bookingCubit;
   late final LobbyRealtimeService _realtime;
 
+  // Lazy loading state
+  bool _hasLoadedInitialData = false;
+
   // Filter state
   bool _showGameFilter = false;
   BoardGameEntity? _selectedGame;
@@ -61,9 +64,13 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   double _minKarma = 0.0;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
 
     // Initialize cubits from DI
     _searchCubit = context.read<LobbySearchCubit>();
@@ -72,14 +79,22 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     _myLobbiesCubit = context.read<MyLobbiesCubit>();
     _bookingCubit = context.read<BookingResultCubit>();
     _realtime = GetIt.instance<LobbyRealtimeService>();
+  }
 
-    // Load initial data
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      _ensureDataLoaded();
+    }
+  }
+
+  void _ensureDataLoaded() {
+    if (_hasLoadedInitialData) return;
+    _hasLoadedInitialData = true;
     _loadData();
   }
 
   void _loadData() {
     _searchCubit.loadDiscoverable(limit: 50);
-    _matchmakingCubit.searchGames();
     _loadMyLobbies();
     _subscribeRealtime();
   }
@@ -105,12 +120,14 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
 
     return Scaffold(

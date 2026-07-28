@@ -53,6 +53,13 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _loadGames() {
+    final currentState = widget.matchmakingCubit.state;
+    if (currentState is MatchmakingSearchResults &&
+        currentState.games.isNotEmpty &&
+        currentState.categories.isNotEmpty) {
+      setState(() => _availableCategories = currentState.categories);
+      return;
+    }
     widget.matchmakingCubit.searchGames();
     widget.matchmakingCubit.loadCategories();
   }

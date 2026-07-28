@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../../domain/entities/friend_entity.dart';
+import '../../domain/entities/entities.dart';
 
 abstract class FriendListState extends Equatable {
   const FriendListState();

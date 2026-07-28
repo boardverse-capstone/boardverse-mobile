@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../domain/entities/friend_entity.dart';
+import '../../domain/entities/entities.dart';
 import '../../domain/repositories/friend_repository.dart';
 import 'friend_list_state.dart';
 
@@ -20,18 +20,18 @@ class FriendListCubit extends Cubit<FriendListState> {
     final sentResult = await _repository.getSentRequests();
     if (isClosed) return;
 
-    final friends = friendsResult.fold(
-      (failure) => <dynamic>[],
+    final friends = friendsResult.fold<List<FriendEntity>>(
+      (failure) => const [],
       (data) => data,
     );
 
-    final received = receivedResult.fold(
-      (failure) => <dynamic>[],
+    final received = receivedResult.fold<List<FriendRequestEntity>>(
+      (failure) => const [],
       (data) => data,
     );
 
-    final sent = sentResult.fold(
-      (failure) => <dynamic>[],
+    final sent = sentResult.fold<List<FriendRequestEntity>>(
+      (failure) => const [],
       (data) => data,
     );
 
@@ -39,9 +39,9 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     emit(FriendListLoaded(
-      friends: List.from(friends),
-      receivedRequests: List.from(received),
-      sentRequests: List.from(sent),
+      friends: friends,
+      receivedRequests: received,
+      sentRequests: sent,
       unreadRequestCount: unreadCount,
     ));
   }
@@ -217,9 +217,10 @@ class FriendListCubit extends Cubit<FriendListState> {
         if (currentState is FriendListLoaded) {
           final existingIndex =
               currentState.notes.indexWhere((n) => n.friendUserId == friendUserId);
-          List notes;
+          List<FriendNoteEntity> notes;
           if (existingIndex >= 0) {
-            notes = List.from(currentState.notes)..[existingIndex] = savedNote;
+            notes = List<FriendNoteEntity>.from(currentState.notes)
+              ..[existingIndex] = savedNote;
           } else {
             notes = [...currentState.notes, savedNote];
           }
