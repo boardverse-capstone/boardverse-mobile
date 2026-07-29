@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -19,14 +18,15 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderStateMixin {
+class _RegisterPageState extends State<RegisterPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _obscurePassword = true, _obscureConfirm = true, _acceptTerms = false;
+  bool _acceptTerms = false;
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
@@ -35,9 +35,25 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _animationController.forward();
   }
 
@@ -58,11 +74,33 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
       _showToast('Vui lòng đồng ý với điều khoản sử dụng', isError: true);
       return;
     }
-    context.read<AuthCubit>().register(username: _usernameController.text.trim(), email: _emailController.text.trim(), phoneNumber: _phoneController.text.trim(), password: _passwordController.text);
+    context.read<AuthCubit>().register(
+          username: _usernameController.text.trim(),
+          email: _emailController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
+          password: _passwordController.text,
+        );
   }
 
   void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(autoDismiss: true, snackbarDuration: const Duration(seconds: 3), position: DelightSnackbarPosition.top, builder: (context) => ToastCard(leading: Icon(isError ? Icons.error_outline : Icons.check_circle_outlined, color: isError ? AppColors.error : AppColors.success, size: 28), title: Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))).show(context);
+    DelightToastBar(
+      autoDismiss: true,
+      snackbarDuration: const Duration(seconds: 3),
+      position: DelightSnackbarPosition.top,
+      builder: (context) => ToastCard(
+        leading: Icon(
+          isError ? Icons.error_outline : Icons.check_circle_outlined,
+          color: isError
+              ? Theme.of(context).colorScheme.error
+              : AppColors.success,
+          size: 28,
+        ),
+        title: Text(
+          message,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ).show(context);
   }
 
   @override
@@ -70,16 +108,26 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthRegistered) {
-            _showToast(state.message);
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => VerifyEmailPage(email: _emailController.text.trim())));
-          } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
+          switch (state) {
+            case AuthRegistered():
+              _showToast(state.message);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VerifyEmailPage(
+                    email: _emailController.text.trim(),
+                  ),
+                ),
+              );
+            case AuthFailure():
+              _showToast(state.message, isError: true);
+            default:
+              break;
           }
         },
         builder: (context, state) {
           return AuthGradientBackground(
-            colors: AuthGradientBackground.registerGradient,
+            colors: AuthGradientBackground.registerGradient(context),
             stops: AuthGradientBackground.standardStops,
             child: SafeArea(
               child: Column(
@@ -87,8 +135,21 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                   _buildAppBar(context),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-                      child: FadeTransition(opacity: _fadeAnimation, child: SlideTransition(position: _slideAnimation, child: Form(key: _formKey, child: _buildContent(context, state)))),
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Form(
+                            key: _formKey,
+                            child: _buildContent(context, state),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -102,7 +163,10 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         children: [
           AuthBackButton(onPressed: () => Navigator.pop(context)),
@@ -119,66 +183,123 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AuthTitle(title: 'Tạo tài khoản mới', subtitle: 'Tham gia cộng đồng yêu board game'),
+        const AuthTitle(
+          title: 'Tạo tài khoản mới',
+          subtitle: 'Tham gia cộng đồng yêu board game',
+        ),
         const SizedBox(height: AppSpacing.xl),
         AuthFormCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AuthTextField(controller: _usernameController, label: 'Tên đăng nhập', hint: 'Nhập tên đăng nhập', icon: Icons.person_outline, textInputAction: TextInputAction.next, validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên đăng nhập' : v.trim().length < 3 ? 'Tối thiểu 3 ký tự' : null),
+              AuthTextField(
+                controller: _usernameController,
+                labelText: 'Tên đăng nhập',
+                hintText: 'Nhập tên đăng nhập',
+                prefixIcon: Icons.person_outline,
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Vui lòng nhập tên đăng nhập';
+                  }
+                  if (v.trim().length < 3) {
+                    return 'Tối thiểu 3 ký tự';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.md),
-              AuthTextField(controller: _emailController, label: 'Email', hint: 'Nhập địa chỉ email', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập email' : !RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(v.trim()) ? 'Email không hợp lệ' : null),
+              AuthTextField(
+                controller: _emailController,
+                labelText: 'Email',
+                hintText: 'Nhập địa chỉ email',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Vui lòng nhập email';
+                  }
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$')
+                      .hasMatch(v.trim())) {
+                    return 'Email không hợp lệ';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.md),
-              AuthTextField(controller: _phoneController, label: 'Số điện thoại', hint: 'Nhập số điện thoại', icon: Icons.phone_outlined, keyboardType: TextInputType.phone, textInputAction: TextInputAction.next, validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập số điện thoại' : v.trim().length < 10 ? 'Số điện thoại không hợp lệ' : null),
+              AuthTextField(
+                controller: _phoneController,
+                labelText: 'Số điện thoại',
+                hintText: 'Nhập số điện thoại',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Vui lòng nhập số điện thoại';
+                  }
+                  if (v.trim().length < 10) {
+                    return 'Số điện thoại không hợp lệ';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.md),
-              _buildPasswordField(),
+              AuthPasswordField(
+                controller: _passwordController,
+                labelText: 'Mật khẩu',
+                hintText: 'Nhập mật khẩu',
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return 'Vui lòng nhập mật khẩu';
+                  }
+                  if (v.length < 8) {
+                    return 'Tối thiểu 8 ký tự';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.xs),
               PasswordStrengthIndicator(password: _passwordController.text),
               const SizedBox(height: AppSpacing.md),
-              _buildConfirmPasswordField(),
+              AuthPasswordField(
+                controller: _confirmPasswordController,
+                labelText: 'Xác nhận mật khẩu',
+                hintText: 'Nhập lại mật khẩu',
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _onRegister(),
+                validator: (v) {
+                  if (v != _passwordController.text) {
+                    return 'Mật khẩu xác nhận không khớp';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: AppSpacing.lg),
-              TermsCheckbox(value: _acceptTerms, onChanged: (v) => setState(() => _acceptTerms = v ?? false)),
+              TermsCheckbox(
+                value: _acceptTerms,
+                onChanged: (v) =>
+                    setState(() => _acceptTerms = v ?? false),
+              ),
               const SizedBox(height: AppSpacing.lg),
-              AuthSecondaryButton(label: 'Tạo tài khoản', icon: Icons.person_add_outlined, isLoading: state is AuthLoading, onPressed: _onRegister),
+              AuthSecondaryButton(
+                label: 'Tạo tài khoản',
+                icon: Icons.person_add_outlined,
+                isLoading: state is AuthLoading,
+                onPressed: _onRegister,
+              ),
               const SizedBox(height: AppSpacing.lg),
-              AuthLinkText(text: 'Đã có tài khoản? ', linkText: 'Đăng nhập', onTap: () => Navigator.pop(context)),
+              AuthLinkText(
+                text: 'Đã có tài khoản? ',
+                linkText: 'Đăng nhập',
+                onTap: () => Navigator.pop(context),
+              ),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPasswordField() {
-    return AuthTextField(
-      controller: _passwordController,
-      label: 'Mật khẩu',
-      hint: 'Nhập mật khẩu',
-      icon: Icons.lock_outline,
-      obscureText: _obscurePassword,
-      textInputAction: TextInputAction.next,
-      suffixIcon: IconButton(
-        icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppIcons.sm, color: AppColors.textSecondary),
-        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-      ),
-      validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu' : v.length < 8 ? 'Tối thiểu 8 ký tự' : null,
-    );
-  }
-
-  Widget _buildConfirmPasswordField() {
-    return AuthTextField(
-      controller: _confirmPasswordController,
-      label: 'Xác nhận mật khẩu',
-      hint: 'Nhập lại mật khẩu',
-      icon: Icons.lock_outline,
-      obscureText: _obscureConfirm,
-      textInputAction: TextInputAction.done,
-      onFieldSubmitted: (_) => _onRegister(),
-      suffixIcon: IconButton(
-        icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppIcons.sm, color: AppColors.textSecondary),
-        onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-      ),
-      validator: (v) => v != _passwordController.text ? 'Mật khẩu xác nhận không khớp' : null,
     );
   }
 }

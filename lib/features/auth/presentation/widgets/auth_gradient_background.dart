@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_colors_dark.dart';
 
-/// Gradient background widget dùng chung cho các auth pages
+/// Gradient background dùng chung cho các auth pages.
+///
+/// Hỗ trợ light/dark mode tự động.
 class AuthGradientBackground extends StatelessWidget {
-  final List<Color> colors;
-  final List<double>? stops;
-  final AlignmentGeometry begin;
-  final AlignmentGeometry end;
-  final Widget child;
-
   const AuthGradientBackground({
     super.key,
     required this.colors,
@@ -19,11 +16,15 @@ class AuthGradientBackground extends StatelessWidget {
     required this.child,
   });
 
+  final List<Color> colors;
+  final List<double>? stops;
+  final AlignmentGeometry begin;
+  final AlignmentGeometry end;
+  final Widget child;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: begin,
@@ -36,27 +37,57 @@ class AuthGradientBackground extends StatelessWidget {
     );
   }
 
-  /// Login page gradient - Deep Orange
-  static List<Color> get loginGradient => const [
-        AppColors.primary,
-        AppColors.primaryDark,
-        Color(0xFF1A1A1A),
+  /// Login page gradient — Deep Orange → đen.
+  static List<Color> loginGradient(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      return const [
+        AppColorsDark.primary,
+        AppColorsDark.primaryDark,
+        AppColorsDark.background,
       ];
+    }
+    return const [
+      AppColors.primary,
+      AppColors.primaryDark,
+      AppColors.background,
+    ];
+  }
 
-  /// Register page gradient - Teal
-  static List<Color> get registerGradient => const [
-        AppColors.secondary,
-        AppColors.secondaryDark,
-        Color(0xFF1A1A1A),
+  /// Register page gradient — Teal → đen.
+  static List<Color> registerGradient(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      return const [
+        AppColorsDark.secondary,
+        AppColorsDark.secondaryDark,
+        AppColorsDark.background,
       ];
+    }
+    return const [
+      AppColors.secondary,
+      AppColors.secondaryDark,
+      AppColors.background,
+    ];
+  }
 
-  /// Verify email gradient - Amber/Orange
-  static List<Color> get verifyGradient => const [
-        AppColors.accent,
-        AppColors.primary,
-        AppColors.primaryDark,
+  /// Verify email gradient — Amber/Orange.
+  static List<Color> verifyGradient(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      return const [
+        AppColorsDark.accent,
+        AppColorsDark.accentDark,
+        AppColorsDark.primaryDark,
       ];
+    }
+    return const [
+      AppColors.accent,
+      AppColors.primary,
+      AppColors.primaryDark,
+    ];
+  }
 
-  /// Stops cho login/register
+  /// Stops cho login/register.
   static List<double>? get standardStops => const [0.0, 0.4, 1.0];
 }

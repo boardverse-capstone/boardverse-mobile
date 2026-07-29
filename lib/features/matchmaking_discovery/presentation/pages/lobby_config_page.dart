@@ -89,6 +89,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
   }
 
   Future<void> _createLobby() async {
+    // Double-tap prevention: early return nếu đang tạo
+    if (_isCreatingLobby) return;
+
     final scheduledDateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -109,7 +112,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       return;
     }
 
-    setState(() => _isCreatingLobby = true);
+    // Set flag TRƯỚC khi bất kỳ async operation nào để prevent double-tap
+    _isCreatingLobby = true;
 
     final result = await widget.matchmakingCubit.createLobby(
       gameId: widget.gameId,
@@ -124,9 +128,12 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       leadTime: _leadTime,
     );
 
-    if (!mounted) return;
+    if (!mounted) {
+      _isCreatingLobby = false;
+      return;
+    }
 
-    setState(() => _isCreatingLobby = false);
+    _isCreatingLobby = false;
 
     if (result.success && result.lobbyId != null) {
       // KHÔNG gọi `lobbyCubit.createLobby` ở đây — đã được tạo qua

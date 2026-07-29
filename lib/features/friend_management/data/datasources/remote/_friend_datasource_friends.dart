@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/data/models/friend_model.dart';
+import 'package:boardverse_mobile/features/friend_management/data/models/friend_profile_model.dart';
 import 'package:boardverse_mobile/features/friend_management/data/models/friend_request_model.dart';
 import 'package:boardverse_mobile/features/friend_management/data/models/friend_search_model.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
@@ -45,6 +46,17 @@ mixin FriendsAndRequestsMixin on ApiGuardMixin {
         ApiEndpoints.friendMutual(otherUserId),
       );
       return parseListEnvelope<FriendEntity>(res.data, FriendModel.fromJson);
+    });
+  }
+
+  /// GET /api/v1/friends/{userId}/profile — chi tiết public profile của 1
+  /// player (kèm `canSendFriendRequest`, `canReport`, mutual friends preview).
+  Future<Either<Failure, FriendProfileEntity>> getPlayerProfile(String userId) {
+    return guardApiCall(() async {
+      final res = await dio.get<Map<String, dynamic>>(
+        ApiEndpoints.friendPlayerProfile(userId),
+      );
+      return FriendProfileModel.fromJson(unwrapEnvelope(res.data)).toEntity();
     });
   }
 

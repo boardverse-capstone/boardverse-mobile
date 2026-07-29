@@ -1,86 +1,90 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_elevation.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
-/// Thẻ thống kê (ELO, Level) với icon + label uppercase + giá trị lớn.
+/// Thẻ thống kê compact: label uppercase + giá trị lớn + icon màu nhấn.
+///
+/// Sử dụng theme tokens (shadow, color, radius) — không hardcode bất kỳ
+/// giá trị màu/shadow nào, đảm bảo consistent với Material 3 design system.
 class ProfileStatCard extends StatelessWidget {
   const ProfileStatCard({
     super.key,
     required this.label,
     required this.value,
     required this.icon,
-    this.iconColor,
+    this.accentColor,
   });
 
   final String label;
   final String value;
   final IconData icon;
 
-  /// Mặc định lấy theo [ColorScheme.primary]. Nếu muốn nhấn màu (accent, info),
-  /// truyền vào đây.
-  final Color? iconColor;
+  /// Màu nhấn cho icon + accent text. Mặc định lấy theo
+  /// [ColorScheme.primary]. Truyền `null` sẽ dùng primary.
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = iconColor ?? theme.colorScheme.primary;
+    final color = accentColor ?? theme.colorScheme.primary;
 
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-          width: 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        borderRadius: AppRadius.radiusLgAll,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: AppElevation.shadowXs,
       ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
+          // Icon trong ô bo nhỏ — accent nhẹ.
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: AppIcons.md,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppRadius.radiusXs),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
+                    height: 1.1,
+                  ),
                 ),
-                child: Icon(icon, color: color, size: AppIcons.md),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
+              ],
             ),
           ),
         ],

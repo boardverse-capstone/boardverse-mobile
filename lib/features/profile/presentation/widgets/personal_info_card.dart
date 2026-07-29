@@ -7,8 +7,12 @@ import 'package:boardverse_mobile/features/profile/domain/entities/profile_entit
 import 'package:boardverse_mobile/features/profile/presentation/widgets/detail_row.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
 
-/// Thẻ "Thông tin tài khoản": hiển thị bio, karma, họ tên, ngày sinh, SĐT,
-/// có nút edit mở bottom sheet.
+/// Thẻ "Thông tin tài khoản":
+/// - Hiển thị bio (nếu có) + các [DetailRow] (Karma, Họ tên, Ngày sinh, SĐT).
+/// - Header có nút edit mở bottom sheet.
+///
+/// Dùng [InfoEntry] pattern để DRY: duyệt qua 1 list entries, filter entries
+/// có value hợp lệ, render [DetailRow]. Tránh lặp `if (x != null) Padding(...)`.
 class PersonalInfoCard extends StatelessWidget {
   const PersonalInfoCard({
     super.key,
@@ -22,6 +26,7 @@ class PersonalInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final entries = _buildEntries(profile);
 
     return SectionCard(
       child: Column(
@@ -39,47 +44,63 @@ class PersonalInfoCard extends StatelessWidget {
           ),
           Divider(
             height: AppSpacing.lg,
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+            color: theme.colorScheme.outlineVariant,
           ),
-          DetailRow(
-            icon: AppIcons.karma,
-            iconColor: AppColors.warning,
-            label: 'Karma / Điểm uy tín',
-            value: profile.karmaPoints != null
-                ? '${profile.karmaPoints} PTS'
-                : 'Chưa có',
-          ),
-          if (profile.firstName != null || profile.lastName != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: DetailRow(
-                icon: AppIcons.profile,
-                label: 'Họ tên',
-                value:
-                    '${profile.firstName ?? ''} ${profile.lastName ?? ''}'
-                        .trim(),
-              ),
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppSpacing.sm),
+            DetailRow(
+              icon: entries[i].icon,
+              iconColor: entries[i].iconColor,
+              label: entries[i].label,
+              value: entries[i].value,
             ),
-          if (profile.dateOfBirth != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: DetailRow(
-                icon: AppIcons.schedule,
-                label: 'Ngày sinh',
-                value: profile.dateOfBirth!,
-              ),
-            ),
-          if (profile.phoneNumber != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: DetailRow(
-                icon: AppIcons.phone,
-                label: 'Số điện thoại',
-                value: profile.phoneNumber!,
-              ),
-            ),
+          ],
         ],
       ),
     );
   }
+
+  /// Trả về list entries đã được filter — entry nào thiếu value sẽ bị bỏ.
+  static List<InfoEntry> _buildEntries(ProfileEntity p) {
+    final entries = <InfoEntry>[
+      InfoEntry(
+        icon: AppIcons.karma,
+        iconColor: AppColors.warning,
+        label: 'Karma / Điểm uy tín',
+        value: p.karmaPoints != null ? '${p.karmaPoints} PTS' : 'Chưa có',
+      ),
+      InfoEntry(
+        icon: AppIcons.profile,
+        label: 'Họ tên',
+        value: '${p.firstName ?? ''} ${p.lastName ?? ''}'.trim(),
+      ),
+      InfoEntry(
+        icon: AppIcons.schedule,
+        label: 'Ngày sinh',
+        value: p.dateOfBirth ?? '',
+      ),
+      InfoEntry(
+        icon: AppIcons.phone,
+        label: 'Số điện thoại',
+        value: p.phoneNumber ?? '',
+      ),
+    ];
+
+    return entries.where((e) => e.value.isNotEmpty).toList();
+  }
+}
+
+/// Mô tả 1 dòng thông tin trong [PersonalInfoCard].
+class InfoEntry {
+  const InfoEntry({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? iconColor;
 }

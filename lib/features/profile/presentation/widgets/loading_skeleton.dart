@@ -6,8 +6,9 @@ import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
 /// Skeleton shimmer cho toàn bộ màn hình profile dashboard.
 ///
-/// Bám sát cấu trúc của [AvatarHeader] + 2 [ProfileStatCard] + [PersonalInfoCard]
-/// + [LocationCard] + khối action — để trải nghiệm loading mượt mà.
+/// Bám sát cấu trúc mới:
+/// - 3 [ProfileStatCard] (ELO / Level / Karma) stacked dọc trên mobile.
+/// - 1 [PersonalInfoCard] + 1 [LocationCard] + 1 [QuickActionsCard] grid 2x2.
 class ProfileLoadingSkeleton extends StatelessWidget {
   const ProfileLoadingSkeleton({super.key});
 
@@ -16,79 +17,35 @@ class ProfileLoadingSkeleton extends StatelessWidget {
     return ListView(
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      children: const [
-        _HeaderSkeleton(),
-        SizedBox(height: AppSpacing.lg),
-        _StatsRowSkeleton(),
-        SizedBox(height: AppSpacing.md),
-        _InfoCardSkeleton(),
-        SizedBox(height: AppSpacing.md),
-        _InfoCardSkeleton(),
-        SizedBox(height: AppSpacing.xxl),
+      children: [
+        const SizedBox(height: AppSpacing.md),
+        const _StatsStackSkeleton(),
+        const SizedBox(height: AppSpacing.md),
+        const _InfoCardSkeleton(),
+        const SizedBox(height: AppSpacing.md),
+        const _InfoCardSkeleton(),
+        const SizedBox(height: AppSpacing.md),
+        const _QuickActionsSkeleton(),
+        const SizedBox(height: AppSpacing.xxl),
       ],
     );
   }
 }
 
-class _HeaderSkeleton extends StatelessWidget {
-  const _HeaderSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return AppShimmer.container(
-      context: context,
-      borderRadius: const BorderRadius.vertical(
-        bottom: Radius.circular(AppRadius.radiusHuge),
-      ),
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFE65100), Color(0xFFFF9E40), Color(0xFF00897B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            AppShimmer.circle(context: context, size: 96),
-            const SizedBox(height: AppSpacing.md),
-            AppShimmer.box(context: context, width: 180, height: 22),
-            const SizedBox(height: AppSpacing.xs),
-            AppShimmer.box(context: context, width: 120, height: 14),
-            const SizedBox(height: AppSpacing.sm),
-            AppShimmer.box(context: context, width: 100, height: 24, borderRadius: 16),
-            const SizedBox(height: AppSpacing.sm),
-            AppShimmer.box(context: context, width: 220, height: 12),
-            const SizedBox(height: AppSpacing.xxs),
-            AppShimmer.box(context: context, width: 160, height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatsRowSkeleton extends StatelessWidget {
-  const _StatsRowSkeleton();
+class _StatsStackSkeleton extends StatelessWidget {
+  const _StatsStackSkeleton();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(child: _StatCardSkeleton()),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(child: _StatCardSkeleton()),
+          const _StatCardSkeleton(),
+          const SizedBox(height: AppSpacing.sm),
+          const _StatCardSkeleton(),
+          const SizedBox(height: AppSpacing.sm),
+          const _StatCardSkeleton(),
         ],
       ),
     );
@@ -96,29 +53,52 @@ class _StatsRowSkeleton extends StatelessWidget {
 }
 
 class _StatCardSkeleton extends StatelessWidget {
+  const _StatCardSkeleton();
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
-        ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: AppRadius.radiusLgAll,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              AppShimmer.box(context: context, width: 60, height: 10),
-              AppShimmer.box(context: context, width: 24, height: 24, borderRadius: 8),
-            ],
+          AppShimmer.boxRadius(
+            context: context,
+            width: 36,
+            height: 36,
+            borderRadius: AppRadius.radiusSmAll,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          AppShimmer.box(context: context, width: 80, height: 28),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppShimmer.box(
+                  context: context,
+                  width: 80,
+                  height: 10,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppShimmer.box(
+                  context: context,
+                  width: 60,
+                  height: 18,
+                  borderRadius: 4,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -130,25 +110,100 @@ class _InfoCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: AppSpacing.paddingAllMd,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
-          ),
+          color: theme.colorScheme.surface,
+          borderRadius: AppRadius.radiusLgAll,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AppShimmer.box(context: context, width: 140, height: 18),
             const SizedBox(height: AppSpacing.md),
-            AppShimmer.textLines(context: context, lines: 4, lineHeight: 14),
+            AppShimmer.textLines(
+              context: context,
+              lines: 4,
+              lineHeight: 14,
+              lastLineWidth: 200,
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsSkeleton extends StatelessWidget {
+  const _QuickActionsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        padding: AppSpacing.paddingAllSm,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: AppRadius.radiusLgAll,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i == 2) const SizedBox(width: AppSpacing.sm),
+              if (i > 0 && i != 2) const SizedBox(width: AppSpacing.sm),
+              const Expanded(
+                child: _QuickActionTileSkeleton(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionTileSkeleton extends StatelessWidget {
+  const _QuickActionTileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: AppRadius.radiusMdAll,
+      ),
+      child: Row(
+        children: [
+          AppShimmer.boxRadius(
+            context: context,
+            width: 32,
+            height: 32,
+            borderRadius: AppRadius.radiusSmAll,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: AppShimmer.box(
+              context: context,
+              height: 12,
+              borderRadius: 4,
+            ),
+          ),
+        ],
       ),
     );
   }

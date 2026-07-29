@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../booking_payment/presentation/pages/booking_history_page.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
-import '../../../profile/presentation/cubit/profile_state.dart';
 import '../../../profile/domain/entities/profile_entity.dart';
 import '../widgets/home_news_placeholder.dart';
 import '../widgets/home_quick_action_card.dart';
@@ -77,10 +76,7 @@ class HomeOverviewPage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.tertiary,
-          ],
+          colors: [theme.colorScheme.primary, theme.colorScheme.tertiary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -95,8 +91,9 @@ class HomeOverviewPage extends StatelessWidget {
       ),
       child: BlocBuilder<ProfileCubit, ProfileState>(
         builder: (context, state) {
-          final username =
-              state is ProfileLoaded ? state.profile.username : 'Player';
+          final username = state is ProfileLoaded
+              ? state.profile.username
+              : 'Player';
           return Row(
             children: [
               CircleAvatar(
@@ -221,9 +218,9 @@ class HomeOverviewPage extends StatelessWidget {
   }
 
   void _openBookingHistory(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const BookingHistoryPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const BookingHistoryPage()));
   }
 }
 
@@ -236,8 +233,11 @@ class _SuggestionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final elo = profile.globalElo;
-    final category =
-        elo >= 1500 ? 'cao thủ' : elo >= 1100 ? 'trung cấp' : 'mới chơi';
+    final category = elo >= 1500
+        ? 'cao thủ'
+        : elo >= 1100
+        ? 'trung cấp'
+        : 'mới chơi';
     final tips = <(IconData, String, String)>[
       (
         Icons.search,
@@ -264,7 +264,9 @@ class _SuggestionList extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
               ),
               child: Material(

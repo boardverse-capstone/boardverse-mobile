@@ -30,9 +30,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _animationController.forward();
   }
 
@@ -45,11 +61,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   void _onRequestReset() {
     if (!_formKey.currentState!.validate()) return;
-    context.read<AuthCubit>().requestPasswordReset(email: _emailController.text.trim());
+    context
+        .read<AuthCubit>()
+        .requestPasswordReset(email: _emailController.text.trim());
   }
 
   void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(autoDismiss: true, snackbarDuration: const Duration(seconds: 3), position: DelightSnackbarPosition.top, builder: (context) => ToastCard(leading: Icon(isError ? Icons.error_outline : Icons.check_circle_outlined, color: isError ? AppColors.error : AppColors.success, size: 28), title: Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))).show(context);
+    DelightToastBar(
+      autoDismiss: true,
+      snackbarDuration: const Duration(seconds: 3),
+      position: DelightSnackbarPosition.top,
+      builder: (context) => ToastCard(
+        leading: Icon(
+          isError ? Icons.error_outline : Icons.check_circle_outlined,
+          color: isError
+              ? Theme.of(context).colorScheme.error
+              : AppColors.success,
+          size: 28,
+        ),
+        title: Text(
+          message,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ).show(context);
   }
 
   @override
@@ -57,16 +92,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthPasswordResetRequested) {
-            _showToast(state.message);
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ResetPasswordPage(email: _emailController.text.trim())));
-          } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
+          switch (state) {
+            case AuthPasswordResetRequested():
+              _showToast(state.message);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ResetPasswordPage(
+                    email: _emailController.text.trim(),
+                  ),
+                ),
+              );
+            case AuthFailure():
+              _showToast(state.message, isError: true);
+            default:
+              break;
           }
         },
         builder: (context, state) {
           return AuthGradientBackground(
-            colors: AuthGradientBackground.registerGradient,
+            colors: AuthGradientBackground.registerGradient(context),
             stops: AuthGradientBackground.standardStops,
             child: SafeArea(
               child: Column(
@@ -74,8 +119,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                   _buildAppBar(context),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-                      child: FadeTransition(opacity: _fadeAnimation, child: SlideTransition(position: _slideAnimation, child: Form(key: _formKey, child: _buildContent(context, state)))),
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Form(
+                            key: _formKey,
+                            child: _buildContent(context, state),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -89,17 +147,33 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      child: Row(children: [AuthBackButton(onPressed: () => Navigator.pop(context)), const Spacer(), const AuthLogoMini(), const Spacer(), const SizedBox(width: 48)]),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          AuthBackButton(onPressed: () => Navigator.pop(context)),
+          const Spacer(),
+          const AuthLogoMini(),
+          const Spacer(),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 
   Widget _buildContent(BuildContext context, AuthState state) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: AppSpacing.xl),
-        const AuthTitle(title: 'Quên mật khẩu?', subtitle: 'Nhập email để nhận mã đặt lại mật khẩu'),
+        const AuthTitle(
+          title: 'Quên mật khẩu?',
+          subtitle: 'Nhập email để nhận mã đặt lại mật khẩu',
+        ),
         const SizedBox(height: AppSpacing.xl),
         AuthFormCard(
           child: Column(
@@ -107,15 +181,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
             children: [
               AuthTextField(
                 controller: _emailController,
-                label: 'Email',
-                hint: 'Nhập email đã đăng ký',
-                icon: Icons.email_outlined,
+                labelText: 'Email',
+                hintText: 'Nhập email đã đăng ký',
+                prefixIcon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _onRequestReset(),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) return 'Vui lòng nhập email';
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value.trim())) return 'Email không hợp lệ';
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Vui lòng nhập email';
+                  }
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$')
+                      .hasMatch(value.trim())) {
+                    return 'Email không hợp lệ';
+                  }
                   return null;
                 },
               ),
@@ -127,22 +206,29 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                 onPressed: _onRequestReset,
               ),
               const SizedBox(height: AppSpacing.lg),
-              _buildBackToLogin(context),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Nhớ mật khẩu? ',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Đăng nhập',
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBackToLogin(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text('Nhớ mật khẩu? ', style: TextStyle(color: AppColors.textSecondary)),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Đăng nhập', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
         ),
       ],
     );

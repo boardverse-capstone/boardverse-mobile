@@ -4990,6 +4990,43 @@
         }
       }
     },
+    "/api/v1/friends/{userId}/profile": {
+      "get": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Xem chi tiết public profile của 1 player: thông tin cơ bản, gamer stats, số bạn chung, quan hệ hiện tại và các permission flags (canSendFriendRequest, canReport). [Role: Player — đã đăng nhập]",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "Mã player cần xem.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lấy thông tin chi tiết player thành công."
+          },
+          "400": {
+            "description": "userId trùng với current user."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "404": {
+            "description": "Không tìm thấy player hoặc tài khoản không hoạt động."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/v1/friends/{otherUserId}/list": {
       "get": {
         "tags": [

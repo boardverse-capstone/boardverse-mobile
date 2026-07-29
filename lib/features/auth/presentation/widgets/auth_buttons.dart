@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_icons.dart';
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_radius.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
-/// Primary button cho auth pages
+/// Primary button cho auth pages.
+///
+/// Dùng [ColorScheme] để tự động đổi màu khi dark mode.
 class AuthPrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final IconData? icon;
-
   const AuthPrimaryButton({
     super.key,
     required this.label,
@@ -20,6 +16,11 @@ class AuthPrimaryButton extends StatelessWidget {
     this.icon,
   });
 
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final IconData? icon;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -30,20 +31,20 @@ class AuthPrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.white,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.radiusMdAll,
           ),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.white,
+                  color: theme.colorScheme.onPrimary,
                 ),
               )
             : Row(
@@ -56,7 +57,6 @@ class AuthPrimaryButton extends StatelessWidget {
                   Text(
                     label,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: AppColors.white,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -67,13 +67,8 @@ class AuthPrimaryButton extends StatelessWidget {
   }
 }
 
-/// Secondary button cho auth pages
+/// Secondary button cho auth pages.
 class AuthSecondaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final IconData? icon;
-
   const AuthSecondaryButton({
     super.key,
     required this.label,
@@ -82,6 +77,11 @@ class AuthSecondaryButton extends StatelessWidget {
     this.icon,
   });
 
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final IconData? icon;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -92,20 +92,20 @@ class AuthSecondaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.secondary,
-          foregroundColor: AppColors.white,
+          backgroundColor: theme.colorScheme.secondary,
+          foregroundColor: theme.colorScheme.onSecondary,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.radiusMdAll,
           ),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.white,
+                  color: theme.colorScheme.onSecondary,
                 ),
               )
             : Row(
@@ -118,7 +118,6 @@ class AuthSecondaryButton extends StatelessWidget {
                   Text(
                     label,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: AppColors.white,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -129,12 +128,8 @@ class AuthSecondaryButton extends StatelessWidget {
   }
 }
 
-/// Social login button
+/// Social login button.
 class AuthSocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
   const AuthSocialButton({
     super.key,
     required this.icon,
@@ -142,8 +137,14 @@ class AuthSocialButton extends StatelessWidget {
     required this.onPressed,
   });
 
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
@@ -151,7 +152,10 @@ class AuthSocialButton extends StatelessWidget {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
         ),
-        side: const BorderSide(color: AppColors.border, width: 1.5),
+        side: BorderSide(
+          color: theme.colorScheme.outline,
+          width: 1.5,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.radiusMdAll,
         ),
@@ -159,14 +163,18 @@ class AuthSocialButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: AppIcons.sm, color: AppColors.textSecondary),
+          Icon(
+            icon,
+            size: AppIcons.sm,
+            color: theme.colorScheme.onSurface,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

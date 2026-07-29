@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/app_colors_dark.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -28,7 +28,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _obscurePassword = true, _obscureConfirm = true;
   final int _otpLength = 6;
 
   late final AnimationController _animationController;
@@ -38,9 +37,22 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack));
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
     _animationController.forward();
   }
 
@@ -59,11 +71,31 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       _showToast('Vui lòng nhập đủ $_otpLength chữ số', isError: true);
       return;
     }
-    context.read<AuthCubit>().resetPassword(otpCode: _otpController.text.trim(), newPassword: _passwordController.text);
+    context.read<AuthCubit>().resetPassword(
+          otpCode: _otpController.text.trim(),
+          newPassword: _passwordController.text,
+        );
   }
 
   void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(autoDismiss: true, snackbarDuration: const Duration(seconds: 3), position: DelightSnackbarPosition.top, builder: (context) => ToastCard(leading: Icon(isError ? Icons.error_outline : Icons.check_circle_outlined, color: isError ? AppColors.error : AppColors.success, size: 28), title: Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))).show(context);
+    DelightToastBar(
+      autoDismiss: true,
+      snackbarDuration: const Duration(seconds: 3),
+      position: DelightSnackbarPosition.top,
+      builder: (context) => ToastCard(
+        leading: Icon(
+          isError ? Icons.error_outline : Icons.check_circle_outlined,
+          color: isError
+              ? Theme.of(context).colorScheme.error
+              : AppColors.success,
+          size: 28,
+        ),
+        title: Text(
+          message,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ).show(context);
   }
 
   @override
@@ -71,16 +103,23 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthPasswordResetSuccess) {
-            _showToast(state.message);
-            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginPage()), (route) => false);
-          } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
+          switch (state) {
+            case AuthPasswordResetSuccess():
+              _showToast(state.message);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            case AuthFailure():
+              _showToast(state.message, isError: true);
+            default:
+              break;
           }
         },
         builder: (context, state) {
           return AuthGradientBackground(
-            colors: AuthGradientBackground.verifyGradient,
+            colors: AuthGradientBackground.verifyGradient(context),
             stops: AuthGradientBackground.standardStops,
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -90,8 +129,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                   _buildAppBar(context),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xl),
-                      child: FadeTransition(opacity: _fadeAnimation, child: ScaleTransition(scale: _scaleAnimation, child: Form(key: _formKey, child: _buildContent(context, state)))),
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.xl,
+                      ),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: Form(
+                            key: _formKey,
+                            child: _buildContent(context, state),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -105,89 +157,164 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      child: Row(children: [AuthBackButton(onPressed: () => Navigator.pop(context)), const Spacer(), Text('Đặt lại mật khẩu', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600)), const Spacer(), const SizedBox(width: 48)]),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          AuthBackButton(onPressed: () => Navigator.pop(context)),
+          const Spacer(),
+          Text(
+            'Đặt lại mật khẩu',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 
   Widget _buildContent(BuildContext context, AuthState state) {
     final isLoading = state is AuthLoading;
-    return Column(children: [
-      const SizedBox(height: AppSpacing.lg),
-      const _ResetIconBadge(),
-      const SizedBox(height: AppSpacing.xl),
-      const AuthTitle(title: 'Đặt lại mật khẩu'),
-      const SizedBox(height: AppSpacing.md),
-      EmailInfoBadge(email: widget.email),
-      const SizedBox(height: AppSpacing.md),
-      Text('Nhập mã OTP đã gửi qua email và mật khẩu mới của bạn.', style: TextStyle(color: AppColors.white.withValues(alpha: 0.8), height: 1.5), textAlign: TextAlign.center),
-      const SizedBox(height: AppSpacing.xxl),
-      AuthFormCard(
-        child: Column(children: [
-          _buildOtpField(context),
-          const SizedBox(height: AppSpacing.md),
-          _buildPasswordField(),
-          const SizedBox(height: AppSpacing.xs),
-          PasswordStrengthIndicator(password: _passwordController.text),
-          const SizedBox(height: AppSpacing.md),
-          _buildConfirmPasswordField(),
-          const SizedBox(height: AppSpacing.xl),
-          AuthPrimaryButton(label: 'Đặt lại mật khẩu', icon: Icons.lock_reset, isLoading: isLoading, onPressed: _onResetPassword),
-        ]),
-      ),
-    ]);
-  }
 
-  Widget _buildOtpField(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Mã OTP', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-      const SizedBox(height: AppSpacing.xs),
-      SizedBox(
-        height: 56,
-        child: TextFormField(
-          controller: _otpController,
-          keyboardType: TextInputType.number,
+    return Column(
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        const _ResetIconBadge(),
+        const SizedBox(height: AppSpacing.xl),
+        const AuthTitle(title: 'Đặt lại mật khẩu'),
+        const SizedBox(height: AppSpacing.md),
+        EmailInfoBadge(email: widget.email),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Nhập mã OTP đã gửi qua email và mật khẩu mới của bạn.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            height: 1.5,
+          ),
           textAlign: TextAlign.center,
-          maxLength: _otpLength,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(_otpLength)],
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 8, fontWeight: FontWeight.w700, color: AppColors.primary),
-          decoration: InputDecoration(hintText: List.filled(_otpLength, '•').join(' '), hintStyle: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 8, color: AppColors.textTertiary), counterText: '', filled: true, fillColor: AppColors.surfaceVariant, contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.sm), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.sm), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.sm), borderSide: const BorderSide(color: AppColors.primary, width: 2))),
         ),
-      ),
-    ]);
-  }
-
-  Widget _buildPasswordField() {
-    return AuthTextField(
-      controller: _passwordController,
-      label: 'Mật khẩu mới',
-      hint: 'Nhập mật khẩu mới',
-      icon: Icons.lock_outline,
-      obscureText: _obscurePassword,
-      textInputAction: TextInputAction.next,
-      suffixIcon: IconButton(icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppIcons.sm, color: AppColors.textSecondary), onPressed: () => setState(() => _obscurePassword = !_obscurePassword)),
-      validator: (v) {
-        if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
-        if (v.length < 8) return 'Tối thiểu 8 ký tự';
-        return null;
-      },
+        const SizedBox(height: AppSpacing.xxl),
+        AuthFormCard(
+          child: Column(
+            children: [
+              _buildOtpField(context),
+              const SizedBox(height: AppSpacing.md),
+              AuthPasswordField(
+                controller: _passwordController,
+                labelText: 'Mật khẩu mới',
+                hintText: 'Nhập mật khẩu mới',
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return 'Vui lòng nhập mật khẩu';
+                  }
+                  if (v.length < 8) {
+                    return 'Tối thiểu 8 ký tự';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              PasswordStrengthIndicator(password: _passwordController.text),
+              const SizedBox(height: AppSpacing.md),
+              AuthPasswordField(
+                controller: _confirmPasswordController,
+                labelText: 'Xác nhận mật khẩu',
+                hintText: 'Nhập lại mật khẩu mới',
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _onResetPassword(),
+                validator: (v) {
+                  if (v != _passwordController.text) {
+                    return 'Mật khẩu xác nhận không khớp';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              AuthPrimaryButton(
+                label: 'Đặt lại mật khẩu',
+                icon: Icons.lock_reset,
+                isLoading: isLoading,
+                onPressed: _onResetPassword,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildConfirmPasswordField() {
-    return AuthTextField(
-      controller: _confirmPasswordController,
-      label: 'Xác nhận mật khẩu',
-      hint: 'Nhập lại mật khẩu mới',
-      icon: Icons.lock_outline,
-      obscureText: _obscureConfirm,
-      textInputAction: TextInputAction.done,
-      onFieldSubmitted: (_) => _onResetPassword(),
-      suffixIcon: IconButton(icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: AppIcons.sm, color: AppColors.textSecondary), onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm)),
-      validator: (v) {
-        if (v != _passwordController.text) return 'Mật khẩu xác nhận không khớp';
-        return null;
-      },
+  Widget _buildOtpField(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fillColor =
+        isDark ? AppColorsDark.surfaceVariant : AppColors.surfaceVariant;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mã OTP',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        SizedBox(
+          height: 56,
+          child: TextFormField(
+            controller: _otpController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: _otpLength,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(_otpLength),
+            ],
+            style: theme.textTheme.titleLarge?.copyWith(
+              letterSpacing: 8,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+            decoration: InputDecoration(
+              hintText: List.filled(_otpLength, '•').join(' '),
+              hintStyle: theme.textTheme.titleLarge?.copyWith(
+                letterSpacing: 8,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              counterText: '',
+              filled: true,
+              fillColor: fillColor,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.sm),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.sm),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.sm),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -200,15 +327,47 @@ class _ResetIconBadge extends StatelessWidget {
     return SizedBox(
       width: 100,
       height: 100,
-      child: Stack(alignment: Alignment.center, children: [
-        Container(width: 100, height: 100, decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.15), shape: BoxShape.circle, border: Border.all(color: AppColors.white.withValues(alpha: 0.3), width: 3))),
-        Container(
-          width: 70,
-          height: 70,
-          decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: AppColors.cardGradientOrange), shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)]),
-          child: const Icon(Icons.lock_reset, size: 32, color: AppColors.white),
-        ),
-      ]),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 3,
+              ),
+            ),
+          ),
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: AppColors.cardGradientOrange,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.lock_reset,
+              size: 32,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -35,14 +35,22 @@ class _LobbyPageState extends State<LobbyPage> {
   @override
   void initState() {
     super.initState();
-    widget.lobbyCubit.joinLobby(widget.lobbyId, null);
-    _resolveCurrentUser();
+    _resolveCurrentUserAndJoin();
   }
 
-  Future<void> _resolveCurrentUser() async {
-    final id = await getIt<CurrentUserResolver>().resolveUserId();
+  Future<void> _resolveCurrentUserAndJoin() async {
+    final resolver = getIt<CurrentUserResolver>();
+    final userId = await resolver.resolveUserId();
+
     if (!mounted) return;
-    setState(() => _currentUserId = id);
+
+    if (userId != null) {
+      setState(() => _currentUserId = userId);
+    }
+
+    // Sử dụng `initLobbyState` để kiểm tra user đã là member chưa
+    // và xử lý phù hợp (join nếu cần, hoặc chỉ sync state nếu đã là host)
+    await widget.lobbyCubit.initLobbyState(widget.lobbyId, userId ?? '');
   }
 
   @override

@@ -7,9 +7,14 @@ import '../../cubit/friend_list_cubit.dart';
 import '../../cubit/friend_list_state.dart';
 import '../../widgets/friend_request_card.dart';
 import '../../widgets/shared/common_widgets.dart';
-import '../../widgets/shared/time_ago.dart';
+import '../friend_profile_page.dart';
 
-/// Tab "Lời mời" — gồm 2 phần: received (inbox) + sent (outbox).
+/// Tab "Lời mời" — chỉ hiển thị các lời mời đã nhận (inbox).
+///
+/// Lời mời đã gửi (outbox) bị loại bỏ có chủ đích.
+///
+/// Redesign UX: mỗi card hiển thị avatar + tên + lời nhắn + bạn chung.
+/// Actions "Từ chối" / "Chấp nhận" là 2 nút lớn chiếm full width, dễ tap trên mobile.
 class FriendRequestsTab extends StatelessWidget {
   const FriendRequestsTab({super.key});
 
@@ -28,53 +33,51 @@ class FriendRequestsTab extends StatelessWidget {
         }
         if (state is FriendListLoaded) {
           final received = state.receivedRequests;
-          final sent = state.sentRequests;
-          if (received.isEmpty && sent.isEmpty) {
-            return const EmptyState(
-              icon: Icons.mark_email_read_outlined,
-              title: 'Không có lời mời nào',
-              subtitle: 'Các lời mời kết bạn sẽ hiển thị ở đây.',
+          // Per-tab loading: chỉ show spinner khi received slice đang fetch
+          // và chưa có data trước đó.
+          if (state.receivedRequestsLoading && received.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (received.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () => context
+                  .read<FriendListCubit>()
+                  .refreshReceivedRequests(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                children: [
+                  const SizedBox(height: AppSpacing.xxxl),
+                  const EmptyState(
+                    icon: Icons.mark_email_read_outlined,
+                    title: 'Không có lời mời nào',
+                    subtitle:
+                        'Các lời mời kết bạn từ người khác sẽ hiển thị ở đây.',
+                  ),
+                ],
+              ),
             );
           }
           return RefreshIndicator(
             onRefresh: () =>
-                context.read<FriendListCubit>().refreshFriends(),
-            child: ListView(
+                context.read<FriendListCubit>().refreshReceivedRequests(),
+            child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
               padding: const EdgeInsets.all(AppSpacing.md),
-              children: [
-                if (received.isNotEmpty) ...[
-                  SectionTitle(
-                    title: 'Lời mời đã nhận',
-                    count: received.length,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  for (var i = 0; i < received.length; i++) ...[
-                    if (i > 0) const SizedBox(height: AppSpacing.sm),
-                    FriendRequestCard(
-                      request: received[i],
-                      onAccept: () =>
-                          _acceptRequest(context, received[i].requestId),
-                      onDecline: () =>
-                          _declineRequest(context, received[i].requestId),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                if (sent.isNotEmpty) ...[
-                  SectionTitle(
-                    title: 'Đã gửi',
-                    count: sent.length,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  for (var i = 0; i < sent.length; i++) ...[
-                    if (i > 0) const SizedBox(height: AppSpacing.sm),
-                    SentRequestTile(request: sent[i]),
-                  ],
-                ],
-              ],
+              itemCount: received.length,
+              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+              itemBuilder: (context, index) {
+                final request = received[index];
+                return FriendRequestCard(
+                  request: request,
+                  onTap: () => _openRequesterProfile(context, request),
+                  onAccept: () => _acceptRequest(context, request.requestId),
+                  onDecline: () => _declineRequest(context, request.requestId),
+                );
+              },
             ),
           );
         }
@@ -96,42 +99,14 @@ class FriendRequestsTab extends StatelessWidget {
       const SnackBar(content: Text('Đã từ chối lời mời')),
     );
   }
-}
 
-/// Tile hiển thị 1 request trong phần "Đã gửi" — read-only, không có
-/// action button, chỉ hiển thị tên + time + badge "Đang chờ".
-class SentRequestTile extends StatelessWidget {
-  const SentRequestTile({super.key, required this.request});
-
-  final FriendRequestEntity request;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return OutlinedCard(
-      child: ListTile(
-        leading: UserAvatar(
-          username: request.requesterName,
-          avatarUrl: request.requesterAvatar,
-        ),
-        title: Text(request.requesterName),
-        subtitle: Text(
-          'Đã gửi ${formatTimeAgo(request.createdAt)} • Đang chờ',
-          style: theme.textTheme.bodySmall,
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'Đang chờ',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
+  void _openRequesterProfile(
+    BuildContext context,
+    FriendRequestEntity request,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FriendProfilePage(userId: request.requesterId),
       ),
     );
   }

@@ -137,6 +137,13 @@ class ApiEndpoints {
   static String friendNoteDelete(String noteId) =>
       '/api/v1/friends/notes/$noteId';
 
+  /// GET /api/v1/friends/{userId}/profile - Xem chi tiết public profile của 1
+  /// player: thông tin cơ bản, gamer stats, số bạn chung, quan hệ hiện tại
+  /// và các permission flags (canSendFriendRequest, canReport).
+  /// Docs: `.agents/docs/lobby_docs/friend.md` + swagger `PlayerProfileDto`.
+  static String friendPlayerProfile(String userId) =>
+      '/api/v1/friends/$userId/profile';
+
   // ─── Lobbies────────────────────────────────────────────
   // Theo spec tại `.agents/docs/apis_docs/lobby.md` (v1, lowercase).
   static const String lobbiesSearch = '/api/v1/lobbies/search';

@@ -13,6 +13,10 @@ abstract class FriendRemoteDatasource {
   Future<Either<Failure, List<FriendEntity>>> getFriendsWithActivity();
   Future<Either<Failure, List<FriendEntity>>> getFriendList(String otherUserId);
 
+  /// GET /api/v1/friends/{userId}/profile - Chi tiết public profile của 1
+  /// player (bao gồm cả quan hệ hiện tại + permission flags).
+  Future<Either<Failure, FriendProfileEntity>> getPlayerProfile(String userId);
+
   // ─── Friend Requests ───────────────────────────────────────────────────────
   Future<Either<Failure, List<FriendRequestEntity>>> getReceivedRequests();
   Future<Either<Failure, List<FriendRequestEntity>>> getSentRequests();

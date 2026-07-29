@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'friend_entity.dart';
+
 /// Trạng thái của một lời mời kết bạn.
 ///
 /// Backend trả (theo `.agents/docs/lobby_docs/friend.md`):
@@ -17,6 +19,15 @@ enum FriendRequestStatus {
 }
 
 /// Lời mời kết bạn — dùng cho cả inbox (received) và outbox (sent).
+///
+/// Field chính (theo `FriendshipResponseDto` trong
+/// `.agents/docs/lobby_docs/friend.md`):
+/// - `requester*` — người gửi (inbox → user khác; outbox → chính mình).
+/// - Thống kê người gửi: `karmaPoints`, `gamerTier`, `mutualFriendsCount`
+///   để UI render rõ thông tin player bên cạnh username.
+/// - `message` — lời nhắn kèm theo (≤ 200 ký tự, optional).
+/// - `isRead` — đã đánh dấu đọc inbox (true nếu backend trả
+///   `addresseeReadAt`).
 class FriendRequestEntity extends Equatable {
   const FriendRequestEntity({
     required this.requestId,
@@ -29,6 +40,8 @@ class FriendRequestEntity extends Equatable {
     this.message,
     this.isRead = false,
     this.mutualFriendsCount,
+    this.karmaPoints,
+    this.gamerTier,
   });
 
   final String requestId;
@@ -41,6 +54,8 @@ class FriendRequestEntity extends Equatable {
   final DateTime expiresAt;
   final bool isRead;
   final int? mutualFriendsCount;
+  final int? karmaPoints;
+  final GamerTier? gamerTier;
 
   @override
   List<Object?> get props => [
@@ -54,5 +69,7 @@ class FriendRequestEntity extends Equatable {
         expiresAt,
         isRead,
         mutualFriendsCount,
+        karmaPoints,
+        gamerTier,
       ];
 }

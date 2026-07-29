@@ -33,6 +33,7 @@ import '../../features/friend_management/data/datasources/remote/real_friend_rem
 import '../../features/friend_management/data/friend_repository_impl.dart';
 import '../../features/friend_management/domain/repositories/friend_repository.dart';
 import '../../features/friend_management/presentation/cubit/friend_list_cubit.dart';
+import '../../features/friend_management/presentation/cubit/friend_profile_cubit.dart';
 import '../../features/match/data/datasources/base/match_result_remote_datasource.dart';
 import '../../features/match/data/datasources/remote/real_match_result_remote_datasource.dart';
 import '../../features/match/data/match_result_repository_impl.dart';
@@ -204,6 +205,10 @@ void setupDependencies() {
 
   sl.registerFactory<FriendListCubit>(
     () => FriendListCubit(repository: sl<FriendRepository>()),
+  );
+
+  sl.registerFactory<FriendProfileCubit>(
+    () => FriendProfileCubit(repository: sl<FriendRepository>()),
   );
 
   // ─── Feature: Match (Elo consensus) ─────────────────────────────────

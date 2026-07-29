@@ -180,6 +180,46 @@ class LobbyCubit extends Cubit<LobbyState> {
     return _repository.getLobbyById(lobbyId);
   }
 
+  /// Initialize lobby state: kiểm tra user đã là member chưa trước khi join.
+  /// - Nếu đã là member (hoặc host) → chỉ sync state, không gọi joinLobby API
+  /// - Nếu chưa là member → gọi joinLobby API bình thường
+  ///
+  /// Dùng trong LobbyPage.initState để tránh lỗi 409 khi host vào lobby của mình.
+  Future<void> initLobbyState(String lobbyId, String currentUserId) async {
+    emit(const LobbyLoading());
+
+    final lobbyResult = await _repository.getLobbyById(lobbyId);
+
+    if (isClosed) return;
+
+    await lobbyResult.fold(
+      (failure) async {
+        if (!isClosed) emit(LobbyFailure(message: failure.message));
+      },
+      (lobby) async {
+        if (lobby == null) {
+          if (!isClosed) emit(const LobbyFailure(message: 'Không tìm thấy phòng'));
+          return;
+        }
+
+        // Kiểm tra user đã là member (bao gồm host) chưa
+        final isAlreadyMember = lobby.players.any((p) => p.id == currentUserId);
+
+        if (isAlreadyMember) {
+          // User đã là member (hoặc host) → chỉ cần sync state, không cần join API
+          _startCountdown(lobby.timeoutAt);
+          _watchLobbyRealtime(lobby.id);
+          _watchLobbyEvents(lobby.id);
+          _persistLobby(lobby);
+          if (!isClosed) emit(LobbyCreated(lobby: lobby));
+        } else {
+          // User chưa phải member → gọi joinLobby API
+          await joinLobby(lobbyId, null);
+        }
+      },
+    );
+  }
+
   // ─── Leave Lobby ──────────────────────────────────────────────────────
 
   Future<void> leaveLobby(String lobbyId) async {

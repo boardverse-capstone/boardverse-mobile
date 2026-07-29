@@ -39,10 +39,19 @@ abstract class ApiGuardMixin {
   }
 
   /// Unwrap response body — backend trả envelope
-  /// `{ statusCode, message, data, ... }`; với single-object endpoint,
-  /// parser.fromJson nhận thẳng body đã unwrap.
-  Map<String, dynamic> unwrapEnvelope(Map<String, dynamic>? data) =>
-      data ?? {};
+  /// `{ statusCode, message, data, timestamp, path }`; với single-object
+  /// endpoint, parser.fromJson nhận thẳng inner object ở `data` để đọc
+  /// các field nghiệp vụ (vd `username`, `avatarUrl`).
+  ///
+  /// Nếu response không có field `data` (vd backend trả flat body hoặc
+  /// error envelope không có data), fallback về nguyên body để tránh
+  /// mất thông tin diagnostic.
+  Map<String, dynamic> unwrapEnvelope(Map<String, dynamic>? data) {
+    final body = data ?? const <String, dynamic>{};
+    final inner = body['data'];
+    if (inner is Map<String, dynamic>) return inner;
+    return body;
+  }
 
   /// Parse list endpoint: lấy `data[]` rồi map qua model. Model có method
   /// `toEntity()` trả về entity. Kết quả là `List<Entity>`.

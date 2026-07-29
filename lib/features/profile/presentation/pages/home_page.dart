@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,37 +5,32 @@ import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 
-import 'package:image_picker/image_picker.dart';
-
-import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/navigation/pages/leaderboard_page.dart';
-import 'package:boardverse_mobile/core/services/cloudinary/cloudinary_service.dart';
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
+import 'package:boardverse_mobile/features/profile/domain/entities/karma_history_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse_mobile/features/profile/presentation/controllers/avatar_upload_controller.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
-import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/avatar_header.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/edit_profile_sheet.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/error_state.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/loading_skeleton.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/location_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/personal_info_card.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_header_card.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_stats_row.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/stat_card.dart';
 import 'package:boardverse_mobile/features/settings/presentation/pages/system_settings_page.dart';
 
 /// Trang chính của feature profile.
 ///
-/// Logic bloc (controllers, initState, dispose, callbacks) giữ nguyên 100% so với
-/// phiên bản trước. Phần UI đã được tách ra các widget riêng trong `./widgets/`
-/// để dễ đọc, dễ test, và đồng bộ với design system.
+/// Orchestration layer — chỉ quản lý state và truyền callbacks xuống
+/// sub-shells. UI dashboard đã tách hoàn toàn ra widgets.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -46,6 +39,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static const double _horizontalPadding = AppSpacing.lg;
+
+  // ─── Form controllers ────────────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
   final _bioController = TextEditingController();
   final _firstNameController = TextEditingController();
@@ -53,10 +49,16 @@ class _HomePageState extends State<HomePage> {
   final _dobController = TextEditingController();
   final _phoneController = TextEditingController();
 
-  /// Chỉ load location 1 lần sau khi profile đã loaded. Tránh gọi lại
-  /// `getLocation()` mỗi lần `ProfileLoaded` được emit (vd khi refresh
-  /// hoặc sau khi update avatar/profile).
+  final AvatarUploadController _avatarUpload = AvatarUploadController();
+
+  // ─── Cached supplementary data ─────────────────────────────────────────
+  /// Chỉ load location 1 lần sau khi profile đã loaded.
   bool _locationLoaded = false;
+
+  /// Cache gần nhất để supplementary states không rơi về loading skeleton.
+  ProfileEntity? _lastProfile;
+  PlayerLocationEntity? _lastLocation;
+  KarmaHistoryEntity? _lastKarma;
 
   @override
   void initState() {
@@ -77,26 +79,128 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(
-      autoDismiss: true,
-      snackbarDuration: const Duration(seconds: 3),
-      position: DelightSnackbarPosition.top,
-      builder: (context) => ToastCard(
-        leading: Icon(
-          isError ? Icons.error_outline : Icons.check,
-          color: isError ? AppColors.error : AppColors.success,
-          size: 24,
-        ),
-        title: Text(
-          message,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ).show(context);
+  // ─── State handlers ────────────────────────────────────────────────────
+
+  void _onStateChanged(BuildContext context, ProfileState state) {
+    switch (state) {
+      case ProfileLoaded():
+        _lastProfile = state.profile;
+        if (state.location != null) _lastLocation = state.location;
+        if (state.karma != null) _lastKarma = state.karma;
+        if (!_locationLoaded && state.profile.hasProfile) {
+          _locationLoaded = true;
+          final cubit = context.read<ProfileCubit>();
+          Future.microtask(() {
+            if (!mounted) return;
+            cubit.getLocation();
+          });
+        }
+        if (state.supplementaryError != null) {
+          _showToast(state.supplementaryError!, isError: true);
+        }
+
+      case ProfileLocationLoaded():
+        _lastLocation = state.location;
+
+      case ProfileLocationDeleted():
+        _lastLocation = null;
+
+      case ProfileKarmaLoaded():
+        _lastKarma = state.karma;
+
+      case ProfileFailure():
+        _showToast(state.message, isError: true);
+
+      case ProfileDeleted():
+        _showToast('Hồ sơ đã được vô hiệu hóa.');
+        _logout();
+
+      default:
+        break;
+    }
   }
 
-  void _onLogout() {
+  // ─── State → UI builder ────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<ProfileCubit, ProfileState>(
+      listener: _onStateChanged,
+      builder: _build,
+    );
+  }
+
+  Widget _build(BuildContext context, ProfileState state) {
+    return switch (state) {
+      ProfileLoading() => const _LoadingShell(),
+      ProfileFailure() => Scaffold(
+          appBar: AppBar(title: const Text('BoardVerse')),
+          body: ProfileErrorState(
+            message: state.message,
+            onRetry: () => context.read<ProfileCubit>().getProfile(),
+          ),
+        ),
+      ProfileLoaded() when !state.profile.hasProfile => _buildSetupShell(),
+      ProfileLoaded() => _buildDashboardShell(
+          profile: state.profile,
+          location: state.location ?? _lastLocation,
+          karma: state.karma ?? _lastKarma,
+        ),
+      ProfileNotFound() => _buildSetupShell(),
+      // Supplementary-only states: re-render dashboard với cache.
+      ProfileLocationLoaded() ||
+      ProfileLocationDeleted() ||
+      ProfileKarmaLoaded() ||
+      ProfileInitial()
+          when _lastProfile != null =>
+        _buildDashboardShell(
+          profile: _lastProfile!,
+          location: _lastLocation,
+          karma: _lastKarma,
+        ),
+      _ => const _LoadingShell(),
+    };
+  }
+
+  // ─── Shell factories (DRY — tránh trùng lặp constructor params) ────────
+
+  Widget _buildSetupShell() => _SetupShell(
+        formKey: _formKey,
+        bioController: _bioController,
+        firstNameController: _firstNameController,
+        lastNameController: _lastNameController,
+        dobController: _dobController,
+        phoneController: _phoneController,
+        onPickDate: _selectDate,
+        onSubmit: _onCreateProfile,
+      );
+
+  Widget _buildDashboardShell({
+    required ProfileEntity profile,
+    PlayerLocationEntity? location,
+    KarmaHistoryEntity? karma,
+  }) =>
+      _DashboardShell(
+        profile: profile,
+        location: location,
+        karma: karma,
+        horizontalPadding: _horizontalPadding,
+        onAvatarTap: _changeAvatar,
+        onEditPressed: () => _showEditProfileSheet(profile),
+        onUpdateGpsPressed: _updateLocationGps,
+        onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
+        onOpenLeaderboard: _openLeaderboard,
+        onOpenFriends: _openFriendsPage,
+        onOpenHistory: () => _showToast('Lịch sử đấu sắp ra mắt'),
+        onOpenSettings: _openSystemSettings,
+        onLogout: _logout,
+      );
+
+  // ─── Shell components ────────────────────────────────────────────────────
+
+  // ─── User actions ───────────────────────────────────────────────────────
+
+  void _logout() {
     context.read<AuthCubit>().logout();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -104,29 +208,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ─── Form actions ──────────────────────────────────────────────────────
+  Future<void> _changeAvatar() async {
+    if (!_avatarUpload.isCloudinaryConfigured) {
+      _showToast('Cloudinary chưa được cấu hình.', isError: true);
+      return;
+    }
+
+    try {
+      final result = await _avatarUpload.runWithFeedback(context);
+      if (!mounted || result == null) return;
+      context.read<ProfileCubit>().updateAvatar(result.url);
+    } on AvatarUploadException catch (e) {
+      if (!mounted) return;
+      _showToast(e.message, isError: true);
+    }
+  }
 
   void _onCreateProfile() {
     if (!_formKey.currentState!.validate()) return;
-
     context.read<ProfileCubit>().createProfile(
-      bio: _bioController.text.trim(),
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      dateOfBirth: _dobController.text.trim(),
-      phoneNumber: _phoneController.text.trim(),
-    );
+          bio: _bioController.text.trim(),
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          dateOfBirth: _dobController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
+        );
   }
 
   void _onUpdateProfile() {
     if (!_formKey.currentState!.validate()) return;
-
     context.read<ProfileCubit>().updateProfile(
-      bio: _bioController.text.trim(),
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      dateOfBirth: _dobController.text.trim(),
-    );
+          bio: _bioController.text.trim(),
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          dateOfBirth: _dobController.text.trim(),
+        );
   }
 
   void _prefillForm(ProfileEntity profile) {
@@ -137,10 +253,8 @@ class _HomePageState extends State<HomePage> {
     _phoneController.text = profile.phoneNumber ?? '';
   }
 
-  // ─── Date picker ───────────────────────────────────────────────────────
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(2000),
       firstDate: DateTime(1900),
@@ -154,9 +268,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ─── Bottom sheets / navigation helpers ────────────────────────────────
-
-  void _showEditProfileSheet(BuildContext context, ProfileEntity profile) {
+  void _showEditProfileSheet(ProfileEntity profile) {
     _prefillForm(profile);
     showModalBottomSheet<void>(
       context: context,
@@ -168,7 +280,7 @@ class _HomePageState extends State<HomePage> {
         firstNameController: _firstNameController,
         lastNameController: _lastNameController,
         dobController: _dobController,
-        onPickDate: () => _selectDate(bottomSheetContext),
+        onPickDate: () => _selectDate(),
         onClose: () => Navigator.of(bottomSheetContext).pop(),
         onSubmit: () {
           Navigator.of(bottomSheetContext).pop();
@@ -178,371 +290,247 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _updateLocationGps(BuildContext context) {
+  void _updateLocationGps() {
     context.read<ProfileCubit>().updateLocation(
-      latitude: 10.7769,
-      longitude: 106.7008,
-      source: 0, // Gps
-    );
+          latitude: 10.7769,
+          longitude: 106.7008,
+          source: 0,
+        );
     _showToast('Đang cập nhật vị trí...');
   }
 
-  void _openLeaderboard() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const LeaderboardPage()));
-  }
+  // ─── Navigation ─────────────────────────────────────────────────────────
 
-  void _openFriendsPage() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const FriendsPage()));
-  }
-
-  void _showComingSoonToast(String feature) {
-    _showToast('$feature sắp ra mắt');
-  }
-
-  void _openSystemSettings() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const SystemSettingsPage()));
-  }
-
-  // ─── Avatar upload ────────────────────────────────────────────────────
-
-  /// Pick an image from the gallery → upload to Cloudinary → save URL on
-  /// the backend via [ProfileCubit.updateAvatar].
-  ///
-  /// Disabled (with a hint toast) when Cloudinary is not configured.
-  Future<void> _changeAvatar() async {
-    if (!sl.isRegistered<CloudinaryService>()) {
-      _showToast('Cloudinary chưa được cấu hình.', isError: true);
-      return;
-    }
-
-    final picker = ImagePicker();
-    final XFile? picked;
-    try {
-      picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1024,
+  void _openLeaderboard() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const LeaderboardPage()),
       );
-    } catch (e) {
-      _showToast('Không thể mở thư viện ảnh: $e', isError: true);
-      return;
-    }
 
-    if (picked == null) return;
-    if (!mounted) return;
+  void _openFriendsPage() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const FriendsPage()),
+      );
 
-    // Show loading dialog
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        content: Row(
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 16),
-            Text(
-              'Đang tải ảnh lên...',
-              style: Theme.of(dialogContext).textTheme.bodyMedium,
-            ),
-          ],
+  void _openSystemSettings() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SystemSettingsPage()),
+      );
+
+  // ─── Toast helper ───────────────────────────────────────────────────────
+
+  void _showToast(String message, {bool isError = false}) {
+    DelightToastBar(
+      autoDismiss: true,
+      snackbarDuration: const Duration(seconds: 3),
+      position: DelightSnackbarPosition.top,
+      builder: (context) => ToastCard(
+        leading: Icon(
+          isError ? Icons.error_outline : Icons.check,
+          color: isError
+              ? Theme.of(context).colorScheme.error
+              : Colors.green,
+          size: 24,
+        ),
+        title: Text(
+          message,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
-    );
-
-    try {
-      final url = await sl<CloudinaryService>().uploadImage(
-        file: File(picked.path),
-        folder: 'boardverse/avatars',
-      );
-      if (!mounted) return;
-
-      // Dismiss loading dialog
-      if (context.mounted) Navigator.of(context).pop();
-
-      context.read<ProfileCubit>().updateAvatar(url);
-    } on Object catch (e) {
-      if (!mounted) return;
-
-      // Dismiss loading dialog on error
-      if (context.mounted) Navigator.of(context).pop();
-
-      _showToast('Upload thất bại: $e', isError: true);
-    }
+    ).show(context);
   }
+}
 
-  // ─── Build ─────────────────────────────────────────────────────────────
+// ─── Sub-shells ──────────────────────────────────────────────────────────
+
+/// Loading state: AppBar + shimmer skeleton.
+class _LoadingShell extends StatelessWidget {
+  const _LoadingShell();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('BoardVerse'),
-        actions: [
-          IconButton(
-            icon: const Icon(AppIcons.logout),
-            tooltip: 'Đăng xuất',
-            onPressed: _onLogout,
-          ),
-        ],
+        centerTitle: true,
+        forceMaterialTransparency: true,
       ),
-      body: BlocConsumer<ProfileCubit, ProfileState>(
-        listener: _onStateChanged,
-        builder: _onStateBuilt,
-      ),
-    );
-  }
-
-  void _onStateChanged(BuildContext context, ProfileState state) {
-    if (state is ProfileLoaded) {
-      // Chỉ load location 1 lần — tránh gọi lại sau mỗi lần refresh
-      // profile (vd pull-to-refresh, update avatar) làm `/me/location`
-      // bị spam không cần thiết.
-      if (!_locationLoaded && state.profile.hasProfile) {
-        _locationLoaded = true;
-        final cubit = context.read<ProfileCubit>();
-        Future.microtask(() {
-          if (!mounted) return;
-          cubit.getLocation();
-        });
-      }
-      if (state.supplementaryError != null) {
-        _showToast(state.supplementaryError!, isError: true);
-      }
-    } else if (state is ProfileFailure) {
-      _showToast(state.message, isError: true);
-    } else if (state is ProfileDeleted) {
-      _showToast('Hồ sơ đã được vô hiệu hóa.');
-      _onLogout();
-    }
-  }
-
-  Widget _onStateBuilt(BuildContext context, ProfileState state) {
-    if (state is ProfileLoading) {
-      return const ProfileLoadingSkeleton();
-    }
-
-    if (state is ProfileLoaded) {
-      final profile = state.profile;
-      if (!profile.hasProfile) {
-        return SetupProfileForm(
-          formKey: _formKey,
-          bioController: _bioController,
-          firstNameController: _firstNameController,
-          lastNameController: _lastNameController,
-          dobController: _dobController,
-          phoneController: _phoneController,
-          onPickDate: () => _selectDate(context),
-          onSubmit: _onCreateProfile,
-        );
-      }
-      return _buildDashboard(context, profile, location: state.location);
-    }
-
-    if (state is ProfileFailure) {
-      return ProfileErrorState(
-        message: state.message,
-        onRetry: () => context.read<ProfileCubit>().getProfile(),
-      );
-    }
-
-    return const ProfileLoadingSkeleton();
-  }
-
-  // ─── Dashboard composition ─────────────────────────────────────────────
-
-  Widget _buildDashboard(
-    BuildContext context,
-    ProfileEntity profile, {
-    PlayerLocationEntity? location,
-  }) {
-    _prefillForm(profile);
-
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          AvatarHeader(profile: profile, onAvatarTap: _changeAvatar),
-          const SizedBox(height: AppSpacing.lg),
-
-          // ── ELO & Level stats ────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ProfileStatCard(
-                    label: 'ELO RATING',
-                    value: '${profile.globalElo}',
-                    icon: Icons.emoji_events_outlined,
-                    iconColor: AppColors.accent,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: ProfileStatCard(
-                    label: 'LEVEL / CẤP ĐỘ',
-                    value: '${profile.level}',
-                    icon: AppIcons.level,
-                    iconColor: AppColors.info,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // ── Personal info ────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: PersonalInfoCard(
-              profile: profile,
-              onEditPressed: () => _showEditProfileSheet(context, profile),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // ── Location ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: LocationCard(
-              location: location,
-              onUpdateGpsPressed: () => _updateLocationGps(context),
-              onDeletePressed: () =>
-                  context.read<ProfileCubit>().deleteLocation(),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // ── Quick actions ────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: _buildQuickActionsCard(context),
-          ),
-
-          const SizedBox(height: AppSpacing.xxl),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsCard(BuildContext context) {
-    final theme = Theme.of(context);
-    final dividerColor = theme.colorScheme.outlineVariant.withValues(
-      alpha: 0.6,
-    );
-
-    return _ActionsCard(
-      dividerColor: dividerColor,
-      children: [
-        _ActionTile(
-          icon: Icons.people_outline,
-          title: 'Bạn bè',
-          subtitle: 'Xem danh sách bạn bè, lời mời & tìm kiếm',
-          onTap: _openFriendsPage,
-        ),
-        _ActionTile(
-          icon: Icons.leaderboard_outlined,
-          title: 'Xếp hạng',
-          subtitle: 'Xem bảng xếp hạng ELO & Karma của cộng đồng',
-          onTap: _openLeaderboard,
-        ),
-        _ActionTile(
-          icon: Icons.history,
-          title: 'Lịch sử đấu',
-          subtitle: 'Theo dõi các trận đã chơi gần đây',
-          onTap: () => _showComingSoonToast('Lịch sử đấu'),
-        ),
-        _ActionTile(
-          icon: AppIcons.settings,
-          title: 'Cài đặt hệ thống',
-          subtitle: 'Chuyển đổi chế độ Sáng / Tối / Theo hệ thống',
-          onTap: _openSystemSettings,
-        ),
-      ],
+      body: const ProfileLoadingSkeleton(),
     );
   }
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────
-
-class _ActionsCard extends StatelessWidget {
-  const _ActionsCard({required this.children, required this.dividerColor});
-  final List<Widget> children;
-  final Color dividerColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Use Material (instead of Container + BoxDecoration) so the ListTile
-    // ink splashes can paint on top of the card's surface color. shape +
-    // borderRadius give the same rounded border look.
-    return Material(
-      color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: dividerColor),
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (int i = 0; i < children.length; i++) ...[
-            if (i > 0) _ActionDivider(color: dividerColor),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionDivider extends StatelessWidget {
-  const _ActionDivider({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      thickness: 1,
-      indent: AppSpacing.md,
-      endIndent: AppSpacing.md,
-      color: color,
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
+/// Setup state: AppBar + form nhập profile lần đầu.
+class _SetupShell extends StatelessWidget {
+  const _SetupShell({
+    required this.formKey,
+    required this.bioController,
+    required this.firstNameController,
+    required this.lastNameController,
+    required this.dobController,
+    required this.phoneController,
+    required this.onPickDate,
+    required this.onSubmit,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+  final GlobalKey<FormState> formKey;
+  final TextEditingController bioController;
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final TextEditingController dobController;
+  final TextEditingController phoneController;
+  final VoidCallback onPickDate;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Hoàn tất hồ sơ'),
+        centerTitle: true,
+        forceMaterialTransparency: true,
+      ),
+      body: SetupProfileForm(
+        formKey: formKey,
+        bioController: bioController,
+        firstNameController: firstNameController,
+        lastNameController: lastNameController,
+        dobController: dobController,
+        phoneController: phoneController,
+        onPickDate: onPickDate,
+        onSubmit: onSubmit,
+      ),
+    );
+  }
+}
+
+/// Dashboard state: header + stats + info + location + quick actions + logout.
+class _DashboardShell extends StatelessWidget {
+  const _DashboardShell({
+    required this.profile,
+    required this.location,
+    required this.karma,
+    required this.horizontalPadding,
+    required this.onAvatarTap,
+    required this.onEditPressed,
+    required this.onUpdateGpsPressed,
+    required this.onDeleteLocation,
+    required this.onOpenLeaderboard,
+    required this.onOpenFriends,
+    required this.onOpenHistory,
+    required this.onOpenSettings,
+    required this.onLogout,
+  });
+
+  final ProfileEntity profile;
+  final PlayerLocationEntity? location;
+  final KarmaHistoryEntity? karma;
+  final double horizontalPadding;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onEditPressed;
+  final VoidCallback onUpdateGpsPressed;
+  final VoidCallback onDeleteLocation;
+  final VoidCallback onOpenLeaderboard;
+  final VoidCallback onOpenFriends;
+  final VoidCallback onOpenHistory;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListTile(
-      onTap: onTap,
-      selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-      leading: Icon(icon, color: theme.colorScheme.primary),
-      title: Text(title, style: theme.textTheme.bodyLarge),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
-      trailing: const Icon(AppIcons.forward, size: AppIcons.sm),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('BoardVerse'),
+        centerTitle: true,
+        forceMaterialTransparency: true,
+      ),
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ProfileHeaderCard(
+                profile: profile,
+                onAvatarTap: onAvatarTap,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ProfileStatsRow(profile: profile),
+              const SizedBox(height: AppSpacing.md),
+              PersonalInfoCard(
+                profile: profile,
+                onEditPressed: onEditPressed,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              LocationCard(
+                location: location,
+                onUpdateGpsPressed: onUpdateGpsPressed,
+                onDeletePressed: onDeleteLocation,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              QuickActionsCard(
+                actions: [
+                  QuickActionItem(
+                    icon: AppIcons.users,
+                    title: 'Bạn bè',
+                    onTap: onOpenFriends,
+                  ),
+                  QuickActionItem(
+                    icon: AppIcons.tournament,
+                    title: 'Xếp hạng',
+                    onTap: onOpenLeaderboard,
+                  ),
+                  QuickActionItem(
+                    icon: AppIcons.bookingHistory,
+                    title: 'Lịch sử đấu',
+                    onTap: onOpenHistory,
+                  ),
+                  QuickActionItem(
+                    icon: AppIcons.settings,
+                    title: 'Cài đặt',
+                    onTap: onOpenSettings,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              OutlinedButton.icon(
+                onPressed: () => _confirmLogout(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                  side: BorderSide(color: theme.colorScheme.error),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+                icon: const Icon(AppIcons.logout),
+                label: const Text('Đăng xuất'),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc muốn đăng xuất?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              onLogout();
+            },
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
     );
   }
 }

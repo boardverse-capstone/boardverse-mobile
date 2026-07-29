@@ -148,6 +148,12 @@ Chặn user.
 - Không thể chặn Admin.
 - Không thể chặn chính mình.
 
+**DB note (BR-FRIEND-BLOCK-VIEW):**
+- Khi chặn, hệ thống set `Friendship.Status = Blocked` và `BlockerUserId = <người đã chặn>`.
+- `BlockerUserId` cho phép tra ngược ai là người chặn, vì 1 cặp (Requester, Addressee) chỉ có 1 record và cả 2 user đều có thể chặn nhau (block lẫn nhau tạo ra nhiều record khác nhau, không phải 2 chiều trên cùng record).
+- Cột `BlockerUserId` nullable (uuid), có partial index filter `"BlockerUserId" IS NOT NULL` để thống kê.
+- Khi bỏ chặn (`DELETE /api/v1/friends/block/{userId}`), quan hệ chuyển `Removed` và `BlockerUserId` được giữ nguyên (audit trail).
+
 ---
 
 ## DELETE /api/v1/friends/block/{targetUserId}
@@ -328,6 +334,7 @@ Lấy danh sách report của current user.
 | BR-FRIEND-03 | Status chuyển: `Pending` → `Accepted`/`Removed`/`Blocked`; `Accepted` → `Removed`; `Blocked` → `Removed`. |
 | BR-FRIEND-04 | FriendRequest có Message tối đa 200 ký tự. |
 | BR-FRIEND-05 | Tự động expire sau FriendRequestExpiryDays (mặc định 30 ngày). |
+| BR-FRIEND-BLOCK-VIEW | Lưu `BlockerUserId` để biết ai là người chặn khi `Status = Blocked` (cả 2 user có thể block nhau trong cùng 1 record). Null khi `Status != Blocked`. |
 | BR-FRIEND-BUG-01 | Accept phải check cả 2 user còn active. |
 | BR-FRIEND-BUG-02 | Accept phải check block ngược chiều. |
 | BR-FRIEND-RATE-01 | Tối đa 20 lời mời/giờ/requestor. |

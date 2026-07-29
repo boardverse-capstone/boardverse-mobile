@@ -28,6 +28,11 @@ class FriendRepositoryImpl implements FriendRepository {
     return _datasource.getFriendList(otherUserId);
   }
 
+  @override
+  Future<Either<Failure, FriendProfileEntity>> getPlayerProfile(String userId) {
+    return _datasource.getPlayerProfile(userId);
+  }
+
   // ─── Friend Requests ───────────────────────────────────────────────────────
 
   @override

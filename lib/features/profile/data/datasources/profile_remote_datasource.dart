@@ -12,17 +12,33 @@ import 'package:boardverse_mobile/features/profile/data/models/update_location_r
 import 'package:boardverse_mobile/features/profile/data/models/update_profile_request_model.dart';
 import 'package:boardverse_mobile/features/profile/data/models/update_progress_request_model.dart';
 
+/// Thin abstraction over the REST API for the User Profile feature.
+///
+/// All methods translate transport errors (`DioException`) and parse errors
+/// (`FormatException`, `TypeError`) into a single [ServerException] so the
+/// repository layer can map to a [Failure] without re-implementing the
+/// translation logic.
 abstract class ProfileRemoteDatasource {
-  Future<ApiResponse<ProfileModel> > getProfile();
-  Future<ApiResponse<ProfileModel> > createProfile(CreateProfileRequestModel request);
-  Future<ApiResponse<ProfileModel> > updateProfile(UpdateProfileRequestModel request);
-  Future<ApiResponse<ProfileModel> > updateAvatar(UpdateAvatarRequestModel request);
-  Future<ApiResponse<ProfileModel> > deleteProfile();
-  Future<ApiResponse<PlayerLocationModel> > getLocation();
-  Future<ApiResponse<PlayerLocationModel> > updateLocation(UpdateLocationRequestModel request);
-  Future<ApiResponse<void> > deleteLocation();
-  Future<ApiResponse<KarmaHistoryModel> > getKarmaHistory();
-  Future<ApiResponse<ProfileModel> > updateProgress(UpdateProgressRequestModel request);
+  Future<ApiResponse<ProfileModel>> getProfile();
+  Future<ApiResponse<ProfileModel>> createProfile(
+    CreateProfileRequestModel request,
+  );
+  Future<ApiResponse<ProfileModel>> updateProfile(
+    UpdateProfileRequestModel request,
+  );
+  Future<ApiResponse<ProfileModel>> updateAvatar(
+    UpdateAvatarRequestModel request,
+  );
+  Future<ApiResponse<ProfileModel>> deleteProfile();
+  Future<ApiResponse<PlayerLocationModel>> getLocation();
+  Future<ApiResponse<PlayerLocationModel>> updateLocation(
+    UpdateLocationRequestModel request,
+  );
+  Future<ApiResponse<void>> deleteLocation();
+  Future<ApiResponse<KarmaHistoryModel>> getKarmaHistory();
+  Future<ApiResponse<ProfileModel>> updateProgress(
+    UpdateProgressRequestModel request,
+  );
 }
 
 class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
@@ -30,323 +46,149 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
 
   ProfileRemoteDatasourceImpl({required this.dio});
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
+  @override
+  Future<ApiResponse<ProfileModel>> getProfile() => _request<ProfileModel>(
+        RequestType.get,
+        ApiEndpoints.userProfile,
+        fromJson: ProfileModel.fromJson,
+      );
 
-  ApiResponse<T> _parseResponse<T>(
-    Response<dynamic> response,
-    T Function(Map<String, dynamic>) fromJson,
-  ) {
-    final apiResponse = ApiResponse<T>.fromJson(
-      response.data as Map<String, dynamic>,
-      fromJsonT: (data) => fromJson(data as Map<String, dynamic>),
-    );
-    return apiResponse;
-  }
+  @override
+  Future<ApiResponse<ProfileModel>> createProfile(
+    CreateProfileRequestModel request,
+  ) =>
+      _request<ProfileModel>(
+        RequestType.post,
+        ApiEndpoints.userProfile,
+        body: request.toJson(),
+        fromJson: ProfileModel.fromJson,
+      );
 
-  ServerException _createParseException(dynamic e, DioException? dioException) {
-    if (e is DioException) {
-      return ServerException(
+  @override
+  Future<ApiResponse<ProfileModel>> updateProfile(
+    UpdateProfileRequestModel request,
+  ) =>
+      _request<ProfileModel>(
+        RequestType.put,
+        ApiEndpoints.userProfile,
+        body: request.toJson(),
+        fromJson: ProfileModel.fromJson,
+      );
+
+  @override
+  Future<ApiResponse<ProfileModel>> updateAvatar(
+    UpdateAvatarRequestModel request,
+  ) =>
+      _request<ProfileModel>(
+        RequestType.put,
+        ApiEndpoints.userProfileAvatar,
+        body: request.toJson(),
+        fromJson: ProfileModel.fromJson,
+      );
+
+  @override
+  Future<ApiResponse<ProfileModel>> deleteProfile() =>
+      _request<ProfileModel>(RequestType.delete, ApiEndpoints.userProfile);
+
+  @override
+  Future<ApiResponse<PlayerLocationModel>> getLocation() => _request(
+        RequestType.get,
+        ApiEndpoints.userProfileLocation,
+        fromJson: PlayerLocationModel.fromJson,
+      );
+
+  @override
+  Future<ApiResponse<PlayerLocationModel>> updateLocation(
+    UpdateLocationRequestModel request,
+  ) =>
+      _request<PlayerLocationModel>(
+        RequestType.put,
+        ApiEndpoints.userProfileLocation,
+        body: request.toJson(),
+        fromJson: PlayerLocationModel.fromJson,
+      );
+
+  @override
+  Future<ApiResponse<void>> deleteLocation() =>
+      _request<void>(RequestType.delete, ApiEndpoints.userProfileLocation);
+
+  @override
+  Future<ApiResponse<KarmaHistoryModel>> getKarmaHistory() => _request(
+        RequestType.get,
+        ApiEndpoints.userProfileKarmaHistory,
+        fromJson: KarmaHistoryModel.fromJson,
+      );
+
+  @override
+  Future<ApiResponse<ProfileModel>> updateProgress(
+    UpdateProgressRequestModel request,
+  ) =>
+      _request<ProfileModel>(
+        RequestType.post,
+        ApiEndpoints.userProfileProgress,
+        body: request.toJson(),
+        fromJson: ProfileModel.fromJson,
+      );
+
+  /// Single central pipeline that:
+  /// 1. Executes the HTTP call against [path].
+  /// 2. Parses the response into an [ApiResponse] using [fromJson].
+  /// 3. Throws a [ServerException] for any non-2xx, network, or parse error.
+  ///
+  /// [fromJson] is required when the response body carries typed data. It
+  /// can be omitted for endpoints (e.g. `delete*`) that return `null` data.
+  Future<ApiResponse<T>> _request<T>(
+    RequestType method,
+    String path, {
+    Object? body,
+    T Function(Map<String, dynamic>)? fromJson,
+  }) async {
+    try {
+      final response = await _dispatch(method, path, body);
+      final data = response.data as Map<String, dynamic>;
+      final apiResponse = ApiResponse<T>.fromJson(
+        data,
+        fromJsonT: fromJson == null
+            ? null
+            : (dynamic json) => fromJson(json as Map<String, dynamic>),
+      );
+      if (!apiResponse.isSuccess) {
+        throw ServerException(
+          message: apiResponse.message,
+          statusCode: apiResponse.statusCode,
+        );
+      }
+      return apiResponse;
+    } on ServerException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ServerException(
         message: e.message ?? 'Lỗi kết nối. Vui lòng thử lại.',
         statusCode: e.response?.statusCode,
       );
-    }
-    if (e is FormatException || e is TypeError) {
-      return ServerException(
-        message: 'Dữ liệu phản hồi không hợp lệ. Chi tiết: ${e.toString()}',
-        statusCode: dioException?.response?.statusCode,
-      );
-    }
-    return ServerException(
-      message: 'Đã xảy ra lỗi không mong muốn. Chi tiết: $e',
-      statusCode: dioException?.response?.statusCode,
-    );
-  }
-
-  // ─── Existing methods ─────────────────────────────────────────────────────
-
-  @override
-  Future<ApiResponse<ProfileModel> > getProfile() async {
-    try {
-      final response = await dio.get(ApiEndpoints.userProfile);
-      final apiResponse = _parseResponse<ProfileModel>(
-        response,
-        ProfileModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi lấy thông tin cá nhân.',
-        statusCode: e.response?.statusCode,
-      );
     } catch (e) {
-      throw _createParseException(e, null);
+      throw ServerException(
+        message: 'Dữ liệu phản hồi không hợp lệ. Chi tiết: $e',
+      );
     }
   }
 
-  @override
-  Future<ApiResponse<ProfileModel> > createProfile(
-    CreateProfileRequestModel request,
-  ) async {
-    try {
-      final response = await dio.post(
-        ApiEndpoints.userProfile,
-        data: request.toJson(),
-      );
-      final apiResponse = _parseResponse<ProfileModel>(
-        response,
-        ProfileModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi tạo hồ sơ.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  // ─── New methods ─────────────────────────────────────────────────────────
-
-  @override
-  Future<ApiResponse<ProfileModel> > updateProfile(
-    UpdateProfileRequestModel request,
-  ) async {
-    try {
-      final response = await dio.put(
-        ApiEndpoints.userProfile,
-        data: request.toJson(),
-      );
-      final apiResponse = _parseResponse<ProfileModel>(
-        response,
-        ProfileModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi cập nhật hồ sơ.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<ProfileModel> > updateAvatar(
-    UpdateAvatarRequestModel request,
-  ) async {
-    try {
-      final response = await dio.put(
-        ApiEndpoints.userProfileAvatar,
-        data: request.toJson(),
-      );
-      final apiResponse = _parseResponse<ProfileModel>(
-        response,
-        ProfileModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi cập nhật ảnh đại diện.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<ProfileModel> > deleteProfile() async {
-    try {
-      final response = await dio.delete(ApiEndpoints.userProfile);
-      final apiResponse = ApiResponse<ProfileModel>.fromJson(
-        response.data as Map<String, dynamic>,
-        fromJsonT: (data) => data == null
-            ? null as dynamic
-            : ProfileModel.fromJson(data as Map<String, dynamic>),
-      );
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi xoá hồ sơ.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<PlayerLocationModel> > getLocation() async {
-    try {
-      final response = await dio.get(ApiEndpoints.userProfileLocation);
-      final apiResponse = _parseResponse<PlayerLocationModel>(
-        response,
-        PlayerLocationModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi lấy vị trí.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<PlayerLocationModel> > updateLocation(
-    UpdateLocationRequestModel request,
-  ) async {
-    try {
-      final response = await dio.put(
-        ApiEndpoints.userProfileLocation,
-        data: request.toJson(),
-      );
-      final apiResponse = _parseResponse<PlayerLocationModel>(
-        response,
-        PlayerLocationModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi cập nhật vị trí.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<void> > deleteLocation() async {
-    try {
-      final response = await dio.delete(ApiEndpoints.userProfileLocation);
-      final apiResponse = ApiResponse<void>.fromJson(
-        response.data as Map<String, dynamic>,
-      );
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi xoá vị trí.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<KarmaHistoryModel> > getKarmaHistory() async {
-    try {
-      final response = await dio.get(ApiEndpoints.userProfileKarmaHistory);
-      final apiResponse = _parseResponse<KarmaHistoryModel>(
-        response,
-        KarmaHistoryModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi lấy lịch sử karma.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
-    }
-  }
-
-  @override
-  Future<ApiResponse<ProfileModel> > updateProgress(
-    UpdateProgressRequestModel request,
-  ) async {
-    try {
-      final response = await dio.post(
-        ApiEndpoints.userProfileProgress,
-        data: request.toJson(),
-      );
-      final apiResponse = _parseResponse<ProfileModel>(
-        response,
-        ProfileModel.fromJson,
-      );
-      if (!apiResponse.isSuccess) {
-        throw ServerException(
-          message: apiResponse.message,
-          statusCode: apiResponse.statusCode,
-        );
-      }
-      return apiResponse;
-    } on ServerException {
-      rethrow;
-    } on DioException catch (e) {
-      throw ServerException(
-        message: e.message ?? 'Lỗi kết nối khi cập nhật tiến trình.',
-        statusCode: e.response?.statusCode,
-      );
-    } catch (e) {
-      throw _createParseException(e, null);
+  Future<Response<dynamic>> _dispatch(
+    RequestType method,
+    String path,
+    Object? body,
+  ) {
+    switch (method) {
+      case RequestType.get:
+        return dio.get(path);
+      case RequestType.post:
+        return dio.post(path, data: body);
+      case RequestType.put:
+        return dio.put(path, data: body);
+      case RequestType.delete:
+        return dio.delete(path);
     }
   }
 }
+
+enum RequestType { get, post, put, delete }

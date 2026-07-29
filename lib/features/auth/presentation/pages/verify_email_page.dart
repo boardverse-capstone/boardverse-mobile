@@ -84,7 +84,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
         },
         builder: (context, state) {
           return AuthGradientBackground(
-            colors: AuthGradientBackground.verifyGradient,
+            colors: AuthGradientBackground.verifyGradient(context),
             stops: AuthGradientBackground.standardStops,
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,

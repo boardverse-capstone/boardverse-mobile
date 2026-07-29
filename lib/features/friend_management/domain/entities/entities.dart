@@ -8,6 +8,7 @@ library;
 export 'friend_entity.dart';
 export 'friend_note_entity.dart';
 export 'friend_privacy_entity.dart';
+export 'friend_profile_entity.dart';
 export 'friend_report_entity.dart';
 export 'friend_request_entity.dart';
 export 'friend_search_entity.dart';

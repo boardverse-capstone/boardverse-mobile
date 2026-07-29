@@ -20,11 +20,19 @@ class FriendListLoading extends FriendListState {
 class FriendListLoaded extends FriendListState {
   final List<FriendEntity> friends;
   final List<FriendRequestEntity> receivedRequests;
+  /// Kept for backward-compat (các state `FriendRequestSent` chuyển từ
+  /// `FriendListLoaded` cần slot). UI đã bỏ phần "Đã gửi" — không đọc nữa.
   final List<FriendRequestEntity> sentRequests;
   final int unreadRequestCount;
   final List<FriendNoteEntity> notes;
   final FriendPrivacyEntity? privacySettings;
   final List<FriendReportEntity> myReports;
+
+  /// Per-tab loading flag — UI dùng để hiển thị spinner ở đúng tab đang load
+  /// (vd chuyển sang "Lời mời" chỉ tab đó skeleton, không ảnh hưởng
+  /// "Bạn bè").
+  final bool friendsLoading;
+  final bool receivedRequestsLoading;
 
   const FriendListLoaded({
     required this.friends,
@@ -34,6 +42,8 @@ class FriendListLoaded extends FriendListState {
     this.notes = const [],
     this.privacySettings,
     this.myReports = const [],
+    this.friendsLoading = false,
+    this.receivedRequestsLoading = false,
   });
 
   @override
@@ -45,6 +55,8 @@ class FriendListLoaded extends FriendListState {
         notes,
         privacySettings,
         myReports,
+        friendsLoading,
+        receivedRequestsLoading,
       ];
 
   FriendListLoaded copyWith({
@@ -55,6 +67,8 @@ class FriendListLoaded extends FriendListState {
     List<FriendNoteEntity>? notes,
     FriendPrivacyEntity? privacySettings,
     List<FriendReportEntity>? myReports,
+    bool? friendsLoading,
+    bool? receivedRequestsLoading,
   }) {
     return FriendListLoaded(
       friends: friends ?? this.friends,
@@ -64,6 +78,9 @@ class FriendListLoaded extends FriendListState {
       notes: notes ?? this.notes,
       privacySettings: privacySettings ?? this.privacySettings,
       myReports: myReports ?? this.myReports,
+      friendsLoading: friendsLoading ?? this.friendsLoading,
+      receivedRequestsLoading:
+          receivedRequestsLoading ?? this.receivedRequestsLoading,
     );
   }
 }

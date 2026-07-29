@@ -16,7 +16,6 @@ import 'package:boardverse_mobile/features/profile/domain/entities/player_locati
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/repositories/profile_repository.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
-import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
 
 class MockProfileRepository implements ProfileRepository {
   final Map<String, dynamic> stubs = {};
@@ -131,37 +130,37 @@ class MockProfileRepository implements ProfileRepository {
 }
 
 ProfileEntity get _mockProfile => const ProfileEntity(
-      userId: 'user_001',
-      username: 'TestPlayer',
-      avatarUrl: 'https://example.com/avatar.png',
-      bio: 'Test bio',
-      karmaPoints: 100,
-      gamerTier: 'Bronze',
-      globalElo: 1200,
-      level: 5,
-      hasProfile: true,
-      firstName: 'Test',
-      lastName: 'User',
-      dateOfBirth: '2000-01-01',
-      phoneNumber: '0909123456',
-    );
+  userId: 'user_001',
+  username: 'TestPlayer',
+  avatarUrl: 'https://example.com/avatar.png',
+  bio: 'Test bio',
+  karmaPoints: 100,
+  gamerTier: 'Bronze',
+  globalElo: 1200,
+  level: 5,
+  hasProfile: true,
+  firstName: 'Test',
+  lastName: 'User',
+  dateOfBirth: '2000-01-01',
+  phoneNumber: '0909123456',
+);
 
 PlayerLocationEntity get _mockLocation => const PlayerLocationEntity(
-      latitude: 10.7769,
-      longitude: 106.7008,
-      updatedAt: '2026-01-01T12:00:00Z',
-      source: LocationSource.gps,
-      hasLocation: true,
-    );
+  latitude: 10.7769,
+  longitude: 106.7008,
+  updatedAt: '2026-01-01T12:00:00Z',
+  source: LocationSource.gps,
+  hasLocation: true,
+);
 
 KarmaHistoryEntity get _mockKarma => const KarmaHistoryEntity(
-      userId: 'user_001',
-      username: 'TestPlayer',
-      karmaPoints: 150,
-      gamerTier: 'Silver',
-      avatarUrl: 'https://example.com/avatar.png',
-      updatedAt: '2026-01-01T12:00:00Z',
-    );
+  userId: 'user_001',
+  username: 'TestPlayer',
+  karmaPoints: 150,
+  gamerTier: 'Silver',
+  avatarUrl: 'https://example.com/avatar.png',
+  updatedAt: '2026-01-01T12:00:00Z',
+);
 
 void main() {
   late MockProfileRepository repository;
@@ -250,9 +249,7 @@ void main() {
     blocTest<ProfileCubit, ProfileState>(
       'emits [ProfileLoading, ProfileFailure] on error',
       build: () {
-        repository.stubCreateProfile(
-          const Left(NetworkFailure()),
-        );
+        repository.stubCreateProfile(const Left(NetworkFailure()));
         return cubit;
       },
       act: (c) => c.createProfile(
@@ -262,10 +259,7 @@ void main() {
         dateOfBirth: '2000-01-01',
         phoneNumber: '0909123456',
       ),
-      expect: () => [
-        const ProfileLoading(),
-        isA<ProfileFailure>(),
-      ],
+      expect: () => [const ProfileLoading(), isA<ProfileFailure>()],
     );
   });
 
@@ -313,10 +307,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.deleteProfile(),
-      expect: () => [
-        const ProfileLoading(),
-        const ProfileDeleted(),
-      ],
+      expect: () => [const ProfileLoading(), const ProfileDeleted()],
     );
   });
 
@@ -330,9 +321,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.getLocation(),
-      expect: () => [
-        ProfileLocationLoaded(location: _mockLocation),
-      ],
+      expect: () => [ProfileLocationLoaded(location: _mockLocation)],
     );
 
     blocTest<ProfileCubit, ProfileState>(
@@ -344,9 +333,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.getLocation(),
-      expect: () => [
-        const ProfileFailure(message: 'Không tìm thấy vị trí'),
-      ],
+      expect: () => [const ProfileFailure(message: 'Không tìm thấy vị trí')],
     );
   });
 
@@ -359,14 +346,9 @@ void main() {
         repository.stubUpdateLocation(Right(_mockLocation));
         return cubit;
       },
-      act: (c) => c.updateLocation(
-        latitude: 10.7769,
-        longitude: 106.7008,
-        source: 0,
-      ),
-      expect: () => [
-        ProfileLocationLoaded(location: _mockLocation),
-      ],
+      act: (c) =>
+          c.updateLocation(latitude: 10.7769, longitude: 106.7008, source: 0),
+      expect: () => [ProfileLocationLoaded(location: _mockLocation)],
     );
   });
 
@@ -380,9 +362,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.deleteLocation(),
-      expect: () => [
-        const ProfileLocationDeleted(),
-      ],
+      expect: () => [const ProfileLocationDeleted()],
     );
   });
 
@@ -396,9 +376,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.getKarmaHistory(),
-      expect: () => [
-        ProfileKarmaLoaded(karma: _mockKarma),
-      ],
+      expect: () => [ProfileKarmaLoaded(karma: _mockKarma)],
     );
   });
 
@@ -412,9 +390,7 @@ void main() {
         return cubit;
       },
       act: (c) => c.updateProgress(globalElo: 1250, level: 6),
-      expect: () => [
-        ProfileLoaded(profile: _mockProfile),
-      ],
+      expect: () => [ProfileLoaded(profile: _mockProfile)],
     );
   });
 }

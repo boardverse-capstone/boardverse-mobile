@@ -10,7 +10,6 @@ import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_state.dart';
 import '../../../matchmaking_discovery/presentation/pages/lobby_config_page.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
-import '../../../profile/presentation/cubit/profile_state.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
@@ -276,9 +275,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
 
     if (failureOrLobby != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failureOrLobby.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureOrLobby.message)));
       return;
     }
 
@@ -300,7 +299,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
   Future<void> _showGamePicker() async {
     final state = _matchmakingCubit.state;
-    final games = state is MatchmakingSearchResults ? state.games : <BoardGameEntity>[];
+    final games = state is MatchmakingSearchResults
+        ? state.games
+        : <BoardGameEntity>[];
 
     if (games.isEmpty) {
       _matchmakingCubit.searchGames();

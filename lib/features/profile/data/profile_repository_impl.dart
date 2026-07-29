@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 
 import 'package:boardverse_mobile/core/error/exceptions.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/core/network/api_response.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/karma_history_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
@@ -22,21 +23,11 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   ProfileRepositoryImpl({required this.remoteDatasource});
 
-  // ─── Profile ──────────────────────────────────────────────────────────────
-
   @override
-  Future<Either<Failure, ProfileEntity>> getProfile() async {
-    try {
-      final response = await remoteDatasource.getProfile();
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
+  Future<Either<Failure, ProfileEntity>> getProfile() => _guardEntity(
+        remoteDatasource.getProfile(),
+        (model) => model.toEntity(),
+      );
 
   @override
   Future<Either<Failure, ProfileEntity>> createProfile({
@@ -45,25 +36,19 @@ class ProfileRepositoryImpl implements ProfileRepository {
     String? lastName,
     String? dateOfBirth,
     String? phoneNumber,
-  }) async {
-    try {
-      final request = CreateProfileRequestModel(
-        bio: bio,
-        firstName: firstName,
-        lastName: lastName,
-        dateOfBirth: dateOfBirth,
-        phoneNumber: phoneNumber,
+  }) =>
+      _guardEntity(
+        remoteDatasource.createProfile(
+          CreateProfileRequestModel(
+            bio: bio,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth,
+            phoneNumber: phoneNumber,
+          ),
+        ),
+        (model) => model.toEntity(),
       );
-      final response = await remoteDatasource.createProfile(request);
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
 
   @override
   Future<Either<Failure, ProfileEntity>> updateProfile({
@@ -71,84 +56,103 @@ class ProfileRepositoryImpl implements ProfileRepository {
     String? firstName,
     String? lastName,
     String? dateOfBirth,
-  }) async {
-    try {
-      final request = UpdateProfileRequestModel(
-        bio: bio,
-        firstName: firstName,
-        lastName: lastName,
-        dateOfBirth: dateOfBirth,
+  }) =>
+      _guardEntity(
+        remoteDatasource.updateProfile(
+          UpdateProfileRequestModel(
+            bio: bio,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth,
+          ),
+        ),
+        (model) => model.toEntity(),
       );
-      final response = await remoteDatasource.updateProfile(request);
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
 
   @override
-  Future<Either<Failure, ProfileEntity>> updateAvatar(String avatarUrl) async {
-    try {
-      final request = UpdateAvatarRequestModel(avatarUrl: avatarUrl);
-      final response = await remoteDatasource.updateAvatar(request);
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
+  Future<Either<Failure, ProfileEntity>> updateAvatar(String avatarUrl) =>
+      _guardEntity(
+        remoteDatasource.updateAvatar(
+          UpdateAvatarRequestModel(avatarUrl: avatarUrl),
+        ),
+        (model) => model.toEntity(),
+      );
 
   @override
-  Future<Either<Failure, void>> deleteProfile() async {
-    try {
-      await remoteDatasource.deleteProfile();
-      return const Right(null);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
-
-  // ─── Location ────────────────────────────────────────────────────────────
+  Future<Either<Failure, void>> deleteProfile() => _guardVoid(
+        remoteDatasource.deleteProfile(),
+      );
 
   @override
-  Future<Either<Failure, PlayerLocationEntity>> getLocation() async {
-    try {
-      final response = await remoteDatasource.getLocation();
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
+  Future<Either<Failure, PlayerLocationEntity>> getLocation() => _guardEntity(
+        remoteDatasource.getLocation(),
+        (model) => model.toEntity(),
+      );
 
   @override
   Future<Either<Failure, PlayerLocationEntity>> updateLocation({
     required double latitude,
     required double longitude,
     required int source,
-  }) async {
-    try {
-      final request = UpdateLocationRequestModel(
-        latitude: latitude,
-        longitude: longitude,
-        source: source,
+  }) =>
+      _guardEntity(
+        remoteDatasource.updateLocation(
+          UpdateLocationRequestModel(
+            latitude: latitude,
+            longitude: longitude,
+            source: source,
+          ),
+        ),
+        (model) => model.toEntity(),
       );
-      final response = await remoteDatasource.updateLocation(request);
-      return Right(response.data!.toEntity());
+
+  @override
+  Future<Either<Failure, void>> deleteLocation() => _guardVoid(
+        remoteDatasource.deleteLocation(),
+      );
+
+  @override
+  Future<Either<Failure, KarmaHistoryEntity>> getKarmaHistory() =>
+      _guardEntity(
+        remoteDatasource.getKarmaHistory(),
+        (model) => model.toEntity(),
+      );
+
+  @override
+  Future<Either<Failure, ProfileEntity>> updateProgress({
+    required int globalElo,
+    required int level,
+  }) =>
+      _guardEntity(
+        remoteDatasource.updateProgress(
+          UpdateProgressRequestModel(
+            globalElo: globalElo,
+            level: level,
+          ),
+        ),
+        (model) => model.toEntity(),
+      );
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  /// Centralised error-guard for endpoints that return a typed model.
+  ///
+  /// Runs the [remoteCall], unwraps the typed payload via [extract], and
+  /// converts any [ServerException] / [DioException] / unexpected error into
+  /// the corresponding [Failure].
+  Future<Either<Failure, T>> _guardEntity<M, T>(
+    Future<ApiResponse<M>> remoteCall,
+    T Function(M model) extract,
+  ) async {
+    try {
+      final response = await remoteCall;
+      final model = response.data;
+      if (model == null) {
+        return const Left(
+          ServerFailure(message: 'API trả về dữ liệu rỗng.'),
+        );
+      }
+      return Right(extract(model));
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } on DioException catch (e) {
@@ -158,10 +162,12 @@ class ProfileRepositoryImpl implements ProfileRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, void>> deleteLocation() async {
+  /// Same as `_guardEntity` but discards the response body (e.g. `DELETE`).
+  Future<Either<Failure, void>> _guardVoid(
+    Future<ApiResponse<dynamic>> remoteCall,
+  ) async {
     try {
-      await remoteDatasource.deleteLocation();
+      await remoteCall;
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
@@ -171,47 +177,6 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
     }
   }
-
-  // ─── Karma ────────────────────────────────────────────────────────────────
-
-  @override
-  Future<Either<Failure, KarmaHistoryEntity>> getKarmaHistory() async {
-    try {
-      final response = await remoteDatasource.getKarmaHistory();
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
-
-  // ─── Progress ────────────────────────────────────────────────────────────
-
-  @override
-  Future<Either<Failure, ProfileEntity>> updateProgress({
-    required int globalElo,
-    required int level,
-  }) async {
-    try {
-      final request = UpdateProgressRequestModel(
-        globalElo: globalElo,
-        level: level,
-      );
-      final response = await remoteDatasource.updateProgress(request);
-      return Right(response.data!.toEntity());
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
-    } on DioException catch (e) {
-      return Left(_mapDioException(e));
-    } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
-    }
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   Failure _mapDioException(DioException e) {
     switch (e.type) {

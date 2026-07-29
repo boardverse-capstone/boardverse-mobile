@@ -10,6 +10,7 @@ import '../../../domain/entities/entities.dart';
 import '../../cubit/friend_list_cubit.dart';
 import '../../widgets/shared/common_widgets.dart';
 import '../../widgets/user_search_card.dart';
+import '../friend_profile_page.dart';
 
 /// Tab "Tìm kiếm" — search box + debounce 400ms + kết quả realtime.
 ///
@@ -132,36 +133,44 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: TextField(
-            controller: _searchController,
-            onChanged: _onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Tìm kiếm theo tên người dùng...',
-              prefixIcon: const Icon(AppIcons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(AppIcons.close),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-                borderSide: BorderSide.none,
+    return SafeArea(
+      top: false,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm theo tên người dùng...',
+                prefixIcon: const Icon(AppIcons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(AppIcons.close),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(child: _buildBody(theme)),
-      ],
+          Expanded(child: _buildBody(theme)),
+        ],
+      ),
     );
   }
 
@@ -194,12 +203,21 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
         final user = _results[index];
         return UserSearchCard(
           user: user,
+          onTap: () => _openProfile(context, user),
           onSendRequest: (user.friendshipStatus == FriendshipStatus.none ||
                   user.friendshipStatus == null)
               ? () => _sendRequest(user)
               : null,
         );
       },
+    );
+  }
+
+  void _openProfile(BuildContext context, UserSearchEntity user) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FriendProfilePage(userId: user.odId),
+      ),
     );
   }
 }

@@ -1,123 +1,116 @@
 # Profile Feature Module
 
-## Overview
-
-Module quản lý user profile bao gồm thông tin cá nhân, avatar, karma score, ELO rating, và location. Hỗ trợ tạo profile mới, cập nhật, và xóa profile.
-
-**Tổng số file**: 43 files
-
----
+Module quản lý **hồ sơ người dùng** (profile) cho app BoardVerse:
+- Thông tin cá nhân (bio, tên, ngày sinh, SĐT)
+- Avatar (upload qua Cloudinary)
+- Karma score, ELO rating, Level, Gamer Tier
+- Vị trí GPS/Manual (last known location)
+- Soft-delete profile
 
 ## 1. Architecture
 
 ```
 lib/features/profile/
-├── domain/
+├── domain/                          # Pure business rules (no Flutter / Dio)
 │   ├── entities/
-│   │   ├── profile_entity.dart           # Core user profile entity
-│   │   ├── karma_history_entity.dart     # Karma reputation history
-│   │   └── player_location_entity.dart   # GPS/manual location
+│   │   ├── profile_entity.dart      # ProfileEntity (read model domain)
+│   │   ├── karma_history_entity.dart
+│   │   └── player_location_entity.dart
 │   └── repositories/
-│       └── profile_repository.dart       # Repository interface
-├── data/
-│   ├── models/
-│   │   ├── profile_model.dart           # Freezed model
-│   │   ├── karma_history_model.dart     # Freezed model
-│   │   ├── player_location_model.dart   # Freezed model
+│       └── profile_repository.dart  # Abstract repo (interface)
+│
+├── data/                            # Talks to the backend
+│   ├── models/                      # Freezed JSON ⇄ entity models
+│   │   ├── profile_model.dart
+│   │   ├── karma_history_model.dart
+│   │   ├── player_location_model.dart
 │   │   ├── create_profile_request_model.dart
 │   │   ├── update_profile_request_model.dart
 │   │   ├── update_avatar_request_model.dart
 │   │   ├── update_location_request_model.dart
 │   │   └── update_progress_request_model.dart
 │   ├── datasources/
-│   │   └── profile_remote_datasource.dart
-│   └── profile_repository_impl.dart
-└── presentation/
+│   │   └── profile_remote_datasource.dart   # HTTP layer (single `_request` pipeline)
+│   └── profile_repository_impl.dart         # Maps Exception → Failure
+│
+└── presentation/                    # UI + state
     ├── cubit/
-    │   ├── profile_cubit.dart           # State management
-    │   └── profile_state.dart           # Sealed state classes
+    │   ├── profile_cubit.dart       # Business logic, emits ProfileState
+    │   └── profile_state.dart       # Sealed state classes
+    ├── controllers/
+    │   └── avatar_upload_controller.dart  # Pick + upload + loading UI
     ├── pages/
-    │   └── home_page.dart               # Main profile page
+    │   └── home_page.dart           # Main screen (orchestration only)
     └── widgets/
-        ├── avatar_header.dart
-        ├── stat_card.dart
-        ├── personal_info_card.dart
-        ├── location_card.dart
-        ├── setup_profile_form.dart
-        ├── edit_profile_sheet.dart
-        ├── loading_skeleton.dart
-        ├── error_state.dart
-        ├── section_card.dart
-        └── detail_row.dart
+        ├── avatar_header.dart           # Legacy (giữ cho compat — không dùng nữa)
+        ├── stat_card.dart               # ELO / Level / Karma card (accentColor)
+        ├── personal_info_card.dart      # Bio, name, DOB, phone (InfoEntry pattern)
+        ├── location_card.dart           # Saved location
+        ├── setup_profile_form.dart      # First-time profile creation form
+        ├── edit_profile_sheet.dart      # Bottom-sheet to edit bio/name
+        ├── quick_actions_card.dart      # Grid 2x2 minimal
+        ├── profile_sticky_header.dart   # SliverAppBar flexibleSpace (avatar + username)
+        ├── profile_stats_row.dart       # 3 cards ELO + Level + Karma (responsive)
+        ├── loading_skeleton.dart        # Shimmer dashboard
+        ├── error_state.dart             # Error + retry CTA
+        ├── section_card.dart            # Shared Material card
+        └── detail_row.dart              # Icon + label + value row
 ```
+
+### Nguyên tắc kiến trúc (Clean Architecture + SOLID)
+
+| Layer | Trách nhiệm | Phụ thuộc |
+|---|---|---|
+| **Domain** | Entities, abstract repo | none (pure Dart) |
+| **Data** | HTTP, JSON parse, error mapping | Domain |
+| **Presentation** | UI, state, side-effects | Domain + Data (via DI) |
 
 ---
 
 ## 2. Key Classes
 
-### ProfileCubit
+### `ProfileCubit` — state machine
 
-**Methods:**
+Toàn bộ state changes đi qua 3 pipelines:
 
-| Method | Purpose |
-|--------|---------|
-| `getProfile()` | Fetch current user profile |
-| `createProfile(...)` | Create profile first time |
-| `updateProfile(...)` | Partial update (bio, name, DOB) |
-| `updateAvatar(avatarUrl)` | Update avatar URL (Cloudinary) |
-| `deleteProfile()` | Soft-delete profile |
-| `getLocation()` | Get saved location |
-| `updateLocation(...)` | Save GPS or manual location |
-| `deleteLocation()` | Remove saved location |
-| `getKarmaHistory()` | Get karma reputation data |
-| `updateProgress(...)` | Update ELO/level after match |
+| Method | Emits | Ghi chú |
+|---|---|---|
+| `getProfile()` | `ProfileLoading → ProfileLoaded / ProfileFailure` | Khởi đầu flow |
+| `createProfile(...)` | `ProfileLoading → ProfileLoaded / ProfileFailure` | Empty strings → `null` |
+| `updateProfile(...)` | `ProfileLoading → ProfileLoaded / ProfileFailure` | Partial update |
+| `deleteProfile()` | `ProfileLoading → ProfileDeleted / ProfileFailure` | Soft-delete (logout) |
+| `updateAvatar(url)` | `ProfileLoading → ProfileLoaded / ProfileFailure` | Sau khi URL sinh ra từ Cloudinary |
+| `getLocation()` | `ProfileLocationLoaded / ProfileFailure` | Không emit Loading |
+| `updateLocation(...)` | `ProfileLocationLoaded / ProfileFailure` | Không emit Loading |
+| `deleteLocation()` | `ProfileLocationDeleted / ProfileFailure` | Không emit Loading |
+| `getKarmaHistory()` | `ProfileKarmaLoaded / ProfileFailure` | Không emit Loading |
+| `updateProgress(...)` | `ProfileLoaded / ProfileFailure` | Không emit Loading |
 
-### ProfileState (Sealed Classes)
+### `ProfileState` (sealed classes)
 
-| State | Purpose |
-|-------|---------|
+| State | Mục đích |
+|---|---|
 | `ProfileInitial` | Start state |
-| `ProfileLoading` | During any mutation operation |
-| `ProfileLoaded(ProfileEntity)` | Successful profile fetch/update |
-| `ProfileNotFound(String)` | 404 handling |
-| `ProfileFailure(String)` | Any error |
-| `ProfileDeleted` | Soft-delete success, triggers logout |
-| `ProfileLocationLoaded(PlayerLocationEntity)` | Location fetched/updated |
-| `ProfileLocationDeleted` | Location removed |
-| `ProfileKarmaLoaded(KarmaHistoryEntity)` | Karma history fetched |
+| `ProfileLoading` | Full-screen loading (chỉ trong CRUD + avatar) |
+| `ProfileLoaded` | Profile đã sẵn sàng, có thể kèm location/karma + `supplementaryError` |
+| `ProfileFailure` | Lỗi mức screen |
+| `ProfileDeleted` | Soft-delete thành công → trigger logout |
+| `ProfileLocationLoaded` | Location read/update |
+| `ProfileLocationDeleted` | Location cleared |
+| `ProfileKarmaLoaded` | Karma read |
 
-### ProfileEntity
+### `AvatarUploadController` — pure UI controller
 
+Tách riêng khỏi `HomePage` để:
+- Dễ unit-test (inject `ImagePicker` + `CloudinaryService` mock)
+- Tái sử dụng cho các tính năng upload khác (café, board game, …)
+- Che giấu sentinel `__cancelled__` của picker cancel
+
+API chính:
 ```dart
-class ProfileEntity extends Equatable {
-  final String userId;
-  final String username;
-  final String? avatar;
-  final String? bio;
-  final double karma;
-  final String tier;
-  final int globalElo;
-  final int level;
-  final bool hasProfile;  // New user flag
-  final String? firstName;
-  final String? lastName;
-  final DateTime? dateOfBirth;
-  final String? phoneNumber;
-  // ... location fields
-}
-```
-
-### PlayerLocationEntity
-
-```dart
-class PlayerLocationEntity extends Equatable {
-  final double latitude;
-  final double longitude;
-  final bool hasLocation;
-  final LocationSource source;  // gps = 0, manual = 1
-}
-
-enum LocationSource { gps, manual }
+final result = await controller.runWithFeedback(context);
+// result == null nếu user cancel picker
+// result.url là secure URL cần đẩy về ProfileCubit.updateAvatar
 ```
 
 ---
@@ -125,104 +118,161 @@ enum LocationSource { gps, manual }
 ## 3. API Endpoints
 
 | Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/api/userprofile` | Fetch current user profile |
-| POST | `/api/userprofile` | Create profile first time |
+|---|---|---|
+| GET | `/api/userprofile` | Lấy hồ sơ của tôi |
+| POST | `/api/userprofile` | Tạo hồ sơ lần đầu |
 | PUT | `/api/userprofile` | Partial update (bio, name, DOB) |
-| PUT | `/api/userprofile/me/avatar` | Update avatar URL (Cloudinary) |
-| DELETE | `/api/userprofile` | Soft-delete profile |
-| GET | `/api/userprofile/me/location` | Get saved location |
-| PUT | `/api/userprofile/me/location` | Save GPS or manual location |
-| DELETE | `/api/userprofile/me/location` | Remove saved location |
-| GET | `/api/userprofile/me/karma-history` | Get karma reputation data |
-| POST | `/api/userprofile/progress` | Update ELO/level after match |
+| PUT | `/api/userprofile/me/avatar` | Cập nhật avatar URL |
+| DELETE | `/api/userprofile` | Soft-delete |
+| GET | `/api/userprofile/me/location` | Last known location |
+| PUT | `/api/userprofile/me/location` | Update location |
+| DELETE | `/api/userprofile/me/location` | Clear location |
+| GET | `/api/userprofile/me/karma-history` | Karma snapshot |
+| POST | `/api/userprofile/progress` | Update ELO + level (after match) |
+
+**Header bắt buộc:** `Authorization: Bearer <token>` (do `AuthInterceptor` thêm).
 
 ---
 
 ## 4. Business Logic Flow
 
-### Initial Load
+### Initial load (sau login)
 
 ```
 HomePage.initState()
   → ProfileCubit.getProfile()
-    → ProfileRepository.getProfile()
-      → ProfileRemoteDatasource.getProfile() [GET /api/userprofile]
-        → ApiResponse<ProfileModel>
+    → ProfileRepositoryImpl.getProfile()
+      → ProfileRemoteDatasourceImpl._request(GET /userprofile)
+        → ApiResponse<ProfileModel> → ProfileEntity
   → ProfileLoaded(profile)
-    → IF hasProfile=false: Show SetupProfileForm
-    → IF hasProfile=true:
-      → ProfileCubit.getLocation() [parallel]
-      → Build dashboard UI
+    ├─ hasProfile == false → SetupProfileForm
+    └─ hasProfile == true
+       → ProfileCubit.getLocation()  // once
+       → Build _Dashboard_
 ```
 
-### Avatar Upload
+### Avatar upload (3 bước rõ ràng)
 
 ```
-changeAvatar()
-  → ImagePicker.pickImage(gallery)
-  → CloudinaryService.uploadImage()
+AvatarHeader.onAvatarTap
+  → AvatarUploadController.runWithFeedback(context)
+       1. Show loading dialog
+       2. ImagePicker.pickImage (gallery)
+       3. CloudinaryService.uploadImage
+       4. Hide loading dialog
   → ProfileCubit.updateAvatar(url)
-    → [PUT /api/userprofile/me/avatar]
+    → PUT /api/userprofile/me/avatar
   → ProfileLoaded → re-render AvatarHeader
 ```
 
-### Location Update
+### Location update (BẬT GPS)
 
 ```
-updateLocationGps() → hardcoded lat=10.7769, lng=106.7008, source=0 (GPS)
-  → ProfileCubit.updateLocation(lat, lng, source)
-    → [PUT /api/userprofile/me/location]
-  → ProfileLocationLoaded → LocationCard re-renders
+LocationCard "Bật GPS" → ProfileCubit.updateLocation(lat, lng, source=0)
+  → PUT /api/userprofile/me/location
+  → ProfileLocationLoaded → ProfileCubit state cập nhật
+```
+
+> **Lưu ý:** Ở thời điểm hiện tại `_updateLocationGps` hard-code toạ độ HCM (10.7769, 106.7008). Khi tích hợp `geolocator`, chỉ cần thay 2 dòng này.
+
+### Soft-delete (xoá hồ sơ)
+
+```
+ProfileCubit.deleteProfile()
+  → DELETE /api/userprofile
+  → ProfileDeleted
+HomePage listener → toast "đã vô hiệu hoá" → AuthCubit.logout() → LoginPage
 ```
 
 ---
 
-## 5. Key Design Decisions
+## 5. Refactor Notes (Lần refactor 2026-07-28)
 
-1. **`hasProfile` flag**: API trả về `hasProfile=false` cho user mới. UI branches: show `SetupProfileForm` vs dashboard.
+### Vấn đề ban đầu
+- `profile_remote_datasource.dart` 352 dòng — 9 method gần như identical, chỉ khác HTTP verb/path/body.
+- `profile_repository_impl.dart` 242 dòng — 10 method copy-paste cùng pattern `try { … } on ServerException / DioException / catch {}`.
+- `home_page.dart` 549 dòng — pha trộn form control, avatar upload cloud, dashboard composition, navigation.
+- `profile_cubit.dart` 226 dòng — 3 nhóm supplementary ops (location/karma/delete) lặp lại `result.fold` không cần thiết.
 
-2. **Location null-safety**: `PlayerLocationModel` dùng nullable lat/lng vì backend trả về `null` khi `hasLocation=false`.
+### Cách xử lý
 
-3. **Location source encoding**: `int` (0=GPS, 1=Manual) gửi lên API. Entity convert sang `LocationSource` enum.
+| File | Thay đổi | Giảm LOC |
+|---|---|---|
+| `profile_remote_datasource.dart` | Đưa toàn bộ HTTP + parse vào `_request<T>(method, path, body, fromJson)`. Tách `RequestType` enum. | 352 → 194 |
+| `profile_repository_impl.dart` | Đưa toàn bộ error mapping vào `_guardEntity<M, T>` + `_guardVoid`. | 242 → 206 |
+| `profile_cubit.dart` | Gộp 9 supplementary operations thành `_runProfileOperation` (loading + loaded/failure). Tổ chức lại theo 4 nhóm nghiệp vụ. | 226 → 163 |
+| `home_page.dart` | Trích `AvatarUploadController`, `QuickActionsCard`, `_StatsRow`. Decorator `_runWithFeedback` cho upload. | 549 → 397 |
 
-4. **Avatar upload flow**: Pick image → upload to Cloudinary → get URL → PUT to backend.
+### Kiểm tra
+- `flutter analyze lib/features/profile` → **0 issue**
+- `flutter test test/features/profile/` → **26/26 pass**
+- Nghiệp vụ 100% giữ nguyên (state emitted không đổi).
 
-5. **Soft delete**: `deleteProfile()` gọi DELETE endpoint, trả về void. `ProfileDeleted` state trigger logout flow.
+### Lợi ích
+- **DRY**: 4 method HTTP + 10 method repository chia sẻ pipeline duy nhất.
+- **SRP**: Cubit chỉ làm "điều phối state", controller làm "thao tác upload", page chỉ "compose UI".
+- **Testable**: `AvatarUploadController` có thể inject mock `ImagePicker` + `CloudinaryService`.
+- **Extensible**: Thêm endpoint mới chỉ cần 1 dòng `_request(...)` thay vì 25 dòng template.
 
-6. **Progress update**: `updateProgress(globalElo, level)` được gọi bởi match result flow.
+---
+
+## 6. Refactor Notes (Lần refactor 2026-07-29 — UI Mobile Redesign)
+
+### Vấn đề
+- Giao diện Profile dùng nhiều `Color(0x…)` và `BoxShadow` hardcode, bypass hoàn toàn Material 3 design system (`AppColors`, `AppElevation`, `AppRadius`).
+- `home_page.dart` dùng `SingleChildScrollView` + Column, không có sticky header — header avatar chiếm chỗ cố định, không tận dụng được không gian cuộn.
+- `personal_info_card.dart` lặp pattern `if (field != null) Padding(DetailRow)` 4 lần (DRY violation).
+- `quick_actions_card.dart` hiển thị list dọc — tốn nhiều chiều dọc, không thân thiện mobile.
+
+### Cách xử lý
+
+| File | Thay đổi |
+|---|---|
+| `home_page.dart` | Chuyển sang `CustomScrollView` + `SliverAppBar` (pinned) + `SliverToBoxAdapter` cho từng section. Tách thành `_DashboardShell` / `_SetupShell` / `_LoadingShell` để mỗi shell độc lập, dễ test. |
+| `profile_sticky_header.dart` (mới) | `flexibleSpace` cho `SliverAppBar`. Avatar + username tự scale khi collapse, không gradient, dùng `Theme.colorScheme` + `AppRadius`. |
+| `profile_stats_row.dart` (mới) | 3 thẻ ELO/Level/Karma. Dùng `LayoutBuilder`: width ≥ 600 → 3 cột, width < 600 → stacked (mobile). |
+| `stat_card.dart` | Đổi `iconColor` → `accentColor`, dùng `AppElevation.shadowXs`, `AppRadius.radiusLgAll`, `Theme.colorScheme.outlineVariant`. Bỏ toàn bộ hex color. |
+| `quick_actions_card.dart` | Đổi list dọc → `GridView.count(crossAxisCount: 2)`. Mỗi tile là icon + title + forward arrow, dùng `Material` + `InkWell` để có ripple. |
+| `personal_info_card.dart` | Pattern `if (x != null) Padding(DetailRow)` → list `InfoEntry` + `where(value.isNotEmpty)`. Filter tập trung, dễ thêm field mới. |
+| `location_card.dart` | Tách thành `_LoadedLocation` + `_EmptyLocation` để SRP. Dùng theme tokens. |
+| `loading_skeleton.dart` | Bám sát layout mới: 3 stat cards stacked + 2 info cards + quick actions grid 2x2. |
+| `section_card.dart` / `detail_row.dart` | Dùng `AppRadius.radiusLgAll`, `AppSpacing.xxs` thay cho hardcode. |
+| `error_state.dart` | Dùng `Theme.colorScheme.errorContainer` thay cho hardcode. |
+| `profile_sticky_header.dart` | dùng `Theme.colorScheme.surfaceContainerHighest` thay cho `surfaceVariant` (deprecated). |
+
+### Kiểm tra
+- `flutter analyze lib/features/profile` → **0 issue**
+- `flutter test test/features/profile/` → **26/26 pass**
+- Không thay đổi `ProfileCubit` / `ProfileState` / `ProfileEntity` / API contract.
+
+### Lợi ích
+- **DRY**: `InfoEntry` pattern ở `PersonalInfoCard`, theme tokens ở mọi nơi → bỏ hàng chục `Color(0x…)` và `BoxShadow` rải rác.
+- **SRP**: `HomePage` chỉ điều phối state, giao layout cho `_DashboardShell`; mỗi widget con 1 trách nhiệm (sticky header, stats, info, location, quick actions, skeleton, error).
+- **OCP**: thêm stat mới chỉ cần thêm 1 `_xxxCard()` trong `ProfileStatsRow`; thêm field info chỉ cần thêm 1 `InfoEntry`.
+- **Responsive**: `ProfileStatsRow` dùng `LayoutBuilder` thay vì hardcode layout — 1 widget chạy mobile + tablet.
+- **Testable**: `ProfileStickyHeader` có thể test riêng, layout collapse có thể test bằng cách truyền `maxExtent` constraint.
 
 ---
 
 ## 6. File Interactions
 
 ```
-home_page.dart
-├── uses: ProfileCubit (actions, state listening)
-├── uses: AvatarHeader (profile header)
-├── uses: ProfileStatCard x2 (ELO + Level)
-├── uses: PersonalInfoCard (info + edit button)
-├── uses: LocationCard (BlocBuilder for location state)
-├── uses: SetupProfileForm (when hasProfile=false)
-├── uses: EditProfileSheet (bottom sheet modal)
-├── uses: CloudinaryService (avatar upload)
-└── uses: AuthCubit (logout)
+HomePage
+├── ProfileCubit ─────────── state management
+├── AvatarUploadController ─ pick + upload
+├── CloudinaryService ────── upload binary
+├── AuthCubit ────────────── logout
+└── widgets/* ────────────── UI composition
 
-profile_cubit.dart
-├── depends on: ProfileRepository
-└── emits: ProfileState subclasses
-
-profile_repository.dart (interface)
-└── implemented by: ProfileRepositoryImpl
-
-profile_repository_impl.dart
-├── depends on: ProfileRemoteDatasource
-└── converts: ServerException → ServerFailure
-            DioException → NetworkFailure/ServerFailure
-
-profile_remote_datasource.dart
-├── depends on: Dio
-└── uses: ApiResponse wrapper + All Request/Response models
+ProfileCubit
+└── ProfileRepository (interface)
+    └── ProfileRepositoryImpl
+        ├── ProfileRemoteDatasource (interface)
+        │   └── ProfileRemoteDatasourceImpl
+        │       └── Dio (with AuthInterceptor)
+        └── Error mapping
+            ServerException → ServerFailure
+            DioException → NetworkFailure | ServerFailure
 ```
 
 ---
@@ -230,25 +280,24 @@ profile_remote_datasource.dart
 ## 7. Dependencies
 
 | Package | Purpose |
-|---------|---------|
-| `flutter_bloc` | State management |
-| `dartz` | Functional error handling |
-| `equatable` | Value equality |
+|---|---|
+| `flutter_bloc` | `Cubit` + `BlocConsumer` |
+| `dartz` | `Either<Failure, T>` |
+| `equatable` | State equality |
 | `dio` | HTTP client |
-| `flutter_secure_storage` | Token storage |
-| `image_picker` | Avatar selection |
-| `cloudinary_flutter` | Image upload (optional) |
-| `freezed` | Immutable models |
-| `json_annotation` | JSON serialization |
+| `image_picker` | Avatar picker |
+| `freezed` / `json_annotation` | Immutable models |
+| `delightful_toast` | Toast feedback |
 
 ---
 
 ## 8. Quick Reference
 
-| Task | File/Method |
-|------|-------------|
+| Task | File |
+|---|---|
 | Add new profile field | `profile_entity.dart` + `profile_model.dart` |
-| Add new API endpoint | `profile_remote_datasource.dart` + `profile_repository.dart` |
-| Add new state | `profile_state.dart` |
-| Change UI layout | `home_page.dart` |
-| Modify avatar upload | `avatar_header.dart` |
+| Add new API endpoint | `profile_remote_datasource.dart` (1 line) + `profile_repository.dart` (1 line) + `profile_repository_impl.dart` (1 line) |
+| Add new state | `profile_state.dart` + `profile_cubit.dart` |
+| Change UI layout | `home_page.dart` (orchestration) + `widgets/*` (components) |
+| Modify upload flow | `avatar_upload_controller.dart` |
+| Tweak section card | `section_card.dart` (shared) |

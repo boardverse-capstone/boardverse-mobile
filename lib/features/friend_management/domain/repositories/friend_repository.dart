@@ -16,6 +16,10 @@ abstract class FriendRepository {
   /// GET /api/v1/friends/{otherUserId}/list - Friend list của user khác
   Future<Either<Failure, List<FriendEntity>>> getFriendList(String otherUserId);
 
+  /// GET /api/v1/friends/{userId}/profile - Chi tiết public profile (kèm
+  /// quan hệ hiện tại, mutual friends, permission flags).
+  Future<Either<Failure, FriendProfileEntity>> getPlayerProfile(String userId);
+
   // ─── Friend Requests ───────────────────────────────────────────────────────
   /// GET /api/v1/friends/requests/received - Inbox: lời mời đã nhận
   Future<Either<Failure, List<FriendRequestEntity>>> getReceivedRequests();

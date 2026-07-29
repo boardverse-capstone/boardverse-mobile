@@ -10,8 +10,7 @@ import 'package:boardverse_mobile/features/profile/presentation/widgets/section_
 /// - Nếu [location.hasLocation] = true: hiển thị toạ độ + nguồn + nút "Xoá".
 /// - Nếu false: hiển thị empty state với nút "Bật GPS".
 ///
-/// Các callback là bắt buộc để widget giữ thuần UI, mọi side-effect
-/// được xử lý ở [HomePage].
+/// Callback là bắt buộc để widget giữ thuần UI, side-effect xử lý ở [HomePage].
 class LocationCard extends StatelessWidget {
   const LocationCard({
     super.key,
@@ -40,46 +39,66 @@ class LocationCard extends StatelessWidget {
           ),
           Divider(
             height: AppSpacing.lg,
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+            color: theme.colorScheme.outlineVariant,
           ),
-          if (hasLocation) ...[
-            DetailRow(
-              icon: AppIcons.directions,
-              label: 'Toạ độ',
-              value:
-                  '${location!.latitude!.toStringAsFixed(4)}, ${location!.longitude!.toStringAsFixed(4)}',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            DetailRow(
-              icon: AppIcons.globe,
-              label: 'Nguồn',
-              value: location!.source == LocationSource.gps
-                  ? 'GPS thiết bị'
-                  : 'Chọn trên bản đồ',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onDeletePressed,
-                    icon: const Icon(AppIcons.delete, size: AppIcons.sm),
-                    label: const Text('Xóa vị trí'),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
+          if (hasLocation)
+            _LoadedLocation(
+              location: location!,
+              onDeletePressed: onDeletePressed,
+            )
+          else
             _EmptyLocation(onUpdatePressed: onUpdateGpsPressed),
-          ],
         ],
       ),
     );
   }
 }
 
+class _LoadedLocation extends StatelessWidget {
+  const _LoadedLocation({
+    required this.location,
+    required this.onDeletePressed,
+  });
+
+  final PlayerLocationEntity location;
+  final VoidCallback onDeletePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DetailRow(
+          icon: AppIcons.directions,
+          label: 'Toạ độ',
+          value:
+              '${location.latitude!.toStringAsFixed(4)}, ${location.longitude!.toStringAsFixed(4)}',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        DetailRow(
+          icon: AppIcons.globe,
+          label: 'Nguồn',
+          value: location.source == LocationSource.gps
+              ? 'GPS thiết bị'
+              : 'Chọn trên bản đồ',
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onDeletePressed,
+            icon: const Icon(AppIcons.delete, size: AppIcons.sm),
+            label: const Text('Xóa vị trí'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EmptyLocation extends StatelessWidget {
   const _EmptyLocation({required this.onUpdatePressed});
+
   final VoidCallback onUpdatePressed;
 
   @override
@@ -94,7 +113,7 @@ class _EmptyLocation extends StatelessWidget {
             Icon(
               Icons.location_off_outlined,
               size: AppIcons.lg,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(

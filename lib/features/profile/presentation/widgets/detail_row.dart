@@ -21,14 +21,14 @@ class DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final iconColor_ = iconColor ?? theme.colorScheme.onSurfaceVariant;
+    final tint = iconColor ?? theme.colorScheme.onSurfaceVariant;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: AppIcons.md, color: iconColor_),
+          padding: const EdgeInsets.only(top: AppSpacing.xxs),
+          child: Icon(icon, size: AppIcons.md, color: tint),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(

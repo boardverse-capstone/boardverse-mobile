@@ -34,11 +34,12 @@ lib/features/friend_management/
 │   │   ├── friend_entity.dart                     # FriendEntity + ActivityStatus + GamerTier
 │   │   ├── friend_request_entity.dart             # FriendRequestEntity + FriendRequestStatus
 │   │   ├── friend_search_entity.dart              # FriendSuggestionEntity + UserSearchEntity + FriendshipStatus
+│   │   ├── friend_profile_entity.dart             # NEW — FriendProfileEntity + MutualFriendSummary
 │   │   ├── friend_note_entity.dart                # FriendNoteEntity
 │   │   ├── friend_privacy_entity.dart             # FriendPrivacyEntity
 │   │   └── friend_report_entity.dart              # FriendReportEntity + FriendReportCategory
 │   └── repositories/
-│       └── friend_repository.dart                 # Interface: 17 methods
+│       └── friend_repository.dart                 # Interface: 18 methods (thêm getPlayerProfile)
 │
 ├── data/
 │   ├── friend_repository_impl.dart                # Pass-through: delegate to datasource
@@ -47,33 +48,38 @@ lib/features/friend_management/
 │   │   ├── friend_model.dart                      # FriendModel — alias JSON tap chung
 │   │   ├── friend_request_model.dart
 │   │   ├── friend_search_model.dart               # FriendSuggestion + UserSearch
+│   │   ├── friend_profile_model.dart              # NEW — FriendProfileModel + MutualFriendSummaryModel
 │   │   ├── friend_note_model.dart
 │   │   ├── friend_privacy_model.dart
 │   │   └── friend_report_model.dart
 │   └── datasources/
 │       ├── base/
-│       │   └── friend_remote_datasource.dart       # Abstract interface
+│       │   └── friend_remote_datasource.dart       # Abstract interface (18 methods)
 │       └── remote/
 │           ├── real_friend_remote_datasource.dart  # Compose các mixin (~30 dòng)
 │           ├── _api_guard_mixin.dart               # Abstract helper: guardApiCall + mapDioError
-│           ├── _friend_datasource_friends.dart     # Friends + requests + search/suggestions
+│           ├── _friend_datasource_friends.dart     # Friends + requests + search/suggestions + profile
 │           ├── _friend_datasource_notes.dart       # Friend notes
 │           └── _friend_datasource_privacy_reports.dart # Privacy + reports
 │
 └── presentation/
     ├── cubit/
     │   ├── friend_list_cubit.dart                  # 17 methods (1 cho mỗi repo method)
-    │   └── friend_list_state.dart                  # Initial | Loading | Loaded | Error + 7 event states
+    │   ├── friend_list_state.dart                  # Initial | Loading | Loaded | Error + 7 event states
+    │   ├── friend_profile_cubit.dart               # NEW — load profile + send/unfriend/block/report
+    │   └── friend_profile_state.dart               # NEW — Initial | Loading | Loaded | Error
     ├── pages/
     │   ├── friends_page.dart                       # Scaffold + TabController + AppBar + UnreadBadge
+    │   ├── friend_profile_page.dart                # NEW — chi tiết player + action panel
     │   └── tabs/
     │       ├── friends_list_tab.dart               # Tab "Bạn bè"
-    │       ├── friend_requests_tab.dart            # Tab "Lời mời" (kèm SentRequestTile)
+    │       ├── friend_requests_tab.dart            # Tab "Lời mời" (chỉ hiển thị inbox, bỏ outbox)
     │       └── search_users_tab.dart               # Tab "Tìm kiếm" (kèm debounce + optimistic update)
     └── widgets/
-        ├── friend_card.dart                        # Card trong list Friends
-        ├── friend_request_card.dart                # Card trong inbox (received)
-        ├── user_search_card.dart                   # Card trong tab Search
+        ├── friend_card.dart                        # Card trong list Friends (có onTap → FriendProfilePage)
+        ├── friend_request_card.dart                # Card trong inbox (received) (có onTap)
+        ├── friend_profile_actions.dart             # NEW — Action panel + report dialog + confirm helper
+        ├── user_search_card.dart                   # Card trong tab Search (có onTap)
         └── shared/
             ├── common_widgets.dart                 # UserAvatar, TieredAvatar, OutlinedCard, EmptyState, ErrorRetryView, SectionTitle
             ├── time_ago.dart                       # formatTimeAgo helper
@@ -92,6 +98,31 @@ lấy được mọi entity.
 
 ---
 
+### 2.1 Enum — `FriendshipStatus` (5-trạng-thái)
+
+Dùng cho cả `UserSearchEntity` và `FriendProfileEntity`:
+- `none` — chưa quan hệ.
+- `pendingSent` — current user đã gửi, đợi phản hồi.
+- `pendingReceived` — user kia đã gửi, current user là addressee.
+- `accepted` — đã là bạn bè.
+- `blocked` — 1 trong 2 bên đã chặn.
+
+### 2.2 Friend Profile (`GET /api/v1/friends/{userId}/profile`)
+
+Backend trả `PlayerProfileDto` — đầy đủ hơn `UserSearchResultDto` vì
+gồm: avatar, bio, karma, gamer tier, **global ELO**, **level**, số bạn
+chung, `friendshipStatus`, **permission flags**
+(`canSendFriendRequest`, `canReport`), `friendsSince`, mutual friend
+preview (top 5), và 2 cờ `isBlockedByMe` / `hasBlockedMe`.
+
+Lưu ý BR:
+- `canSendFriendRequest = false` → UI disable nút "Kết bạn" (đã check
+  privacy + block + friend limit trên backend).
+- `canReport = true` chỉ khi `friendshipStatus == accepted` theo
+  BR-FRIEND-REPORT-01.
+- `hasBlockedMe = true` → render notice read-only, disable mọi action.
+- `isBlockedByMe = true` → chỉ hiện nút "Bỏ chặn".
+
 ## 3. Domain Layer
 
 ### 3.1 Entities
@@ -99,9 +130,11 @@ lấy được mọi entity.
 | Entity | Trường quan trọng | Dùng ở |
 |--------|-------------------|--------|
 | `FriendEntity` | `odId`, `username`, `avatarUrl`, `karmaPoints`, `gamerTier`, `activityStatus`, `isInLobby`, `mutualFriendsCount` | `FriendListTab`, `OnlineFriendsList` (lobby) |
-| `FriendRequestEntity` | `requestId`, `requesterId`, `requesterName`, `requesterAvatar`, `status`, `createdAt`, `isRead`, `message` | `FriendRequestsTab` |
+| `FriendRequestEntity` | `requestId`, `requesterId`, `requesterName`, `requesterAvatar`, `status`, `createdAt`, `isRead`, `message`, `mutualFriendsCount`, `karmaPoints`, `gamerTier` | `FriendRequestsTab` |
 | `FriendSuggestionEntity` | `odId`, `username`, `reason`, `mutualFriendsCount` | (chưa có UI) |
 | `UserSearchEntity` | `odId`, `username`, `friendshipStatus`, `mutualFriendsCount` | `SearchUsersTab` |
+| `FriendProfileEntity` | `userId`, `username`, `globalElo`, `level`, `friendshipStatus`, `canSendFriendRequest`, `canReport`, `isBlockedByMe`, `hasBlockedMe`, `mutualFriends` | `FriendProfilePage` |
+| `MutualFriendSummary` | `userId`, `username`, `avatarUrl` | `FriendProfilePage` (preview) |
 | `FriendNoteEntity` | `noteId`, `friendUserId`, `alias`, `note`, `tags` | (chưa có UI, đã có API) |
 | `FriendPrivacyEntity` | `isFriendListPublic`, `acceptFriendRequestsFrom`, `friendLimit` | (chưa có UI) |
 | `FriendReportEntity` | `reportId`, `targetUserId`, `category`, `reason`, `status` | (chưa có UI) |
@@ -123,11 +156,12 @@ lấy được mọi entity.
 
 ### 3.3 Repository Interface
 
-`friend_repository.dart` định nghĩa 17 method, chia 6 nhóm:
+`friend_repository.dart` định nghĩa 18 method, chia 6 nhóm:
 
 ```
 // Friends
-getFriends, getFriendsWithActivity, getFriendList(otherUserId)
+getFriends, getFriendsWithActivity, getFriendList(otherUserId),
+getPlayerProfile(userId)                                  ← NEW
 
 // Friend Requests
 getReceivedRequests, getSentRequests,
@@ -217,7 +251,7 @@ chèn logic tương lai (cache, fallback, error transform) — giữ đúng patt
 FriendListState (abstract)
 ├── FriendListInitial           # Trước khi load lần đầu
 ├── FriendListLoading           # Loading
-├── FriendListLoaded            # Có data: friends + received + sent + unread + notes + privacy + reports
+├── FriendListLoaded            # Có data: friends + received + sent + unread + notes + privacy + reports + per-tab loading flags (friendsLoading, receivedRequestsLoading)
 ├── FriendListError(message)    # Lỗi chung
 ├── FriendRequestSent(id)       # Event: vừa gửi request
 ├── FriendRequestProcessed(id, accepted)  # Event: accept/decline
@@ -226,6 +260,14 @@ FriendListState (abstract)
 ├── FriendNoteDeleted(noteId)   # Event: xóa note
 ├── FriendPrivacyUpdated(privacy)  # Event: update privacy
 └── FriendReportCreated(targetId)  # Event: báo cáo
+
+FriendProfileState (abstract)   ← dùng cho FriendProfilePage riêng
+├── FriendProfileInitial        # Trước load
+├── FriendProfileLoading        # Loading profile
+├── FriendProfileLoaded(profile, isMutating, mutualFriends?, actionMessage?)
+│                              # actionMessage là transient (snackbar 1 lần)
+├── FriendProfileError(message, profile?)
+│                              # profile null nếu load fail từ đầu
 ```
 
 **Cubit methods (17 method, 1-to-1 với repository):**
@@ -245,13 +287,16 @@ FriendListState (abstract)
 ### 5.2 Pages
 
 **`FriendsPage`** (entry point) — chỉ chứa:
-1. `BlocProvider` tạo `FriendListCubit` + `loadFriends()`.
+1. `BlocProvider` tạo `FriendListCubit` (state `FriendListInitial` — không
+   gọi API ở mount, xem BR-FRIEND-PER-TAB-LOAD).
 2. `FriendsScaffold` quản lý `TabController` + TabBar + AppBar.
+   - `initState` trigger load cho tab index 0 (default).
+   - Listener gọi loader tương ứng khi user chuyển tab (lazy).
 3. `UnreadBadge` (private `_UnreadBadge`) — badge đỏ với số request chưa đọc.
 
 **Mỗi tab sau là `StatelessWidget`/`StatefulWidget` riêng** trong `pages/tabs/`:
 - `FriendsListTab` — BlocBuilder render `FriendCard` list.
-- `FriendRequestsTab` — BlocBuilder render `FriendRequestCard` (inbox) + `SentRequestTile` (outbox).
+- `FriendRequestsTab` — BlocBuilder render `FriendRequestCard` (inbox only). Phần outbox (lời mời đã gửi) bị loại bỏ có chủ đích — xem BR-FRIEND-REQUESTS-UI.
 - `SearchUsersTab` — `StatefulWidget` quản lý search controller + debounce + optimistic update.
 
 ### 5.3 Widgets
@@ -260,6 +305,32 @@ FriendListState (abstract)
 - Mỗi card là 1 widget độc lập, dùng `OutlinedCard` (shared) làm wrapper.
 - Hiển thị avatar qua `UserAvatar` (shared) → fallback chữ cái đầu.
 - Action nút ở cuối card drive button state.
+- **Mọi card đều có `onTap` callback** → mở `FriendProfilePage(userId: ...)`.
+  Binding chính tại nơi dùng card (`FriendsListTab`, `FriendRequestsTab`,
+  `SearchUsersTab`) — chỉ cần `Navigator.push(FriendProfilePage(userId))`.
+
+**`FriendProfilePage`** — chi tiết 1 player:
+- Entry: `FriendProfilePage(userId: userId)`.
+- Tạo `BlocProvider<FriendProfileCubit>` → `loadProfile(userId)`.
+- Body: `_ProfileHeader` → `_StatsRow` → `_BioCard` →
+  `_MutualFriendsSection` → `FriendProfileActions`.
+- Pull-to-refresh → `cubit.refresh()`.
+- Error state → `ErrorRetryView` (giữ profile cũ nếu có).
+
+**`FriendProfileActions`** — action panel dưới cùng:
+- `FriendshipStatus.none` → "Kết bạn" / disabled notice (privacy).
+- `FriendshipStatus.accepted` → "Mời vào phòng" + overflow menu (unfriend / report).
+- `FriendshipStatus.pendingSent` → disabled notice.
+- `FriendshipStatus.pendingReceived` → disabled notice (mở inbox).
+- `isBlockedByMe = true` → "Bỏ chặn".
+- `hasBlockedMe = true` → disabled read-only notice.
+
+**`FriendProfileCubit`** — quản lý load + action:
+- `loadProfile(userId)` → emit `Loading → Loaded` hoặc `Loading → Error`.
+- Action (send/unfriend/block/unblock/report) → repo call → reload profile
+  → emit `Loaded(actionMessage)`. Failure → emit `Error(message, profile)`.
+- `loadMutualFriends()` → cập nhật `mutualFriends` trong `Loaded`.
+- `clearActionMessage()` → xóa message sau snackbar.
 
 **Shared widgets** (`presentation/widgets/shared/`):
 
@@ -333,6 +404,32 @@ Biến `_sendingIds` track user đang trong quá trình gửi để disable nút
 - Status chuyển về `blocked` (1 chiều). User bị chặn không thấy current user.
 - Backend xử lý unblock: `DELETE /api/v1/friends/block/{userId}`.
 
+#### BR-FRIEND-INBOX-RENDER: Render inbox FriendRequest đầy đủ thông tin
+- Endpoint: `GET /api/v1/friends/requests/received` trả `FriendshipResponseDto[]`.
+- **Schema thực tế** (verified 2026-07-28 từ console log):
+  - `friendshipId` (Guid) — record id.
+  - `otherUserId` (Guid) — user kia (current user là requester/addressee tùy
+    `isRequester`).
+  - `otherUsername` (string) — username của user kia.
+  - `otherAvatarUrl` (string?) — avatar URL, có thể `null`.
+  - `status` (string: `Pending` / `Accepted` / `Declined` / `Removed`).
+  - `isRequester` (bool) — `true` = current user gửi, `false` = current user nhận.
+  - `createdAt`, `acceptedAt` (ISO 8601), `message` (nullable), `addresseeReadAt`
+    (nullable), `mutualFriendsCount` (int).
+- Backend dùng **generic `other*` prefix** thay vì `requester*` để 1 DTO dùng
+  được cho cả inbox và outbox.
+- Frontend parse **defensively** (xem `FriendRequestModel._pickString` /
+  `_pickName`) — thử alias `other*` đầu tiên (schema thực tế), sau đó
+  fallback `requester*` / `user*` / `friend*` / nested object phòng khi backend
+  đổi schema.
+- **UI fallback**: nếu sau khi parse vẫn rỗng `requesterName`, card
+  hiển thị `User #<short id>` (lấy 8 ký tự đầu của `otherUserId`) thay
+  vì để trống. Avatar rỗng → fallback "?" (đã có sẵn trong `UserAvatar`).
+- Field mở rộng UI render (tùy backend có trả):
+  - `karmaPoints` → icon 🧡 + số karma (ẩn nếu `null`).
+  - `gamerTier` → tier border quanh avatar (chỉ khi != null).
+  - `mutualFriendsCount` → dòng "N bạn chung" (chỉ khi > 0).
+
 ### 6.2 Search & Suggestions
 
 #### BR-FRIEND-SEARCH-01: Kết quả search có `friendshipStatus`
@@ -356,6 +453,96 @@ Biến `_sendingIds` track user đang trong quá trình gửi để disable nút
 - Send request → UI đổi nút thành "Đã gửi" ngay.
 - API lỗi → rollback UI + Snackbar đỏ.
 
+#### BR-FRIEND-REQUESTS-UI: Tab "Lời mời" chỉ hiển thị inbox
+- Tab `FriendRequestsTab` chỉ render danh sách `receivedRequests` (inbox),
+  không có phần "Đã gửi" / `SentRequestTile`.
+- Lý do sản phẩm: user chỉ cần theo dõi "có ai kết bạn với mình không".
+  Việc xem lại lời mời mình đã gửi không có nhiều giá trị UX trong context hiện tại.
+- Lý do kỹ thuật: backend `FriendRequestDto` hiện chỉ mang các field
+  `requesterId` / `requesterName` / `requesterAvatar` (người gửi). Nếu render
+  outbox, UI sẽ hiển thị tên/avatar của chính current user → sai ngữ nghĩa.
+- **Backend vẫn trả `sentRequests`** và `FriendListLoaded` vẫn chứa field
+  này (backward-compat cho các consumer khác, test, future feature).
+  Chỉ UI tab không render nó nữa.
+- Khi backend bổ sung `recipientId` / `recipientName` / `recipientAvatar`
+  cho outbox thì có thể bật lại phần "Đã gửi" bằng cách thêm field tương
+  ứng vào `FriendRequestEntity` + model, không phải thay đổi UI.
+
+#### BR-FRIEND-REQUEST-CARD-UI: Layout chuẩn cho FriendRequestCard
+- Card **inbox** `FriendRequestCard` (tab "Lời mời") hiển thị đầy đủ
+  thông tin người gửi để user có đủ context trước khi accept/decline.
+- Thông tin render:
+  - **Avatar có tier border** (dùng `TieredAvatar` khi biết `gamerTier`,
+    ngược lại `UserAvatar`) — đồng nhất với FriendCard.
+  - **Username** cho phép wrap **2 dòng** (`maxLines: 2 + ellipsis`) để
+    tránh truncate xấu thành "aaaaa..." khi tên quá dài. Bug cũ chỉ
+    dùng `maxLines: 1` → user không đọc được username.
+  - **Meta line** dưới username: 🧡 karma (nếu backend trả) +
+    🕒 time ago. Hai cụm cách nhau bằng dấu "•".
+  - **Unread dot** màu đỏ (`#E53935`) kích thước 12x12 — đậm hơn dot
+    primary cũ, dễ nhìn hơn.
+  - **Message bubble** (nếu có) + **mutual friends** (nếu > 0) + **2 nút
+    Từ chối / Chấp nhận** full-width như cũ.
+- Entity / Model mở rộng thêm:
+  - `FriendRequestEntity.karmaPoints: int?`
+  - `FriendRequestEntity.gamerTier: GamerTier?`
+- `FriendRequestModel.fromJson` parse `karmaPoints` (alias `karma`) và
+  `gamerTier` (alias `plat` → `platinum`). Field optional — không có thì
+  UI tự ẩn cụm đó (không hiển thị "0" giả).
+- Lý do: trước đây FriendRequestCard chỉ hiển thị username 1 dòng + time.
+  Thông tin `karmaPoints` / `gamerTier` backend trả sẵn nhưng entity
+  không lưu → bị mất hoàn toàn. User phải tự mở profile mới biết player
+  này tier gì, có bao nhiêu karma → UX kém.
+
+#### BR-FRIEND-PER-TAB-LOAD: Lazy loading theo tab (không auto-load tất cả)
+- `FriendsPage` mount **không gọi API nào**. Lifecycle:
+  1. `BlocProvider` chỉ khởi tạo `FriendListCubit` (state `FriendListInitial`).
+  2. `FriendsScaffold.initState` trigger load cho tab index 0 (mặc định)
+     vì `TabBarView` build tất cả child ngay từ đầu, nên nếu tab 0 không
+     load trước thì user sẽ thấy empty state sai.
+  3. User chuyển tab → `_tabController.addListener` gọi loader tương ứng
+     với tab đó (nếu chưa load lần nào — track qua `_loadedTabs`).
+- Mapping tab → API:
+  - Tab 0 "Bạn bè" → `FriendListCubit.loadFriends()` (1 API:
+    `getFriendsWithActivity`).
+  - Tab 1 "Lời mời" → `FriendListCubit.loadReceivedRequests()` (1 API:
+    `getReceivedRequests`).
+  - Tab 2 "Tìm kiếm" → không preset. Search on-demand qua debounce 400ms.
+- **Đã bỏ hoàn toàn `getSentRequests()`** khỏi flow load (BR-FRIEND-REQUESTS-UI).
+- Per-tab loading flag (`FriendListLoaded.friendsLoading` /
+  `receivedRequestsLoading`) — UI chỉ hiển thị spinner ở tab đang fetch
+  khi slice đó chưa có data trước đó. Ngược lại giữ nguyên list cũ
+  (đỡ flash) + RefreshIndicator.
+- Pull-to-refresh chỉ reload slice của tab đó:
+  - `FriendListCubit.refreshFriends()` → reload friend list.
+  - `FriendListCubit.refreshReceivedRequests()` → reload received requests.
+- `blockUser` vẫn reload cả 2 slice (friends + received) vì block có thể
+  ảnh hưởng cả 2. Đây là side-effect sau action explicit của user, không
+  phải auto-load.
+
+#### BR-FRIEND-PROFILE-USERID: UserId contract cho Friend Profile
+- **Mọi state của `FriendProfileCubit` đều mang `userId`** (kể cả
+  `Initial`/`Loading`/`Error`). UI/retry/action đọc từ `state.userId`
+  thay vì dùng `profile.userId` (chưa có khi load fail) hoặc
+  private `_currentUserId` (dễ drift).
+- Lý do: nhiều endpoint dạng `/api/v1/friends/{userId}/...` yêu cầu
+  path param. Nếu truyền empty / null → server trả 405 (method not
+  allowed) hoặc 404. Bug log thường gặp:
+  - URL `GET /api/v1/friends/profile` (thiếu userId) → 405.
+- Source of truth cho `userId`:
+  - **Vào:** `FriendProfilePage(userId: <id>)` constructor → `cubit.loadProfile(userId)`.
+  - **Ra:** `state.userId` (mọi state), dùng cho action (send / unfriend /
+    block / unblock / report / loadMutual) và retry.
+- Defensive guard trong `loadProfile`: nếu `userId` rỗng thì emit
+  `FriendProfileError` ngay (không gọi API). Tránh regression.
+- Action map (userId lấy từ `state.userId`):
+  - `sendFriendRequest()` → `POST /api/v1/friends/requests` body `{ addresseeId: state.userId }`.
+  - `unfriend()` → `DELETE /api/v1/friends/{state.userId}`.
+  - `blockUser()` → `POST /api/v1/friends/block/{state.userId}`.
+  - `unblockUser()` → `DELETE /api/v1/friends/block/{state.userId}`.
+  - `report({category, reason})` → `POST /api/v1/friends/reports` body `{ targetUserId: state.userId, ... }`.
+  - `loadMutualFriends()` → `GET /api/v1/friends/{state.userId}/mutual`.
+
 ### 6.3 Friend Note
 
 #### BR-FRIEND-NOTE-01: Mỗi (Owner, Friend) chỉ có 1 note
@@ -376,7 +563,33 @@ Biến `_sendingIds` track user đang trong quá trình gửi để disable nút
 - 0 = unlimited.
 - UI chưa có — `isFriendListPublic` là flag đơn giản.
 
-### 6.5 Friend Reports
+### 6.5 Friend Profile (màn chi tiết player)
+
+#### BR-FRIEND-PROFILE-01: Endpoint `GET /api/v1/friends/{userId}/profile`
+- Trả về `PlayerProfileDto` đầy đủ (xem section 2.2) — đây là entry point
+  duy nhất cần cho mọi màn chi tiết player.
+- 400 nếu userId trùng current user (player không xem profile chính mình
+  qua endpoint này — dùng `/api/Userprofile` thay thế).
+- 404 nếu player không tồn tại hoặc tài khoản không hoạt động.
+
+#### BR-FRIEND-PROFILE-02: Permission flags backend-evaluated
+- `canSendFriendRequest = false` khi:
+  - Player đã chặn current user (`hasBlockedMe = true`).
+  - Player set `acceptFriendRequestsFrom = FriendsOfFriends` mà current
+    user không có bạn chung.
+  - Player đã đạt `friendLimit` và current user không trong danh sách
+    pending.
+- `canReport = true` chỉ khi `friendshipStatus == accepted` (theo
+  BR-FRIEND-REPORT-01).
+- `isBlockedByMe` / `hasBlockedMe` cho UI biết đang ở trạng thái block nào.
+
+#### BR-FRIEND-PROFILE-03: Mutual Friends preview
+- `mutualFriendsCount` = tổng số bạn chung.
+- `mutualFriends[]` = preview tối đa 5 bạn đầu (UserId + username + avatarUrl).
+- Nếu muốn xem full list, gọi `GET /api/v1/friends/{userId}/mutual` —
+  `FriendProfileCubit.loadMutualFriends()` đã làm sẵn việc này.
+
+### 6.6 Friend Reports
 
 #### BR-FRIEND-REPORT-01: Chỉ báo cáo user đang là bạn
 - Chưa có UI; backend hiện chấp nhận report mọi user (theo swagger).
@@ -397,6 +610,7 @@ Biến `_sendingIds` track user đang trong quá trình gửi để disable nút
 |----------|--------|-------------------|------|
 | `/api/v1/friends` | GET | `getFriends` | Plain list (không kèm activity) |
 | `/api/v1/friends/activity` | GET | `getFriendsWithActivity` | Có `activityStatus` + `lastActiveAt` |
+| `/api/v1/friends/{userId}/profile` | GET | `getPlayerProfile` | **NEW** — chi tiết player kèm quan hệ hiện tại + permission flags |
 | `/api/v1/friends/{otherUserId}/list` | GET | `getFriendList` | Friend list của user khác |
 | `/api/v1/friends/requests/received` | GET | `getReceivedRequests` | Inbox |
 | `/api/v1/friends/requests/sent` | GET | `getSentRequests` | Outbox |
@@ -439,12 +653,17 @@ sl.registerLazySingleton<FriendRepository>(
 sl.registerFactory<FriendListCubit>(
   () => FriendListCubit(repository: sl<FriendRepository>()),
 );
+sl.registerFactory<FriendProfileCubit>(                       // NEW
+  () => FriendProfileCubit(repository: sl<FriendRepository>()),
+);
 ```
 
 - `RealFriendRemoteDatasource` là singleton (recycle Dio connection).
 - `FriendRepositoryImpl` là singleton (stateless).
-- `FriendListCubit` là factory (mỗi page instance có thể có state riêng
-  — vd Profile có thể mở FriendPage độc lập với HomePage).
+- `FriendListCubit` và `FriendProfileCubit` là factory — mỗi page instance
+  có state riêng. Vì FriendProfilePage dùng `BlocProvider` của riêng nó
+  trong tree (không qua MultiBlocProvider toàn app), instance sẽ dispose
+  khi user back ra khỏi page → tự giải phóng state.
 
 ---
 
