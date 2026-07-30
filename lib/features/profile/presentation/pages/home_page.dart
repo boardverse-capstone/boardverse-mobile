@@ -20,7 +20,6 @@ import 'package:boardverse_mobile/features/profile/presentation/widgets/edit_pro
 import 'package:boardverse_mobile/features/profile/presentation/widgets/error_state.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/loading_skeleton.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/location_card.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/personal_info_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_header_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_stats_row.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card.dart';
@@ -453,14 +452,10 @@ class _DashboardShell extends StatelessWidget {
               ProfileHeaderCard(
                 profile: profile,
                 onAvatarTap: onAvatarTap,
+                onEditPressed: onEditPressed,
               ),
               const SizedBox(height: AppSpacing.md),
               ProfileStatsRow(profile: profile),
-              const SizedBox(height: AppSpacing.md),
-              PersonalInfoCard(
-                profile: profile,
-                onEditPressed: onEditPressed,
-              ),
               const SizedBox(height: AppSpacing.md),
               LocationCard(
                 location: location,

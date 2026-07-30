@@ -1,5 +1,4 @@
-/// Barrel file re-exporting all shared widgets from the new organized structure.
-/// This maintains backward compatibility with existing imports.
+/// Barrel file for shared widgets used across friend management feature.
 library;
 
 export '../common/avatar_widgets.dart';

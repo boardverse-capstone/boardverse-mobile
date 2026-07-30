@@ -1,27 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-
+import '../../../../core/di/injection.dart';
+import '../../../../core/theme/theme.dart';
 import '../../domain/entities/entities.dart';
-import '../cubit/friend_profile_cubit.dart';
-import '../cubit/friend_profile_state.dart';
+import '../cubit/cubit.dart';
+import '../widgets/common/common.dart';
+import '../widgets/dialogs/dialogs.dart';
 import '../widgets/friend_profile_actions.dart';
 import '../widgets/shared/activity_status_helpers.dart';
-import '../widgets/shared/common_widgets.dart';
 
-/// Màn hình chi tiết 1 player dùng trước/sau khi kết bạn.
-///
-/// Cấu trúc:
-/// 1. Hero header — avatar lớn + username + tier + ELO/level.
-/// 2. Stats row — Karma / ELO / Level / Bạn chung.
-/// 3. Bio (optional).
-/// 4. Mutual friends preview (optional).
-/// 5. Action panel (gửi lời mời / unfriend / block / report).
-///
-/// Tất cả action đều show snackbar confirm/error. Pull-to-refresh để
-/// reload lại toàn bộ profile.
+/// Friend profile page showing detailed player information.
 class FriendProfilePage extends StatelessWidget {
   const FriendProfilePage({super.key, required this.userId});
 
@@ -35,15 +24,13 @@ class FriendProfilePage extends StatelessWidget {
         cubit.loadProfile(userId);
         return cubit;
       },
-      child: _FriendProfileView(userId: userId),
+      child: const _FriendProfileView(),
     );
   }
 }
 
 class _FriendProfileView extends StatelessWidget {
-  const _FriendProfileView({required this.userId});
-
-  final String userId;
+  const _FriendProfileView();
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +42,15 @@ class _FriendProfileView extends StatelessWidget {
                   prev.profile != curr.profile)) ||
           curr is FriendProfileError,
       listener: (context, state) {
-        if (state is FriendProfileLoaded) {
-          listenProfileActionMessage(context, state);
+        if (state is FriendProfileLoaded && state.actionMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(state.actionMessage!),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          context.read<FriendProfileCubit>().clearActionMessage();
         } else if (state is FriendProfileError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -79,34 +73,31 @@ class _FriendProfileView extends StatelessWidget {
             body: ErrorRetryView(
               message: state.message,
               onRetry: () {
-                // Đọc userId từ state — fallback về `userId` của
-                // FriendProfilePage nếu state chưa có (lần đầu mount).
-                final userId = state.userId.isNotEmpty
+                final id = state.userId.isNotEmpty
                     ? state.userId
-                    : (context.read<FriendProfileCubit>().currentUserId ??
-                        this.userId);
-                if (userId.isEmpty) return;
-                context.read<FriendProfileCubit>().loadProfile(userId);
+                    : (context.read<FriendProfileCubit>().currentUserId ?? '');
+                if (id.isEmpty) return;
+                context.read<FriendProfileCubit>().loadProfile(id);
               },
             ),
           );
         }
-        final FriendProfileEntity? profile;
-        final bool isMutating;
+
+        FriendProfileEntity? profile;
+        bool isMutating = false;
         if (state is FriendProfileLoaded) {
           profile = state.profile;
           isMutating = state.isMutating;
         } else if (state is FriendProfileError) {
           profile = state.profile;
-          isMutating = false;
-        } else {
-          return const SizedBox.shrink();
         }
+
         if (profile == null) {
           return const Scaffold(
             body: Center(child: Text('Không tìm thấy thông tin người chơi.')),
           );
         }
+
         return Scaffold(
           appBar: AppBar(
             title: Text(profile.username),
@@ -131,10 +122,8 @@ class _FriendProfileView extends StatelessWidget {
                   ],
                   const SizedBox(height: AppSpacing.md),
                   _MutualFriendsSection(
-                    mutual: state is FriendProfileLoaded
-                        ? state.effectiveMutualFriends
-                        : profile.mutualFriends,
-                    total: profile.mutualFriendsCount,
+                    profile: profile,
+                    state: state,
                     onLoadMore: () =>
                         context.read<FriendProfileCubit>().loadMutualFriends(),
                   ),
@@ -146,7 +135,7 @@ class _FriendProfileView extends StatelessWidget {
                       context.read<FriendProfileCubit>().sendFriendRequest();
                     },
                     onUnfriend: () async {
-                      final confirm = await showFriendConfirmDialog(
+                      final confirm = await showConfirmDialog(
                         context,
                         title: 'Hủy kết bạn',
                         message:
@@ -170,7 +159,7 @@ class _FriendProfileView extends StatelessWidget {
                       );
                     },
                     onBlock: () async {
-                      final confirm = await showFriendConfirmDialog(
+                      final confirm = await showConfirmDialog(
                         context,
                         title: 'Chặn người chơi',
                         message:
@@ -185,7 +174,7 @@ class _FriendProfileView extends StatelessWidget {
                       context.read<FriendProfileCubit>().unblockUser();
                     },
                     onReport: () async {
-                      final result = await showFriendReportDialog(context);
+                      final result = await showReportDialog(context);
                       if (result != null && context.mounted) {
                         context.read<FriendProfileCubit>().report(
                               category: result.category,
@@ -234,10 +223,9 @@ class _ProfileHeader extends StatelessWidget {
       ),
       child: Column(
         children: [
-          TieredAvatar(
+          UserAvatar(
             username: profile.username,
             avatarUrl: profile.avatarUrl,
-            borderColor: tierColor,
             radius: 42,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -364,6 +352,7 @@ class _StatsRow extends StatelessWidget {
 class _Divider extends StatelessWidget {
   const _Divider({required this.theme});
   final ThemeData theme;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -443,21 +432,28 @@ class _BioCard extends StatelessWidget {
 
 class _MutualFriendsSection extends StatelessWidget {
   const _MutualFriendsSection({
-    required this.mutual,
-    required this.total,
+    required this.profile,
+    required this.state,
     required this.onLoadMore,
   });
 
-  final List<MutualFriendSummary> mutual;
-  final int total;
+  final FriendProfileEntity profile;
+  final FriendProfileState state;
   final VoidCallback onLoadMore;
+
+  List<MutualFriendSummary> get _mutualFriends {
+    if (state is FriendProfileLoaded) {
+      return (state as FriendProfileLoaded).effectiveMutualFriends;
+    }
+    return profile.mutualFriends;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (total == 0) {
-      return const SizedBox.shrink();
-    }
+    final mutual = _mutualFriends;
+    if (profile.mutualFriendsCount == 0) return const SizedBox.shrink();
+
     final preview = mutual.take(5).toList();
     return OutlinedCard(
       child: Padding(
@@ -471,7 +467,7 @@ class _MutualFriendsSection extends StatelessWidget {
                     color: theme.colorScheme.tertiary, size: AppIcons.md),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  'Bạn chung ($total)',
+                  'Bạn chung (${profile.mutualFriendsCount})',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -492,7 +488,7 @@ class _MutualFriendsSection extends StatelessWidget {
                 itemCount: preview.length,
               ),
             ),
-            if (total > preview.length) ...[
+            if (profile.mutualFriendsCount > preview.length) ...[
               const SizedBox(height: AppSpacing.xs),
               Align(
                 alignment: Alignment.centerRight,

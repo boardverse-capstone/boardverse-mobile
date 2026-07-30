@@ -18,7 +18,7 @@ import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/repositories/friend_repository.dart';
 import 'package:boardverse_mobile/features/friend_management/presentation/cubit/friend_profile_cubit.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/cubit/friend_profile_state.dart';
+import 'package:boardverse_mobile/features/friend_management/presentation/cubit/states/states.dart';
 
 class MockFriendRepository implements FriendRepository {
   final Map<String, dynamic> stubs = {};

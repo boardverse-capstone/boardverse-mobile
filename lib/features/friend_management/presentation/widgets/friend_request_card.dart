@@ -4,17 +4,17 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/entities.dart';
+import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';
-import 'shared/common_widgets.dart';
 import 'shared/time_ago.dart';
 
-/// Card hiển thị 1 friend request trong Inbox (received requests).
+/// Card displaying a friend request in the inbox (received requests).
 ///
-/// Redesign mobile-first:
-/// - Header: avatar tier + tên + thời gian + unread dot.
-/// - Message bubble (optional).
-/// - Mutual friends info (optional).
-/// - Actions: Từ chối / Chấp nhận — 2 nút lớn, full-width, dễ tap.
+/// Features:
+/// - Header: tier avatar + name + time + unread dot
+/// - Message bubble (optional)
+/// - Mutual friends info (optional)
+/// - Actions: Decline / Accept buttons
 class FriendRequestCard extends StatelessWidget {
   const FriendRequestCard({
     super.key,
@@ -55,154 +55,237 @@ class FriendRequestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: avatar + name + meta
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                hasTier
-                    ? TieredAvatar(
-                        username: _displayName,
-                        avatarUrl: request.requesterAvatar,
-                        borderColor: tierColor,
-                        radius: 28,
-                      )
-                    : UserAvatar(
-                        username: _displayName,
-                        avatarUrl: request.requesterAvatar,
-                        radius: 28,
-                      ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _displayName,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: request.isRead
-                                    ? FontWeight.w600
-                                    : FontWeight.bold,
-                                color: request.requesterName.isEmpty
-                                    ? theme.colorScheme.outline
-                                    : null,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (!request.isRead) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE53935),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 13,
-                            color: theme.colorScheme.outline,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            formatTimeAgo(request.createdAt),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                          if (request.karmaPoints != null) ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            Text(
-                              '•',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.outline,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                            Icon(
-                              AppIcons.karma,
-                              size: 13,
-                              color: Colors.orange.shade400,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${request.karmaPoints}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _Header(
+              displayName: _displayName,
+              avatarUrl: request.requesterAvatar,
+              tierColor: tierColor,
+              hasTier: hasTier,
+              isRead: request.isRead,
+              createdAt: request.createdAt,
+              karmaPoints: request.karmaPoints,
             ),
-
-            // Message bubble
             if (request.message != null && request.message!.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-                ),
-                child: Text(
-                  request.message!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+              _MessageBubble(message: request.message!),
             ],
-
-            // Mutual friends
             if (request.mutualFriendsCount != null &&
                 request.mutualFriendsCount! > 0) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Row(
-                children: [
-                  Icon(
-                    Icons.people_alt_outlined,
-                    size: 14,
-                    color: theme.colorScheme.outline,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${request.mutualFriendsCount} bạn chung',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: AppSpacing.sm),
+              _MutualFriendsChip(count: request.mutualFriendsCount!),
             ],
-
             const SizedBox(height: AppSpacing.md),
-
-            // Action buttons — large, full-width for easy mobile tap
             _ActionButtons(
               onAccept: onAccept,
               onDecline: onDecline,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.displayName,
+    required this.avatarUrl,
+    required this.tierColor,
+    required this.hasTier,
+    required this.isRead,
+    required this.createdAt,
+    this.karmaPoints,
+  });
+
+  final String displayName;
+  final String avatarUrl;
+  final Color tierColor;
+  final bool hasTier;
+  final bool isRead;
+  final DateTime createdAt;
+  final int? karmaPoints;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        hasTier
+            ? TieredAvatar(
+                username: displayName,
+                avatarUrl: avatarUrl,
+                borderColor: tierColor,
+                radius: 26,
+              )
+            : UserAvatar(
+                username: displayName,
+                avatarUrl: avatarUrl,
+                radius: 26,
+              ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                        color: displayName == 'Người dùng'
+                            ? theme.colorScheme.outline
+                            : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!isRead) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE53935),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 13,
+                    color: theme.colorScheme.outline,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    formatTimeAgo(createdAt),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                  if (karmaPoints != null && karmaPoints! > 0) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      '·',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(
+                      AppIcons.karma,
+                      size: 13,
+                      color: Colors.orange.shade400,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$karmaPoints',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border(
+          left: BorderSide(
+            color: theme.colorScheme.primary.withValues(alpha: 0.4),
+            width: 3,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.format_quote_rounded,
+            size: 16,
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MutualFriendsChip extends StatelessWidget {
+  const _MutualFriendsChip({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.people_alt_outlined,
+            size: 14,
+            color: theme.colorScheme.outline,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$count bạn chung',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -231,7 +314,9 @@ class _ActionButtons extends StatelessWidget {
               label: const Text('Từ chối'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
-                side: BorderSide(color: theme.colorScheme.outlineVariant),
+                side: BorderSide(
+                  color: theme.colorScheme.error.withValues(alpha: 0.4),
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.radiusMd),
                 ),
@@ -241,7 +326,6 @@ class _ActionButtons extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          flex: 2,
           child: SizedBox(
             height: 44,
             child: FilledButton.icon(

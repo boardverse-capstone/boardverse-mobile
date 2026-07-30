@@ -3,24 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../domain/entities/entities.dart';
-import '../../cubit/friend_list_cubit.dart';
-import '../../cubit/friend_list_state.dart';
-import '../../widgets/friend_request_card.dart';
-import '../../widgets/shared/common_widgets.dart';
+import '../../cubit/cubit.dart';
+import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
-/// Tab "Lời mời" — chỉ hiển thị các lời mời đã nhận (inbox).
-///
-/// Lời mời đã gửi (outbox) bị loại bỏ có chủ đích.
-///
-/// Redesign UX: mỗi card hiển thị avatar + tên + lời nhắn + bạn chung.
-/// Actions "Từ chối" / "Chấp nhận" là 2 nút lớn chiếm full width, dễ tap trên mobile.
+/// Tab "Lời mời" — displays received friend requests (inbox).
 class FriendRequestsTab extends StatelessWidget {
   const FriendRequestsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<FriendListCubit, FriendListState>(
+    return BlocBuilder<FriendListCubit, FriendListData>(
       builder: (context, state) {
         if (state is FriendListLoading || state is FriendListInitial) {
           return const Center(child: CircularProgressIndicator());
@@ -33,8 +26,6 @@ class FriendRequestsTab extends StatelessWidget {
         }
         if (state is FriendListLoaded) {
           final received = state.receivedRequests;
-          // Per-tab loading: chỉ show spinner khi received slice đang fetch
-          // và chưa có data trước đó.
           if (state.receivedRequestsLoading && received.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }

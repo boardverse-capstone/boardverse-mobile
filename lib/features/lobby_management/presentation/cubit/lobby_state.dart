@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
+import '../../domain/entities/lobby_chat_message.dart';
 
 /// Pre-defined reasons for lobby dismissal.
 class LobbyDismissReason extends Equatable {
@@ -221,4 +222,24 @@ class LobbyMyLobbiesLoaded extends LobbyState {
 
   @override
   List<Object?> get props => [hosted, joined];
+}
+
+/// Chat messages đã load.
+class LobbyChatLoaded extends LobbyState {
+  final List<LobbyChatMessage> messages;
+
+  const LobbyChatLoaded({required this.messages});
+
+  @override
+  List<Object?> get props => [messages];
+}
+
+/// Chat error khi gửi message.
+class LobbyChatError extends LobbyState {
+  final String message;
+
+  const LobbyChatError({required this.message});
+
+  @override
+  List<Object?> get props => [message];
 }

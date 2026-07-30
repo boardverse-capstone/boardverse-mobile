@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/entities.dart';
+import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';
-import 'shared/common_widgets.dart';
+import 'shared/meta_row.dart';
 
-/// Card hiển thị 1 người bạn trong danh sách Friends.
+/// Row card displaying a single friend in the friends list.
 ///
-/// Redesign mobile-first:
-/// - Card vuông, hiển thị avatar lớn (72x72) làm tâm.
-/// - Tên + trạng thái hoạt động rõ ràng.
-/// - 2 icon action trực tiếp bên dưới avatar (mời phòng / xem profile).
-/// - Không dùng popup menu nhỏ — touch target rõ ràng trên màn hình mobile.
+/// Features:
+/// - Avatar 56x56 with gamer-tier border and activity dot
+/// - Username and status pill (online/offline/in lobby)
+/// - Karma + mutual friends meta row
+/// - Action button (Invite to lobby)
 class FriendCard extends StatelessWidget {
   const FriendCard({
     super.key,
@@ -23,8 +23,6 @@ class FriendCard extends StatelessWidget {
   });
 
   final FriendEntity friend;
-
-  /// Tap trên card — mở chi tiết profile.
   final VoidCallback? onTap;
   final VoidCallback? onInviteToLobby;
 
@@ -38,65 +36,51 @@ class FriendCard extends StatelessWidget {
       onTap: onTap,
       radius: AppRadius.radiusLg,
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Avatar + status dot
             _AvatarSection(
               username: friend.username,
               avatarUrl: friend.avatarUrl,
               tierColor: tierColor,
               activityColor: badge.color ?? theme.colorScheme.outline,
             ),
-            const SizedBox(height: 6),
-
-            // Username
-            Text(
-              friend.username,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    friend.username,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  _ActivityChip(
+                    label: badge.label,
+                    color: badge.color ?? theme.colorScheme.outline,
+                    isInLobby: friend.isInLobby,
+                  ),
+                  if (friend.karmaPoints > 0 ||
+                      (friend.mutualFriendsCount ?? 0) > 0) ...[
+                    const SizedBox(height: 6),
+                    MetaRow(
+                      karmaPoints: friend.karmaPoints,
+                      mutualFriendsCount: friend.mutualFriendsCount,
+                    ),
+                  ],
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 2),
-
-            // Trạng thái hoạt động
-            _ActivityChip(
-              label: badge.label,
-              color: badge.color ?? theme.colorScheme.outline,
+            const SizedBox(width: AppSpacing.sm),
+            _ActionButton(
               isInLobby: friend.isInLobby,
-            ),
-
-            // Karma + bạn chung
-            if (friend.karmaPoints > 0 || friend.mutualFriendsCount != null) ...[
-              const SizedBox(height: 2),
-              _MetaRow(
-                karmaPoints: friend.karmaPoints,
-                mutualFriendsCount: friend.mutualFriendsCount,
-              ),
-            ],
-
-            const SizedBox(height: 8),
-
-            // Action button
-            SizedBox(
-              width: double.infinity,
-              height: 36,
-              child: FilledButton.icon(
-                onPressed: onInviteToLobby,
-                icon: Icon(
-                  friend.isInLobby ? Icons.meeting_room_outlined : Icons.add_circle_outline,
-                  size: 16,
-                ),
-                label: Text(
-                  friend.isInLobby ? 'Vào phòng' : 'Mời',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
+              onPressed: onInviteToLobby,
             ),
           ],
         ),
@@ -120,31 +104,39 @@ class _AvatarSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        TieredAvatar(
-          username: username,
-          avatarUrl: avatarUrl,
-          borderColor: tierColor,
-          radius: 36,
-        ),
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: activityColor,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.surface,
-                width: 2.5,
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Center(
+            child: TieredAvatar(
+              username: username,
+              avatarUrl: avatarUrl,
+              borderColor: tierColor,
+              radius: 26,
+              borderWidth: 2,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: activityColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2.5,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -169,14 +161,14 @@ class _ActivityChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: theme.colorScheme.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 7,
-              height: 7,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
                 shape: BoxShape.circle,
@@ -199,12 +191,9 @@ class _ActivityChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 5),
         Flexible(
@@ -220,65 +209,47 @@ class _ActivityChip extends StatelessWidget {
   }
 }
 
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({
-    required this.karmaPoints,
-    required this.mutualFriendsCount,
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.isInLobby,
+    required this.onPressed,
   });
 
-  final int? karmaPoints;
-  final int? mutualFriendsCount;
+  final bool isInLobby;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final items = <Widget>[];
-
-    if (karmaPoints != null && karmaPoints! > 0) {
-      items.add(Icon(
-        AppIcons.karma,
-        size: 14,
-        color: Colors.orange.shade400,
-      ));
-      items.add(const SizedBox(width: 2));
-      items.add(Text(
-        '$karmaPoints',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ));
-    }
-
-    if (mutualFriendsCount != null && mutualFriendsCount! > 0) {
-      if (items.isNotEmpty) {
-        items.add(const SizedBox(width: AppSpacing.xs));
-        items.add(Text(
-          '•',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.outline,
+    if (isInLobby) {
+      return SizedBox(
+        height: 36,
+        child: FilledButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(Icons.meeting_room_outlined, size: 16),
+          label: const Text('Vào phòng', style: TextStyle(fontSize: 12)),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            ),
           ),
-        ));
-        items.add(const SizedBox(width: AppSpacing.xs));
-      }
-      items.add(Icon(
-        Icons.people_alt_outlined,
-        size: 14,
-        color: theme.colorScheme.outline,
-      ));
-      items.add(const SizedBox(width: 2));
-      items.add(Text(
-        '$mutualFriendsCount bạn chung',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.outline,
         ),
-      ));
+      );
     }
 
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: items,
+    return SizedBox(
+      height: 36,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.add_circle_outline, size: 16),
+        label: const Text('Mời', style: TextStyle(fontSize: 12)),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
 import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
+import '../../../domain/entities/lobby_chat_message.dart';
 import '../../../domain/entities/match_result_entity.dart';
 import '../../models/elo_update_model.dart';
 
@@ -125,9 +126,17 @@ abstract class LobbyRemoteDatasource {
 
   /// POST /api/v1/lobbies/{lobbyId}/messages
   /// Gửi tin nhắn chat trong lobby.
-  Future<Either<Failure, void>> sendChatMessage({
+  Future<Either<Failure, LobbyChatMessage>> sendChatMessage({
     required String lobbyId,
     required String content,
+  });
+
+  /// GET /api/v1/lobbies/{lobbyId}/messages
+  /// Lấy lịch sử chat trong lobby (cursor pagination).
+  Future<Either<Failure, List<LobbyChatMessage>>> getChatMessages({
+    required String lobbyId,
+    String? beforeCursor,
+    int limit = 50,
   });
 
   Future<Either<Failure, void>> inviteFriend(String lobbyId, String friendId);

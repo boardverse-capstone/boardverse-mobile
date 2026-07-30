@@ -5,6 +5,7 @@ import 'package:boardverse_mobile/features/friend_management/domain/entities/fri
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
+import '../../domain/entities/lobby_chat_message.dart';
 
 abstract class LobbyRepository {
   Future<Either<Failure, LobbyEntity>> createLobby({
@@ -136,9 +137,17 @@ abstract class LobbyRepository {
 
   /// POST /api/v1/lobbies/{lobbyId}/messages
   /// Gửi tin nhắn chat trong lobby.
-  Future<Either<Failure, void>> sendChatMessage({
+  Future<Either<Failure, LobbyChatMessage>> sendChatMessage({
     required String lobbyId,
     required String content,
+  });
+
+  /// GET /api/v1/lobbies/{lobbyId}/messages
+  /// Lấy lịch sử chat trong lobby (cursor pagination).
+  Future<Either<Failure, List<LobbyChatMessage>>> getChatMessages({
+    required String lobbyId,
+    String? beforeCursor,
+    int limit = 50,
   });
 
   // ─── Dev simulation ─────────────────────────────────────────────────

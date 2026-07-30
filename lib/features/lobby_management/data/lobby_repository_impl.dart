@@ -6,6 +6,7 @@ import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../domain/entities/lobby_entity.dart';
 import '../domain/entities/lobby_summary.dart';
+import '../domain/entities/lobby_chat_message.dart';
 import '../domain/repositories/lobby_repository.dart';
 import 'datasources/base/lobby_remote_datasource.dart';
 import 'realtime/lobby_realtime_service.dart';
@@ -291,11 +292,25 @@ class LobbyRepositoryImpl implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, void>> sendChatMessage({
+  @override
+  Future<Either<Failure, LobbyChatMessage>> sendChatMessage({
     required String lobbyId,
     required String content,
   }) {
     return _remote.sendChatMessage(lobbyId: lobbyId, content: content);
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyChatMessage>>> getChatMessages({
+    required String lobbyId,
+    String? beforeCursor,
+    int limit = 50,
+  }) {
+    return _remote.getChatMessages(
+      lobbyId: lobbyId,
+      beforeCursor: beforeCursor,
+      limit: limit,
+    );
   }
 
   // ─── Dev simulation ──────────────────────────────────────────────────

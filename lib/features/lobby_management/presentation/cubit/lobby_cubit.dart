@@ -25,8 +25,8 @@ class LobbyCubit extends Cubit<LobbyState> {
   LobbyCubit({
     required this._repository,
     LobbyPersistenceService? persistenceService,
-  }) : _persistenceService = persistenceService ?? LobbyPersistenceService(),
-       super(const LobbyInitial());
+  })  : _persistenceService = persistenceService ?? LobbyPersistenceService(),
+        super(const LobbyInitial());
 
   // ─── Create Lobby ─────────────────────────────────────────────────────
 
@@ -180,41 +180,50 @@ class LobbyCubit extends Cubit<LobbyState> {
     return _repository.getLobbyById(lobbyId);
   }
 
-  /// Initialize lobby state: kiểm tra user đã là member chưa trước khi join.
-  /// - Nếu đã là member (hoặc host) → chỉ sync state, không gọi joinLobby API
-  /// - Nếu chưa là member → gọi joinLobby API bình thường
-  ///
+  /// Initialize lobby state: dùng getJoinedLobbies() để lấy lobby đã tham gia.
+  /// 
+  /// QUAN TRỌNG: Khi user vào lobby từ tab "Lịch sử", user đã là member rồi.
+  /// Backend đã lưu user là member của lobby này.
+  /// 
+  /// - Gọi GET /api/v1/lobbies/joined để lấy thông tin lobby
+  /// - KHÔNG gọi joinLobby() vì user đã là member
+  /// 
   /// Dùng trong LobbyPage.initState để tránh lỗi 409 khi host vào lobby của mình.
   Future<void> initLobbyState(String lobbyId, String currentUserId) async {
     emit(const LobbyLoading());
 
-    final lobbyResult = await _repository.getLobbyById(lobbyId);
+    // Gọi getJoinedLobbies - trả lobby user đã tham gia (bao gồm hosted)
+    final result = await _repository.getJoinedLobbies();
 
     if (isClosed) return;
 
-    await lobbyResult.fold(
+    await result.fold(
       (failure) async {
         if (!isClosed) emit(LobbyFailure(message: failure.message));
       },
-      (lobby) async {
+      (lobbies) async {
+        // Tìm lobby khớp với lobbyId
+        final lobby = lobbies.cast<LobbyEntity?>().firstWhere(
+          (l) => l?.id == lobbyId,
+          orElse: () => null,
+        );
+
         if (lobby == null) {
-          if (!isClosed) emit(const LobbyFailure(message: 'Không tìm thấy phòng'));
+          if (!isClosed) {
+            emit(const LobbyFailure(message: 'Phòng không tồn tại hoặc đã kết thúc'));
+          }
           return;
         }
 
-        // Kiểm tra user đã là member (bao gồm host) chưa
-        final isAlreadyMember = lobby.players.any((p) => p.id == currentUserId);
-
-        if (isAlreadyMember) {
-          // User đã là member (hoặc host) → chỉ cần sync state, không cần join API
-          _startCountdown(lobby.timeoutAt);
-          _watchLobbyRealtime(lobby.id);
-          _watchLobbyEvents(lobby.id);
-          _persistLobby(lobby);
-          if (!isClosed) emit(LobbyCreated(lobby: lobby));
-        } else {
-          // User chưa phải member → gọi joinLobby API
-          await joinLobby(lobbyId, null);
+        // User đã là member (vì API /joined đã đảm bảo)
+        // Chỉ cần sync state, KHÔNG gọi joinLobby
+        _startCountdown(lobby.timeoutAt);
+        _watchLobbyRealtime(lobby.id);
+        _watchLobbyEvents(lobby.id);
+        _persistLobby(lobby);
+        
+        if (!isClosed) {
+          emit(LobbyCreated(lobby: lobby));
         }
       },
     );
@@ -273,13 +282,59 @@ class LobbyCubit extends Cubit<LobbyState> {
 
   /// Host khoá phòng để chuyển sang booking flow.
   /// Spec `lobby.md:188-207`: Open → Full, broadcast `LobbyFull`.
+  ///
+  /// **Luồng mới**: sau khi lock, KHÔNG gọi `_triggerAutoBooking`. Host phải
+  /// bấm nút "Xác nhận & Đặt cọc" → UI navigate tới BookingSummaryPage.
   Future<void> lockLobby(String lobbyId) async {
     final result = await _repository.lockLobby(lobbyId);
     if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (lobby) {
-        _triggerAutoBooking(lobby);
+        // CHỉ emit lobby update — KHÔNG tự động tạo booking.
+        // Booking sẽ được tạo khi Host bấm "Xác nhận & Đặt cọc" ở UI.
+        emit(LobbyUpdatedRealtime(lobby: lobby));
+      },
+    );
+  }
+
+  /// Host xác nhận đặt cọc thủ công (Luồng nghiệp vụ mới).
+  ///
+  /// Flow:
+  /// 1. Host bấm nút "Xác nhận & Đặt cọc" trên UI.
+  /// 2. Client gọi `lockLobby` để chuyển status Open → Full (server broadcast
+  ///    `LobbyFull` qua SignalR).
+  /// 3. Sau khi lock thành công → emit `LobbyReady` để UI navigate tới
+  ///    `BookingSummaryPage` (host xác nhận & thanh toán cọc).
+  /// 4. UI listener `LobbyReady` → `_openBookingSummary()` → navigate.
+  ///
+  /// Lưu ý: Backend vẫn là nơi tạo booking (`/api/Bookings` được gọi từ
+  /// BookingSummaryPage), KHÔNG tự động từ client.
+  Future<void> hostConfirmAndBook(String lobbyId) async {
+    final currentState = state;
+    LobbyEntity? current;
+    if (currentState is LobbyCreated) current = currentState.lobby;
+    if (currentState is LobbyUpdatedRealtime) current = currentState.lobby;
+    if (currentState is LobbyReady) current = currentState.lobby;
+    if (current == null) return;
+
+    final isFull = current.currentPlayers >= current.maxPlayers &&
+        current.status == LobbyStatus.full;
+
+    if (isFull && current.bookingId == null) {
+      // Lobby đã Full sẵn (do realtime event) → emit LobbyReady trực tiếp.
+      emit(LobbyReady(lobby: current));
+      return;
+    }
+
+    // Lobby chưa Full → lockLobby để backend broadcast Full event.
+    final result = await _repository.lockLobby(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (lobby) {
+        // Emit LobbyReady → UI listener navigate tới BookingSummaryPage.
+        emit(LobbyReady(lobby: lobby));
       },
     );
   }
@@ -489,46 +544,25 @@ class LobbyCubit extends Cubit<LobbyState> {
     }
   }
 
-  /// Xử lý lobby cập nhật realtime: khi lobby chuyển sang `Full` mà chưa
-  /// có `bookingId`, server broadcast `LobbyFull` rồi tới `BookingConfirmed`
-  /// (BR-05). Client chỉ cần:
-  /// 1. Phát hiện lobby đầy → emit `LobbyReady` để UI chuyển sang booking
-  ///    summary page (user sẽ xác nhận & thanh toán cọc).
-  /// 2. `BookingConfirmedEvent` handler sẽ navigate sang cafe check-in.
+  /// Xử lý lobby cập nhật realtime:
   ///
-  /// KHÔNG gọi `_triggerAutoBooking` vì backend `LobbyController` không
-  /// expose `/api/v1/lobbies/{id}/auto-booking` — backend tự tạo booking
-  /// nội bộ và broadcast qua SignalR.
+  /// **Luồng nghiệp vụ mới**: Host PHẢI bấm nút "Xác nhận & Đặt cọc" thủ công
+  /// thì lobby mới chuyển sang booking. KHÔNG tự động chuyển khi lobby đầy.
+  ///
+  /// - Khi lobby đầy (`status == Full`): KHÔNG emit `LobbyReady`, chỉ emit
+  ///   `LobbyUpdatedRealtime` để UI cập nhật trạng thái & hiển thị nút bấm.
+  /// - Host bấm nút → `confirmAndBook()` → gọi `lockLobby` → sau đó UI
+  ///   navigate tới `BookingSummaryPage`.
+  /// - `BookingConfirmedEvent` (realtime, server-side push) vẫn được xử lý
+  ///   ở handler riêng — dùng làm fallback nếu server tự tạo booking.
+  ///
+  /// Lưu ý: Backend KHÔNG expose `/api/v1/lobbies/{id}/auto-booking` —
+  /// phải dùng `/api/v1/lobbies/{id}/lock` + client-side flow.
   void _onLobbyUpdate(LobbyEntity lobby) {
-    final isNowFull = lobby.currentPlayers >= lobby.maxPlayers &&
-        lobby.status == LobbyStatus.full;
-
-    if (isNowFull && lobby.bookingId == null) {
-      // Lobby đầy nhưng booking chưa được tạo (server vẫn đang xử lý) →
-      // emit `LobbyReady` để UI chuyển sang booking summary page.
-      emit(LobbyReady(lobby: lobby));
-      return;
-    }
-
+    // Chỉ emit update realtime, KHÔNG auto-navigate.
+    // Nút "Xác nhận & Đặt cọc" trên UI sẽ được enable khi lobby đầy +
+    // user là host → bấm để trigger booking flow.
     emit(LobbyUpdatedRealtime(lobby: lobby));
-  }
-
-  Future<void> _triggerAutoBooking(LobbyEntity lobby) async {
-    emit(LobbyUpdatedRealtime(lobby: lobby));
-
-    final result = await _repository.autoCreateBookingWhenFull(lobby.id);
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(
-        LobbyFailure(
-          message: 'Không thể tự động tạo booking: ${failure.message}',
-        ),
-      ),
-      (bookingId) {
-        final updated = lobby.copyWith(bookingId: bookingId);
-        emit(LobbyAutoBookingCreated(lobby: updated, bookingId: bookingId));
-      },
-    );
   }
 
   // ─── Countdown Timer ──────────────────────────────────────────────────
@@ -691,6 +725,20 @@ class LobbyCubit extends Cubit<LobbyState> {
 
   // ─── Restore Lobby ────────────────────────────────────────────────────
 
+  /// Khôi phục lobby đã lưu (khi app restart hoặc user out rồi vào lại).
+  /// 
+  /// QUAN TRỌNG: Backend đã tự động lưu user vào lobby khi:
+  /// - User tạo lobby (host)
+  /// - User join lobby thành công
+  /// 
+  /// Khi user mở app lại:
+  /// 1. Gọi GET /api/v1/lobbies/joined - trả danh sách lobby user đã tham gia (bao gồm hosted)
+  /// 2. Tìm lobby khớp với lobbyId đã lưu
+  /// 3. Emit LobbyCreated với dữ liệu lobby
+  /// 
+  /// KHÔNG gọi joinLobby() vì:
+  /// - User đã là member rồi → sẽ bị 409
+  /// - API /joined đã đảm bảo user là member
   Future<void> restoreActiveLobby() async {
     final hasActiveLobby = await _persistenceService.hasActiveLobby();
     if (!hasActiveLobby) return;
@@ -698,7 +746,91 @@ class LobbyCubit extends Cubit<LobbyState> {
     final lobbyId = await _persistenceService.getActiveLobbyId();
     if (lobbyId == null) return;
 
-    await joinLobby(lobbyId, null);
+    emit(const LobbyLoading());
+
+    // Gọi getJoinedLobbies - API này trả lobby user đã tham gia (bao gồm hosted)
+    // Backend đảm bảo user là member của các lobby này
+    final result = await _repository.getJoinedLobbies();
+
+    if (isClosed) return;
+
+    await result.fold(
+      (failure) async {
+        if (!isClosed) {
+          emit(LobbyFailure(message: failure.message));
+        }
+      },
+      (lobbies) async {
+        // Tìm lobby khớp với lobbyId đã lưu
+        final lobby = lobbies.cast<LobbyEntity?>().firstWhere(
+          (l) => l?.id == lobbyId,
+          orElse: () => null,
+        );
+
+        if (lobby == null) {
+          // Không tìm thấy lobby → có thể đã bị xóa hoặc hết hạn
+          await _persistenceService.clearAll();
+          if (!isClosed) {
+            emit(const LobbyFailure(message: 'Phòng không tồn tại hoặc đã kết thúc'));
+          }
+          return;
+        }
+
+        // Lobby tìm thấy → user đã là member (vì API /joined đã đảm bảo)
+        // Chỉ cần sync state, KHÔNG gọi joinLobby
+        _startCountdown(lobby.timeoutAt);
+        _watchLobbyRealtime(lobby.id);
+        _watchLobbyEvents(lobby.id);
+        _persistLobby(lobby);
+        
+        if (!isClosed) {
+          emit(LobbyCreated(lobby: lobby));
+        }
+      },
+    );
+  }
+
+  // ─── Chat Messages ─────────────────────────────────────────────────
+
+  /// Load chat messages cho lobby.
+  Future<void> loadChatMessages(String lobbyId) async {
+    final result = await _repository.getChatMessages(lobbyId: lobbyId);
+
+    await result.fold(
+      (failure) async {
+        // Chat load fail không ảnh hưởng lobby state
+      },
+      (messages) async {
+        if (!isClosed) {
+          emit(LobbyChatLoaded(messages: messages));
+        }
+      },
+    );
+  }
+
+  /// Send chat message.
+  Future<void> sendChatMessage(String lobbyId, String content) async {
+    if (content.trim().isEmpty) return;
+
+    final result = await _repository.sendChatMessage(
+      lobbyId: lobbyId,
+      content: content.trim(),
+    );
+
+    await result.fold(
+      (failure) async {
+        if (!isClosed) {
+          // Emit error nhưng vẫn giữ state hiện tại
+          emit(LobbyChatError(message: failure.message));
+        }
+      },
+      (message) async {
+        if (!isClosed) {
+          // Reload messages để cập nhật UI
+          await loadChatMessages(lobbyId);
+        }
+      },
+    );
   }
 
   void loadMockLobby() {

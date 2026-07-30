@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/board_game_entity.dart';
 
 class SimilarGamesCarousel extends StatelessWidget {
@@ -47,8 +48,8 @@ class SimilarGamesCarousel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Image.network(
-                            game.imageUrl,
+                          child: SafeNetworkImage(
+                            url: game.imageUrl,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             errorBuilder: (context, error, stackTrace) =>

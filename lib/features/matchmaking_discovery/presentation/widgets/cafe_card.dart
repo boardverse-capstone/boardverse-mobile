@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
 import 'seat_availability_indicator.dart';
@@ -51,8 +52,8 @@ class CafeCard extends StatelessWidget {
                   // Cafe Image
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      cafe.imageUrl,
+                    child: SafeNetworkImage(
+                      url: cafe.imageUrl,
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,

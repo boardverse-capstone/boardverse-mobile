@@ -189,7 +189,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
                   myLobbiesCubit: _myLobbiesCubit,
                   bookingCubit: _bookingCubit,
                   timeFormatter: _timeFormatter,
-                  onTapLobby: _openActiveLobby,
+                  onTapLobby: _openMyLobby,
                   onRefresh: _loadMyLobbies,
                 ),
               ],
@@ -257,7 +257,13 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
-  Future<void> _openActiveLobby(LobbyEntity lobby) async {
+  /// Mở lobby từ danh sách "My Lobbies" (đã hosted/joined).
+  /// 
+  /// QUAN TRỌNG: User đã là member/host của lobby này rồi,
+  /// KHÔNG gọi joinLobby() vì sẽ bị 409.
+  /// Để LobbyPage.initState() tự kiểm tra membership và sync state.
+  Future<void> _openMyLobby(LobbyEntity lobby) async {
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LobbyPage(lobbyId: lobby.id, lobbyCubit: _lobbyCubit),
@@ -265,7 +271,12 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
+  /// Join lobby mới (chưa là member) rồi mở LobbyPage.
+  /// Chỉ dùng cho lobby công khai hoặc lobby được invite.
   Future<void> _joinAndOpen(String lobbyId, String? inviteCode) async {
+    // TODO: Kiểm tra membership trước khi join
+    // Hiện tại vẫn gọi joinLobby nhưng sẽ bị 409 nếu đã là member
+    // Cần cải thiện: sử dụng initLobbyState thay vì joinLobby
     final joinResult = await _lobbyCubit.joinLobby(lobbyId, inviteCode);
     if (!mounted) return;
 
@@ -275,6 +286,17 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
 
     if (failureOrLobby != null) {
+      // Nếu lỗi 409 (đã là member), vẫn cho phép vào lobby
+      if (failureOrLobby.message.contains('đã là thành viên') ||
+          failureOrLobby.message.contains('already')) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(failureOrLobby.message)));

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,16 +5,11 @@ import '../../../../../core/theme/app_icons.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../domain/entities/entities.dart';
-import '../../cubit/friend_list_cubit.dart';
-import '../../widgets/shared/common_widgets.dart';
-import '../../widgets/user_search_card.dart';
+import '../../cubit/cubit.dart';
+import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
-/// Tab "Tìm kiếm" — search box + debounce 400ms + kết quả realtime.
-///
-/// Logic UI tách riêng khỏi FriendsListTab và FriendRequestsTab vì có
-/// state riêng (search controller, debounce timer, optimistic update khi
-/// gửi request).
+/// Tab "Tìm kiếm" — search box with 400ms debounce and real-time results.
 class SearchUsersTab extends StatefulWidget {
   const SearchUsersTab({super.key});
 
@@ -26,9 +19,6 @@ class SearchUsersTab extends StatefulWidget {
 
 class _SearchUsersTabState extends State<SearchUsersTab> {
   final _searchController = TextEditingController();
-  Timer? _debounce;
-  /// Track ID đang gửi request để UI biết spinner/optimistic update.
-  final Set<String> _sendingIds = <String>{};
 
   bool _isSearching = false;
   String _errorMessage = '';
@@ -37,19 +27,16 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
   @override
   void initState() {
     super.initState();
-    // Listener để suffix IconButton (× clear) cập nhật khi user gõ.
     _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _debounce?.cancel();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
-    _debounce?.cancel();
     final query = value.trim();
     if (query.isEmpty) {
       setState(() {
@@ -59,9 +46,7 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      _performSearch(query);
-    });
+    _performSearch(query);
   }
 
   Future<void> _performSearch(String query) async {
@@ -76,57 +61,12 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
         _results = results;
         _isSearching = false;
       });
-    } on Object catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Lỗi tìm kiếm: $e';
         _isSearching = false;
       });
-    }
-  }
-
-  /// Optimistic update: user gửi request → UI đổi nút thành "Đã gửi" ngay.
-  /// Rollback nếu API lỗi.
-  Future<void> _sendRequest(UserSearchEntity user) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final index = _results.indexWhere((u) => u.odId == user.odId);
-    if (index == -1) return;
-
-    setState(() {
-      _results[index] = UserSearchEntity(
-        odId: user.odId,
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        karmaPoints: user.karmaPoints,
-        friendshipStatus: FriendshipStatus.pendingSent,
-        mutualFriendsCount: user.mutualFriendsCount,
-      );
-      _sendingIds.add(user.odId);
-    });
-
-    try {
-      await context.read<FriendListCubit>().sendFriendRequest(
-            addresseeId: user.odId,
-          );
-      messenger.showSnackBar(
-        SnackBar(content: Text('Đã gửi lời mời đến ${user.username}')),
-      );
-      _performSearch(_searchController.text);
-    } on Object catch (e) {
-      if (mounted) {
-        setState(() {
-          _results[index] = user;
-        });
-      }
-      messenger.showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _sendingIds.remove(user.odId);
-        });
-      }
     }
   }
 
@@ -211,6 +151,42 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
         );
       },
     );
+  }
+
+  Future<void> _sendRequest(UserSearchEntity user) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final index = _results.indexWhere((u) => u.odId == user.odId);
+    if (index == -1) return;
+
+    setState(() {
+      _results[index] = UserSearchEntity(
+        odId: user.odId,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        karmaPoints: user.karmaPoints,
+        friendshipStatus: FriendshipStatus.pendingSent,
+        mutualFriendsCount: user.mutualFriendsCount,
+      );
+    });
+
+    try {
+      await context.read<FriendListCubit>().sendFriendRequest(
+            addresseeId: user.odId,
+          );
+      messenger.showSnackBar(
+        SnackBar(content: Text('Đã gửi lời mời đến ${user.username}')),
+      );
+      _performSearch(_searchController.text);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _results[index] = user;
+        });
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   void _openProfile(BuildContext context, UserSearchEntity user) {

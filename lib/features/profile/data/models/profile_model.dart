@@ -6,25 +6,27 @@ part 'profile_model.g.dart';
 
 @freezed
 abstract class ProfileModel with _$ProfileModel {
-  /// PII fields (firstName, lastName, dateOfBirth, phoneNumber) come from
-  /// ProfileDetailDto returned by POST /api/userprofile — not guaranteed in
-  /// GET responses until the profile has been created.
   const factory ProfileModel({
     required String userId,
     required String username,
     String? avatarUrl,
+    String? avatarBorderUrl,
     String? bio,
-    int? karmaPoints,
-    String? gamerTier,
-    required int globalElo,
-    required int level,
-    String? updatedAt,
-    required bool hasProfile,
-    // PII from ProfileDetailDto
     String? firstName,
     String? lastName,
     String? dateOfBirth,
     String? phoneNumber,
+    int? karmaPoints,
+    String? gamerTier,
+    required int globalElo,
+    required int level,
+    @Default(0) int currentExp,
+    String? lastActiveAt,
+    String? updatedAt,
+    required bool hasProfile,
+    @Default(true) bool isFriendListPublic,
+    String? acceptFriendRequestsFrom,
+    @Default(0) int friendLimit,
   }) = _ProfileModel;
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) =>
@@ -36,16 +38,22 @@ extension ProfileModelX on ProfileModel {
         userId: userId,
         username: username,
         avatarUrl: avatarUrl,
+        avatarBorderUrl: avatarBorderUrl,
         bio: bio,
-        karmaPoints: karmaPoints,
-        gamerTier: gamerTier,
-        globalElo: globalElo,
-        level: level,
-        updatedAt: updatedAt,
-        hasProfile: hasProfile,
         firstName: firstName,
         lastName: lastName,
         dateOfBirth: dateOfBirth,
         phoneNumber: phoneNumber,
+        karmaPoints: karmaPoints,
+        gamerTier: gamerTier,
+        globalElo: globalElo,
+        level: level,
+        currentExp: currentExp,
+        lastActiveAt: lastActiveAt,
+        updatedAt: updatedAt,
+        hasProfile: hasProfile,
+        isFriendListPublic: isFriendListPublic,
+        acceptFriendRequestsFrom: acceptFriendRequestsFrom,
+        friendLimit: friendLimit,
       );
 }

@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 
-/// Static profile header card — hiển thị avatar + username + handle + tier badge.
+/// Static profile header card — hiển thị avatar + username + bio + tier badge.
 ///
-/// Không có hiệu ứng collapse. Dùng làm header tĩnh trong [SingleChildScrollView].
+/// Nút edit nằm ở góc phải (inline) để mở [EditProfileSheet].
 class ProfileHeaderCard extends StatelessWidget {
   const ProfileHeaderCard({
     super.key,
     required this.profile,
     required this.onAvatarTap,
+    required this.onEditPressed,
   });
 
   final ProfileEntity profile;
   final VoidCallback onAvatarTap;
+  final VoidCallback onEditPressed;
 
   String get _initials {
-    if (profile.username.isEmpty) return '?';
-    return profile.username.substring(0, 1).toUpperCase();
+    final name = profile.displayName;
+    if (name.isEmpty) return '?';
+    return name.substring(0, 1).toUpperCase();
   }
 
   @override
@@ -28,6 +32,7 @@ class ProfileHeaderCard extends StatelessWidget {
     final hasTier =
         profile.gamerTier != null && profile.gamerTier!.isNotEmpty;
     final topPadding = MediaQuery.of(context).padding.top + AppSpacing.md;
+    final hasBio = profile.bio != null && profile.bio!.isNotEmpty;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -45,9 +50,11 @@ class ProfileHeaderCard extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Avatar(
             avatarUrl: profile.avatarUrl,
+            avatarBorderUrl: profile.avatarBorderUrl,
             initials: _initials,
             onTap: onAvatarTap,
           ),
@@ -57,6 +64,7 @@ class ProfileHeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Username
                 Text(
                   profile.username,
                   maxLines: 1,
@@ -67,6 +75,7 @@ class ProfileHeaderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
+                // Handle + tier
                 Row(
                   children: [
                     Flexible(
@@ -101,9 +110,37 @@ class ProfileHeaderCard extends StatelessWidget {
                     ],
                   ],
                 ),
+                // Full name (if different from username)
+                if (profile.firstName != null ||
+                    profile.lastName != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    profile.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                // Bio
+                if (hasBio) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    profile.bio!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.xs),
+          _EditButton(onPressed: onEditPressed),
         ],
       ),
     );
@@ -113,11 +150,13 @@ class ProfileHeaderCard extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   const _Avatar({
     required this.avatarUrl,
+    required this.avatarBorderUrl,
     required this.initials,
     required this.onTap,
   });
 
   final String? avatarUrl;
+  final String? avatarBorderUrl;
   final String initials;
   final VoidCallback onTap;
 
@@ -156,6 +195,38 @@ class _Avatar extends StatelessWidget {
                       color: theme.colorScheme.primary,
                     ),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút edit tròn nhỏ, hiển thị tooltip khi long-press.
+class _EditButton extends StatelessWidget {
+  const _EditButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.primaryContainer,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: Tooltip(
+          message: 'Chỉnh sửa hồ sơ',
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            child: Icon(
+              AppIcons.edit,
+              size: AppIcons.md,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
           ),
         ),
       ),

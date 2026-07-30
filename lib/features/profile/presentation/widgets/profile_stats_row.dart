@@ -39,7 +39,6 @@ class ProfileStatsRow extends StatelessWidget {
           );
         }
 
-        // Mobile: stacked, gap compact.
         return Column(
           children: [
             for (var i = 0; i < cards.length; i++) ...[

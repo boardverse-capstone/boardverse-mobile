@@ -1,33 +1,30 @@
 import 'package:equatable/equatable.dart';
 
-import '../../domain/entities/entities.dart';
+import '../../../domain/entities/entities.dart';
 
-/// Trạng thái của màn hình Friend Profile (xem chi tiết 1 player).
+/// Base state for friend profile management.
 ///
-/// **Quan trọng:** mọi state đều mang `userId` để UI/retry/action luôn biết
-/// đang thao tác trên profile của ai — kể cả khi `profile == null` (vd
-/// lỗi load lần đầu, chưa từng load thành công). Tránh truyền empty
-/// `userId` xuống các API endpoint yêu cầu path param (`/friends/{userId}/...`).
+/// All states include userId to identify which profile is being viewed.
 abstract class FriendProfileState extends Equatable {
   const FriendProfileState({required this.userId});
 
-  /// ID của player mà state này đang đại diện. Đặt từ lúc
-  /// `loadProfile(userId)` được gọi, tồn tại xuyên suốt lifecycle của
-  /// cubit cho đến khi dispose.
   final String userId;
 
   @override
   List<Object?> get props => [userId];
 }
 
+/// Initial state before profile is loaded.
 class FriendProfileInitial extends FriendProfileState {
   const FriendProfileInitial({required super.userId});
 }
 
+/// Loading state while fetching profile.
 class FriendProfileLoading extends FriendProfileState {
   const FriendProfileLoading({required super.userId});
 }
 
+/// Loaded state containing full profile data.
 class FriendProfileLoaded extends FriendProfileState {
   const FriendProfileLoaded({
     required super.userId,
@@ -39,20 +36,27 @@ class FriendProfileLoaded extends FriendProfileState {
 
   final FriendProfileEntity profile;
 
-  /// `true` khi đang thực hiện action (gửi request / unfriend / block / mở
-  /// khóa / report) — UI dùng để disable button + show snackbar.
+  /// `true` when an action (send request / unfriend / block / unblock / report)
+  /// is in progress — UI uses this to disable buttons and show loading state.
   final bool isMutating;
 
-  /// Override danh sách mutual friends khi người dùng mở rộng "Xem thêm".
-  /// Mặc định lấy từ [profile.mutualFriends]; list ở đây dài hơn sau khi
-  /// Cubit gọi thêm `getMutualFriends`.
+  /// Override list of mutual friends when user expands "View more".
   final List<MutualFriendSummary>? mutualFriends;
 
-  /// Snackbar message transient (vd: "Đã gửi lời mời"). UI flush sau khi xử lý.
+  /// Transient snackbar message (e.g. "Đã gửi lời mời").
   final String? actionMessage;
 
   List<MutualFriendSummary> get effectiveMutualFriends =>
       mutualFriends ?? profile.mutualFriends;
+
+  @override
+  List<Object?> get props => [
+        userId,
+        profile,
+        isMutating,
+        mutualFriends,
+        actionMessage,
+      ];
 
   FriendProfileLoaded copyWith({
     FriendProfileEntity? profile,
@@ -66,22 +70,13 @@ class FriendProfileLoaded extends FriendProfileState {
       profile: profile ?? this.profile,
       isMutating: isMutating ?? this.isMutating,
       mutualFriends: mutualFriends ?? this.mutualFriends,
-      actionMessage: clearActionMessage
-          ? null
-          : (actionMessage ?? this.actionMessage),
+      actionMessage:
+          clearActionMessage ? null : (actionMessage ?? this.actionMessage),
     );
   }
-
-  @override
-  List<Object?> get props => [
-        userId,
-        profile,
-        isMutating,
-        mutualFriends,
-        actionMessage,
-      ];
 }
 
+/// Error state when profile loading fails.
 class FriendProfileError extends FriendProfileState {
   const FriendProfileError({
     required super.userId,
@@ -91,7 +86,7 @@ class FriendProfileError extends FriendProfileState {
 
   final String message;
 
-  /// Có thể giữ lại profile cũ nếu action phụ (block/unfriend) fail.
+  /// Previous profile data if available (e.g. when action fails mid-load).
   final FriendProfileEntity? profile;
 
   @override

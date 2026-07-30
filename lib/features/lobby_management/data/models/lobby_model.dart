@@ -40,6 +40,7 @@ enum LobbyStatusModel {
 
 class LobbyPlayerModel {
   final String id;
+  final String userId;
   final String name;
   final String avatarUrl;
   final bool isHost;
@@ -49,6 +50,7 @@ class LobbyPlayerModel {
 
   const LobbyPlayerModel({
     required this.id,
+    required this.userId,
     required this.name,
     required this.avatarUrl,
     required this.isHost,
@@ -60,6 +62,7 @@ class LobbyPlayerModel {
   factory LobbyPlayerModel.fromJson(Map<String, dynamic> json) {
     return LobbyPlayerModel(
       id: json['id'] as String,
+      userId: json['userId'] as String,
       name: json['name'] as String,
       avatarUrl: json['avatarUrl'] as String,
       isHost: json['isHost'] as bool,
@@ -71,6 +74,7 @@ class LobbyPlayerModel {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'userId': userId,
     'name': name,
     'avatarUrl': avatarUrl,
     'isHost': isHost,
@@ -81,6 +85,7 @@ class LobbyPlayerModel {
 
   LobbyPlayer toEntity() => LobbyPlayer(
     id: id,
+    userId: userId,
     name: name,
     avatarUrl: avatarUrl,
     isHost: isHost,
@@ -197,6 +202,7 @@ class LobbyModel {
             : (playersJson)
                 .map((url) => LobbyPlayerModel(
                       id: '',
+                      userId: '', // Mock data - actual data has userId
                       name: '',
                       avatarUrl: url as String,
                       isHost: false,

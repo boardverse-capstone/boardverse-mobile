@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/board_game_entity.dart';
 
 class BoardGameCard extends StatelessWidget {
@@ -24,8 +25,8 @@ class BoardGameCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.network(
-                game.imageUrl,
+              child: SafeNetworkImage(
+                url: game.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: theme.colorScheme.surfaceContainerHighest,

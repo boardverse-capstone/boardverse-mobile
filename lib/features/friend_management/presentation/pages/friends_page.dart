@@ -2,32 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
-import '../cubit/friend_list_cubit.dart';
-import '../cubit/friend_list_state.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../cubit/cubit.dart';
 import 'tabs/friend_requests_tab.dart';
 import 'tabs/friends_list_tab.dart';
 import 'tabs/search_users_tab.dart';
 
-/// Trang Friends với 3 tab con:
+/// Main Friends page with 3 tabs:
 /// - Bạn bè (Friends) — [FriendsListTab]
 /// - Lời mời (Friend Requests) — [FriendRequestsTab]
 /// - Tìm kiếm (Search Users) — [SearchUsersTab]
 ///
-/// Được mở từ Profile → "Bạn bè". Scaffold chỉ giữ AppBar + TabBar;
-/// logic/business từng tab nằm trong file `pages/tabs/`.
-///
-/// **Loading strategy (per-tab, lazy):**
-/// - KHÔNG gọi API nào khi mount — chờ user chuyển sang tab nào thì fetch
-///   data của tab đó. Tránh tình trạng mở FriendsPage đã gọi 3 endpoints
-///   trong khi user chỉ xem 1 tab.
-/// - Tab "Bạn bè" → `loadFriends()` (1 API).
-/// - Tab "Lời mời" → `loadReceivedRequests()` (1 API).
-/// - Tab "Tìm kiếm" → on-demand qua debounce, gọi `searchUsers(query)`.
-///
-/// **Redesign UX:**
-/// - Badge unread đặt trực tiếp cạnh nhãn "Lời mời" trong TabBar, không dùng
-///   AppBar action riêng.
-/// - TabBar đơn giản, icon nhỏ, label rõ ràng trên mobile.
+/// Loading strategy (per-tab, lazy):
+/// - NOT call any API on mount — wait for user to switch to a tab
+/// - Tab "Bạn bè" → `loadFriends()`
+/// - Tab "Lời mời" → `loadReceivedRequests()`
+/// - Tab "Tìm kiếm" → on-demand via debounce, call `searchUsers(query)`
 class FriendsPage extends StatelessWidget {
   const FriendsPage({super.key});
 
@@ -35,24 +25,24 @@ class FriendsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<FriendListCubit>(),
-      child: const FriendsScaffold(),
+      child: const _FriendsScaffold(),
     );
   }
 }
 
-class FriendsScaffold extends StatefulWidget {
-  const FriendsScaffold({super.key});
+class _FriendsScaffold extends StatefulWidget {
+  const _FriendsScaffold();
 
   @override
-  State<FriendsScaffold> createState() => _FriendsScaffoldState();
+  State<_FriendsScaffold> createState() => _FriendsScaffoldState();
 }
 
-class _FriendsScaffoldState extends State<FriendsScaffold>
+class _FriendsScaffoldState extends State<_FriendsScaffold>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  /// Track tab nào đã load lần đầu — tránh gọi API nhiều lần khi user
-  /// switch qua switch lại.
+  /// Track which tabs have been loaded — avoid calling API multiple times
+  /// when user switches back and forth.
   final Set<int> _loadedTabs = <int>{};
 
   @override
@@ -65,7 +55,6 @@ class _FriendsScaffoldState extends State<FriendsScaffold>
       _loadIfNeeded(_tabController.index);
     });
 
-    // Tab "Bạn bè" (index 0) là default — trigger load ngay.
     _loadIfNeeded(0);
   }
 
@@ -81,7 +70,6 @@ class _FriendsScaffoldState extends State<FriendsScaffold>
         _loadedTabs.add(tabIndex);
         cubit.loadReceivedRequests();
       case 2:
-        // Search tab — không preset data, search on-demand.
         _loadedTabs.add(tabIndex);
     }
   }
@@ -96,49 +84,81 @@ class _FriendsScaffoldState extends State<FriendsScaffold>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text('Bạn bè'),
         centerTitle: true,
-        forceMaterialTransparency: true,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: theme.colorScheme.surface,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: BlocBuilder<FriendListCubit, FriendListState>(
-            buildWhen: (prev, curr) =>
-                curr is FriendListLoaded &&
-                (prev is! FriendListLoaded ||
-                    prev.unreadRequestCount != curr.unreadRequestCount),
-            builder: (context, state) {
-              final unreadCount = state is FriendListLoaded
-                  ? state.unreadRequestCount
-                  : 0;
-              return TabBar(
-                controller: _tabController,
-                labelColor: theme.colorScheme.primary,
-                unselectedLabelColor: theme.colorScheme.outline,
-                indicatorColor: theme.colorScheme.primary,
-                indicatorWeight: 3,
-                labelStyle: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                unselectedLabelStyle: theme.textTheme.titleSmall,
-                tabs: [
-                  Tab(
-                    icon: const Icon(Icons.people_outline, size: 22),
-                    text: 'Bạn bè',
-                    iconMargin: const EdgeInsets.only(bottom: 2),
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: BlocBuilder<FriendListCubit, FriendListData>(
+              buildWhen: (prev, curr) =>
+                  curr is FriendListLoaded &&
+                  (prev is! FriendListLoaded ||
+                      prev.unreadRequestCount != curr.unreadRequestCount),
+              builder: (context, state) {
+                if (state is! FriendListLoaded) {
+                  return const SizedBox.shrink();
+                }
+                final unreadCount = state.unreadRequestCount;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  _TabWithBadge(
-                    label: 'Lời mời',
-                    count: unreadCount,
+                  padding: const EdgeInsets.all(4),
+                  child: TabBar(
+                    controller: _tabController,
+                    onTap: (_) => FocusScope.of(context).unfocus(),
+                    dividerColor: Colors.transparent,
+                    indicator: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: theme.colorScheme.onPrimary,
+                    unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                    labelStyle: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    tabs: [
+                      const _PillTab(
+                        icon: Icons.people_outline,
+                        label: 'Bạn bè',
+                      ),
+                      _PillTab(
+                        icon: unreadCount > 0
+                            ? Icons.mark_email_unread_outlined
+                            : Icons.mail_outline,
+                        label: 'Lời mời',
+                        count: unreadCount,
+                      ),
+                      const _PillTab(
+                        icon: Icons.search,
+                        label: 'Tìm kiếm',
+                      ),
+                    ],
                   ),
-                  const Tab(
-                    icon: Icon(Icons.search, size: 22),
-                    text: 'Tìm kiếm',
-                    iconMargin: EdgeInsets.only(bottom: 2),
-                  ),
-                ],
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -157,30 +177,26 @@ class _FriendsScaffoldState extends State<FriendsScaffold>
   }
 }
 
-/// Tab widget với badge count nhỏ nằm cạnh label.
-/// Dùng cho tab "Lời mời" để hiển thị số request chưa đọc.
-class _TabWithBadge extends StatelessWidget {
-  const _TabWithBadge({
+class _PillTab extends StatelessWidget {
+  const _PillTab({
+    required this.icon,
     required this.label,
-    required this.count,
+    this.count = 0,
   });
 
+  final IconData icon;
   final String label;
   final int count;
 
   @override
   Widget build(BuildContext context) {
     return Tab(
+      height: 48,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            count > 0
-                ? Icons.mark_email_unread_outlined
-                : Icons.mail_outline,
-            size: 22,
-          ),
+          Icon(icon, size: 18),
           const SizedBox(width: 6),
           Text(label),
           if (count > 0) ...[
@@ -200,12 +216,11 @@ class _RequestBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       decoration: BoxDecoration(
-        color: theme.colorScheme.error,
+        color: const Color(0xFFE53935),
         borderRadius: BorderRadius.circular(9),
       ),
       child: Text(

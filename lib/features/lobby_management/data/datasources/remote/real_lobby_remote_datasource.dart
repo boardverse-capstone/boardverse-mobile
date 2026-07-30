@@ -9,6 +9,7 @@ import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
 import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
+import '../../../domain/entities/lobby_chat_message.dart';
 import '../../../domain/entities/match_result_entity.dart';
 import '../../models/lobby_model.dart';
 import '../../models/lobby_invite_model.dart';
@@ -238,26 +239,20 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() async {
     try {
-      // GET /api/v1/friends/activity — trả về FriendActivityDto[] (xem
-      // friend.md). Lobby cần filter ra những bạn bè đang `Online` để
-      // hiển thị trong sheet "Mời bạn bè vào phòng".
+      // GET /api/v1/friends — trả về FriendSummaryDto[] (tất cả bạn bè).
+      // KHÔNG filter theo online status vì:
+      // - API /activity chỉ trả bạn bè đang online → không thấy bạn offline
+      // - Khi gửi invite, server sẽ gửi notification đến friend dù online/offline
+      // - UI sẽ hiển thị badge "online" dựa trên activityStatus từ response
       final res = await _dio.get<Map<String, dynamic>>(
-        ApiEndpoints.friendsActivity,
+        ApiEndpoints.friends,
       );
       final friends = _unwrapList(res.data)
           .whereType<Map<String, dynamic>>()
           .map((json) => FriendModel.fromJson(json).toEntity())
           .toList();
-      // Chỉ trả về bạn bè đang online / recentlyActive để UI render
-      // badge "online" hợp lý. Server có thể trả cả offline; client
-      // filter để giảm noise trong sheet mời.
-      return Right<Failure, List<FriendEntity>>(
-        friends
-            .where((f) =>
-                f.activityStatus == ActivityStatus.online ||
-                f.activityStatus == ActivityStatus.recentlyActive)
-            .toList(),
-      );
+      // Trả về tất cả bạn bè - UI sẽ hiển thị online status qua activityStatus
+      return Right<Failure, List<FriendEntity>>(friends);
     } on DioException catch (e) {
       return Left<Failure, List<FriendEntity>>(_mapDioError(e));
     } catch (e) {
@@ -761,27 +756,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     }
   }
 
-  @override
-  Future<Either<Failure, void>> sendChatMessage({
-    required String lobbyId,
-    required String content,
-  }) async {
-    try {
-      final path = ApiEndpoints.lobbyMessages(lobbyId);
-      await _dio.post<Map<String, dynamic>>(
-        path,
-        data: {'content': content},
-      );
-      return const Right<Failure, void>(null);
-    } on DioException catch (e) {
-      return Left<Failure, void>(_mapDioError(e));
-    } catch (e) {
-      return Left<Failure, void>(
-        ServerFailure(message: 'Lỗi không xác định: $e'),
-      );
-    }
-  }
-
   Failure _mapDioError(DioException e) {
     final code = e.response?.statusCode;
     final apiMsg = e.response?.data is Map
@@ -819,6 +793,68 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
         return ServerFailure(message: 'Lỗi server ($code)', statusCode: code);
       default:
         return NetworkFailure(message: e.message ?? 'Không thể kết nối server');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // Chat Messages
+  // ════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<Either<Failure, List<LobbyChatMessage>>> getChatMessages({
+    required String lobbyId,
+    String? beforeCursor,
+    int limit = 50,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'limit': limit,
+      };
+      if (beforeCursor != null) {
+        queryParams['beforeCursor'] = beforeCursor;
+      }
+
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/lobbies/$lobbyId/messages',
+        queryParameters: queryParams,
+      );
+
+      final data = _unwrapList(res.data);
+      final messages = data
+          .whereType<Map<String, dynamic>>()
+          .map((json) => LobbyChatMessage.fromJson(json))
+          .toList();
+
+      return Right<Failure, List<LobbyChatMessage>>(messages);
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyChatMessage>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyChatMessage>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyChatMessage>> sendChatMessage({
+    required String lobbyId,
+    required String content,
+  }) async {
+    try {
+      final body = {'content': content};
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/lobbies/$lobbyId/messages',
+        data: body,
+      );
+
+      final message = LobbyChatMessage.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyChatMessage>(message);
+    } on DioException catch (e) {
+      return Left<Failure, LobbyChatMessage>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyChatMessage>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
     }
   }
 }

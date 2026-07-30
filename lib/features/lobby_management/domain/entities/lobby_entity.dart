@@ -185,7 +185,12 @@ class LobbyEntity extends Equatable {
 const Object _sentinel = Object();
 
 class LobbyPlayer extends Equatable {
+  /// ID của membership record
   final String id;
+  
+  /// ID của user (để kiểm tra membership)
+  final String userId;
+  
   final String name;
   final String avatarUrl;
   final bool isHost;
@@ -197,6 +202,7 @@ class LobbyPlayer extends Equatable {
 
   const LobbyPlayer({
     required this.id,
+    required this.userId,
     required this.name,
     required this.avatarUrl,
     required this.isHost,
@@ -208,6 +214,7 @@ class LobbyPlayer extends Equatable {
   @override
   List<Object?> get props => [
     id,
+    userId,
     name,
     avatarUrl,
     isHost,

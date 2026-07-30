@@ -21,19 +21,19 @@ class OnlineFriendsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onlineFriends = friends.where((friend) => friend.isOnline).toList();
-
-    if (onlineFriends.isEmpty) {
+    // Hiển thị TẤT CẢ bạn bè - không lọc online
+    // Invitation sẽ được gửi dù friend online hay offline
+    if (friends.isEmpty) {
       return const _EmptyFriendsState();
     }
 
     return ListView.separated(
       controller: controller,
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-      itemCount: onlineFriends.length,
+      itemCount: friends.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
       itemBuilder: (context, index) {
-        final friend = onlineFriends[index];
+        final friend = friends[index];
         return _FriendTile(
           friend: friend,
           onInvite: onInvite,
@@ -154,15 +154,13 @@ class _FriendTile extends StatelessWidget {
                             const SizedBox(width: AppSpacing.xxs),
                             Flexible(
                               child: Text(
-                                friend.isInLobby
-                                    ? 'Đang ở phòng khác'
-                                    : 'Đang trực tuyến',
+                                _getStatusText(friend),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: friend.isInLobby
                                       ? warningColor
-                                      : onlineColor,
+                                      : (friend.isOnline ? onlineColor : colors.onSurfaceVariant),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -205,6 +203,23 @@ class _FriendTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getStatusText(FriendEntity friend) {
+    if (friend.isInLobby) {
+      return 'Đang ở phòng khác';
+    }
+    switch (friend.activityStatus) {
+      case ActivityStatus.online:
+        return 'Đang trực tuyến';
+      case ActivityStatus.recentlyActive:
+        return 'Hoạt động gần đây';
+      case ActivityStatus.away:
+        return 'Vắng mặt';
+      case ActivityStatus.offline:
+      default:
+        return 'Ngoại tuyến';
+    }
   }
 }
 
@@ -267,7 +282,7 @@ class _EmptyFriendsState extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Chưa có bạn bè trực tuyến',
+              'Chưa có bạn bè',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -275,7 +290,7 @@ class _EmptyFriendsState extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Khi bạn bè online, bạn có thể mời họ tham gia phòng tại đây.',
+              'Hãy kết bạn với những người chơi khác để mời họ tham gia phòng.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,

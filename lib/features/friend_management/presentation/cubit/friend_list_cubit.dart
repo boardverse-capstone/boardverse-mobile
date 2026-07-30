@@ -2,28 +2,36 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/friend_repository.dart';
-import 'friend_list_state.dart';
+import 'states/states.dart';
 
-/// Identifier của các "section" (data slice) trong cubit. Dùng cùng
-/// `FriendListLoaded.friendsLoading` / `receivedRequestsLoading` để UI
-/// biết chính xác tab nào đang fetch dữ liệu.
+/// Identifier of tab "sections" for per-tab loading flags.
 enum SectionKind { friends, receivedRequests }
 
+/// Cubit for managing friend list state.
+///
+/// Handles:
+/// - Friends list loading with per-tab loading states
+/// - Friend requests (received/sent)
+/// - Friend actions (accept, decline, unfriend, block)
+/// - Search users
+/// - Notes management
+/// - Privacy settings
+/// - Reports
 class FriendListCubit extends Cubit<FriendListState> {
-  FriendListCubit({required this._repository}) : super(const FriendListInitial());
+  FriendListCubit({required FriendRepository repository})
+      : _repository = repository,
+        super(const FriendListInitial());
 
   final FriendRepository _repository;
 
-  /// Cập nhật per-tab loading flag trong khi giữ nguyên data hiện có.
-  ///
-  /// Nếu state hiện tại chưa phải [FriendListLoaded] (vd vừa mount, chưa
-  /// load gì) thì lần load đầu tiên vẫn emit [FriendListError] / [FriendListLoaded]
-  /// bình thường — flag loading chỉ có ý nghĩa khi slice đó đã có data sẵn.
+  // ─── Section Loading Helpers ─────────────────────────────────────────────────
+
   void _setSectionLoading(SectionKind kind, bool isLoading) {
     final current = state;
     if (current is FriendListLoaded) {
       emit(current.copyWith(
-        friendsLoading: kind == SectionKind.friends ? isLoading : current.friendsLoading,
+        friendsLoading:
+            kind == SectionKind.friends ? isLoading : current.friendsLoading,
         receivedRequestsLoading: kind == SectionKind.receivedRequests
             ? isLoading
             : current.receivedRequestsLoading,
@@ -31,18 +39,28 @@ class FriendListCubit extends Cubit<FriendListState> {
     }
   }
 
-  /// Tab "Bạn bè" — chỉ fetch friend list (status Accepted).
+  void _emitError(String message) {
+    final current = state;
+    if (current is FriendListLoaded) {
+      emit(FriendListError(message: message));
+    } else {
+      emit(FriendListError(message: message));
+    }
+  }
+
+  // ─── Friends ────────────────────────────────────────────────────────────────
+
   Future<void> loadFriends() async {
     if (isClosed) return;
     _setSectionLoading(SectionKind.friends, true);
 
-    final friendsResult = await _repository.getFriendsWithActivity();
+    final result = await _repository.getFriendsWithActivity();
     if (isClosed) return;
 
-    friendsResult.fold(
+    result.fold(
       (failure) {
         _setSectionLoading(SectionKind.friends, false);
-        emit(FriendListError(failure.message));
+        _emitError(failure.message);
       },
       (data) {
         final current = state;
@@ -59,20 +77,21 @@ class FriendListCubit extends Cubit<FriendListState> {
     );
   }
 
-  /// Tab "Lời mời" — chỉ fetch received requests (inbox).
-  /// Không fetch sent requests vì UI đã bỏ phần "Đã gửi"
-  /// (xem BR-FRIEND-REQUESTS-UI).
+  Future<void> refreshFriends() => loadFriends();
+
+  // ─── Friend Requests ───────────────────────────────────────────────────────
+
   Future<void> loadReceivedRequests() async {
     if (isClosed) return;
     _setSectionLoading(SectionKind.receivedRequests, true);
 
-    final receivedResult = await _repository.getReceivedRequests();
+    final result = await _repository.getReceivedRequests();
     if (isClosed) return;
 
-    receivedResult.fold(
+    result.fold(
       (failure) {
         _setSectionLoading(SectionKind.receivedRequests, false);
-        emit(FriendListError(failure.message));
+        _emitError(failure.message);
       },
       (data) {
         final current = state;
@@ -89,11 +108,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     );
   }
 
-  /// Pull-to-refresh cho tab "Bạn bè" — chỉ reload friend list.
-  Future<void> refreshFriends() async => loadFriends();
-
-  /// Pull-to-refresh cho tab "Lời mời" — chỉ reload received requests.
-  Future<void> refreshReceivedRequests() async => loadReceivedRequests();
+  Future<void> refreshReceivedRequests() => loadReceivedRequests();
 
   Future<void> sendFriendRequest({
     required String addresseeId,
@@ -107,14 +122,14 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (request) {
         if (currentState is FriendListLoaded) {
           emit(currentState.copyWith(
             sentRequests: [...currentState.sentRequests, request],
           ));
         } else {
-          emit(FriendRequestSent(addresseeId));
+          emit(FriendRequestSent(addresseeId: addresseeId));
         }
       },
     );
@@ -126,8 +141,8 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
-      (updated) {
+      (failure) => _emitError(failure.message),
+      (_) {
         if (currentState is FriendListLoaded) {
           final newReceived = currentState.receivedRequests
               .where((r) => r.requestId != requestId)
@@ -137,7 +152,10 @@ class FriendListCubit extends Cubit<FriendListState> {
             unreadRequestCount: newReceived.where((r) => !r.isRead).length,
           ));
         } else {
-          emit(FriendRequestProcessed(requestId: requestId, accepted: true));
+          emit(FriendRequestProcessed(
+            requestId: requestId,
+            accepted: true,
+          ));
         }
       },
     );
@@ -149,8 +167,8 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
-      (updated) {
+      (failure) => _emitError(failure.message),
+      (_) {
         if (currentState is FriendListLoaded) {
           final newReceived = currentState.receivedRequests
               .where((r) => r.requestId != requestId)
@@ -160,46 +178,11 @@ class FriendListCubit extends Cubit<FriendListState> {
             unreadRequestCount: newReceived.where((r) => !r.isRead).length,
           ));
         } else {
-          emit(FriendRequestProcessed(requestId: requestId, accepted: false));
-        }
-      },
-    );
-  }
-
-  Future<void> unfriend(String friendId) async {
-    final currentState = state;
-    final result = await _repository.unfriend(friendId);
-
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(FriendListError(failure.message)),
-      (_) {
-        if (currentState is FriendListLoaded) {
-          emit(currentState.copyWith(
-            friends: currentState.friends
-                .where((f) => f.odId != friendId)
-                .toList(),
+          emit(FriendRequestProcessed(
+            requestId: requestId,
+            accepted: false,
           ));
-        } else {
-          emit(FriendUnfriended(friendId));
         }
-      },
-    );
-  }
-
-  Future<void> blockUser(String userId) async {
-    final result = await _repository.blockUser(userId);
-
-    if (isClosed) return;
-    await result.fold(
-      (failure) async => emit(FriendListError(failure.message)),
-      (_) async {
-        // Block 1 user có thể thay đổi cả friend list (user bị block biến
-        // mất khỏi friends) + received requests (block giữa chừng). Reload
-        // 2 slice này. Lời mời đã gửi không cần (UI đã bỏ).
-        await loadFriends();
-        if (isClosed) return;
-        await loadReceivedRequests();
       },
     );
   }
@@ -223,22 +206,59 @@ class FriendListCubit extends Cubit<FriendListState> {
     }
   }
 
-  // ─── Search users ────────────────────────────────────────────────────
+  // ─── Friend Actions ─────────────────────────────────────────────────────────
+
+  Future<void> unfriend(String friendId) async {
+    final currentState = state;
+    final result = await _repository.unfriend(friendId);
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => _emitError(failure.message),
+      (_) {
+        if (currentState is FriendListLoaded) {
+          emit(currentState.copyWith(
+            friends:
+                currentState.friends.where((f) => f.odId != friendId).toList(),
+          ));
+        } else {
+          emit(FriendUnfriended(friendId: friendId));
+        }
+      },
+    );
+  }
+
+  Future<void> blockUser(String userId) async {
+    final result = await _repository.blockUser(userId);
+
+    if (isClosed) return;
+    await result.fold(
+      (failure) async => _emitError(failure.message),
+      (_) async {
+        await loadFriends();
+        if (isClosed) return;
+        await loadReceivedRequests();
+      },
+    );
+  }
+
+  // ─── Search Users ──────────────────────────────────────────────────────────
 
   Future<List<UserSearchEntity>> searchUsers(String query) async {
     if (query.trim().isEmpty) return const [];
     final result = await _repository.searchUsers(query: query.trim());
-    return result.fold((failure) => const <UserSearchEntity>[], (data) => data);
+    return result.fold((failure) => const [], (data) => data);
   }
 
-  // ─── Friend Notes ──────────────────────────────────────────────────────────
+  // ─── Notes ─────────────────────────────────────────────────────────────────
 
   Future<void> loadNotes() async {
     if (isClosed) return;
     final result = await _repository.getAllNotes();
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (notes) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -262,8 +282,9 @@ class FriendListCubit extends Cubit<FriendListState> {
       tags: tags,
     );
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (savedNote) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -278,7 +299,7 @@ class FriendListCubit extends Cubit<FriendListState> {
           }
           emit(currentState.copyWith(notes: List.from(notes)));
         } else {
-          emit(FriendNoteSaved(savedNote));
+          emit(FriendNoteSaved(note: savedNote));
         }
       },
     );
@@ -288,8 +309,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
     final result = await _repository.deleteNote(noteId);
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (_) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -297,20 +319,21 @@ class FriendListCubit extends Cubit<FriendListState> {
             notes: currentState.notes.where((n) => n.noteId != noteId).toList(),
           ));
         } else {
-          emit(FriendNoteDeleted(noteId));
+          emit(FriendNoteDeleted(noteId: noteId));
         }
       },
     );
   }
 
-  // ─── Friend Privacy ───────────────────────────────────────────────────────
+  // ─── Privacy ───────────────────────────────────────────────────────────────
 
   Future<void> loadPrivacySettings() async {
     if (isClosed) return;
     final result = await _repository.getPrivacySettings();
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (privacy) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -332,20 +355,21 @@ class FriendListCubit extends Cubit<FriendListState> {
       friendLimit: friendLimit,
     );
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (privacy) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
           emit(currentState.copyWith(privacySettings: privacy));
         } else {
-          emit(FriendPrivacyUpdated(privacy));
+          emit(FriendPrivacyUpdated(privacy: privacy));
         }
       },
     );
   }
 
-  // ─── Friend Reports ───────────────────────────────────────────────────────
+  // ─── Reports ───────────────────────────────────────────────────────────────
 
   Future<void> createReport({
     required String targetUserId,
@@ -359,11 +383,10 @@ class FriendListCubit extends Cubit<FriendListState> {
       reason: reason,
     );
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
-      (_) {
-        emit(FriendReportCreated(targetUserId));
-      },
+      (failure) => _emitError(failure.message),
+      (_) => emit(FriendReportCreated(targetUserId: targetUserId)),
     );
   }
 
@@ -371,8 +394,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
     final result = await _repository.getMyReports();
     if (isClosed) return;
+
     result.fold(
-      (failure) => emit(FriendListError(failure.message)),
+      (failure) => _emitError(failure.message),
       (reports) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -382,3 +406,6 @@ class FriendListCubit extends Cubit<FriendListState> {
     );
   }
 }
+
+/// Alias for FriendListState for backward compatibility.
+typedef FriendListState = FriendListData;

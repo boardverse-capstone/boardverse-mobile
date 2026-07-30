@@ -8,6 +8,7 @@ import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
 import 'package:boardverse_mobile/features/booking_payment/presentation/pages/booking_summary_page.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
+import '../../domain/entities/lobby_chat_message.dart';
 import '../cubit/lobby_cubit.dart';
 import '../cubit/lobby_state.dart';
 import '../widgets/lobby_player_card.dart';
@@ -26,11 +27,14 @@ class LobbyPage extends StatefulWidget {
 
 class _LobbyPageState extends State<LobbyPage> {
   final _chatController = TextEditingController();
-  final List<ChatMessage> _chatMessages = [];
+  final List<LobbyChatMessage> _chatMessages = [];
 
   /// Id của current user lấy từ JWT (nameIdentifier claim).
   /// Cache sau khi load để dùng trong build.
   String? _currentUserId;
+
+  /// Track xem đã load messages chưa để tránh load lại nhiều lần.
+  bool _chatLoaded = false;
 
   @override
   void initState() {
@@ -51,6 +55,21 @@ class _LobbyPageState extends State<LobbyPage> {
     // Sử dụng `initLobbyState` để kiểm tra user đã là member chưa
     // và xử lý phù hợp (join nếu cần, hoặc chỉ sync state nếu đã là host)
     await widget.lobbyCubit.initLobbyState(widget.lobbyId, userId ?? '');
+  }
+
+  void _loadChatMessages() {
+    if (!_chatLoaded) {
+      _chatLoaded = true;
+      widget.lobbyCubit.loadChatMessages(widget.lobbyId);
+    }
+  }
+
+  void _sendChatMessage() {
+    final content = _chatController.text.trim();
+    if (content.isEmpty) return;
+
+    widget.lobbyCubit.sendChatMessage(widget.lobbyId, content);
+    _chatController.clear();
   }
 
   @override
@@ -148,10 +167,23 @@ class _LobbyPageState extends State<LobbyPage> {
           if (state is LobbyAutoBookingCreated) {
             _onAutoBookingCreated(context, state);
           }
+          if (state is LobbyChatLoaded) {
+            setState(() {
+              _chatMessages.clear();
+              _chatMessages.addAll(state.messages);
+            });
+          }
+          if (state is LobbyChatError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
+          }
         },
         buildWhen: (previous, current) =>
             current is! LobbyFriendsLoaded &&
-            current is! LobbySimulateFriendsLoaded,
+            current is! LobbySimulateFriendsLoaded &&
+            current is! LobbyChatLoaded &&
+            current is! LobbyChatError,
         builder: (context, state) {
           if (state is LobbyLoading) {
             return const _LobbyLoadingScaffold();
@@ -177,6 +209,9 @@ class _LobbyPageState extends State<LobbyPage> {
           if (lobby == null) {
             return const _LobbyLoadingScaffold();
           }
+
+          // Load chat messages khi lobby được tạo
+          _loadChatMessages();
 
           return _buildLobbyView(context, lobby);
         },
@@ -213,18 +248,8 @@ class _LobbyPageState extends State<LobbyPage> {
                 final chatSection = _ChatPanel(
                   controller: _chatController,
                   messages: _chatMessages,
-                  onSend: () {
-                    if (_chatController.text.trim().isEmpty) return;
-                    setState(() {
-                      _chatMessages.add(
-                        ChatMessage(
-                          senderName: 'Bạn',
-                          message: _chatController.text,
-                        ),
-                      );
-                      _chatController.clear();
-                    });
-                  },
+                  currentUserId: _currentUserId ?? '',
+                  onSend: _sendChatMessage,
                 );
 
                 final lobbyPanel = _MembersSection(
@@ -257,11 +282,6 @@ class _LobbyPageState extends State<LobbyPage> {
                   children: [
                     lobbyPanel,
                     const SizedBox(height: AppSpacing.lg),
-                    _SectionTitle(
-                      title: 'Trò chuyện trong phòng',
-                      leading: AppIcons.chat,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
                     chatSection,
                   ],
                 );
@@ -279,11 +299,16 @@ class _LobbyPageState extends State<LobbyPage> {
         ),
         child: _LobbyBottomActions(
           canBook: lobby.currentPlayers >= lobby.maxPlayers,
+          isHost: lobby.hostId == (_currentUserId ?? ''),
           onLeave: () {
             widget.lobbyCubit.leaveLobby(widget.lobbyId);
             Navigator.pop(context);
           },
-          onBook: () => _openBookingSummary(context, LobbyReady(lobby: lobby)),
+          onBook: () {
+            // Luồng mới: Host bấm xác nhận → gọi hostConfirmAndBook
+            // → emit LobbyReady → _openBookingSummary navigate.
+            widget.lobbyCubit.hostConfirmAndBook(widget.lobbyId);
+          },
         ),
       ),
     );
@@ -728,12 +753,14 @@ class _MembersSection extends StatelessWidget {
 
 class _ChatPanel extends StatelessWidget {
   final TextEditingController controller;
-  final List<ChatMessage> messages;
+  final List<LobbyChatMessage> messages;
+  final String currentUserId;
   final VoidCallback onSend;
 
   const _ChatPanel({
     required this.controller,
     required this.messages,
+    required this.currentUserId,
     required this.onSend,
   });
 
@@ -752,27 +779,6 @@ class _ChatPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.xs,
-            ),
-            child: Row(
-              children: [
-                Icon(AppIcons.chat, size: AppIcons.md, color: colors.primary),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'Trò chuyện trong phòng',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
           SizedBox(
             height: 220,
             child: messages.isEmpty
@@ -782,7 +788,10 @@ class _ChatPanel extends StatelessWidget {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
-                      return _ChatMessageBubble(message: message);
+                      return _ChatMessageBubble(
+                        message: message,
+                        currentUserId: currentUserId,
+                      );
                     },
                   ),
           ),
@@ -853,15 +862,50 @@ class _ChatEmptyState extends StatelessWidget {
 }
 
 class _ChatMessageBubble extends StatelessWidget {
-  final ChatMessage message;
+  final LobbyChatMessage message;
+  final String currentUserId;
 
-  const _ChatMessageBubble({required this.message});
+  const _ChatMessageBubble({required this.message, required this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isSelf = message.senderName == 'Bạn';
+    final isSystem = message.isSystem;
+
+    // System messages (senderId = null) render riêng ở giữa — tránh để lẫn
+    // với chat của user dễ gây rối.
+    if (isSystem) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs,
+          vertical: AppSpacing.xs,
+        ),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(AppRadius.radiusXl),
+            ),
+            child: Text(
+              message.content,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isSelf = message.senderId == currentUserId;
+    final senderName = message.senderName;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -877,9 +921,9 @@ class _ChatMessageBubble extends StatelessWidget {
                 ? colors.onPrimaryContainer
                 : colors.onSecondaryContainer,
             child: Text(
-              message.senderName.isEmpty
+              senderName.isEmpty
                   ? '?'
-                  : message.senderName.characters.first.toUpperCase(),
+                  : senderName.characters.first.toUpperCase(),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -891,7 +935,7 @@ class _ChatMessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  message.senderName,
+                  senderName,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: colors.primary,
                     fontWeight: FontWeight.w700,
@@ -915,7 +959,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    message.message,
+                    message.content,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -930,11 +974,13 @@ class _ChatMessageBubble extends StatelessWidget {
 
 class _LobbyBottomActions extends StatelessWidget {
   final bool canBook;
+  final bool isHost;
   final VoidCallback onLeave;
   final VoidCallback onBook;
 
   const _LobbyBottomActions({
     required this.canBook,
+    required this.isHost,
     required this.onLeave,
     required this.onBook,
   });
@@ -968,7 +1014,7 @@ class _LobbyBottomActions extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: canBook
+                colors: (canBook && isHost)
                     ? [
                         AppColors.primary,
                         theme.brightness == Brightness.dark
@@ -981,12 +1027,12 @@ class _LobbyBottomActions extends StatelessWidget {
                       ],
               ),
               borderRadius: AppRadius.buttonRadius,
-              boxShadow: canBook ? AppElevation.shadowSm : null,
+              boxShadow: (canBook && isHost) ? AppElevation.shadowSm : null,
             ),
             child: FilledButton.icon(
-              onPressed: canBook ? onBook : null,
+              onPressed: (canBook && isHost) ? onBook : null,
               icon: const Icon(AppIcons.creditCard),
-              label: const Text('Tạo đơn đặt cọc'),
+              label: Text(_getButtonLabel(canBook, isHost)),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -1002,6 +1048,12 @@ class _LobbyBottomActions extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _getButtonLabel(bool canBook, bool isHost) {
+    if (!canBook) return 'Chờ đủ người';
+    if (!isHost) return 'Chờ Host xác nhận';
+    return 'Xác nhận & Đặt cọc';
   }
 }
 
