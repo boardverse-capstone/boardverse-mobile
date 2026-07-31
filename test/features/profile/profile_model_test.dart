@@ -217,6 +217,52 @@ void main() {
       expect(serialized['latitude'], 10.7769);
       expect(serialized['source'], 0);
     });
+
+    test(
+        'fromJson không throw khi server bỏ sót hasLocation — suy ra từ '
+        'lat/lng (fix cho TypeError null-as-bool)', () {
+      final json = <String, dynamic>{
+        'latitude': 10.7769,
+        'longitude': 106.7008,
+        'updatedAt': '2026-01-01T12:00:00Z',
+        'source': 1,
+        // 'hasLocation' bị bỏ sót hoàn toàn
+      };
+
+      final model = PlayerLocationModel.fromJson(json);
+
+      expect(model.hasLocation, isTrue,
+          reason: 'hasLocation phải suy ra true vì lat/lng có giá trị');
+    });
+
+    test('fromJson không throw khi hasLocation = null — suy ra từ lat/lng',
+        () {
+      final json = <String, dynamic>{
+        'latitude': 10.7769,
+        'longitude': 106.7008,
+        'updatedAt': null,
+        'source': 1,
+        'hasLocation': null, // server trả null thay vì bool
+      };
+
+      final model = PlayerLocationModel.fromJson(json);
+
+      expect(model.hasLocation, isTrue);
+    });
+
+    test('fromJson hasLocation=false khi cả lat và lng đều null', () {
+      final json = <String, dynamic>{
+        'latitude': null,
+        'longitude': null,
+        'updatedAt': null,
+        'source': null,
+        'hasLocation': false,
+      };
+
+      final model = PlayerLocationModel.fromJson(json);
+
+      expect(model.hasLocation, isFalse);
+    });
   });
 
   group('KarmaHistoryModel', () {

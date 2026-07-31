@@ -28,23 +28,22 @@ class TournamentMatchModel {
 
   factory TournamentMatchModel.fromJson(Map<String, dynamic> json) {
     return TournamentMatchModel(
-      id: json['id'] as String,
-      roundNumber: json['roundNumber'] as int,
-      isFinal: json['isFinal'] as bool? ?? false,
-      tableNumber: json['tableNumber'] as int? ?? 1,
-      status: json['status'] as String,
-      winnerId: json['winnerId'] as String?,
-      results: (json['results'] as List<dynamic>?)
-              ?.map((e) => MatchPlayerResultModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      actualStartTime: json['actualStartTime'] != null
-          ? DateTime.parse(json['actualStartTime'] as String)
-          : null,
-      actualEndTime: json['actualEndTime'] != null
-          ? DateTime.parse(json['actualEndTime'] as String)
-          : null,
-      notes: json['notes'] as String?,
+      id: _readString(json, const ['id', 'matchId'], ''),
+      roundNumber: _readInt(json, const ['roundNumber', 'round'], 1),
+      isFinal: _readBool(json, const ['isFinal', 'final']),
+      tableNumber: _readInt(json, const ['tableNumber', 'table'], 1),
+      status: _readString(json, const ['status', 'matchStatus'], 'Scheduled'),
+      winnerId: _readNullableString(json, const ['winnerId', 'winnerUserId']),
+      results: _readResults(json['results']),
+      actualStartTime: _readNullableDateTime(json, const [
+        'actualStartTime',
+        'startedAt',
+      ]),
+      actualEndTime: _readNullableDateTime(json, const [
+        'actualEndTime',
+        'endedAt',
+      ]),
+      notes: _readNullableString(json, const ['notes', 'note']),
     );
   }
 
@@ -99,12 +98,16 @@ class MatchPlayerResultModel {
 
   factory MatchPlayerResultModel.fromJson(Map<String, dynamic> json) {
     return MatchPlayerResultModel(
-      oderId: json['userId'] as String? ?? '',
-      displayName: json['displayName'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-      score: json['score'] as int? ?? 0,
-      cardsBought: json['cardsBought'] as int? ?? 0,
-      isWinner: json['isWinner'] as bool? ?? false,
+      oderId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: _readString(json, const [
+        'displayName',
+        'fullName',
+        'name',
+      ], 'Người chơi'),
+      avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
+      score: _readInt(json, const ['score', 'finalScore', 'prestigePoints'], 0),
+      cardsBought: _readInt(json, const ['cardsBought', 'cards'], 0),
+      isWinner: _readBool(json, const ['isWinner', 'winner']),
     );
   }
 
@@ -129,4 +132,73 @@ class MatchPlayerResultModel {
       isWinner: isWinner,
     );
   }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+List<MatchPlayerResultModel> _readResults(dynamic raw) {
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map>()
+      .map((e) => MatchPlayerResultModel.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
+}
+
+int _readInt(Map<String, dynamic> json, List<String> keys, int fallback) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return fallback;
+}
+
+String _readString(
+  Map<String, dynamic> json,
+  List<String> keys,
+  String fallback,
+) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return fallback;
+}
+
+String? _readNullableString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return null;
+}
+
+bool _readBool(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is bool) return value;
+    final str = value?.toString().toLowerCase();
+    if (str == 'true' || str == '1') return true;
+    if (str == 'false' || str == '0') return false;
+  }
+  return false;
+}
+
+DateTime? _readNullableDateTime(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value == null) continue;
+    try {
+      if (value is DateTime) return value.toLocal();
+      return DateTime.parse(value.toString()).toLocal();
+    } catch (_) {
+      // Try next key
+    }
+  }
+  return null;
 }

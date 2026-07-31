@@ -23,7 +23,8 @@ import '../base/lobby_remote_datasource.dart';
 /// Lưu ý mapping field:
 /// - **client → server**: `createLobby` body đổi từ `gameId/cafeId/...` sang
 ///   `gameTemplateId/scheduledStartTime/maxMembers/cancellationLeadTimeMinutes`.
-///   Backend ignore các field client-only (`isPublic`, `searchRadiusKm`, ...).
+///   Backend nhận `cafeId`, `isPrivate`, `seatCount` (optional). Client
+///   cờ "public" được đảo thành `isPrivate = false`.
 /// - **search**: chuyển từ GET query params → POST body theo spec.
 /// - **response parsing**: dùng `LobbyModel.fromJson` hiện có (camelCase).
 ///   Nếu backend trả PascalCase cần thêm converter (xem plan §Câu hỏi 1).
@@ -50,18 +51,30 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     Duration? leadTime,
   }) async {
     try {
-      // Backend spec `lobby.md:48-56`:
-      // {
-      //   "gameTemplateId": "uuid",
-      //   "scheduledStartTime": "ISO-8601 UTC",
-      //   "maxMembers": 2..4,
-      //   "cancellationLeadTimeMinutes": 30
-      // }
+      // Backend spec `lobby.md:48-56` + Swagger `CreateLobbyRequestDto`:
+      //   `gameTemplateId`, `scheduledStartTime`, `maxMembers`,
+      //   `cancellationLeadTimeMinutes`, optional `cafeId`, `isPrivate`,
+      //   `description`, `coverImageUrl`, `latitude`, `longitude`,
+      //   `seatCount`, `bookingId`, `minPlayers`.
+      //
+      // Lưu ý mapping:
+      // - `isPublic = true` ⇔ `isPrivate = false`; client dùng cờ "public"
+      //   cho UX quen thuộc → đảo sang backend.
+      // - `cafeId` chỉ gửi khi thực sự có giá trị (lobby tự do không gắn
+      //   quán sẽ bỏ field này).
+      // - `maxMembers = additionalSlots + 1` (host + slot tuyển thêm).
+      // - `seatCount = maxMembers` (BR-07: MaxMembers ≤ SeatCount). Phase
+      //   sau sẽ ràng buộc chặt hơn từ booking của quán.
+      // - BR-10 (`minimumKarma`) hiện không nằm trong CreateLobbyRequestDto
+      //   của backend; vẫn ghi nhận client-side cho UI.
       final body = <String, dynamic>{
         'gameTemplateId': gameId,
         'scheduledStartTime': scheduledTime.toUtc().toIso8601String(),
         'maxMembers': additionalSlots + 1,
+        'seatCount': additionalSlots + 1,
         'cancellationLeadTimeMinutes': leadTime?.inMinutes ?? 30,
+        'isPrivate': !isPublic,
+        if (cafeId.isNotEmpty) 'cafeId': cafeId,
       };
       final res = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.lobbiesList,

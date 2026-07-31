@@ -66,7 +66,11 @@ void main() {
 
     testWidgets('shows summary card + chart + history items', (tester) async {
       repository.eloHistory = [
-        TournamentTestFixtures.eloHistory(id: 'e1', delta: 30, initialElo: 1500),
+        TournamentTestFixtures.eloHistory(
+          id: 'e1',
+          delta: 30,
+          initialElo: 1500,
+        ),
         TournamentTestFixtures.eloHistory(
           id: 'e2',
           delta: -15,
@@ -90,6 +94,28 @@ void main() {
 
       // Detailed history (reversed = newest first)
       expect(find.text('Lịch sử chi tiết'), findsOneWidget);
+    });
+
+    test('total delta is the sum of API deltas', () async {
+      repository.eloHistory = [
+        TournamentTestFixtures.eloHistory(
+          id: 'e1',
+          delta: 30,
+          initialElo: 1600,
+        ),
+        TournamentTestFixtures.eloHistory(
+          id: 'e2',
+          delta: -10,
+          initialElo: 1630,
+        ),
+      ];
+      final cubit = EloHistoryCubit(repository: repository);
+
+      await cubit.loadEloHistory();
+
+      final loaded = cubit.state as EloHistoryLoaded;
+      expect(loaded.totalDelta, 20);
+      expect(loaded.currentElo, 1620);
     });
 
     testWidgets('handles empty history gracefully', (tester) async {

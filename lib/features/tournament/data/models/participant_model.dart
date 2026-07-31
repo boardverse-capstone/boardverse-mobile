@@ -9,7 +9,7 @@ class TournamentParticipantModel {
   final int elo;
   final int karma;
   final String status;
-  final int swissScore;
+  final double swissScore;
   final int prestigePoints;
   final int? finalRank;
   final int eloDelta;
@@ -32,18 +32,32 @@ class TournamentParticipantModel {
 
   factory TournamentParticipantModel.fromJson(Map<String, dynamic> json) {
     return TournamentParticipantModel(
-      id: json['id'] as String,
-      oderId: json['userId'] as String? ?? '',
-      displayName: json['displayName'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-      elo: json['elo'] as int? ?? 1500,
-      karma: json['karma'] as int? ?? 0,
-      status: json['status'] as String,
-      swissScore: json['swissScore'] as int? ?? 0,
-      prestigePoints: json['prestigePoints'] as int? ?? 0,
-      finalRank: json['finalRank'] as int?,
-      eloDelta: json['eloDelta'] as int? ?? 0,
-      isWalkIn: json['isWalkIn'] as bool? ?? false,
+      id: _readRequiredString(json, const [
+        'id',
+        'participantId',
+      ], fallback: ''),
+      oderId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: _readString(json, const [
+        'displayName',
+        'fullName',
+        'name',
+      ], 'Người chơi'),
+      avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
+      elo: _readInt(json, const ['finalElo', 'initialElo', 'elo'], 1500),
+      karma: _readInt(json, const [
+        'karmaAtRegistration',
+        'karma',
+        'karmaPoints',
+      ], 0),
+      status: _readString(json, const ['status'], 'Registered'),
+      swissScore: _readSwissScore(json),
+      prestigePoints: _readInt(json, const [
+        'totalPrestigePoints',
+        'prestigePoints',
+      ], 0),
+      finalRank: _readNullableInt(json, const ['finalRank', 'rank']),
+      eloDelta: _readInt(json, const ['eloDelta'], 0),
+      isWalkIn: _readBool(json, const ['isWalkIn', 'walkIn']),
     );
   }
 
@@ -85,4 +99,89 @@ class TournamentParticipantModel {
       totalRounds: totalRounds,
     );
   }
+}
+
+double _readSwissScore(Map<String, dynamic> json) {
+  final explicit = json['swissScore'];
+  if (explicit is num) return explicit.toDouble();
+  final str = explicit?.toString();
+  if (str != null && str.isNotEmpty) {
+    final parsed = double.tryParse(str);
+    if (parsed != null) return parsed;
+  }
+
+  final wins = _readInt(json, const ['swissWins'], 0);
+  final draws = _readInt(json, const ['swissDraws'], 0);
+  final losses = _readInt(json, const ['swissLosses'], 0);
+  return wins + draws * 0.5 - losses * 0.5;
+}
+
+int _readInt(Map<String, dynamic> json, List<String> keys, int fallback) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return fallback;
+}
+
+int? _readNullableInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value == null) continue;
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value.toString());
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+String _readString(
+  Map<String, dynamic> json,
+  List<String> keys,
+  String fallback,
+) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return fallback;
+}
+
+String? _readNullableString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return null;
+}
+
+bool _readBool(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is bool) return value;
+    final str = value?.toString().toLowerCase();
+    if (str == 'true' || str == '1') return true;
+    if (str == 'false' || str == '0') return false;
+  }
+  return false;
+}
+
+String _readRequiredString(
+  Map<String, dynamic> json,
+  List<String> keys, {
+  required String fallback,
+}) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return fallback;
 }

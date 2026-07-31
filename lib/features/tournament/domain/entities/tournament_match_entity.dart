@@ -100,7 +100,7 @@ class MatchPlayerResult {
   final int score;
   final int cardsBought;
   final bool isWinner;
-  int? rank;
+  final int? rank;
 
   MatchPlayerResult({
     required this.oderId,

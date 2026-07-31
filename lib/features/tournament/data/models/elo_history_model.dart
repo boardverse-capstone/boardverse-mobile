@@ -28,16 +28,28 @@ class EloHistoryModel {
 
   factory EloHistoryModel.fromJson(Map<String, dynamic> json) {
     return EloHistoryModel(
-      id: json['id'] as String,
-      oderId: json['userId'] as String? ?? '',
-      displayName: json['displayName'] as String,
-      tournamentTitle: json['tournamentTitle'] as String,
-      tournamentId: json['tournamentId'] as String,
-      initialElo: json['initialElo'] as int? ?? 1500,
-      finalElo: json['finalElo'] as int? ?? 1500,
-      delta: json['delta'] as int? ?? 0,
-      playedAt: DateTime.parse(json['playedAt'] as String),
-      rank: json['rank'] as int?,
+      id: _readString(json, const ['id', 'historyId'], ''),
+      oderId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: _readString(json, const [
+        'displayName',
+        'fullName',
+        'name',
+      ], 'Người chơi'),
+      tournamentTitle: _readString(json, const [
+        'tournamentTitle',
+        'tournamentName',
+        'title',
+      ], 'Giải đấu'),
+      tournamentId: _readString(json, const ['tournamentId'], ''),
+      initialElo: _readInt(json, const ['initialElo', 'eloBefore'], 1500),
+      finalElo: _readInt(json, const ['finalElo', 'eloAfter'], 1500),
+      delta: _readInt(json, const ['delta', 'eloDelta', 'eloChange'], 0),
+      playedAt: _readDateTime(json, const [
+        'playedAt',
+        'playedDate',
+        'createdAt',
+      ]),
+      rank: _readNullableInt(json, const ['rank', 'finalRank']),
     );
   }
 
@@ -70,4 +82,52 @@ class EloHistoryModel {
       rank: rank,
     );
   }
+}
+
+int _readInt(Map<String, dynamic> json, List<String> keys, int fallback) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return fallback;
+}
+
+int? _readNullableInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value == null) continue;
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value.toString());
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+String _readString(
+  Map<String, dynamic> json,
+  List<String> keys,
+  String fallback,
+) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return fallback;
+}
+
+DateTime _readDateTime(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value == null) continue;
+    try {
+      return DateTime.parse(value.toString()).toLocal();
+    } catch (_) {
+      // Try next key
+    }
+  }
+  return DateTime.fromMillisecondsSinceEpoch(0);
 }

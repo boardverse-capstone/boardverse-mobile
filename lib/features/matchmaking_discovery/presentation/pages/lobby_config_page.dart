@@ -6,6 +6,8 @@ import '../../../lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../lobby_management/presentation/pages/lobby_page.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
+import 'lobby_cafe_selection_page.dart';
+import '../../domain/entities/board_game_entity.dart';
 
 class LobbyConfigPage extends StatefulWidget {
   final String gameId;
@@ -14,6 +16,9 @@ class LobbyConfigPage extends StatefulWidget {
   final String cafeName;
   final MatchmakingCubit matchmakingCubit;
 
+  /// Optional: truyền vào khi cần back-về cafe selection (đổi quán).
+  final BoardGameEntity? gameEntity;
+
   const LobbyConfigPage({
     super.key,
     required this.gameId,
@@ -21,6 +26,7 @@ class LobbyConfigPage extends StatefulWidget {
     required this.cafeId,
     required this.cafeName,
     required this.matchmakingCubit,
+    this.gameEntity,
   });
 
   @override
@@ -88,9 +94,37 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
         '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  /// Quay lại màn chọn cafe để user đổi quán. Dùng `pushReplacement` để
+  /// tránh stack sâu; page hiện tại sẽ được thay bằng LobbyCafeSelectionPage.
+  void _changeCafe() {
+    final game = widget.gameEntity;
+    if (game == null) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => LobbyCafeSelectionPage(
+          game: game,
+          matchmakingCubit: widget.matchmakingCubit,
+        ),
+      ),
+    );
+  }
+
   Future<void> _createLobby() async {
     // Double-tap prevention: early return nếu đang tạo
     if (_isCreatingLobby) return;
+
+    // BR-07 — backend yêu cầu `cafeId` optional nhưng flow "đặt phòng tại
+    // quán đã biết" bắt buộc phải có. Phòng trường hợp user vào thẳng
+    // LobbyConfigPage mà chưa qua LobbyCafeSelectionPage (ví dụ: deep link).
+    if (widget.cafeId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Vui lòng chọn quán cafe trước khi tạo phòng.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
 
     final scheduledDateTime = DateTime(
       _selectedDate.year,
@@ -208,6 +242,12 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
                                   ),
                                 ),
                               ),
+                              if (widget.gameEntity != null)
+                                TextButton.icon(
+                                  onPressed: _changeCafe,
+                                  icon: const Icon(Icons.swap_horiz, size: 18),
+                                  label: const Text('Đổi quán'),
+                                ),
                             ],
                           ),
                           if (state is MatchmakingGameDetail) ...[

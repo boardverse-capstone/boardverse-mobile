@@ -22,7 +22,18 @@ class TournamentUtils {
     return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
   }
 
-  /// Filter tournaments based on selected filter index
+  /// Filter tournaments based on selected filter index.
+  ///
+  /// Filter indices correspond to labels in `TournamentFilterSection`:
+  ///   0 = Tất cả
+  ///   1 = Đang mở
+  ///   2 = Đang diễn ra
+  ///   3 = Đã kết thúc
+  ///
+  /// "Sắp diễn ra" (index 2 in the old 5-label layout) was removed because
+  /// the player API does not expose `/tournaments/upcoming`. Upcoming
+  /// tournaments that arrive via `/tournaments/open` are still surfaced
+  /// under the "Tất cả" view.
   static List<TournamentEntity> filterTournaments(
     TournamentListLoaded state,
     int selectedFilter,
@@ -33,17 +44,12 @@ class TournamentUtils {
             .where((t) => t.status == TournamentStatus.registrationOpen)
             .toList();
       case 2:
-        return state.upcomingTournaments
-            .where((t) => t.status == TournamentStatus.upcoming)
-            .toList();
-      case 3:
         return state.ongoingTournaments;
-      case 4:
+      case 3:
         return state.completedTournaments;
       default:
         return [
           ...state.openTournaments,
-          ...state.upcomingTournaments,
           ...state.ongoingTournaments,
           ...state.completedTournaments,
         ];

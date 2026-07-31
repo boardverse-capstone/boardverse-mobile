@@ -19,18 +19,20 @@ import '../../models/elo_update_model.dart';
 /// Việc switch tuân theo `AppConfig.useMockLobbyData` ở tầng DI.
 abstract class LobbyRemoteDatasource {
   /// POST /api/v1/lobbies — tạo lobby mới.
-  /// Body theo spec `lobby.md`:
+  /// Body theo spec `lobby.md` và Swagger `CreateLobbyRequestDto`:
   /// ```json
   /// {
   ///   "gameTemplateId": "uuid",
   ///   "scheduledStartTime": "ISO-8601 UTC",
-  ///   "maxMembers": 2..4,
-  ///   "cancellationLeadTimeMinutes": 30
+  ///   "maxMembers": 2..20,
+  ///   "seatCount": 1..50,
+  ///   "cancellationLeadTimeMinutes": 5..1440,
+  ///   "isPrivate": false,
+  ///   "cafeId": "uuid"  // optional — gắn lobby với quán cụ thể
   /// }
   /// ```
-  /// Tham số bổ sung (`searchRadiusKm`, `minimumKarma`, `isPublic`, ...)
-  /// mang tính client-only và sẽ bị bỏ qua ở backend — giữ lại trong
-  /// interface để không vỡ Cubit hiện tại.
+  /// Tham số `searchRadiusKm` và `minimumKarma` vẫn là client-only (BR-10
+  /// áp dụng trên join/search, không phải lúc tạo).
   Future<Either<Failure, LobbyEntity>> createLobby({
     required String gameId,
     required String cafeId,

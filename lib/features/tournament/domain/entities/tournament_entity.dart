@@ -48,19 +48,50 @@ class TournamentEntity {
     this.userCurrentRank,
   });
 
-  /// Slots remaining for registration.
-  int get slotsRemaining => maxParticipants - currentParticipants;
+  TournamentEntity copyWith({bool? isUserRegistered, bool? isUserCheckedIn}) {
+    return TournamentEntity(
+      id: id,
+      title: title,
+      cafeName: cafeName,
+      gameTemplateName: gameTemplateName,
+      startTime: startTime,
+      registrationDeadline: registrationDeadline,
+      status: status,
+      currentParticipants: currentParticipants,
+      maxParticipants: maxParticipants,
+      minKarmaRequirement: minKarmaRequirement,
+      registrationFee: registrationFee,
+      prizePool: prizePool,
+      description: description,
+      organizerName: organizerName,
+      roundDurationMinutes: roundDurationMinutes,
+      preliminaryRounds: preliminaryRounds,
+      currentRound: currentRound,
+      isUserRegistered: isUserRegistered ?? this.isUserRegistered,
+      isUserCheckedIn: isUserCheckedIn ?? this.isUserCheckedIn,
+      userCurrentRank: userCurrentRank,
+    );
+  }
 
-  /// Fill ratio for progress bar.
-  double get fillRatio =>
-      maxParticipants == 0 ? 0 : currentParticipants / maxParticipants;
+  /// Slots remaining for registration.
+  int get slotsRemaining =>
+      (maxParticipants - currentParticipants).clamp(0, maxParticipants);
+
+  /// Fill ratio for progress bar, guarded against inconsistent server counts.
+  double get fillRatio {
+    if (maxParticipants <= 0) return 0;
+    return (currentParticipants / maxParticipants).clamp(0.0, 1.0);
+  }
 
   /// Whether this tournament requires minimum karma to register.
   bool get requiresKarma => minKarmaRequirement > 0;
 
   /// Whether registration is still open and user can register.
   bool get canRegister =>
-      status.canRegister && !isUserRegistered && slotsRemaining > 0;
+      status.canRegister &&
+      !isRegistrationDeadlinePassed &&
+      !isUserRegistered &&
+      slotsRemaining > 0;
 
   /// Whether registration is open and user is registered but can withdraw.
   bool get canWithdraw => status.canWithdraw && isUserRegistered;

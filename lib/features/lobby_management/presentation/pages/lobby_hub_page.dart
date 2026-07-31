@@ -8,7 +8,7 @@ import '../../../booking_payment/presentation/cubit/booking_result_cubit.dart';
 import '../../../matchmaking_discovery/domain/entities/board_game_entity.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_state.dart';
-import '../../../matchmaking_discovery/presentation/pages/lobby_config_page.dart';
+import '../../../matchmaking_discovery/presentation/pages/lobby_cafe_selection_page.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
@@ -345,13 +345,13 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   }
 
   void _openConfigForCreate(BoardGameEntity game) {
+    // Luồng mới: tạo lobby cần chọn cafe trước (player đã biết quán → chọn
+    // quán đã từng chơi → cấu hình lobby → tạo). Mở [LobbyCafeSelectionPage]
+    // thay vì nhảy thẳng vào [LobbyConfigPage] để có cafeId gửi lên backend.
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => LobbyConfigPage(
-          gameId: game.id,
-          gameName: game.name,
-          cafeId: '',
-          cafeName: '',
+        builder: (_) => LobbyCafeSelectionPage(
+          game: game,
           matchmakingCubit: _matchmakingCubit,
         ),
       ),

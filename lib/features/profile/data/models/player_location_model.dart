@@ -2,7 +2,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../domain/entities/player_location_entity.dart';
 
 part 'player_location_model.freezed.dart';
-part 'player_location_model.g.dart';
 
 int? _locationSourceFromJson(Object? value) {
   return switch (value) {
@@ -21,6 +20,10 @@ int? _locationSourceFromJson(Object? value) {
 /// together with `hasLocation: false`. We therefore keep the numeric /
 /// timestamp fields nullable so the parser does not throw when `hasLocation`
 /// is false.
+///
+/// `fromJson` được viết tay (không dùng generated) để có thể nhìn thấy
+/// cả payload khi suy ra `hasLocation` — `@JsonKey(fromJson:)` của
+/// `json_serializable` chỉ nhận `value` của field, không có context json.
 @freezed
 abstract class PlayerLocationModel with _$PlayerLocationModel {
   const factory PlayerLocationModel({
@@ -31,11 +34,32 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
     /// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
     /// this enum as either a number or its string name.
     @JsonKey(fromJson: _locationSourceFromJson) int? source,
+
+    /// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
+    /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
     required bool hasLocation,
   }) = _PlayerLocationModel;
 
-  factory PlayerLocationModel.fromJson(Map<String, dynamic> json) =>
-      _$PlayerLocationModelFromJson(json);
+  /// Custom parser vì `json_serializable`'s `@JsonKey(fromJson:)` chỉ có
+  /// quyền truy cập vào `value` của field đó, không có cả payload. Ở đây
+  /// ta cần nhìn cả `latitude`/`longitude` để suy ra `hasLocation` khi server
+  /// bỏ sót field này.
+  factory PlayerLocationModel.fromJson(Map<String, dynamic> json) {
+    final rawHas = json['hasLocation'];
+    final hasFromServer = rawHas is bool ? rawHas : null;
+    final lat = json['latitude'];
+    final lng = json['longitude'];
+    final hasLocation =
+        hasFromServer ?? (lat != null && lng != null);
+
+    return PlayerLocationModel(
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      updatedAt: json['updatedAt'] as String?,
+      source: _locationSourceFromJson(json['source']),
+      hasLocation: hasLocation,
+    );
+  }
 }
 
 extension PlayerLocationModelX on PlayerLocationModel {
@@ -46,4 +70,15 @@ extension PlayerLocationModelX on PlayerLocationModel {
     source: source == 0 ? LocationSource.gps : LocationSource.manual,
     hasLocation: hasLocation,
   );
+
+  /// `toJson` thủ công — thay thế bản generated đã bị xoá khi custom hoá
+  /// `fromJson`. Trước đó json_serializable + freezed tự sinh; giờ test
+  /// vẫn cần gọi `model.toJson()` cho round-trip.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'latitude': latitude,
+        'longitude': longitude,
+        'updatedAt': updatedAt,
+        'source': source,
+        'hasLocation': hasLocation,
+      };
 }

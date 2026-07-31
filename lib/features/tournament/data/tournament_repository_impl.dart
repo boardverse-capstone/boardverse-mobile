@@ -52,17 +52,21 @@ class TournamentRepositoryImpl implements TournamentRepository {
     String id, {
     String? currentUserId,
   }) async {
+    // Lấy totalRounds từ tournament detail (cần cho formattedSwissScore).
+    // Nếu lỗi ở detail call thì vẫn fallback trả participants không kèm
+    // totalRounds (số Swiss score thuần vẫn hợp lệ).
+    int? totalRounds;
     try {
-      // Lấy totalRounds từ tournament detail (cần cho formattedSwissScore).
-      // Nếu lỗi ở detail call thì vẫn fallback trả participants không kèm
-      // totalRounds (số Swiss score thuần vẫn hợp lệ).
       final detailResult = await _remoteDatasource.getTournamentDetail(id);
-      final totalRounds = detailResult.toEntity().totalRounds;
+      totalRounds = detailResult.toEntity().totalRounds;
+    } catch (_) {
+      totalRounds = null;
+    }
 
+    try {
       final models = await _remoteDatasource.getParticipants(id);
       final entities = models.map((m) {
-        final isMe =
-            currentUserId != null && m.oderId == currentUserId;
+        final isMe = currentUserId != null && m.oderId == currentUserId;
         return m.toEntity(isCurrentUser: isMe, totalRounds: totalRounds);
       }).toList();
       return Right(entities);
@@ -88,8 +92,9 @@ class TournamentRepositoryImpl implements TournamentRepository {
       // swiss score thuần.
       int? totalRounds;
       try {
-        final detail =
-            await _remoteDatasource.getTournamentDetail(tournamentId);
+        final detail = await _remoteDatasource.getTournamentDetail(
+          tournamentId,
+        );
         totalRounds = detail.toEntity().totalRounds;
       } catch (_) {
         totalRounds = null;
@@ -142,10 +147,7 @@ class TournamentRepositoryImpl implements TournamentRepository {
     String matchId,
   ) async {
     try {
-      final model = await _remoteDatasource.getMatchById(
-        tournamentId,
-        matchId,
-      );
+      final model = await _remoteDatasource.getMatchById(tournamentId, matchId);
       return Right(model.toEntity());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
@@ -209,9 +211,13 @@ class TournamentRepositoryImpl implements TournamentRepository {
   @override
   Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
     int topCount = 100,
+    String? gameTemplateId,
   }) async {
     try {
-      final models = await _remoteDatasource.getLeaderboard(topCount: topCount);
+      final models = await _remoteDatasource.getLeaderboard(
+        topCount: topCount,
+        gameTemplateId: gameTemplateId,
+      );
       final entities = models.map((m) => m.toEntity()).toList();
       return Right(entities);
     } on ServerException catch (e) {

@@ -24,14 +24,25 @@ class LeaderboardEntryModel {
 
   factory LeaderboardEntryModel.fromJson(Map<String, dynamic> json) {
     return LeaderboardEntryModel(
-      rank: json['rank'] as int? ?? 0,
-      oderId: json['userId'] as String? ?? '',
-      displayName: json['displayName'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-      globalElo: json['globalElo'] as int? ?? 1500,
-      karma: json['karma'] as int? ?? 0,
-      tournamentsPlayed: json['tournamentsPlayed'] as int? ?? 0,
-      tournamentsWon: json['tournamentsWon'] as int? ?? 0,
+      rank: _readInt(json, const ['rank', 'position'], 0),
+      oderId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: _readString(json, const [
+        'displayName',
+        'fullName',
+        'name',
+      ], 'Người chơi'),
+      avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
+      globalElo: _readInt(json, const [
+        'globalElo',
+        'elo',
+        'tournamentElo',
+      ], 1500),
+      karma: _readInt(json, const ['karma', 'karmaPoints'], 0),
+      tournamentsPlayed: _readInt(json, const [
+        'tournamentsPlayed',
+        'matchesPlayed',
+      ], 0),
+      tournamentsWon: _readInt(json, const ['tournamentsWon', 'matchesWon'], 0),
     );
   }
 
@@ -60,4 +71,38 @@ class LeaderboardEntryModel {
       tournamentsWon: tournamentsWon,
     );
   }
+}
+
+int _readInt(Map<String, dynamic> json, List<String> keys, int fallback) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return fallback;
+}
+
+String _readString(
+  Map<String, dynamic> json,
+  List<String> keys,
+  String fallback,
+) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return fallback;
+}
+
+String? _readNullableString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return null;
 }

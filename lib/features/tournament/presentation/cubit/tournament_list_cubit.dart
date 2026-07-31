@@ -1,7 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/config/app_config.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
@@ -14,43 +13,48 @@ class TournamentListCubit extends Cubit<TournamentListState> {
   bool _isDisposed = false;
 
   TournamentListCubit({required this._repository})
-      : super(const TournamentListInitial());
+    : super(const TournamentListInitial());
 
-  /// Loads open tournaments + my registrations in parallel.
+  /// Loads open tournaments and the user's active/history lists in parallel.
   ///
-  /// Backend hiện chỉ có:
-  /// - `GET /api/v1/tournaments/open?gameTemplateId=...`
-  /// - `GET /api/v1/tournaments/me?status=...`
-  ///
-  /// Endpoint `/tournaments/upcoming` trả 404 → đã bỏ.
-  /// Endpoint `/open` yêu cầu `gameTemplateId` bắt buộc (theo docs,
-  /// backend trả 400 nếu thiếu), nên ta truyền Splendor ID mặc định.
+  /// The current Swagger contract exposes `GET /tournaments/open` without a
+  /// required game filter. Upcoming/draft tournaments are not exposed to the
+  /// player API, so the main page only offers filters backed by real data.
   Future<void> loadTournaments() async {
-    return loadTournamentsByGame(AppConfig.defaultSplendorGameTemplateId);
+    if (_isDisposed) return;
+    emit(const TournamentListLoading());
+
+    final results = await Future.wait([
+      _repository.getOpenTournaments(),
+      _repository.getMyRegistrations(
+        status: TournamentStatus.ongoing.toBackendStatus(),
+      ),
+      _repository.getMyRegistrations(
+        status: TournamentStatus.completed.toBackendStatus(),
+      ),
+    ]);
+    if (_isDisposed) return;
+
+    _emitFromResults(results[0], results[1], results[2]);
   }
 
-  /// Loads tournaments filtered by the given game template id.
+  /// Loads open tournaments filtered by a game template when supported.
   Future<void> loadTournamentsByGame(String gameTemplateId) async {
     if (_isDisposed) return;
     emit(const TournamentListLoading());
 
-    final openResult = await _repository.getOpenTournaments(
-      gameTemplateId: gameTemplateId,
-    );
+    final results = await Future.wait([
+      _repository.getOpenTournaments(gameTemplateId: gameTemplateId),
+      _repository.getMyRegistrations(
+        status: TournamentStatus.ongoing.toBackendStatus(),
+      ),
+      _repository.getMyRegistrations(
+        status: TournamentStatus.completed.toBackendStatus(),
+      ),
+    ]);
     if (_isDisposed) return;
 
-    final myOngoingResult =
-        await _repository.getMyRegistrations(status: 'OnGoing');
-    if (_isDisposed) return;
-
-    final myCompletedResult =
-        await _repository.getMyRegistrations(status: 'Completed');
-
-    return _emitFromResults(
-      openResult,
-      myOngoingResult,
-      myCompletedResult,
-    );
+    _emitFromResults(results[0], results[1], results[2]);
   }
 
   void _emitFromResults(
@@ -61,62 +65,67 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     // Guard: don't emit if cubit is disposed
     if (_isDisposed || isClosed) return;
 
-    String? errorMessage;
     List<TournamentEntity> open = const [];
     List<TournamentEntity> ongoing = const [];
     List<TournamentEntity> completed = const [];
+    final errors = <String>[];
 
-    openResult.fold(
-      (failure) => errorMessage = failure.message,
-      (tournaments) {
-        open = tournaments
-            .where((t) =>
-                t.status == TournamentStatus.registrationOpen &&
-                !t.isRegistrationDeadlinePassed &&
-                t.slotsRemaining > 0)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-      },
-    );
+    openResult.fold((failure) => errors.add('open: ${failure.message}'), (
+      tournaments,
+    ) {
+      open =
+          tournaments
+              .where(
+                (t) =>
+                    t.status == TournamentStatus.registrationOpen &&
+                    !t.isRegistrationDeadlinePassed &&
+                    t.slotsRemaining > 0,
+              )
+              .toList()
+            ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    });
 
     myOngoingResult.fold(
-      (failure) => errorMessage ??= failure.message,
+      (failure) => errors.add('ongoing: ${failure.message}'),
       (tournaments) {
-        ongoing = tournaments
-            .where((t) => t.status == TournamentStatus.ongoing)
-            .toList()
-          ..sort((a, b) => b.startTime.compareTo(a.startTime));
+        ongoing =
+            tournaments
+                .where((t) => t.status == TournamentStatus.ongoing)
+                .toList()
+              ..sort((a, b) => b.startTime.compareTo(a.startTime));
       },
     );
 
     myCompletedResult.fold(
-      (failure) => errorMessage ??= failure.message,
+      (failure) => errors.add('completed: ${failure.message}'),
       (tournaments) {
-        completed = tournaments
-            .where((t) => t.status == TournamentStatus.completed)
-            .toList()
-          ..sort((a, b) => b.startTime.compareTo(a.startTime));
+        completed =
+            tournaments
+                .where((t) => t.status == TournamentStatus.completed)
+                .toList()
+              ..sort((a, b) => b.startTime.compareTo(a.startTime));
       },
     );
 
     // Double-check before emitting
     if (_isDisposed || isClosed) return;
 
-    if (errorMessage != null &&
-        open.isEmpty &&
-        ongoing.isEmpty &&
-        completed.isEmpty) {
-      emit(TournamentListError(message: errorMessage!));
+    final hasAnyData =
+        open.isNotEmpty || ongoing.isNotEmpty || completed.isNotEmpty;
+    if (!hasAnyData && errors.isNotEmpty) {
+      emit(TournamentListError(message: errors.first));
       return;
     }
 
-    emit(TournamentListLoaded(
-      openTournaments: open,
-      upcomingTournaments: const [], // backend không expose /upcoming
-      ongoingTournaments: ongoing,
-      completedTournaments: completed,
-      totalOpenCount: open.length,
-    ));
+    emit(
+      TournamentListLoaded(
+        openTournaments: open,
+        upcomingTournaments: const [], // backend không expose /upcoming
+        ongoingTournaments: ongoing,
+        completedTournaments: completed,
+        totalOpenCount: open.length,
+      ),
+    );
   }
 
   /// Refreshes the tournament list.

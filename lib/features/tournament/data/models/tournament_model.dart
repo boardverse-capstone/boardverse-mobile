@@ -45,24 +45,53 @@ class TournamentModel {
 
   factory TournamentModel.fromJson(Map<String, dynamic> json) {
     return TournamentModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      cafeName: json['cafeName'] as String,
-      gameTemplateName: json['gameTemplateName'] as String,
-      startTime: DateTime.parse(json['startTime'] as String),
-      registrationDeadline: DateTime.parse(json['registrationDeadline'] as String),
-      status: json['status'] as String,
-      currentParticipants: json['currentParticipants'] as int,
-      maxParticipants: json['maxParticipants'] as int,
-      minKarmaRequirement: json['minKarmaRequirement'] as int? ?? 0,
-      registrationFee: json['registrationFee'] as int?,
-      prizePool: json['prizePool'] as int? ?? 0,
-      description: json['description'] as String? ?? '',
-      organizerName: json['organizerName'] as String?,
-      roundDurationMinutes: json['roundDurationMinutes'] as int? ?? 45,
-      preliminaryRounds: json['preliminaryRounds'] as int? ?? 3,
-      currentRound: json['currentRound'] as int?,
-      isUserRegistered: json['isUserRegistered'] as bool? ?? false,
+      id: _readRequiredString(json, const ['id', 'tournamentId']),
+      title: _readString(json, const ['title', 'name'], 'Giải đấu'),
+      cafeName: _readString(json, const ['cafeName'], 'Chưa cập nhật quán'),
+      gameTemplateName: _readString(
+        json,
+        const ['gameTemplateName', 'gameName'],
+        'Splendor',
+      ),
+      startTime: _readDateTime(json, const ['startTime', 'scheduledStartTime']),
+      registrationDeadline: _readDateTime(
+        json,
+        const ['registrationDeadline'],
+      ),
+      status: _readString(json, const ['status'], 'Draft'),
+      currentParticipants: _readInt(
+        json,
+        const [
+          'currentParticipants',
+          'participantCount',
+          'registeredParticipantCount',
+        ],
+        0,
+      ),
+      maxParticipants: _readInt(json, const ['maxParticipants'], 0),
+      minKarmaRequirement: _readInt(
+        json,
+        const ['minKarmaRequirement'],
+        0,
+      ),
+      registrationFee: _readNullableInt(json, const ['registrationFee']),
+      prizePool: _readInt(json, const ['prizePool'], 0),
+      description: _readString(json, const ['description'], ''),
+      organizerName: _readNullableString(
+        json,
+        const ['organizerName', 'managerName'],
+      ),
+      roundDurationMinutes: _readInt(
+        json,
+        const ['roundDurationMinutes'],
+        45,
+      ),
+      preliminaryRounds: _readInt(json, const ['preliminaryRounds'], 3),
+      currentRound: _readNullableInt(json, const ['currentRound']),
+      isUserRegistered: _readBool(
+        json,
+        const ['isUserRegistered', 'isRegistered'],
+      ),
     );
   }
 
@@ -116,4 +145,54 @@ class TournamentModel {
       userCurrentRank: userCurrentRank,
     );
   }
+}
+
+String _readRequiredString(Map<String, dynamic> json, List<String> keys) {
+  final value = _readNullableString(json, keys);
+  if (value != null) return value;
+  throw FormatException('Tournament response is missing ${keys.join('/')}');
+}
+
+String _readString(
+  Map<String, dynamic> json,
+  List<String> keys,
+  String fallback,
+) =>
+    _readNullableString(json, keys) ?? fallback;
+
+String? _readNullableString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value != null && value.toString().trim().isNotEmpty) {
+      return value.toString();
+    }
+  }
+  return null;
+}
+
+int _readInt(Map<String, dynamic> json, List<String> keys, int fallback) =>
+    _readNullableInt(json, keys) ?? fallback;
+
+int? _readNullableInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+bool _readBool(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is bool) return value;
+    if (value?.toString().toLowerCase() == 'true') return true;
+  }
+  return false;
+}
+
+DateTime _readDateTime(Map<String, dynamic> json, List<String> keys) {
+  final raw = _readRequiredString(json, keys);
+  return DateTime.parse(raw).toLocal();
 }

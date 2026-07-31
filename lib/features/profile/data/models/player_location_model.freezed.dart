@@ -11,21 +11,20 @@ part of 'player_location_model.dart';
 
 // dart format off
 T _$identity<T>(T value) => value;
-
 /// @nodoc
 mixin _$PlayerLocationModel {
 
  double? get latitude; double? get longitude; String? get updatedAt;/// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
 /// this enum as either a number or its string name.
-@JsonKey(fromJson: _locationSourceFromJson) int? get source; bool get hasLocation;
+@JsonKey(fromJson: _locationSourceFromJson) int? get source;/// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
+/// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
+ bool get hasLocation;
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $PlayerLocationModelCopyWith<PlayerLocationModel> get copyWith => _$PlayerLocationModelCopyWithImpl<PlayerLocationModel>(this as PlayerLocationModel, _$identity);
 
-  /// Serializes this PlayerLocationModel to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -33,7 +32,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation);
 
@@ -212,11 +211,11 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _PlayerLocationModel implements PlayerLocationModel {
   const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, @JsonKey(fromJson: _locationSourceFromJson) this.source, required this.hasLocation});
-  factory _PlayerLocationModel.fromJson(Map<String, dynamic> json) => _$PlayerLocationModelFromJson(json);
+  
 
 @override final  double? latitude;
 @override final  double? longitude;
@@ -224,6 +223,8 @@ class _PlayerLocationModel implements PlayerLocationModel {
 /// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
 /// this enum as either a number or its string name.
 @override@JsonKey(fromJson: _locationSourceFromJson) final  int? source;
+/// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
+/// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
 @override final  bool hasLocation;
 
 /// Create a copy of PlayerLocationModel
@@ -232,17 +233,14 @@ class _PlayerLocationModel implements PlayerLocationModel {
 @pragma('vm:prefer-inline')
 _$PlayerLocationModelCopyWith<_PlayerLocationModel> get copyWith => __$PlayerLocationModelCopyWithImpl<_PlayerLocationModel>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$PlayerLocationModelToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation);
 

@@ -81,10 +81,11 @@ extension TournamentStatusX on TournamentStatus {
   /// Player can register when status is registrationOpen.
   bool get canRegister => this == TournamentStatus.registrationOpen;
 
-  /// Player can withdraw when status is upcoming or registrationOpen.
+  /// Player can withdraw until the tournament enters an active/terminal state.
   bool get canWithdraw =>
       this == TournamentStatus.upcoming ||
-      this == TournamentStatus.registrationOpen;
+      this == TournamentStatus.registrationOpen ||
+      this == TournamentStatus.registrationClosed;
 
   /// Tournament is active (open or ongoing).
   bool get isActive =>

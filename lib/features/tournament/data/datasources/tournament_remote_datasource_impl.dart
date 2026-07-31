@@ -45,9 +45,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
       );
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => TournamentModel.fromJson(json))
-          .toList();
+      return list.map((json) => TournamentModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -108,9 +106,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
       );
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => TournamentMatchModel.fromJson(json))
-          .toList();
+      return list.map((json) => TournamentMatchModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -155,9 +151,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
       );
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => TournamentMatchModel.fromJson(json))
-          .toList();
+      return list.map((json) => TournamentMatchModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -166,9 +160,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   @override
   Future<void> register(String tournamentId) async {
     try {
-      await _dio.post(
-        ApiEndpoints.tournamentRegister(tournamentId),
-      );
+      await _dio.post(ApiEndpoints.tournamentRegister(tournamentId));
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -177,18 +169,14 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   @override
   Future<void> unregister(String tournamentId) async {
     try {
-      await _dio.post(
-        ApiEndpoints.tournamentUnregister(tournamentId),
-      );
+      await _dio.post(ApiEndpoints.tournamentUnregister(tournamentId));
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
   }
 
   @override
-  Future<List<TournamentModel>> getMyRegistrations({
-    String? status,
-  }) async {
+  Future<List<TournamentModel>> getMyRegistrations({String? status}) async {
     try {
       final queryParams = status != null ? {'status': status} : null;
 
@@ -198,9 +186,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
       );
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => TournamentModel.fromJson(json))
-          .toList();
+      return list.map((json) => TournamentModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -209,14 +195,10 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   @override
   Future<List<EloHistoryModel>> getMyEloHistory() async {
     try {
-      final response = await _dio.get(
-        ApiEndpoints.tournamentsMyEloHistory,
-      );
+      final response = await _dio.get(ApiEndpoints.tournamentsMyEloHistory);
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => EloHistoryModel.fromJson(json))
-          .toList();
+      return list.map((json) => EloHistoryModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -225,17 +207,19 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   @override
   Future<List<LeaderboardEntryModel>> getLeaderboard({
     int topCount = 100,
+    String? gameTemplateId,
   }) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.tournamentsLeaderboard,
-        queryParameters: {'topCount': topCount},
+        queryParameters: {
+          'topCount': topCount,
+          'gameTemplateId': ?gameTemplateId,
+        },
       );
 
       final list = _unwrapList(response.data);
-      return list
-          .map((json) => LeaderboardEntryModel.fromJson(json))
-          .toList();
+      return list.map((json) => LeaderboardEntryModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
@@ -244,21 +228,26 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   // ─── Helpers ──────────────────────────────────────────────────────────
 
   /// Bóc lớp `data` của envelope `{ statusCode, message, data, ... }`.
-  /// Trả về Map trong `data` nếu hợp lệ; throw nếu response không đúng format.
+  /// Direct object payloads (không có key `data`) cũng được chấp nhận.
   Map<String, dynamic> _unwrapMap(dynamic raw) {
     if (raw is Map<String, dynamic>) {
+      if (!raw.containsKey('data')) return raw;
+
       final data = raw['data'];
       if (data is Map<String, dynamic>) return data;
-      // Nếu `data` null nhưng statusCode là success, có thể backend trả
-      // empty body — trả về envelope để Model.fromJson tự xử lý.
-      if (data == null) return raw;
-      // Trường hợp data là primitive hoặc list — không phải object model,
-      // trả về envelope để tránh mất thông tin message.
-      return raw;
+
+      final message = raw['message']?.toString().trim();
+      throw ServerException(
+        message: message?.isNotEmpty == true
+            ? message!
+            : 'Response không chứa dữ liệu hợp lệ',
+        statusCode: raw['statusCode'] is num
+            ? (raw['statusCode'] as num).toInt()
+            : null,
+      );
     }
-    throw ServerException(
+    throw const ServerException(
       message: 'Response không đúng định dạng envelope',
-      statusCode: null,
     );
   }
 
@@ -284,7 +273,8 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   }
 
   ServerException _mapDioError(DioException e) {
-    final message = e.response?.data?['message'] as String? ?? e.message ?? 'Unknown error';
+    final message =
+        e.response?.data?['message'] as String? ?? e.message ?? 'Unknown error';
     return ServerException(
       message: message,
       statusCode: e.response?.statusCode,

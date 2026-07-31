@@ -7,6 +7,7 @@ import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
+import '../pages/lobby_cafe_selection_page.dart';
 import '../widgets/cafe_card.dart';
 import '../widgets/game_detail_header.dart';
 import '../widgets/gps_warning_banner.dart';
@@ -150,17 +151,16 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     final gameName = nav.gameName ?? '';
 
     if (nav.isLobbyCreation) {
-      // Phát signal để chuyển sang Lobby screen với game preselected.
-      // Lấy BoardGameEntity từ state hiện tại để NearbyLobbiesPage có đủ
-      // thông tin (name, imageUrl, category, ...).
+      // Player đã chọn game → muốn tạo lobby tại quán đã biết (kịch bản
+      // "đã từng chơi ở quán"). Luồng:
+      // 1. Chọn cafe (LobbyCafeSelectionPage)
+      // 2. Cấu hình lobby (LobbyConfigPage)
+      // 3. Submit create lobby với cafeId
       final current = widget.matchmakingCubit.state;
       BoardGameEntity? gameEntity;
       if (current is MatchmakingGameDetail) {
         gameEntity = current.game.toBoardGameEntity();
       }
-      // Fallback: tạo BoardGameEntity tối thiểu từ nav nếu không có
-      // detail state (ví dụ: vừa load xong play-navigation nhưng state
-      // đã bị thay thế).
       gameEntity ??= BoardGameEntity(
         id: gameId,
         name: gameName.isEmpty ? 'Game' : gameName,
@@ -175,15 +175,20 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         rating: 0,
       );
 
-      LobbySuggestionSignal.instance.request(gameEntity);
-
-      // Hiển thị snackbar để user biết đang được chuyển trang.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đang chuyển sang mục Phòng chờ...'),
-          duration: Duration(seconds: 2),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LobbyCafeSelectionPage(
+            game: gameEntity!,
+            matchmakingCubit: widget.matchmakingCubit,
+          ),
         ),
       );
+
+      // Vẫn phát signal để các listener khác (vd: DiscoveryResetSignal từ
+      // double-tap) biết là user đang chuyển trang; không bắt buộc nhưng
+      // giúp đồng bộ với luồng "tìm phòng" khác.
+      LobbySuggestionSignal.instance.request(gameEntity);
     } else if (nav.isSoloBooking) {
       // Solo mode → đặt bàn trực tiếp.
       Navigator.push(

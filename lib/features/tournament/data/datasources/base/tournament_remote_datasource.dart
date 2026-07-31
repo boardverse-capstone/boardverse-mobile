@@ -18,9 +18,7 @@ abstract class TournamentRemoteDatasource {
   ///
   /// Backend yêu cầu `gameTemplateId` bắt buộc (Splendor = UUID
   /// `44444444-4444-4444-4444-444444444444`), nếu thiếu sẽ trả 400.
-  Future<List<TournamentModel>> getOpenTournaments({
-    String? gameTemplateId,
-  });
+  Future<List<TournamentModel>> getOpenTournaments({String? gameTemplateId});
 
   /// `GET /tournaments/{id}`
   Future<TournamentModel> getTournamentDetail(String tournamentId);
@@ -60,15 +58,14 @@ abstract class TournamentRemoteDatasource {
   Future<void> unregister(String tournamentId);
 
   /// `GET /tournaments/my-registrations?status=...`
-  Future<List<TournamentModel>> getMyRegistrations({
-    String? status,
-  });
+  Future<List<TournamentModel>> getMyRegistrations({String? status});
 
   /// `GET /tournaments/my-elo-history`
   Future<List<EloHistoryModel>> getMyEloHistory();
 
-  /// `GET /tournaments/leaderboard?topCount=...`
+  /// `GET /tournaments/leaderboard?topCount=...&gameTemplateId=...`
   Future<List<LeaderboardEntryModel>> getLeaderboard({
     int topCount = 100,
+    String? gameTemplateId,
   });
 }

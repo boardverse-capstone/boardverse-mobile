@@ -12,6 +12,7 @@ import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournam
 import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_info_tab.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_participants_tab.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_matches_tab.dart';
+import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_error_state.dart';
 
 /// Full-page view of a single tournament with three tabs:
 /// 1) Info + Register/Withdraw
@@ -34,23 +35,57 @@ class TournamentDetailPage extends StatelessWidget {
     if (cubit != null) {
       return BlocProvider<TournamentDetailCubit>.value(
         value: cubit!,
-        child: _TournamentDetailView(
-          initialTournament: initialTournament,
-        ),
+        child: _TournamentDetailView(initialTournament: initialTournament),
       );
     }
+
+    return _TournamentDetailLoader(
+      tournamentId: tournamentId,
+      initialTournament: initialTournament,
+    );
+  }
+}
+
+class _TournamentDetailLoader extends StatefulWidget {
+  final String tournamentId;
+  final TournamentEntity? initialTournament;
+
+  const _TournamentDetailLoader({
+    required this.tournamentId,
+    this.initialTournament,
+  });
+
+  @override
+  State<_TournamentDetailLoader> createState() =>
+      _TournamentDetailLoaderState();
+}
+
+class _TournamentDetailLoaderState extends State<_TournamentDetailLoader> {
+  late final Future<String?> _userIdFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userIdFuture = getIt<CurrentUserResolver>().resolveUserId();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<String?>(
-      future: getIt<CurrentUserResolver>().resolveUserId(),
+      future: _userIdFuture,
       builder: (context, snapshot) {
-        final userId = snapshot.data;
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         return BlocProvider<TournamentDetailCubit>(
-          create: (_) {
-            final cubit = getIt<TournamentDetailCubit>();
-            cubit.loadDetail(tournamentId, currentUserId: userId);
-            return cubit;
-          },
+          create: (_) =>
+              getIt<TournamentDetailCubit>()
+                ..loadDetail(widget.tournamentId, currentUserId: snapshot.data),
           child: _TournamentDetailView(
-            initialTournament: initialTournament,
+            initialTournament: widget.initialTournament,
           ),
         );
       },
@@ -122,8 +157,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
         final participants = _resolveParticipants(state);
         final matches = _resolveMatches(state);
         final isRegistering = state is TournamentDetailRegistering;
-        final isLoading = state is TournamentDetailLoading ||
-            state is TournamentDetailActionSuccess;
 
         final title = tournament?.title ?? 'Chi tiết giải đấu';
 
@@ -139,6 +172,8 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
                 color: theme.colorScheme.surface,
                 child: TabBar(
                   controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   labelColor: theme.colorScheme.primary,
                   unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
                   indicatorColor: theme.colorScheme.primary,
@@ -152,13 +187,19 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
               ),
             ),
           ),
-          body: isLoading && tournament == null
-              ? const Center(child: CircularProgressIndicator())
+          body: tournament == null
+              ? state is TournamentDetailError
+                    ? TournamentErrorState(
+                        message: state.message,
+                        onRetry: () =>
+                            context.read<TournamentDetailCubit>().refresh(),
+                      )
+                    : const Center(child: CircularProgressIndicator())
               : TabBarView(
                   controller: _tabController,
                   children: [
                     TournamentInfoTab(
-                      tournament: tournament!,
+                      tournament: tournament,
                       isRegistering: isRegistering,
                       onRegister: () => context
                           .read<TournamentDetailCubit>()
@@ -193,15 +234,15 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
   }
 
   List<TournamentParticipantEntity> _resolveParticipants(
-      TournamentDetailState state) {
+    TournamentDetailState state,
+  ) {
     if (state is TournamentDetailLoaded) return state.participants;
     if (state is TournamentDetailRegistering) return state.participants;
     if (state is TournamentDetailError) return state.participants ?? const [];
     return const [];
   }
 
-  List<TournamentMatchEntity> _resolveMatches(
-      TournamentDetailState state) {
+  List<TournamentMatchEntity> _resolveMatches(TournamentDetailState state) {
     if (state is TournamentDetailLoaded) return state.matches;
     if (state is TournamentDetailRegistering) return state.matches;
     if (state is TournamentDetailError) return state.matches ?? const [];

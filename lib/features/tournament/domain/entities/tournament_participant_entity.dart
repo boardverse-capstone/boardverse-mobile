@@ -7,7 +7,9 @@ class TournamentParticipantEntity {
   final int elo;
   final int karma;
   final ParticipantStatus status;
-  final int swissScore;
+
+  /// Điểm Swiss; có thể có nửa điểm khi hòa.
+  final double swissScore;
 
   /// Tổng điểm prestige tích luỹ (lifetime).
   final int prestigePoints;
@@ -56,8 +58,11 @@ class TournamentParticipantEntity {
   /// Ngược lại chỉ hiển thị điểm Swiss thuần (cho trường hợp không
   /// có ngữ cảnh giải).
   String get formattedSwissScore {
-    if (totalRounds == null) return swissScore.toString();
-    return '$swissScore/$totalRounds';
+    final score = swissScore == swissScore.roundToDouble()
+        ? swissScore.toInt().toString()
+        : swissScore.toStringAsFixed(1);
+    if (totalRounds == null) return score;
+    return '$score/$totalRounds';
   }
 }
 
@@ -99,7 +104,11 @@ enum ParticipantStatus {
   }
 
   static ParticipantStatus fromString(String status) {
-    switch (status.toLowerCase()) {
+    final normalized = status.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]'),
+      '',
+    );
+    switch (normalized) {
       case 'registered':
         return ParticipantStatus.registered;
       case 'checkedin':

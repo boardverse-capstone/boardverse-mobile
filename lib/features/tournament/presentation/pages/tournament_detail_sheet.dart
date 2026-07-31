@@ -12,37 +12,67 @@ import 'package:boardverse_mobile/features/tournament/presentation/widgets/tourn
 import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_detail_info.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_action_button.dart';
 
-class TournamentDetailSheet extends StatelessWidget {
+class TournamentDetailSheet extends StatefulWidget {
   final TournamentEntity tournament;
 
-  const TournamentDetailSheet({
-    super.key,
-    required this.tournament,
-  });
+  const TournamentDetailSheet({super.key, required this.tournament});
+
+  @override
+  State<TournamentDetailSheet> createState() => _TournamentDetailSheetState();
+}
+
+class _TournamentDetailSheetState extends State<TournamentDetailSheet> {
+  late final TournamentDetailCubit _cubit;
+  bool _resolvingUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cubit = getIt<TournamentDetailCubit>();
+    _loadDetail();
+  }
+
+  Future<void> _loadDetail() async {
+    String? userId;
+    try {
+      userId = await getIt<CurrentUserResolver>().resolveUserId();
+    } catch (_) {
+      userId = null;
+    }
+    if (!mounted) return;
+
+    final loadFuture = _cubit.loadDetail(
+      widget.tournament.id,
+      currentUserId: userId,
+    );
+    setState(() => _resolvingUser = false);
+    await loadFuture;
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return FutureBuilder<String?>(
-      future: getIt<CurrentUserResolver>().resolveUserId(),
-      builder: (context, snapshot) {
-        final userId = snapshot.data;
-        return BlocProvider(
-          create: (_) {
-            final cubit = getIt<TournamentDetailCubit>();
-            cubit.loadDetail(tournament.id, currentUserId: userId);
-            return cubit;
-          },
-          child: BlocConsumer<TournamentDetailCubit, TournamentDetailState>(
+    return BlocProvider<TournamentDetailCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<TournamentDetailCubit, TournamentDetailState>(
         listener: (ctx, state) {
           if (state is TournamentDetailActionSuccess) {
-            Navigator.pop(ctx);
-            ScaffoldMessenger.of(ctx).showSnackBar(
+            final messenger = ScaffoldMessenger.of(ctx);
+            Navigator.of(ctx).pop(true);
+            messenger.showSnackBar(
               SnackBar(
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(AppSpacing.md),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSmAll),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.radiusSmAll,
+                ),
                 content: Text(state.message),
                 duration: const Duration(seconds: 3),
               ),
@@ -52,7 +82,9 @@ class TournamentDetailSheet extends StatelessWidget {
               SnackBar(
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(AppSpacing.md),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSmAll),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.radiusSmAll,
+                ),
                 content: Text(state.message),
                 backgroundColor: theme.colorScheme.error,
               ),
@@ -60,9 +92,9 @@ class TournamentDetailSheet extends StatelessWidget {
           }
         },
         builder: (ctx, state) {
-          TournamentEntity currentTournament = tournament;
-          bool isLoading = false;
-          bool isRegistering = false;
+          TournamentEntity currentTournament = widget.tournament;
+          var isLoading = _resolvingUser;
+          var isRegistering = false;
 
           if (state is TournamentDetailLoading) {
             isLoading = true;
@@ -73,6 +105,9 @@ class TournamentDetailSheet extends StatelessWidget {
             currentTournament = state.tournament;
           } else if (state is TournamentDetailActionSuccess) {
             isLoading = true;
+          } else if (state is TournamentDetailError &&
+              state.tournament != null) {
+            currentTournament = state.tournament!;
           }
 
           return DraggableScrollableSheet(
@@ -90,13 +125,17 @@ class TournamentDetailSheet extends StatelessWidget {
               ),
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _buildContent(context, scrollController, ctx, currentTournament, isRegistering),
+                  : _buildContent(
+                      context,
+                      scrollController,
+                      ctx,
+                      currentTournament,
+                      isRegistering,
+                    ),
             ),
           );
         },
-          ),
-        );
-      },
+      ),
     );
   }
 
@@ -129,15 +168,19 @@ class TournamentDetailSheet extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           TournamentStatusPill(status: tournament.status),
           const SizedBox(height: AppSpacing.md),
-          _buildDescription(theme, tournament),
-          const SizedBox(height: AppSpacing.xl),
+          if (tournament.description.isNotEmpty) ...[
+            _buildDescription(theme, tournament),
+            const SizedBox(height: AppSpacing.xl),
+          ],
           TournamentDetailInfo(tournament: tournament),
           const SizedBox(height: AppSpacing.xl),
           TournamentActionButton(
             tournament: tournament,
             isRegistering: isRegistering,
-            onRegister: () => ctx.read<TournamentDetailCubit>().register(tournament.id),
-            onUnregister: () => ctx.read<TournamentDetailCubit>().unregister(tournament.id),
+            onRegister: () =>
+                ctx.read<TournamentDetailCubit>().register(tournament.id),
+            onUnregister: () =>
+                ctx.read<TournamentDetailCubit>().unregister(tournament.id),
           ),
         ],
       ),

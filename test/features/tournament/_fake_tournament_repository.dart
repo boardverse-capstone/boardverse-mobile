@@ -41,14 +41,16 @@ class FakeTournamentRepository implements TournamentRepository {
     Map<String, TournamentMatchEntity>? matchById,
     this.failure,
     this.registerFailure,
-  })  : openTournaments = openTournaments ?? <TournamentEntity>[],
-        myRegistrations = myRegistrations ?? <TournamentEntity>[],
-        eloHistory = eloHistory ?? <EloHistoryEntity>[],
-        leaderboard = leaderboard ?? <LeaderboardEntryEntity>[],
-        participants = participants ?? <String, List<TournamentParticipantEntity>>{},
-        participantById = participantById ?? <String, TournamentParticipantEntity>{},
-        matches = matches ?? <String, List<TournamentMatchEntity>>{},
-        matchById = matchById ?? <String, TournamentMatchEntity>{};
+  }) : openTournaments = openTournaments ?? <TournamentEntity>[],
+       myRegistrations = myRegistrations ?? <TournamentEntity>[],
+       eloHistory = eloHistory ?? <EloHistoryEntity>[],
+       leaderboard = leaderboard ?? <LeaderboardEntryEntity>[],
+       participants =
+           participants ?? <String, List<TournamentParticipantEntity>>{},
+       participantById =
+           participantById ?? <String, TournamentParticipantEntity>{},
+       matches = matches ?? <String, List<TournamentMatchEntity>>{},
+       matchById = matchById ?? <String, TournamentMatchEntity>{};
 
   void setFailure(Failure? newFailure) => failure = newFailure;
 
@@ -66,9 +68,7 @@ class FakeTournamentRepository implements TournamentRepository {
   ) async {
     if (failure != null) return Left(failure!);
     if (tournamentDetail != null) return Right(tournamentDetail!);
-    return Right(
-      TournamentTestFixtures.tournament(id: id, title: 'Giải $id'),
-    );
+    return Right(TournamentTestFixtures.tournament(id: id, title: 'Giải $id'));
   }
 
   @override
@@ -123,9 +123,7 @@ class FakeTournamentRepository implements TournamentRepository {
     if (failure != null) return Left(failure!);
     final existing = matchById[matchId];
     if (existing != null) return Right(existing);
-    return Right(
-      TournamentTestFixtures.match(id: matchId),
-    );
+    return Right(TournamentTestFixtures.match(id: matchId));
   }
 
   @override
@@ -158,6 +156,7 @@ class FakeTournamentRepository implements TournamentRepository {
   @override
   Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
     int topCount = 100,
+    String? gameTemplateId,
   }) async {
     if (failure != null) return Left(failure!);
     return Right(leaderboard);

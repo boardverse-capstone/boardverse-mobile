@@ -68,5 +68,6 @@ abstract class TournamentRepository {
   /// Bảng xếp hạng.
   Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
     int topCount = 100,
+    String? gameTemplateId,
   });
 }

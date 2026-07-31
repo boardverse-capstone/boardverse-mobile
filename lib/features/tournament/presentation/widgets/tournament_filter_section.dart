@@ -12,10 +12,16 @@ class TournamentFilterSection extends StatelessWidget {
     required this.onFilterChanged,
   });
 
+  /// Filter labels indexed by `selectedFilter`.
+  ///
+  /// Index 2 ("Sắp diễn ra") is intentionally omitted because the backend
+  /// does not expose `/tournaments/upcoming` to the player API. Returning an
+  /// empty list for that case would confuse users into thinking the UI is
+  /// broken. The list card UI still renders `upcoming` tournaments if the
+  /// backend ever exposes them via `/tournaments/open`.
   static const _filterLabels = <String>[
     'Tất cả',
     'Đang mở',
-    'Sắp diễn ra',
     'Đang diễn ra',
     'Đã kết thúc',
   ];
@@ -69,7 +75,9 @@ class TournamentFilterSection extends StatelessWidget {
                       color: isSelected
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: AppRadius.chipRadius,

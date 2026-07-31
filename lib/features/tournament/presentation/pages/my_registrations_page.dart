@@ -29,8 +29,7 @@ class MyRegistrationsPage extends StatelessWidget {
       );
     }
     return BlocProvider<MyRegistrationsCubit>(
-      create: (_) =>
-          getIt<MyRegistrationsCubit>()..loadMyRegistrations(),
+      create: (_) => getIt<MyRegistrationsCubit>()..loadMyRegistrations(),
       child: const _MyRegistrationsView(),
     );
   }
@@ -59,8 +58,8 @@ class _MyRegistrationsView extends StatelessWidget {
                 active: state is MyRegistrationsLoaded
                     ? state.activeFilter
                     : (state is MyRegistrationsLoading
-                        ? state.currentFilter
-                        : MyRegistrationsFilter.all),
+                          ? state.currentFilter
+                          : MyRegistrationsFilter.all),
                 onSelected: (filter) =>
                     context.read<MyRegistrationsCubit>().applyFilter(filter),
               ),
@@ -80,8 +79,7 @@ class _MyRegistrationsView extends StatelessWidget {
     if (state is MyRegistrationsError) {
       return _ErrorState(
         message: state.message,
-        onRetry: () =>
-            context.read<MyRegistrationsCubit>().refresh(),
+        onRetry: () => context.read<MyRegistrationsCubit>().refresh(),
       );
     }
 
@@ -99,8 +97,7 @@ class _MyRegistrationsView extends StatelessWidget {
             AppSpacing.xl,
           ),
           itemCount: state.tournaments.length,
-          separatorBuilder: (_, _) =>
-              const SizedBox(height: AppSpacing.sm),
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
             final tournament = state.tournaments[index];
             return _MyRegistrationCard(
@@ -115,14 +112,20 @@ class _MyRegistrationsView extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  void _openDetail(BuildContext context, TournamentEntity tournament) {
-    showModalBottomSheet<void>(
+  Future<void> _openDetail(
+    BuildContext context,
+    TournamentEntity tournament,
+  ) async {
+    final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => TournamentDetailSheet(tournament: tournament),
     );
+    if (changed == true && context.mounted) {
+      await context.read<MyRegistrationsCubit>().refresh();
+    }
   }
 }
 
@@ -130,10 +133,7 @@ class _FilterChips extends StatelessWidget {
   final MyRegistrationsFilter active;
   final ValueChanged<MyRegistrationsFilter> onSelected;
 
-  const _FilterChips({
-    required this.active,
-    required this.onSelected,
-  });
+  const _FilterChips({required this.active, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -173,9 +173,7 @@ class _FilterChips extends StatelessWidget {
                     : theme.colorScheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.chipRadius,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.chipRadius),
             ),
           );
         }).toList(),
@@ -188,10 +186,7 @@ class _MyRegistrationCard extends StatelessWidget {
   final TournamentEntity tournament;
   final VoidCallback onTap;
 
-  const _MyRegistrationCard({
-    required this.tournament,
-    required this.onTap,
-  });
+  const _MyRegistrationCard({required this.tournament, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -234,18 +229,22 @@ class _MyRegistrationCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
-                  Icon(AppIcons.schedule,
-                      size: AppIcons.sm,
-                      color: theme.colorScheme.primary),
+                  Icon(
+                    AppIcons.schedule,
+                    size: AppIcons.sm,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
                     TournamentUtils.formatDateTime(tournament.startTime),
                     style: theme.textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  Icon(AppIcons.users,
-                      size: AppIcons.sm,
-                      color: theme.colorScheme.primary),
+                  Icon(
+                    AppIcons.users,
+                    size: AppIcons.sm,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
                     '${tournament.currentParticipants}/${tournament.maxParticipants}',
@@ -389,9 +388,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline,
-                size: AppIcons.xxl * 2,
-                color: theme.colorScheme.error),
+            Icon(
+              Icons.error_outline,
+              size: AppIcons.xxl * 2,
+              color: theme.colorScheme.error,
+            ),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Đã xảy ra lỗi',
