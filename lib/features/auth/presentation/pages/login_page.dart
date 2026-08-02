@@ -179,9 +179,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AuthTitle(
+              AuthTitle(
                 title: 'Chào mừng trở lại!',
                 subtitle: 'Đăng nhập để tiếp tục khám phá',
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(height: AppSpacing.xl),
               AuthTextField(

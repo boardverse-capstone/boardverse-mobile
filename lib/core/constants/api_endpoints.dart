@@ -60,6 +60,9 @@ class ApiEndpoints {
   static const String cafesNearby = '/api/cafes/nearby';
   static const String cafesNearbyMe = '/api/cafes/nearby/me';
   static const String cafeDetail = '/api/cafes/{id}';
+  static const String cafeAvailableTables =
+      '/api/cafes/{cafeId}/available-tables';
+  static const String cafeAvailability = '/api/cafes/{cafeId}/availability';
 
   // ──────────────────────────────────────────────
   //  Health
@@ -71,18 +74,65 @@ class ApiEndpoints {
   // ──────────────────────────────────────────────
   //  Bookings & Payments
   // ──────────────────────────────────────────────
-  static const String createBooking = '/api/Bookings';
-  static const String bookingDetail = '/api/Bookings/{id}';
-  static const String confirmBooking = '/api/Bookings/{id}/confirm';
-  static const String cancelBooking = '/api/Bookings/{id}/cancel';
-  static const String bookingStatus = '/api/Bookings/{id}/status';
-  static const String bookingHistory = '/api/Bookings/history';
+  // Theo đặc tả `.agents/docs/apis_docs/booking.md` & `payment.md`.
+  // Base /api/bookings áp dụng cho Player flow (lobby → booking → deposit).
+  // Base /api/payments/... là cổng SePay (BR-03, BR-05, BR-06, BR-09).
+  static const String bookingCreate = '/api/bookings';
+  static const String bookingDetail = '/api/bookings/{id}';
+  static const String bookingByLobby = '/api/bookings/lobby/{lobbyId}';
+  static const String bookingCancel = '/api/bookings/{id}';
+  static const String bookingUpdate = '/api/bookings/{id}';
+  static const String bookingCheckIn = '/api/bookings/{id}/check-in';
+  static const String bookingCheckOut = '/api/bookings/{id}/check-out';
+  static const String bookingSessionStatus =
+      '/api/bookings/{bookingId}/session-status';
+  static const String bookingsByCafe = '/api/bookings/cafe/{cafeId}';
 
-  // ─── Deposit Config ───
+  // ─── BookingRatingController (gap #4, #5) ───
+  static const String bookingNoShowVotes =
+      '/api/bookings/{bookingId}/no-show-votes';
+  static const String bookingRatings = '/api/bookings/{bookingId}/ratings';
+  static const String bookingRatingsStatus =
+      '/api/bookings/{bookingId}/ratings/status';
+
+  // ─── Deposit Config (lấy cấu hình cọc theo quán) ───
   static const String depositConfig = '/api/Cafes/{cafeId}/deposit-config';
 
-  // ─── Payments ───
-  static const String paymentCreate = '/api/Payments/create-url';
+  // ─── Payments (SePay) ───
+  static const String bookingDeposit = '/api/payments/booking-deposit';
+  static const String bookingDepositDetail = '/api/payments/booking-deposit/{id}';
+  static const String bookingDepositByOrder =
+      '/api/payments/booking-deposit/by-order/{orderId}';
+  static const String bookingDepositRegenerateQr =
+      '/api/payments/booking-deposit/{id}/regenerate-qr';
+  static const String bookingDepositRefund = '/api/payments/booking-deposit/refund';
+
+  // ─── Payments: Session & Manual Confirm (POS-side, reference only) ───
+  // Theo đặc tả `.agents/docs/apis_docs/payment.md`:
+  // - `session-payment`: Manager/CafeStaff tạo QR cho hóa đơn phiên chơi
+  //   tại POS (sau khi kiểm kê linh kiện xong).
+  // - `manual-confirm`: Staff xác nhận thanh toán thủ công khi SePay + VietQR
+  //   đều không khả dụng (BR-18). Mobile Player hiện không gọi trực tiếp,
+  //   nhưng khai báo để abstract layer không phải patch lại sau.
+  static const String sessionPayment = '/api/payments/session-payment';
+  static const String sessionPaymentRegenerateQr =
+      '/api/payments/session-payment/{sessionId}/regenerate-qr';
+  static const String manualConfirm = '/api/payments/manual-confirm';
+
+  // ─── SePay Webhook (server-to-server, no JWT) ────────────────────
+  // Theo `.agents/docs/apis_docs/sepay-webhook.md`. Mobile không gọi trực
+  // tiếp nhưng endpoint `/mock` có thể dùng trong dev/test để giả lập
+  // SePay xác nhận thanh toán (gated bằng flag `EnableMockPayments`).
+  static const String sepayWebhook = '/api/payments/sepay/webhook';
+  static const String sepayWebhookReturn = '/api/payments/sepay/webhook/return';
+  static const String sepayWebhookMock = '/api/payments/sepay/webhook/mock';
+
+  // ─── Notifications (FCM device tokens) ───
+  // Theo `.agents/docs/apis_docs/notifications.md`.
+  static const String notificationDeviceTokens =
+      '/api/notifications/device-tokens';
+  static String notificationDeviceTokenDelete(String id) =>
+      '/api/notifications/device-tokens/$id';
 
   // ──────────────────────────────────────────────
   //  Friends

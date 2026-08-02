@@ -86,19 +86,33 @@ class _LobbyPageState extends State<LobbyPage> {
       isScrollControlled: true,
       builder: (sheetCtx) => BlocProvider.value(
         value: widget.lobbyCubit,
-        child: BlocBuilder<LobbyCubit, LobbyState>(
-          builder: (sheetCtx, state) {
-            if (state is LobbyFriendsLoaded) {
-              return _FriendsSheet(
-                state: state,
-                onInvite: (friend) => _completeFriendAction(friend, lobby),
-                onClose: () => Navigator.pop(sheetCtx),
-                showDevBadge: false,
-                sheetContext: sheetCtx,
-              );
+        child: BlocListener<LobbyCubit, LobbyState>(
+          listenWhen: (prev, current) =>
+              current is LobbyUpdatedRealtime &&
+              prev is! LobbyUpdatedRealtime,
+          listener: (sheetCtx, _) {
+            // Friend vừa được add thẳng vào lobby → đóng sheet để user
+            // thấy lobby rendering với member mới. Realtime đã đẩy state
+            // `LobbyUpdatedRealtime` đồng thời.
+            if (Navigator.of(sheetCtx).canPop()) {
+              Navigator.of(sheetCtx).pop();
             }
-            return const _SheetLoading(label: 'Đang tải danh sách bạn bè...');
           },
+          child: BlocBuilder<LobbyCubit, LobbyState>(
+            builder: (sheetCtx, state) {
+              if (state is LobbyFriendsLoaded) {
+                return _FriendsSheet(
+                  state: state,
+                  onInvite: (friend) => _completeFriendAction(friend, lobby),
+                  onAdd: (friend) => _completeAddFriendAction(friend, lobby),
+                  onClose: () => Navigator.pop(sheetCtx),
+                  showDevBadge: false,
+                  sheetContext: sheetCtx,
+                );
+              }
+              return const _SheetLoading(label: 'Đang tải danh sách bạn bè...');
+            },
+          ),
         ),
       ),
     );
@@ -111,6 +125,19 @@ class _LobbyPageState extends State<LobbyPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Đã gửi lời mời đến ${friend.username}'),
+      ),
+    );
+  }
+
+  void _completeAddFriendAction(FriendEntity friend, LobbyEntity lobby) {
+    // Dev-friendly add: gọi `simulateAddFriend` để mock-realtime thêm
+    // friend thẳng vào lobby ngay lập tức, tránh phải chờ friend accept
+    // notification. Sheet sẽ tự đóng sau khi cubit emit state mới.
+    widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.odId);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã thêm ${friend.username} vào phòng'),
       ),
     );
   }
@@ -331,11 +358,14 @@ class _LobbyPageState extends State<LobbyPage> {
           lobbyId: lobby.id,
           cafeId: lobby.cafeId,
           cafeName: lobby.cafeName,
+          cafeTableId: lobby.cafeTableId ?? '',
           gameId: lobby.gameId,
           gameName: lobby.gameName,
-          scheduledTime: lobby.scheduledTime,
+          scheduledStartTime: lobby.scheduledTime,
+          scheduleEndTime:
+              lobby.scheduledTime.add(const Duration(hours: 2)),
           seatCount: lobby.currentPlayers,
-          memberIds: lobby.players.map((p) => p.id).toList(),
+          playerQuantity: lobby.currentPlayers,
         ),
       ),
     );
@@ -359,11 +389,14 @@ class _LobbyPageState extends State<LobbyPage> {
           lobbyId: lobby.id,
           cafeId: lobby.cafeId,
           cafeName: lobby.cafeName,
+          cafeTableId: lobby.cafeTableId ?? '',
           gameId: lobby.gameId,
           gameName: lobby.gameName,
-          scheduledTime: lobby.scheduledTime,
+          scheduledStartTime: lobby.scheduledTime,
+          scheduleEndTime:
+              lobby.scheduledTime.add(const Duration(hours: 2)),
           seatCount: lobby.currentPlayers,
-          memberIds: lobby.players.map((p) => p.id).toList(),
+          playerQuantity: lobby.currentPlayers,
           autoBookingId: state.bookingId,
         ),
       ),
@@ -1247,6 +1280,7 @@ class _DetailRow extends StatelessWidget {
 class _FriendsSheet extends StatelessWidget {
   final LobbyState state;
   final void Function(FriendEntity) onInvite;
+  final void Function(FriendEntity) onAdd;
   final VoidCallback onClose;
   final bool showDevBadge;
   final BuildContext sheetContext;
@@ -1254,6 +1288,7 @@ class _FriendsSheet extends StatelessWidget {
   const _FriendsSheet({
     required this.state,
     required this.onInvite,
+    required this.onAdd,
     required this.onClose,
     required this.showDevBadge,
     required this.sheetContext,
@@ -1362,6 +1397,11 @@ class _FriendsSheet extends StatelessWidget {
                 onInvite: (friend) {
                   Navigator.pop(sheetContext);
                   onInvite(friend);
+                },
+                onAdd: (friend) {
+                  // KHÔNG pop sheet ở đây — để UI rebuild khi cubit emit
+                  // state mới (LobbyUpdatedRealtime) rồi tự đóng.
+                  onAdd(friend);
                 },
               ),
             ),

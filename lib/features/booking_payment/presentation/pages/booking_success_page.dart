@@ -4,15 +4,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
-import '../../data/datasources/mock/mock_booking_remote_datasource.dart';
 import '../../domain/enums/booking_status.dart';
 import '../cubit/booking_result_cubit.dart';
 import '../cubit/booking_result_state.dart';
 import '../widgets/booking_qr_card.dart';
 import '../widgets/cancel_booking_dialog.dart';
-import '../widgets/qr_scanner_mock_dialog.dart';
 
-/// Trang hiển thị QR sau khi thanh toán thành công — Host show cho nhân viên quán.
+/// Trang hiển thị QR sau khi thanh toán thành công — Host đưa cho staff quán.
+///
+/// Flow mới:
+/// - Không còn nút "Mock: Quét QR (POS)" — POS tự scan, mobile chỉ render QR.
+/// - QR render từ `booking.verificationQRCode` (server cấp).
+/// - `startPollingStatus(bookingId, 5s)` để đón `status = CheckedIn` (BR-09).
 class BookingSuccessPage extends StatefulWidget {
   final String bookingId;
 
@@ -39,7 +42,9 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
 
   Future<void> _openMaps(String? cafeId) async {
     final query = Uri.encodeComponent('board game cafe ${cafeId ?? ''}');
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -54,17 +59,6 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
     await _cubit.cancelByPlayer(reason);
   }
 
-  Future<void> _mockQrScan() async {
-    final datasource = getIt<MockBookingRemoteDatasource>();
-    await QrScannerMockDialog.show(
-      context: context,
-      datasource: datasource,
-      bookingId: widget.bookingId,
-      memberIds: const ['user_001', 'user_002', 'user_003'],
-      currentUserId: 'user_001',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -76,8 +70,11 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
             SnackBar(
               content: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: AppColors.white, size: AppIcons.md),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.white,
+                    size: AppIcons.md,
+                  ),
                   const SizedBox(width: AppSpacing.xs),
                   const Text('Đã huỷ đơn đặt chỗ'),
                 ],
@@ -121,13 +118,21 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
           return Scaffold(
             appBar: AppBar(title: const Text('Đặt chỗ')),
             body: _ErrorState(
-              message:
-                  state is ResultFailure ? state.message : 'Không tải được đơn',
+              message: state is ResultFailure
+                  ? state.message
+                  : 'Không tải được đơn',
             ),
           );
         }
 
         final canCancel = booking.status == BookingStatus.confirmed;
+
+        // Start polling sau khi đã load xong booking → đón CheckedIn.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _cubit.startPollingStatus(widget.bookingId);
+          }
+        });
 
         return Scaffold(
           appBar: AppBar(
@@ -161,22 +166,12 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
                       foregroundColor: AppColors.error,
-                      side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                      side: BorderSide(
+                        color: AppColors.error.withValues(alpha: 0.5),
+                      ),
                     ),
                   ),
                 ],
-                const SizedBox(height: AppSpacing.sm),
-                OutlinedButton.icon(
-                  onPressed: _mockQrScan,
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text('Mock: Quét QR (POS)'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    foregroundColor: AppColors.warning,
-                    side:
-                        BorderSide(color: AppColors.warning.withValues(alpha: 0.5)),
-                  ),
-                ),
                 const SizedBox(height: AppSpacing.md),
                 TextButton(
                   onPressed: () =>
@@ -252,7 +247,6 @@ class _BookingSuccessPageState extends State<BookingSuccessPage> {
   dynamic _extractBooking(BookingResultState state) {
     if (state is ResultConfirmed) return state.booking;
     if (state is ResultCheckedIn) return state.booking;
-    if (state is ResultExpired) return state.booking;
     if (state is ResultCancelled) return state.booking;
     return null;
   }

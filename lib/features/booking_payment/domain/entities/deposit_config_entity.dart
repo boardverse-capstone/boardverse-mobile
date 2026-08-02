@@ -24,6 +24,9 @@ class DepositConfigEntity extends Equatable {
   /// Số phút được phép giữ chỗ kể từ khi tạo đơn (BR-06, ≤ 30).
   final int graceMinutes;
 
+  /// Số ghế tối đa quán đăng ký (dùng để validate seatCount phía client).
+  final int seatCount;
+
   final String currency;
   final PricingModel pricingModel;
 
@@ -34,6 +37,7 @@ class DepositConfigEntity extends Equatable {
     required this.maxDeposit,
     required this.defaultDeposit,
     required this.graceMinutes,
+    this.seatCount = 0,
     this.currency = 'VND',
     this.pricingModel = PricingModel.hourly,
   });
@@ -50,6 +54,7 @@ class DepositConfigEntity extends Equatable {
         maxDeposit,
         defaultDeposit,
         graceMinutes,
+        seatCount,
         currency,
         pricingModel,
       ];

@@ -235,6 +235,9 @@ class AppIcons {
   /// Clock/Time
   static const IconData clock = Icons.access_time;
 
+  /// Timer (countdown)
+  static const IconData timer = Icons.timer_outlined;
+
   /// Globe
   static const IconData globe = Icons.language;
 

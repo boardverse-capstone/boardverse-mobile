@@ -102,6 +102,7 @@ class LobbyModel {
   final String? gameImageUrl;
   final String cafeId;
   final String cafeName;
+  final String? cafeTableId;
   final String hostId;
   final String hostName;
   final DateTime scheduledTime;
@@ -127,6 +128,7 @@ class LobbyModel {
     required this.gameName,
     required this.cafeId,
     required this.cafeName,
+    this.cafeTableId,
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
@@ -218,6 +220,7 @@ class LobbyModel {
       gameImageUrl: json['gameImageUrl'] as String?,
       cafeId: (json['cafeId'] ?? '') as String,
       cafeName: (json['cafeName'] ?? '') as String,
+      cafeTableId: json['cafeTableId']?.toString(),
       hostId: hostId,
       hostName: (json['hostName'] ?? '') as String,
       scheduledTime: DateTime.parse(scheduledTimeRaw),
@@ -264,6 +267,7 @@ class LobbyModel {
     'gameImageUrl': gameImageUrl,
     'cafeId': cafeId,
     'cafeName': cafeName,
+    'cafeTableId': cafeTableId,
     'hostId': hostId,
     'hostName': hostName,
     'scheduledTime': scheduledTime.toIso8601String(),
@@ -294,6 +298,7 @@ class LobbyModel {
     String? gameImageUrl,
     String? cafeId,
     String? cafeName,
+    Object? cafeTableId = _sentinel,
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
@@ -320,6 +325,9 @@ class LobbyModel {
       gameImageUrl: gameImageUrl ?? this.gameImageUrl,
       cafeId: cafeId ?? this.cafeId,
       cafeName: cafeName ?? this.cafeName,
+      cafeTableId: identical(cafeTableId, _sentinel)
+          ? this.cafeTableId
+          : cafeTableId as String?,
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
@@ -355,6 +363,7 @@ class LobbyModel {
     gameName: gameName,
     cafeId: cafeId,
     cafeName: cafeName,
+    cafeTableId: cafeTableId,
     hostId: hostId,
     hostName: hostName,
     scheduledTime: scheduledTime,

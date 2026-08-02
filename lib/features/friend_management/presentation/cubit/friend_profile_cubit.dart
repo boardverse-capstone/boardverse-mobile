@@ -12,11 +12,10 @@ import 'states/friend_profile_states.dart';
 /// - Loading mutual friends list
 /// - Action message handling
 class FriendProfileCubit extends Cubit<FriendProfileState> {
-  FriendProfileCubit({required FriendRepository repository})
-      : _repository = repository,
-        super(const FriendProfileInitial(userId: ''));
+  FriendProfileCubit({required this.repository})
+      : super(const FriendProfileInitial(userId: ''));
 
-  final FriendRepository _repository;
+  final FriendRepository repository;
 
   String? get currentUserId {
     final id = state.userId;
@@ -39,7 +38,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
       emit(current.copyWith(isMutating: true, clearActionMessage: true));
     }
 
-    final result = await _repository.getPlayerProfile(userId);
+    final result = await repository.getPlayerProfile(userId);
     if (isClosed) return;
 
     result.fold(
@@ -69,7 +68,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
 
     _setMutating(true);
 
-    final result = await _repository.sendFriendRequest(
+    final result = await repository.sendFriendRequest(
       addresseeId: userId,
       message: message,
     );
@@ -100,7 +99,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
 
     _setMutating(true);
 
-    final result = await _repository.unfriend(userId);
+    final result = await repository.unfriend(userId);
     if (isClosed) return;
 
     await result.fold(
@@ -128,7 +127,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
 
     _setMutating(true);
 
-    final result = await _repository.blockUser(userId);
+    final result = await repository.blockUser(userId);
     if (isClosed) return;
 
     await result.fold(
@@ -156,7 +155,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
 
     _setMutating(true);
 
-    final result = await _repository.unblockUser(userId);
+    final result = await repository.unblockUser(userId);
     if (isClosed) return;
 
     await result.fold(
@@ -187,7 +186,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
 
     _setMutating(true);
 
-    final result = await _repository.createReport(
+    final result = await repository.createReport(
       targetUserId: userId,
       category: category,
       reason: reason,
@@ -219,7 +218,7 @@ class FriendProfileCubit extends Cubit<FriendProfileState> {
     final userId = currentUserId;
     if (userId == null) return;
 
-    final result = await _repository.getMutualFriends(userId);
+    final result = await repository.getMutualFriends(userId);
     if (isClosed) return;
 
     result.fold(

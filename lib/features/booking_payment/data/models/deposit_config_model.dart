@@ -1,6 +1,10 @@
 import '../../domain/entities/deposit_config_entity.dart';
 import '../../domain/enums/pricing_model.dart';
 
+/// JSON ↔ Entity cho `DepositConfigEntity`.
+///
+/// Endpoint: `GET /api/Cafes/{cafeId}/deposit-config`.
+/// Dữ liệu trả về được bọc trong `ApiResponse.data`.
 class DepositConfigModel {
   final String cafeId;
   final double firstHourPrice;
@@ -8,6 +12,7 @@ class DepositConfigModel {
   final double maxDeposit;
   final double defaultDeposit;
   final int graceMinutes;
+  final int seatCount;
   final String currency;
   final String pricingModel;
 
@@ -18,33 +23,24 @@ class DepositConfigModel {
     required this.maxDeposit,
     required this.defaultDeposit,
     required this.graceMinutes,
+    this.seatCount = 0,
     this.currency = 'VND',
     this.pricingModel = 'hourly',
   });
 
   factory DepositConfigModel.fromJson(Map<String, dynamic> json) {
     return DepositConfigModel(
-      cafeId: json['cafeId'] as String,
+      cafeId: json['cafeId'] as String? ?? '',
       firstHourPrice: (json['firstHourPrice'] as num).toDouble(),
-      entryFee: (json['entryFee'] as num).toDouble(),
+      entryFee: (json['entryFee'] as num?)?.toDouble() ?? 0,
       maxDeposit: (json['maxDeposit'] as num).toDouble(),
-      defaultDeposit: (json['defaultDeposit'] as num).toDouble(),
-      graceMinutes: (json['graceMinutes'] as num).toInt(),
-      currency: (json['currency'] as String?) ?? 'VND',
-      pricingModel: (json['pricingModel'] as String?) ?? 'hourly',
+      defaultDeposit: (json['defaultDeposit'] as num?)?.toDouble() ?? 0,
+      graceMinutes: (json['graceMinutes'] as num?)?.toInt() ?? 30,
+      seatCount: (json['seatCount'] as num?)?.toInt() ?? 0,
+      currency: json['currency'] as String? ?? 'VND',
+      pricingModel: json['pricingModel'] as String? ?? 'hourly',
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'cafeId': cafeId,
-        'firstHourPrice': firstHourPrice,
-        'entryFee': entryFee,
-        'maxDeposit': maxDeposit,
-        'defaultDeposit': defaultDeposit,
-        'graceMinutes': graceMinutes,
-        'currency': currency,
-        'pricingModel': pricingModel,
-      };
 
   DepositConfigEntity toEntity() => DepositConfigEntity(
         cafeId: cafeId,
@@ -53,13 +49,18 @@ class DepositConfigModel {
         maxDeposit: maxDeposit,
         defaultDeposit: defaultDeposit,
         graceMinutes: graceMinutes,
+        seatCount: seatCount,
         currency: currency,
         pricingModel: _pricingFromString(pricingModel),
       );
 
-  static PricingModel _pricingFromString(String s) =>
-      PricingModel.values.firstWhere(
-        (e) => e.name == s,
-        orElse: () => PricingModel.hourly,
-      );
+  static PricingModel _pricingFromString(String s) {
+    switch (s) {
+      case 'flatEntry':
+        return PricingModel.flatEntry;
+      case 'hourly':
+      default:
+        return PricingModel.hourly;
+    }
+  }
 }

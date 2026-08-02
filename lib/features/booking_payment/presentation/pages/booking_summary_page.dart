@@ -2,43 +2,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/navigation/widgets/booking_pending_resume_helper.dart';
 import '../../../../core/theme/theme.dart';
 import '../cubit/booking_summary_cubit.dart';
 import '../cubit/booking_summary_state.dart';
 import '../../domain/enums/payment_method.dart';
+import '../widgets/availability_banner.dart';
 import '../widgets/booking_ui_helpers.dart';
 import '../widgets/deposit_breakdown_card.dart';
 import '../widgets/payment_method_selector.dart';
 import '../widgets/section_header.dart';
+import '../widgets/table_picker_sheet.dart';
+import 'payment_page.dart';
 
-/// Trang tóm tắt trước khi thanh toán — hiển thị breakdown giá, phương thức
-/// thanh toán, gọi cubit tạo booking rồi push `PaymentPage`.
+/// Trang tóm tắt trước khi thanh toán — hiển thị breakdown giá, gọi
+/// `createBooking` rồi push `PaymentPage`.
+///
+/// Tích hợp mới (gaps #1, #2, #3):
+/// - `lobbyId` nullable: walk-in flow (gap #3) cho phép đặt chỗ không qua lobby.
+/// - Auto-load bàn trống + availability (gap #1, #2) — user có thể đổi bàn
+///   qua `TablePickerSheet`.
+/// - `autoBookingId` (Luồng A): skip createBooking, push thẳng PaymentPage.
 class BookingSummaryPage extends StatefulWidget {
-  final String lobbyId;
+  /// Nullable cho walk-in booking (gap #3).
+  final String? lobbyId;
   final String cafeId;
   final String cafeName;
+  final String cafeTableId;
   final String gameId;
   final String gameName;
-  final DateTime scheduledTime;
+  final DateTime scheduledStartTime;
+  final DateTime scheduleEndTime;
   final int seatCount;
-  final List<String> memberIds;
+  final int? playerQuantity;
 
-  /// Id booking đã được auto-create từ Luồng A (lobby đầy). Khi có giá trị,
-  /// summary page có thể hiển thị badge "Đã được tạo tự động" hoặc skip bước
-  /// createBooking. (Hiện tại chỉ dùng cho UI label, không dùng để skip bước
-  /// vì server đã tạo sẵn — phase sau sẽ resume flow dùng trực tiếp id này.)
+  /// Id booking đã được auto-create từ Luồng A (lobby đầy).
   final String? autoBookingId;
 
   const BookingSummaryPage({
     super.key,
-    required this.lobbyId,
+    this.lobbyId,
     required this.cafeId,
     required this.cafeName,
+    this.cafeTableId = '',
     required this.gameId,
     required this.gameName,
-    required this.scheduledTime,
+    required this.scheduledStartTime,
+    required this.scheduleEndTime,
     required this.seatCount,
-    required this.memberIds,
+    required this.playerQuantity,
     this.autoBookingId,
   });
 
@@ -48,11 +60,50 @@ class BookingSummaryPage extends StatefulWidget {
 
 class _BookingSummaryPageState extends State<BookingSummaryPage> {
   late final BookingSummaryCubit _cubit;
+  late DateTime _scheduledEndTime;
+
+  static const Duration _minDuration = Duration(hours: 1);
+  static const Duration _maxDuration = Duration(hours: 6);
 
   @override
   void initState() {
     super.initState();
-    _cubit = getIt<BookingSummaryCubit>()..loadConfig(widget.cafeId);
+    _scheduledEndTime = widget.scheduleEndTime;
+    _cubit = getIt<BookingSummaryCubit>()
+      ..loadConfig(
+        widget.cafeId,
+        scheduledStartTime: widget.scheduledStartTime,
+        scheduleEndTime: _scheduledEndTime,
+        seatCount: widget.seatCount,
+      );
+
+    if (widget.autoBookingId != null) {
+      // Luồng A: booking đã có → skip bước submit, nhảy thẳng PaymentPage
+      // sau khi load config xong. Fetch booking thật để hiển thị deadline.
+      _cubit.stream.first.then((_) => _fetchAutoBookingAndContinue());
+    }
+  }
+
+  Future<void> _fetchAutoBookingAndContinue() async {
+    final repo = sl<BookingPersistenceResumeHelper>();
+    final booking = await repo.fetchBooking(widget.autoBookingId!);
+    if (!mounted || booking == null) return;
+    final config = await repo.fetchDepositConfig(booking.cafeId);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentPage(
+          bookingId: booking.id,
+          cafeId: booking.cafeId,
+          cafeName: booking.cafeName,
+          depositAmount: booking.depositAmount,
+          deadline: booking.depositDeadline,
+          config: config,
+          method: PaymentMethod.sepay,
+        ),
+      ),
+    );
   }
 
   @override
@@ -97,27 +148,20 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
       child: BlocConsumer<BookingSummaryCubit, BookingSummaryState>(
         listener: (context, state) {
           if (state is SummarySuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.check_circle_rounded,
-                        color: AppColors.white, size: AppIcons.md),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        'Tạo booking thành công! bookingId=${state.bookingId}, '
-                        'cọc=${state.depositAmount}đ (payment tạm khoá)',
-                      ),
-                    ),
-                  ],
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PaymentPage(
+                  bookingId: state.bookingId,
+                  cafeId: widget.cafeId,
+                  cafeName: widget.cafeName,
+                  depositAmount: state.depositAmount,
+                  deadline: state.deadline,
+                  config: null,
+                  method: PaymentMethod.sepay,
                 ),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 5),
               ),
             );
-            Navigator.popUntil(context, (route) => route.isFirst);
           }
           if (state is SummaryFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -139,7 +183,7 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
               }
             },
             child: Scaffold(
-              appBar: AppBar(title: const Text('Xác nhận đặt chỗ')),
+              appBar: AppBar(title: const Text('Xác nhận đặt cọc')),
               body: _buildBody(context, state),
             ),
           );
@@ -149,7 +193,9 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
   }
 
   Widget _buildBody(BuildContext context, BookingSummaryState state) {
-    if (state is SummaryInitial || state is SummaryLoading) {
+    if (state is SummaryInitial ||
+        state is SummaryLoading ||
+        state is SummaryLoadingTables) {
       return _buildLoadingState(context);
     }
     if (state is SummaryFailure && state.code == 'FETCH_CONFIG') {
@@ -191,12 +237,32 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
 
   Widget _buildReady(BuildContext context, SummaryReady state) {
     final theme = Theme.of(context);
+    final availability = state.availability;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Banner availability (gap #2) — chỉ render khi backend trả về
+          if (availability != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: AvailabilityBanner(
+                availability: availability,
+                onPickAlternative: (slot) {
+                  setState(() {
+                    _scheduledEndTime = slot.endTime;
+                  });
+                  _cubit.reloadTables(
+                    cafeId: widget.cafeId,
+                    scheduledStartTime: slot.startTime,
+                    scheduleEndTime: slot.endTime,
+                    seatCount: widget.seatCount,
+                  );
+                },
+              ),
+            ),
           Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
@@ -239,14 +305,74 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _kv(theme, AppIcons.clock, 'Giờ hẹn',
-                            BookingUiHelpers.formatDateTime(
-                                widget.scheduledTime,
-                                pattern: 'HH:mm • dd/MM/yyyy')),
-                        _kv(theme, AppIcons.users, 'Số ghế',
-                            widget.seatCount.toString()),
-                        _kv(theme, AppIcons.users, 'Số thành viên',
-                            widget.memberIds.length.toString()),
+                        _kv(
+                          theme,
+                          AppIcons.clock,
+                          'Giờ hẹn',
+                          BookingUiHelpers.formatDateTime(
+                            widget.scheduledStartTime,
+                            pattern: 'HH:mm • dd/MM/yyyy',
+                          ),
+                        ),
+                        _kv(
+                          theme,
+                          AppIcons.timer,
+                          'Kết thúc',
+                          BookingUiHelpers.formatDateTime(
+                            _scheduledEndTime,
+                            pattern: 'HH:mm • dd/MM/yyyy',
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _pickEndTime,
+                            icon: const Icon(Icons.edit_calendar_rounded),
+                            label: const Text('Đổi giờ kết thúc'),
+                          ),
+                        ),
+                        _kv(
+                          theme,
+                          AppIcons.users,
+                          'Số ghế',
+                          widget.seatCount.toString(),
+                        ),
+                        if (widget.lobbyId == null)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(top: AppSpacing.xs),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.directions_walk_rounded,
+                                  size: AppIcons.sm,
+                                  color: theme.colorScheme.tertiary,
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Text(
+                                  'Walk-in (không qua lobby)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.tertiary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Table picker (gap #1)
+                        if (state.availableTables.isNotEmpty)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(top: AppSpacing.sm),
+                            child: OutlinedButton.icon(
+                              onPressed: () => _openTablePicker(state),
+                              icon: const Icon(Icons.table_restaurant_rounded),
+                              label: Text(
+                                state.selectedTableId == null
+                                    ? 'Chọn bàn (${state.availableTables.length} bàn trống)'
+                                    : 'Đã chọn: ${_tableLabel(state)}',
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -257,37 +383,41 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
           const SizedBox(height: AppSpacing.md),
           DepositBreakdownCard(breakdown: state.breakdown),
           const SizedBox(height: AppSpacing.md),
+          // Chỉ 1 cổng SePay — render chip tóm tắt thay vì selector.
           Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.30),
               borderRadius: AppRadius.cardRadius,
               border: Border.all(
-                color:
-                    theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.primary.withValues(alpha: 0.30),
               ),
-              boxShadow: AppElevation.shadowXxs,
             ),
-            child: RadioGroup<PaymentMethod>(
-              groupValue: state.selectedMethod,
-              onChanged: (method) {
-                if (method != null) {
-                  _cubit.selectPaymentMethod(method);
-                }
-              },
-              child: PaymentMethodSelector(
-                selected: state.selectedMethod,
-                onChanged: _cubit.selectPaymentMethod,
-              ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Thanh toán qua SePay — QR ngân hàng sẽ hiển thị sau khi bạn xác nhận.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           FilledButton.icon(
             onPressed: () => _cubit.submit(
+              lobbyId: widget.lobbyId,
               cafeId: widget.cafeId,
-              gameId: widget.gameId,
-              scheduledTime: widget.scheduledTime,
-              seatCount: widget.seatCount,
-              memberIds: widget.memberIds,
+              cafeTableId: widget.cafeTableId,
+              scheduledStartTime: widget.scheduledStartTime,
+              scheduleEndTime: _scheduledEndTime,
+              playerQuantity: widget.playerQuantity,
             ),
             icon: const Icon(Icons.lock_outline_rounded),
             label: const Text('Xác nhận & Thanh toán'),
@@ -299,6 +429,27 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
         ],
       ),
     );
+  }
+
+  String _tableLabel(SummaryReady state) {
+    final id = state.selectedTableId;
+    if (id == null) return 'chưa chọn';
+    final match = state.availableTables.where((t) => t.id == id);
+    return match.isEmpty ? id : '${match.first.name} (${match.first.seatCount} ghế)';
+  }
+
+  Future<void> _openTablePicker(SummaryReady state) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => TablePickerSheet(
+        tables: state.availableTables,
+        initialId: state.selectedTableId,
+      ),
+    );
+    if (picked != null && picked.isNotEmpty) {
+      _cubit.selectTable(picked);
+    }
   }
 
   Widget _kv(ThemeData theme, IconData icon, String label, String value) {
@@ -340,6 +491,47 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
     );
   }
 
+  Future<void> _pickEndTime() async {
+    final initial = _scheduledEndTime;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: widget.scheduledStartTime,
+      lastDate: widget.scheduledStartTime.add(const Duration(days: 30)),
+    );
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (pickedTime == null || !mounted) return;
+    final candidate = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    final diff = candidate.difference(widget.scheduledStartTime);
+    if (diff < _minDuration || diff > _maxDuration) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Khung giờ chơi phải kéo dài từ 1 đến 6 giờ.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    setState(() => _scheduledEndTime = candidate);
+    // Reload tables sau khi đổi end time.
+    _cubit.reloadTables(
+      cafeId: widget.cafeId,
+      scheduledStartTime: widget.scheduledStartTime,
+      scheduleEndTime: candidate,
+      seatCount: widget.seatCount,
+    );
+  }
+
   Widget _buildError(BuildContext context, String message) {
     final theme = Theme.of(context);
     return Padding(
@@ -360,7 +552,12 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
           ),
           const SizedBox(height: AppSpacing.md),
           FilledButton.icon(
-            onPressed: () => _cubit.loadConfig(widget.cafeId),
+            onPressed: () => _cubit.loadConfig(
+              widget.cafeId,
+              scheduledStartTime: widget.scheduledStartTime,
+              scheduleEndTime: _scheduledEndTime,
+              seatCount: widget.seatCount,
+            ),
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('Thử lại'),
           ),
@@ -369,3 +566,9 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
     );
   }
 }
+
+/// Convenience export để tránh lint "unused" cho [PaymentMethodSelector]
+/// không còn được dùng trong flow mới (chỉ 1 cổng SePay). Imports trong
+/// `payment_page.dart` vẫn giữ reference để tương thích ngược.
+// ignore: unused_element
+typedef _KeepSelectors = PaymentMethodSelector;

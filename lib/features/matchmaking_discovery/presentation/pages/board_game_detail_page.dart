@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/navigation/lobby_suggestion_signal.dart';
+import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
@@ -12,7 +13,6 @@ import '../widgets/cafe_card.dart';
 import '../widgets/game_detail_header.dart';
 import '../widgets/gps_warning_banner.dart';
 import '../widgets/similar_games_carousel.dart';
-import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
 
 class BoardGameDetailPage extends StatefulWidget {
   final String gameId;
@@ -34,6 +34,11 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint(
+      '🔵 [BoardGameDetailPage.initState] gameId=${widget.gameId} '
+      'cubit=${widget.matchmakingCubit.runtimeType} '
+      'currentState=${widget.matchmakingCubit.state.runtimeType}',
+    );
     widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
   }
 
@@ -58,6 +63,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           ],
           child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
             builder: (context, state) {
+              debugPrint('🟣 [BoardGameDetailPage.builder] state=${state.runtimeType}');
               if (state is MatchmakingLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -190,20 +196,36 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
       // giúp đồng bộ với luồng "tìm phòng" khác.
       LobbySuggestionSignal.instance.request(gameEntity);
     } else if (nav.isSoloBooking) {
-      // Solo mode → đặt bàn trực tiếp.
+      // Solo mode → walk-in booking (gap #3) — đặt bàn trực tiếp không
+      // qua lobby. Backend mới chấp nhận `lobbyId == null` ở `POST /api/bookings`.
+      // Luồng: chọn cafe → chọn thời gian → BookingSummaryPage (lobbyId=null).
+      final current = widget.matchmakingCubit.state;
+      BoardGameEntity? gameEntity;
+      if (current is MatchmakingGameDetail) {
+        gameEntity = current.game.toBoardGameEntity();
+      }
+      gameEntity ??= BoardGameEntity(
+        id: gameId,
+        name: gameName.isEmpty ? 'Game' : gameName,
+        description: '',
+        imageUrl: '',
+        minPlayers: nav.roomConfiguration.minPlayers,
+        maxPlayers: nav.roomConfiguration.maxPlayers,
+        estimatedMinutes: 0,
+        category: '',
+        components: const [],
+        mechanics: const [],
+        rating: 0,
+      );
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (ctx) => BookingSummaryPage(
-            lobbyId: '', // Solo không có lobby
-            cafeId: '',
-            cafeName: '',
-            gameId: gameId,
-            gameName: gameName,
-            scheduledTime:
-                DateTime.now().add(const Duration(hours: 1)),
-            seatCount: nav.roomConfiguration.defaultPlayerCount,
-            memberIds: const [],
+          builder: (_) => LobbyCafeSelectionPage(
+            game: gameEntity!,
+            matchmakingCubit: widget.matchmakingCubit,
+            // Signal đánh dấu walk-in: cubit/page nhận diện qua flag này.
+            isWalkInSolo: true,
           ),
         ),
       );
@@ -403,10 +425,11 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           ),
         ),
         if (state.nearbyCafes.isEmpty)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Không có quán nào có game này gần bạn.'),
+          SliverToBoxAdapter(
+            child: _buildNearbyEmptyState(
+              context,
+              emptyMessage: state.emptyResultMessage,
+              alternatives: state.alternativeSuggestions,
             ),
           )
         else
@@ -421,30 +444,16 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                   ),
                   child: CafeCard(
                     cafe: cafe,
-                    onBookingTap: () {
-                      // "Đặt chỗ ngay" trên cafe card = solo booking (đặt
-                      // bàn trực tiếp tại quán, không qua lobby). Theo
-                      // nghiệp vụ mới, mọi flow lobby phải đi qua screen
-                      // lobby (`NearbyLobbiesPage`). Đặt bàn solo đi thẳng
-                      // tới `BookingSummaryPage` để user chọn khung giờ +
-                      // thanh toán cọc.
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BookingSummaryPage(
-                            lobbyId: '',
-                            cafeId: cafe.id,
-                            cafeName: cafe.name,
-                            gameId: widget.gameId,
-                            gameName: state.game.name,
-                            scheduledTime:
-                                DateTime.now().add(const Duration(hours: 1)),
-                            seatCount: state.game.minPlayers,
-                            memberIds: const [],
-                          ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LobbyCafeSelectionPage(
+                          game: gameAsEntity,
+                          matchmakingCubit: widget.matchmakingCubit,
                         ),
-                      );
-                    },
+                      ),
+                    ),
+                    onBookingTap: null, // Walk-in ẩn theo plan integration.
                   ),
                 );
               },
@@ -455,6 +464,71 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           child: SizedBox(height: 100),
         ),
       ],
+    );
+  }
+
+  /// Empty state khi backend không trả về quán nào có game này (AC 5.1, 5.2).
+  /// Hiển thị thông điệp từ backend + carousel gợi ý game cùng thể loại
+  /// còn hàng (nếu có).
+  Widget _buildNearbyEmptyState(
+    BuildContext context, {
+    required String? emptyMessage,
+    required List<AlternativeGameSuggestionEntity> alternatives,
+  }) {
+    final theme = Theme.of(context);
+    final message = emptyMessage ??
+        'Không có quán nào có game này gần bạn. Hãy thử chọn game khác.';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.location_off,
+                  color: theme.colorScheme.outline,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (alternatives.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SimilarGamesCarousel(
+              games: alternatives
+                  .map<BoardGameEntity>((s) => s.toBoardGameEntity())
+                  .toList(),
+              onGameTap: (game) => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BoardGameDetailPage(
+                    gameId: game.id,
+                    matchmakingCubit: widget.matchmakingCubit,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

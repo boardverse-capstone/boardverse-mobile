@@ -2787,6 +2787,853 @@
         }
       }
     },
+    "/api/bookings": {
+      "post": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Tạo booking từ lobby đã lock.\r\nHost tạo booking sau khi lobby đã Full và đã khóa (lock).\r\nBooking ban đầu ở trạng thái PendingDeposit - chờ thanh toán cọc.\r\n[Role: Player — chỉ Host của lobby]",
+        "requestBody": {
+          "description": "Thông tin tạo booking (lobbyId, cafeId, cafeTableId, scheduledStartTime, scheduleEndTime).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tạo booking thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (giờ kết thúc trước giờ bắt đầu, bàn không thuộc cafe, trùng giờ).",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Host của lobby.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy lobby, cafe hoặc bàn.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Lobby chưa lock / đã có booking cho lobby này / bàn trùng giờ.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Lấy chi tiết booking theo ID.\r\n[Role: Player — chỉ owner; Manager, Admin — xem tất cả.]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lấy chi tiết booking thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Cập nhật booking (bàn, thời gian, số người).\r\nChỉ owner mới được sửa, và chỉ khi booking chưa check-in và chưa Cancelled.\r\n[Role: Player — chỉ owner (Host lobby)]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Các trường muốn cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookingRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookingRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookingRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật booking thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải owner.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking hoặc bàn.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Booking đã check-in/cancelled.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Hủy booking bởi user.\r\nKhông thể hủy khi đã check-in.\r\n[Role: Player — chỉ owner (Host lobby)]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "description": "Lý do hủy (optional).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hủy booking thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải owner.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Booking đã check-in.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/session-status": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Lấy realtime session status cho booking — chỉ member của lobby hoặc deposit owner (walk-in).\r\nMobile task #8: trả về ActiveSession + members + estimated bill để hiển thị cho member khi Staff partial-checkout.\r\n[Role: Player — chỉ member lobby đã check-in; Manager/Admin.]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về ActiveSession status và danh sách member (kèm partial bill nếu có).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSessionStatusResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải member của booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/lobby/{lobbyId}": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Lấy booking liên kết với lobby.\r\n[Role: Player — chỉ member của lobby; Manager, Admin.]",
+        "parameters": [
+          {
+            "name": "lobbyId",
+            "in": "path",
+            "description": "Mã lobby.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking (null nếu chưa có).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/cafe/{cafeId}": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Lấy danh sách booking của cafe (theo ngày).\r\nManager/CafeStaff/Admin: xem full BookingResponseDto.\r\nPlayer: xem BookingCafeSummaryDto (rút gọn, không lộ QR/paymentRef/memberIds) — task #14.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lấy danh sách booking thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookingCafeSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/check-in": {
+      "post": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Check-in tại quán.\r\nPOS quét QR/QRCode xác minh -> chuyển Confirmed -> CheckedIn.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-in thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không có quyền.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Booking không ở trạng thái Confirmed.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/check-out": {
+      "post": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Check-out tại quán.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-out thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không có quyền.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Booking chưa check-in.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/no-show-votes": {
+      "post": {
+        "tags": [
+          "Booking Rating"
+        ],
+        "summary": "Gửi/cập nhật phiếu vote vắng mặt cho booking (mobile gap #4).\r\nBR: Booking phải CheckedIn, voter là lobby member active, không vote chính mình.\r\nIdempotent: vote lần 2 sẽ UPDATE vote trước.",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Danh sách thành viên bị vote vắng mặt.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitNoShowVoteRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitNoShowVoteRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitNoShowVoteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vote thành công, trả về thống kê vote hiện tại.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoShowVoteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải lobby member hoặc vote chính mình.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking/lobby.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Booking không ở CheckedIn / quá thời hạn vote.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/ratings": {
+      "post": {
+        "tags": [
+          "Booking Rating"
+        ],
+        "summary": "Gửi lượt chấm điểm chéo cho booking (mobile gap #5 - POST ratings).\r\nBR: Voter là lobby member, không rate chính mình, mỗi ratedUser chỉ 1 lần.",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Danh sách ratings (attitude/sportsmanship/punctuality + comment).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitBookingRatingsRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitBookingRatingsRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitBookingRatingsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Chấm điểm thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingRatingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải lobby member.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}/ratings/status": {
+      "get": {
+        "tags": [
+          "Booking Rating"
+        ],
+        "summary": "Lấy trạng thái rating của voter cho booking (mobile gap #5 - GET status).\r\nMobile dùng để ẩn/hiện form chấm điểm.",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "description": "Mã booking.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về trạng thái rating.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingRatingStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải lobby member.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy booking/lobby.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/cafes/nearby": {
       "get": {
         "tags": [
@@ -3295,6 +4142,412 @@
           },
           "404": {
             "description": "Không tìm thấy quán."
+          }
+        }
+      }
+    },
+    "/api/cafes/{id}/deposit-refund-policy": {
+      "patch": {
+        "tags": [
+          "Cafe"
+        ],
+        "summary": "Cập nhật chính sách hoàn cọc khi booking bị hủy (BR-18 / Task #12).\r\nManager cấu hình 1 trong 3 policy: Full (100%), Partial (theo bậc thang), None (tịch thu).\r\n[Role: Manager — chỉ chủ quán (ManagerId của cafe).]",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Chính sách hoàn cọc mới.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRefundPolicyRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRefundPolicyRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRefundPolicyRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật thành công, trả về policy hiện tại.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundPolicyResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundPolicyResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundPolicyResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tiers không hợp lệ (vd: Policy=Partial mà không có tiers).",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải chủ quán.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy quán.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{id}/pricing-config": {
+      "put": {
+        "tags": [
+          "Cafe"
+        ],
+        "summary": "Cập nhật biểu phí của quán (BasePrice, BillingModel, TieredBlockRate...).\r\nBR-04: Chỉ cho phép khi quán đóng cửa (IsPricingLocked=false). Khi update thành công broadcast SignalR event CafePricingChanged.\r\n[Role: Manager — chỉ chủ quán.]",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin biểu phí cần cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingConfigRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingConfigRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingConfigRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật thành công.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CafePricingConfigResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CafePricingConfigResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CafePricingConfigResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải chủ quán.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy quán.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Quán đang hoạt động (IsPricingLocked=true) — không thể sửa giá.",
+            "content": {
+              "text/plain": {
+                "schema": { }
+              },
+              "application/json": {
+                "schema": { }
+              },
+              "text/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/available-tables": {
+      "get": {
+        "tags": [
+          "Cafe Booking"
+        ],
+        "summary": "Lấy danh sách bàn trống phù hợp với khung giờ + số ghế yêu cầu.\r\nMobile BookingSummaryPage dùng để hiển thị dropdown chọn bàn trước khi gọi POST /api/bookings.\r\n[Role: Player đã đăng nhập.]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "scheduledStartTime",
+            "in": "query",
+            "description": "Giờ bắt đầu dự kiến (ISO 8601 UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "scheduleEndTime",
+            "in": "query",
+            "description": "Giờ kết thúc dự kiến (ISO 8601 UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seatCount",
+            "in": "query",
+            "description": "Số ghế tối thiểu (>=1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách bàn trống (có thể rỗng)."
+          },
+          "400": {
+            "description": "Thiếu query param hoặc giờ không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "404": {
+            "description": "Không tìm thấy quán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/availability": {
+      "get": {
+        "tags": [
+          "Cafe Booking"
+        ],
+        "summary": "Khảo sát capacity của quán trong khung giờ cụ thể + đề xuất slot thay thế.\r\nMobile BoardGameDetailPage dùng để cảnh báo \"hết chỗ\" trước khi user vào luồng booking.\r\n[Role: Player đã đăng nhập.]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "description": "Giờ bắt đầu muốn đặt (ISO 8601 UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "description": "Giờ kết thúc muốn đặt (ISO 8601 UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seatCount",
+            "in": "query",
+            "description": "Số ghế player cần (default 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "gameTemplateId",
+            "in": "query",
+            "description": "Optional - game đang chọn để check box có sẵn không.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về thông tin capacity + slot thay thế."
+          },
+          "400": {
+            "description": "Thiếu query param hoặc giờ không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "404": {
+            "description": "Không tìm thấy quán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
@@ -4150,6 +5403,49 @@
         }
       }
     },
+    "/api/cafes/{cafeId}/pos/bookings/{bookingCode}": {
+      "get": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Preview thông tin booking trước khi check-in.\r\nAC 1.1: Hiển thị danh sách thành viên + game info TRƯỚC khi check-in.\r\nNhân viên quét mã đặt chỗ để xem thông tin chi tiết trước khi bấm xác nhận check-in.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "bookingCode",
+            "in": "path",
+            "description": "Mã đặt chỗ (BookingCode/OrderId).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin booking preview."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy booking."
+          }
+        }
+      }
+    },
     "/api/cafes/{cafeId}/pos/sessions": {
       "post": {
         "tags": [
@@ -4429,6 +5725,76 @@
           },
           "409": {
             "description": "Đã kiểm kê rồi."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/return-game": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Xử lý trả game: tính surcharge_fine từ linh kiện lỗi, cập nhật box status nếu hỏng.\r\nPOST /api/cafes/{cafeId}/pos/sessions/{sessionId}/return-game",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Mảng linh kiện lỗi (ID, số lượng mất, số lượng hỏng).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnGameRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnGameRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnGameRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Xử lý thành công, trả surcharge_fine."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên chơi hoặc hộp game."
           },
           "500": {
             "description": "Lỗi hệ thống."
@@ -4746,6 +6112,75 @@
         }
       }
     },
+    "/api/v1/friends/requests/{id}": {
+      "delete": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Hủy lời mời kết bạn đã gửi. [Role: Player — chỉ requester, chỉ khi còn Pending]\r\n\nDùng khi gửi nhầm hoặc đổi ý trước khi addressee accept/decline.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã friendship (lời mời).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã hủy lời mời."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải người gửi."
+          },
+          "404": {
+            "description": "Không tìm thấy lời mời."
+          },
+          "409": {
+            "description": "Lời mời không còn ở trạng thái Pending."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Xem chi tiết 1 lời mời kết bạn theo id (cho notification deeplink). [Role: Player — requester hoặc addressee]\r\n\nTrả về `FriendshipResponseDto` đầy đủ: sender/receiver info, message, status, timestamps.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã friendship.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết lời mời."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải một bên của quan hệ / bị chặn bởi người kia."
+          },
+          "404": {
+            "description": "Không tìm thấy."
+          }
+        }
+      }
+    },
     "/api/v1/friends/{id}": {
       "delete": {
         "tags": [
@@ -4901,6 +6336,45 @@
         }
       }
     },
+    "/api/v1/friends/by-direction": {
+      "get": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Lấy danh sách quan hệ bạn bè lọc theo direction từ góc nhìn current user (BR-FRIEND-UI-DIRECTION-01).\r\n\nCho phép FE query riêng từng tab: IncomingRequest (inbox), OutgoingRequest (đã gửi),Accepted (bạn bè — alias `/friends`), BlockedByMe (đã chặn).\nDirection = `None` trả về 200 với mảng rỗng (không có record trong DB).",
+        "parameters": [
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "Direction quan hệ (enum, required).",
+            "schema": {
+              "$ref": "#/components/schemas/FriendshipRelationshipDirection"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Giới hạn kết quả (1-100, mặc định 50).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách quan hệ tương ứng với direction."
+          },
+          "400": {
+            "description": "Direction không hợp lệ (không nằm trong enum)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          }
+        }
+      }
+    },
     "/api/v1/friends/search": {
       "get": {
         "tags": [
@@ -4958,6 +6432,32 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/friends/blocked": {
+      "get": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Danh sách user mà current user đã chặn. [Role: Player]\r\n\nDùng cho UI \"Privacy / Blocked users\" — user muốn xem/bỏ chặn ai đó.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/friends/blocked-by": {
+      "get": {
+        "tags": [
+          "Friend"
+        ],
+        "summary": "Danh sách user đã chặn current user. [Role: Player]\r\n\nDùng cho UI debug / giải thích tại sao action không thành công(vd. không gửi được friend request, không mời lobby được).",
         "responses": {
           "200": {
             "description": "OK"
@@ -6352,7 +7852,7 @@
         "tags": [
           "LobbyInvite"
         ],
-        "summary": "Join lobby bằng share code (8 ký tự). [Role: Player]\r\nDùng cho cả public/private. Private lobby chỉ join được qua share code hoặc invite.",
+        "summary": "Join lobby bằng share code (6 ký tự). [Role: Player]\r\nDùng cho cả public/private. Private lobby chỉ join được qua share code hoặc invite.",
         "requestBody": {
           "description": "Body chứa shareCode.",
           "content": {
@@ -6835,48 +8335,131 @@
         }
       }
     },
-    "/api/payments/booking-deposit": {
+    "/api/notifications/device-tokens": {
       "post": {
         "tags": [
-          "Payment"
+          "Notifications"
         ],
+        "summary": "Đăng ký hoặc cập nhật FCM device token cho user hiện tại.\r\nIdempotent: gọi nhiều lần với cùng token → update timestamp.",
         "requestBody": {
+          "description": "FCM token + platform metadata.",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequestDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequestDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Token đã đăng ký thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceTokenResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Platform không hợp lệ hoặc token rỗng.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
     },
-    "/api/payments/booking-deposit/{depositId}/regenerate-qr": {
-      "post": {
+    "/api/notifications/device-tokens/{id}": {
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Xóa FCM device token (vd: khi user logout hoặc gỡ app).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Device token id (GUID).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xóa thành công.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy token hoặc không thuộc user hiện tại.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/payments/booking-deposit/{depositId}": {
+      "get": {
         "tags": [
           "Payment"
         ],
-        "summary": "Tạo lại QR thanh toán cho đơn cọc đang PENDING.\r\nQR cũ sẽ bị đánh dấu là EXPIRED.",
+        "summary": "Lấy chi tiết đơn cọc theo ID. Dùng để mobile polling trạng thái sau khi tạo.\r\n[Role: Player — chỉ xem được đơn của mình (deposit.UserId == currentUserId);\r\n       Manager — chỉ xem được đơn thuộc quán của mình;\r\n       Admin — xem tất cả.]\r\nTheo mobile gap #6.",
         "parameters": [
           {
             "name": "depositId",
             "in": "path",
-            "description": "ID của đơn cọc",
+            "description": "Mã định danh đơn cọc.",
             "required": true,
             "schema": {
               "type": "string",
@@ -6886,99 +8469,43 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Lấy chi tiết đơn cọc thành công."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không có quyền xem đơn này."
+          },
+          "404": {
+            "description": "Không tìm thấy đơn cọc."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
     },
-    "/api/payments/session-payment": {
-      "post": {
+    "/api/payments/booking-deposit/by-order/{orderId}": {
+      "get": {
         "tags": [
           "Payment"
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/payments/session-payment/{sessionId}/regenerate-qr": {
-      "post": {
-        "tags": [
-          "Payment"
-        ],
-        "summary": "Tạo lại QR thanh toán cho phiên chơi đang UNPAID.",
+        "summary": "Lấy chi tiết đơn cọc theo mã đặt chỗ (OrderId / BookingCode).\r\nDùng khi khách cung cấp mã đặt chỗ (trên app hoặc để debug).\r\n[Role: Player — chỉ đơn của mình; Manager — đơn thuộc quán của mình; Admin — xem tất cả.]\r\nMobile gap #6.",
         "parameters": [
           {
-            "name": "sessionId",
+            "name": "orderId",
             "in": "path",
-            "description": "ID của phiên chơi",
+            "description": "Mã đặt chỗ (OrderId).",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/payments/booking-deposit/refund": {
-      "post": {
-        "tags": [
-          "Payment"
-        ],
-        "summary": "Hoàn cọc đặt chỗ (BR-18: Hoàn 100% khi hủy do bất khả kháng từ phía quán).\r\n[Role: Manager, Admin]",
-        "requestBody": {
-          "description": "Thông tin hoàn cọc.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefundDepositRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefundDepositRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefundDepositRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Hoàn cọc thành công."
-          },
-          "400": {
-            "description": "Đơn cọc không ở trạng thái Paid."
+            "description": "Lấy chi tiết đơn cọc thành công."
           },
           "401": {
             "description": "Thiếu token."
@@ -6995,12 +8522,239 @@
         }
       }
     },
+    "/api/payments/booking-deposit": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Tạo đơn cọc đặt chỗ và sinh QR thanh toán qua SePay.\r\nÁp dụng cho flow Player đặt cọc online (BR-05).\r\n- Validate BR-03: depositAmount <= 50% giờ đầu của quán.\r\n- Sinh OrderId (BV-prefix) và TransferContent ngẫu nhiên.\r\n- Gọi SePay → VietQR tĩnh, QR không hết hạn.\r\n- BookingDeposit.Status = Pending.\r\n[Role: Player đã đăng nhập.]",
+        "requestBody": {
+          "description": "Thông tin tạo đơn cọc (depositId, amount).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tạo link thanh toán thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ / vượt BR-03 / quán hết chỗ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải chủ đơn cọc."
+          },
+          "404": {
+            "description": "Không tìm thấy đơn cọc."
+          },
+          "409": {
+            "description": "Đơn cọc đã được xử lý thanh toán trước đó."
+          },
+          "500": {
+            "description": "Gateway lỗi không recover được."
+          }
+        }
+      }
+    },
+    "/api/payments/booking-deposit/{depositId}/regenerate-qr": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Tạo lại QR thanh toán cho đơn cọc đang PENDING.\r\nQR cũ vẫn lưu lại trong DB để reference, không xóa.\r\nKhông giới hạn số lần regenerate trong ngày.\r\nSử dụng fallback chain: SePay primary → VietQR static.\r\nBR-06: Mỗi lần regenerate sinh TransferContent mới.\r\n[Role: Player — chỉ chủ đơn; Manager, Admin — tất cả.]",
+        "parameters": [
+          {
+            "name": "depositId",
+            "in": "path",
+            "description": "Mã định danh đơn cọc đang PENDING.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tạo lại QR thanh toán thành công."
+          },
+          "400": {
+            "description": "Đơn cọc không ở trạng thái PENDING."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải chủ đơn cọc."
+          },
+          "404": {
+            "description": "Không tìm thấy đơn cọc."
+          },
+          "500": {
+            "description": "Gateway lỗi."
+          }
+        }
+      }
+    },
+    "/api/payments/booking-deposit/refund": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Hoàn cọc đặt chỗ theo chính sách của quán.\r\nBR-18: Hoàn 100% khi quán hủy vì bất khả kháng (RefundPolicy = Full).\r\nBR-18: Hoàn theo elapsedHours khi khách hủy sớm (RefundPolicy = Partial):\r\n  - >= 24h → 50% hoàn; >= 12h → 25% hoàn; < 12h → 0%.\r\nBR-18: Tịch thu toàn bộ khi khách không đến và RefundPolicy = None.\r\n[Role: Manager — chủ quán sở hữu đơn; Admin — tất cả.]",
+        "requestBody": {
+          "description": "Thông tin hoàn cọc (depositId, reason bắt buộc cho audit).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundDepositRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundDepositRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundDepositRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hoàn cọc thành công. Trả về số tiền thực tế hoàn cho khách."
+          },
+          "400": {
+            "description": "Đơn cọc không ở trạng thái Paid / thiếu lý do."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không có quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy đơn cọc."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/payments/session-payment": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Tạo QR thanh toán hóa đơn phiên chơi tại POS (sau khi kiểm kê linh kiện).\r\nBR-15: TotalAmount = Subtotal + PenaltyAmount - DepositAppliedAmount.\r\nDùng VietQR tĩnh của từng cafe (bank info từ Cafe.SePayBankCode / SePayAccountNumber).\r\n[Role: Manager — chủ quán; CafeStaff — đã gắn quán.]",
+        "requestBody": {
+          "description": "Thông tin tạo thanh toán session.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionPaymentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tạo thanh toán phiên chơi thành công."
+          },
+          "400": {
+            "description": "Session không ở UNPAID / amount <= 0 / cafe chưa cấu hình SePay."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Manager/CafeStaff của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy session hoặc cafe."
+          },
+          "500": {
+            "description": "Gateway lỗi."
+          }
+        }
+      }
+    },
+    "/api/payments/session-payment/{sessionId}/regenerate-qr": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Tạo lại QR thanh toán cho phiên chơi đang UNPAID.\r\nSinh TransferContent mới mỗi lần regenerate.\r\n[Role: Manager, CafeStaff của cafe.]",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tạo lại QR thành công."
+          },
+          "400": {
+            "description": "Session không ở UNPAID."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Manager/CafeStaff của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy session."
+          },
+          "500": {
+            "description": "Gateway lỗi."
+          }
+        }
+      }
+    },
     "/api/payments/manual-confirm": {
       "post": {
         "tags": [
           "Payment"
         ],
-        "summary": "Staff xác nhận thanh toán thủ công khi QR không hoạt động.\r\nDùng cho trường hợp SePay và VietQR đều không khả dụng.\r\nBR-18: Hoàn cọc/sự cố vận hành - xử lý tiền mặt.",
+        "summary": "Staff xác nhận thanh toán thủ công khi cả SePay và VietQR đều không khả dụng.\r\nUse case: Khách thanh toán tiền mặt trực tiếp cho POS; hoặc SePay + VietQR đều timeout.\r\nBR-18: Xử lý sự cố vận hành — phiếu thu tiền mặt thay vì QR.\r\n[Role: Manager — chủ quán; CafeStaff — đã gắn quán.]",
         "requestBody": {
           "description": "Thông tin thanh toán thủ công.",
           "content": {
@@ -7026,16 +8780,19 @@
             "description": "Xác nhận thành công."
           },
           "400": {
-            "description": "Thông tin không hợp lệ."
+            "description": "Thông tin không hợp lệ / session không ở UNPAID."
           },
           "401": {
             "description": "Thiếu token."
           },
           "403": {
-            "description": "Không có quyền."
+            "description": "Không phải Manager/CafeStaff của cafe."
           },
           "404": {
-            "description": "Không tìm thấy đơn."
+            "description": "Không tìm thấy session."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
@@ -8046,7 +9803,7 @@
         "tags": [
           "SePayWebhook"
         ],
-        "summary": "Mock webhook để test payment flow mà không cần SePay thật. [Role: Dev/Test]",
+        "summary": "Mock webhook để test payment flow mà không cần SePay thật. [Dev/Test Only]\r\nP0 Fix #4: Gate with environment check to prevent production abuse.",
         "requestBody": {
           "description": "Thông tin mock payment.",
           "content": {
@@ -8070,6 +9827,9 @@
         "responses": {
           "200": {
             "description": "Mock webhook xử lý thành công."
+          },
+          "403": {
+            "description": "Mock endpoint chỉ khả dụng trong Development."
           },
           "500": {
             "description": "Lỗi xử lý."
@@ -10931,6 +12691,327 @@
         ],
         "type": "string"
       },
+      "BookingCafeSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "playerQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingRatingItemDto": {
+        "type": "object",
+        "properties": {
+          "ratedUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attitude": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sportsmanship": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "punctuality": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingRatingResponseDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "voterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ratedCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingRatingStatusDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canRate": {
+            "type": "boolean"
+          },
+          "rateDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "alreadyRated": {
+            "type": "boolean"
+          },
+          "ratedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "missingMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lobbyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeTableId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeTableName": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "statusText": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
+          "verificationQRCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "playerQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gameId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "depositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paymentRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "hostId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "checkedInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingSessionEstimatedBillDto": {
+        "type": "object",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "penalty": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositApplied": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingSessionMemberStatusDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "partialBillAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "partialBillPaid": {
+            "type": "boolean"
+          },
+          "mergedIntoSessionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingSessionStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activeSessionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "sessionStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "currentDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingSessionMemberStatusDto"
+            },
+            "nullable": true
+          },
+          "estimatedFinalBill": {
+            "$ref": "#/components/schemas/BookingSessionEstimatedBillDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingStatus": {
+        "enum": [
+          "PendingDeposit",
+          "Confirmed",
+          "CheckedIn",
+          "NoShow",
+          "Cancelled"
+        ],
+        "type": "string"
+      },
       "CafeGameInventoryStatus": {
         "enum": [
           "Available",
@@ -10955,6 +13036,44 @@
           "FlatEntry"
         ],
         "type": "string"
+      },
+      "CafePricingConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "billingModel": {
+            "$ref": "#/components/schemas/CafePartnerBillingModel"
+          },
+          "basePrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "tieredBlockRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isPricingLocked": {
+            "type": "boolean"
+          },
+          "operationalProfileUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "affectedBookingsCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       },
       "CancelMatchRequestDto": {
         "type": "object",
@@ -11126,6 +13245,46 @@
         },
         "additionalProperties": false
       },
+      "CreateBookingRequestDto": {
+        "required": [
+          "cafeId",
+          "cafeTableId",
+          "scheduledStartTime",
+          "scheduleEndTime"
+        ],
+        "type": "object",
+        "properties": {
+          "lobbyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeTableId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "playerQuantity": {
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateFriendReportDto": {
         "required": [
           "category",
@@ -11286,6 +13445,11 @@
       "CreatePaymentRequestDto": {
         "type": "object",
         "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "depositId": {
             "type": "string",
             "format": "uuid"
@@ -11465,6 +13629,78 @@
           }
         },
         "additionalProperties": false
+      },
+      "DamagedComponentDto": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "missingQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "damagedQuantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DepositRefundPolicy": {
+        "enum": [
+          "Full",
+          "Partial",
+          "None"
+        ],
+        "type": "string"
+      },
+      "DeviceTokenResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "type": "string",
+            "nullable": true
+          },
+          "appVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceModel": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FriendshipRelationshipDirection": {
+        "enum": [
+          "None",
+          "OutgoingRequest",
+          "IncomingRequest",
+          "Accepted",
+          "BlockedByMe",
+          "BlockedByThem"
+        ],
+        "type": "string"
       },
       "GoogleAuthRequestDto": {
         "required": [
@@ -11734,6 +13970,66 @@
           },
           "referenceCode": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "NoShowVoteCountDto": {
+        "type": "object",
+        "properties": {
+          "absentVotes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "presentVotes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalMembers": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NoShowVoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "voterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "absentMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "currentVoteCounts": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NoShowVoteCountDto"
+            },
+            "nullable": true
+          },
+          "noShowConfirmedMembers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "processedAt": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           }
         },
@@ -12055,6 +14351,81 @@
         },
         "additionalProperties": false
       },
+      "RefundPolicyResponseDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/DepositRefundPolicy"
+          },
+          "partialTiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundTierDto"
+            },
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RefundTierDto": {
+        "type": "object",
+        "properties": {
+          "minHoursBeforeScheduled": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "refundPercent": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterDeviceTokenRequestDto": {
+        "required": [
+          "platform",
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 512,
+            "minLength": 10,
+            "type": "string"
+          },
+          "platform": {
+            "maxLength": 16,
+            "minLength": 0,
+            "type": "string"
+          },
+          "appVersion": {
+            "maxLength": 32,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "deviceModel": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RegisterRequestDto": {
         "required": [
           "dateOfBirth",
@@ -12151,6 +14522,23 @@
         "properties": {
           "playMode": {
             "$ref": "#/components/schemas/PlayerPlayMode"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReturnGameRequestDto": {
+        "type": "object",
+        "properties": {
+          "inventoryBoxId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "damagedComponents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DamagedComponentDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -12478,6 +14866,23 @@
         },
         "additionalProperties": false
       },
+      "SubmitBookingRatingsRequestDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ratings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingRatingItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SubmitCafePartnerApplicationRequestDto": {
         "required": [
           "address",
@@ -12546,6 +14951,9 @@
             "type": "string",
             "format": "uuid"
           },
+          "markAllValid": {
+            "type": "boolean"
+          },
           "results": {
             "type": "array",
             "items": {
@@ -12590,6 +14998,28 @@
           },
           "outcome": {
             "$ref": "#/components/schemas/MatchOutcome"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubmitNoShowVoteRequestDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "absentMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "votedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -12673,6 +15103,34 @@
             "minLength": 1,
             "type": "string",
             "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateBookingRequestDto": {
+        "type": "object",
+        "properties": {
+          "cafeTableId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "playerQuantity": {
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -13008,6 +15466,53 @@
         },
         "additionalProperties": false
       },
+      "UpdatePricingConfigRequestDto": {
+        "type": "object",
+        "properties": {
+          "billingModel": {
+            "$ref": "#/components/schemas/CafePartnerBillingModel"
+          },
+          "basePrice": {
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockRate": {
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "maximum": 1440,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateRefundPolicyRequestDto": {
+        "required": [
+          "policy"
+        ],
+        "type": "object",
+        "properties": {
+          "policy": {
+            "$ref": "#/components/schemas/DepositRefundPolicy"
+          },
+          "partialTiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundTierDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateSePayAccountRequestDto": {
         "type": "object",
         "properties": {
@@ -13254,8 +15759,28 @@
   ],
   "tags": [
     {
+      "name": "Booking",
+      "description": "Controller cho Booking (đặt chỗ).\r\nTách riêng khỏi PaymentController để clear về mặt domain.\r\nFlow: Lobby (Full) -> Booking (PendingDeposit) -> BookingDeposit -> SePay -> Confirmed -> CheckedIn -> NoShow/Cancelled."
+    },
+    {
+      "name": "Booking Rating",
+      "description": "Controller cho các API voting/rating sau khi check-in/check-out (mobile gap #4, #5).\r\nTất cả endpoint đều yêu cầu user là member của lobby liên kết với booking."
+    },
+    {
+      "name": "Cafe Booking",
+      "description": "Controller cho các API booking dành cho Player mobile (booking-payment-gaps.md #1, #2).\r\nRead-only: liệt kê bàn trống + khảo sát capacity quán trong khung giờ cụ thể."
+    },
+    {
       "name": "DebugSePay",
       "description": "Debug/test endpoints cho payment.\r\nChỉ khả dụng khi ASPNETCORE_ENVIRONMENT=Development hoặc ENABLE_DEBUG=true."
+    },
+    {
+      "name": "Notifications",
+      "description": "Controller cho FCM device tokens (mobile gap #9, #13).\r\nMobile gọi POST sau khi Firebase SDK trả token, DELETE khi logout/gỡ app."
+    },
+    {
+      "name": "Payment",
+      "description": "Payment controller cho toàn bộ luồng thanh toán booking deposit và session payment.\r\nTất cả endpoint booking deposit đi qua đây (không có BookingController riêng).\r\nBR-02, BR-03, BR-05, BR-06, BR-09, BR-15, BR-18."
     },
     {
       "name": "Tournament",

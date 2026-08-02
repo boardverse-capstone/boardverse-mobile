@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../domain/entities/cafe_availability_entity.dart';
+import '../../domain/entities/cafe_table_entity.dart';
 import '../../domain/entities/deposit_config_entity.dart';
 import '../../domain/enums/payment_method.dart';
 
@@ -20,29 +22,60 @@ class SummaryLoading extends BookingSummaryState {
   const SummaryLoading();
 }
 
-/// Đã có cấu hình cọc và phương thức thanh toán Host chọn.
+/// Đang khảo sát capacity + load bàn trống (gap #1 + #2).
+class SummaryLoadingTables extends BookingSummaryState {
+  const SummaryLoadingTables();
+}
+
+/// Đã có cấu hình cọc, danh sách bàn trống + availability check.
 class SummaryReady extends BookingSummaryState {
   final DepositConfigEntity config;
   final Breakdown breakdown;
   final PaymentMethod selectedMethod;
 
+  /// Bàn trống trong khung giờ hiện tại (gap #1).
+  final List<CafeTableEntity> availableTables;
+
+  /// Kết quả khảo sát capacity (gap #2). Null nếu backend chưa có endpoint.
+  final CafeAvailabilityEntity? availability;
+
+  /// Bàn được chọn tự động theo strategy `single_default`.
+  /// User có thể đổi qua UI.
+  final String? selectedTableId;
+
   const SummaryReady({
     required this.config,
     required this.breakdown,
     required this.selectedMethod,
+    this.availableTables = const [],
+    this.availability,
+    this.selectedTableId,
   });
 
   BookingSummaryState copyWith({
     PaymentMethod? selectedMethod,
+    String? selectedTableId,
+    List<CafeTableEntity>? availableTables,
+    CafeAvailabilityEntity? availability,
   }) =>
       SummaryReady(
         config: config,
         breakdown: breakdown,
         selectedMethod: selectedMethod ?? this.selectedMethod,
+        availableTables: availableTables ?? this.availableTables,
+        availability: availability ?? this.availability,
+        selectedTableId: selectedTableId ?? this.selectedTableId,
       );
 
   @override
-  List<Object?> get props => [config, breakdown, selectedMethod];
+  List<Object?> get props => [
+        config,
+        breakdown,
+        selectedMethod,
+        availableTables,
+        availability,
+        selectedTableId,
+      ];
 }
 
 /// Đang gửi request tạo booking lên server.

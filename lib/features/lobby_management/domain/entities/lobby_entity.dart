@@ -29,6 +29,10 @@ class LobbyEntity extends Equatable {
 
   final String cafeId;
   final String cafeName;
+
+  /// Bàn đã được backend gán sẵn cho lobby, nếu có.
+  final String? cafeTableId;
+
   final String hostId;
   final String hostName;
   final DateTime scheduledTime;
@@ -70,6 +74,7 @@ class LobbyEntity extends Equatable {
     this.gameImageUrl,
     required this.cafeId,
     required this.cafeName,
+    this.cafeTableId,
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
@@ -102,6 +107,7 @@ class LobbyEntity extends Equatable {
     String? gameName,
     String? cafeId,
     String? cafeName,
+    Object? cafeTableId = _sentinel,
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
@@ -129,6 +135,9 @@ class LobbyEntity extends Equatable {
           : gameImageUrl as String?,
       cafeId: cafeId ?? this.cafeId,
       cafeName: cafeName ?? this.cafeName,
+      cafeTableId: identical(cafeTableId, _sentinel)
+          ? this.cafeTableId
+          : cafeTableId as String?,
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
@@ -162,6 +171,7 @@ class LobbyEntity extends Equatable {
     gameImageUrl,
     cafeId,
     cafeName,
+    cafeTableId,
     hostId,
     hostName,
     scheduledTime,

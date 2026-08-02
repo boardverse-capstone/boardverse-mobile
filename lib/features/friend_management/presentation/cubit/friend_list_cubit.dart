@@ -18,11 +18,9 @@ enum SectionKind { friends, receivedRequests }
 /// - Privacy settings
 /// - Reports
 class FriendListCubit extends Cubit<FriendListState> {
-  FriendListCubit({required FriendRepository repository})
-      : _repository = repository,
-        super(const FriendListInitial());
+  FriendListCubit({required this.repository}) : super(const FriendListInitial());
 
-  final FriendRepository _repository;
+  final FriendRepository repository;
 
   // ─── Section Loading Helpers ─────────────────────────────────────────────────
 
@@ -54,7 +52,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
     _setSectionLoading(SectionKind.friends, true);
 
-    final result = await _repository.getFriendsWithActivity();
+    final result = await repository.getFriendsWithActivity();
     if (isClosed) return;
 
     result.fold(
@@ -85,7 +83,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
     _setSectionLoading(SectionKind.receivedRequests, true);
 
-    final result = await _repository.getReceivedRequests();
+    final result = await repository.getReceivedRequests();
     if (isClosed) return;
 
     result.fold(
@@ -115,7 +113,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     String? message,
   }) async {
     final currentState = state;
-    final result = await _repository.sendFriendRequest(
+    final result = await repository.sendFriendRequest(
       addresseeId: addresseeId,
       message: message,
     );
@@ -137,7 +135,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> acceptFriendRequest(String requestId) async {
     final currentState = state;
-    final result = await _repository.acceptFriendRequest(requestId);
+    final result = await repository.acceptFriendRequest(requestId);
 
     if (isClosed) return;
     result.fold(
@@ -163,7 +161,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> declineFriendRequest(String requestId) async {
     final currentState = state;
-    final result = await _repository.declineFriendRequest(requestId);
+    final result = await repository.declineFriendRequest(requestId);
 
     if (isClosed) return;
     result.fold(
@@ -188,7 +186,7 @@ class FriendListCubit extends Cubit<FriendListState> {
   }
 
   Future<void> markRequestAsRead(String requestId) async {
-    await _repository.markRequestAsRead(requestId);
+    await repository.markRequestAsRead(requestId);
 
     if (isClosed) return;
     final currentState = state;
@@ -210,7 +208,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> unfriend(String friendId) async {
     final currentState = state;
-    final result = await _repository.unfriend(friendId);
+    final result = await repository.unfriend(friendId);
 
     if (isClosed) return;
     result.fold(
@@ -229,7 +227,7 @@ class FriendListCubit extends Cubit<FriendListState> {
   }
 
   Future<void> blockUser(String userId) async {
-    final result = await _repository.blockUser(userId);
+    final result = await repository.blockUser(userId);
 
     if (isClosed) return;
     await result.fold(
@@ -246,7 +244,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<List<UserSearchEntity>> searchUsers(String query) async {
     if (query.trim().isEmpty) return const [];
-    final result = await _repository.searchUsers(query: query.trim());
+    final result = await repository.searchUsers(query: query.trim());
     return result.fold((failure) => const [], (data) => data);
   }
 
@@ -254,7 +252,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> loadNotes() async {
     if (isClosed) return;
-    final result = await _repository.getAllNotes();
+    final result = await repository.getAllNotes();
     if (isClosed) return;
 
     result.fold(
@@ -275,7 +273,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     List<String>? tags,
   }) async {
     if (isClosed) return;
-    final result = await _repository.upsertNote(
+    final result = await repository.upsertNote(
       friendUserId: friendUserId,
       alias: alias,
       note: note,
@@ -307,7 +305,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> deleteNote(String noteId) async {
     if (isClosed) return;
-    final result = await _repository.deleteNote(noteId);
+    final result = await repository.deleteNote(noteId);
     if (isClosed) return;
 
     result.fold(
@@ -329,7 +327,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> loadPrivacySettings() async {
     if (isClosed) return;
-    final result = await _repository.getPrivacySettings();
+    final result = await repository.getPrivacySettings();
     if (isClosed) return;
 
     result.fold(
@@ -349,7 +347,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     int? friendLimit,
   }) async {
     if (isClosed) return;
-    final result = await _repository.updatePrivacySettings(
+    final result = await repository.updatePrivacySettings(
       isFriendListPublic: isFriendListPublic,
       acceptFriendRequestsFrom: acceptFriendRequestsFrom,
       friendLimit: friendLimit,
@@ -377,7 +375,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     required String reason,
   }) async {
     if (isClosed) return;
-    final result = await _repository.createReport(
+    final result = await repository.createReport(
       targetUserId: targetUserId,
       category: category,
       reason: reason,
@@ -392,7 +390,7 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   Future<void> loadMyReports() async {
     if (isClosed) return;
-    final result = await _repository.getMyReports();
+    final result = await repository.getMyReports();
     if (isClosed) return;
 
     result.fold(

@@ -133,10 +133,10 @@ class _PaymentMethodTile extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (method == PaymentMethod.sandboxMock) ...[
+                    if (method == PaymentMethod.sepay) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Dùng cho môi trường dev — không qua cổng thật',
+                        'Cổng thanh toán QR ngân hàng — flow duy nhất hiện tại',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

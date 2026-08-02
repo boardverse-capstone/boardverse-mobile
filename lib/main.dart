@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'core/deeplink/deep_link_handler.dart';
 import 'core/di/injection.dart';
+import 'core/navigation/pages/bookings_page.dart';
 import 'core/navigation/pages/main_scaffold.dart';
 import 'core/theme/theme.dart';
 import 'core/widgets/game_loading_screen.dart';
@@ -10,9 +12,6 @@ import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/booking_payment/presentation/cubit/booking_result_cubit.dart';
-import 'features/booking_payment/presentation/cubit/booking_result_state.dart';
-import 'features/booking_payment/presentation/pages/booking_success_page.dart';
-import 'features/booking_payment/presentation/pages/payment_page.dart';
 import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
@@ -22,11 +21,20 @@ import 'features/profile/presentation/cubit/profile_cubit.dart';
 import 'features/settings/presentation/cubit/theme_cubit.dart';
 import 'features/tournament/presentation/cubit/tournament_list_cubit.dart';
 
+/// Global navigator key — dùng cho deep-link handler navigate từ
+/// ngoài widget tree.
+final GlobalKey<NavigatorState> rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'root');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
   setupDependencies();
+  await DeepLinkHandler.instance.initialize(
+    navigatorKey: rootNavigatorKey,
+    onBookingsRefresh: notifyBookingRefresh,
+  );
 
   runApp(const BoardVerseApp());
 }
@@ -46,82 +54,51 @@ class BoardVerseApp extends StatelessWidget {
         BlocProvider<LobbyCubit>(create: (_) => sl<LobbyCubit>()),
         BlocProvider<LobbySearchCubit>(create: (_) => sl<LobbySearchCubit>()),
         BlocProvider<MyLobbiesCubit>(create: (_) => sl<MyLobbiesCubit>()),
+        BlocProvider<BookingResultCubit>(
+          create: (_) => sl<BookingResultCubit>(),
+        ),
         BlocProvider<TournamentListCubit>(
           create: (_) => sl<TournamentListCubit>(),
         ),
-        BlocProvider<BookingResultCubit>(
-          create: (_) => sl<BookingResultCubit>()..tryRestorePending(),
-        ),
         BlocProvider<ThemeCubit>(create: (_) => sl<ThemeCubit>()..load()),
       ],
-      child: BlocListener<BookingResultCubit, BookingResultState>(
-        listenWhen: (prev, curr) => prev != curr,
-        listener: _handleResume,
-        child: BlocBuilder<ThemeCubit, ThemeState>(
-          builder: (context, themeState) {
-            return MaterialApp(
-              title: 'BoardVerse',
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
-              themeMode: themeState.mode,
-              home: const AuthWrapper(),
-              initialRoute: '/',
-              onGenerateRoute: (settings) {
-                // Try lobby routes first
-                final lobbyRoute = lobbyRouteGenerator(settings);
-                if (lobbyRoute != null) return lobbyRoute;
+      child: BlocBuilder<ThemeCubit, ThemeState>(
+        builder: (context, themeState) {
+          return MaterialApp(
+            title: 'BoardVerse',
+            debugShowCheckedModeBanner: false,
+            navigatorKey: rootNavigatorKey,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeState.mode,
+            home: const AuthWrapper(),
+            initialRoute: '/',
+            onGenerateRoute: (settings) {
+              // Try lobby routes first
+              final lobbyRoute = lobbyRouteGenerator(settings);
+              if (lobbyRoute != null) return lobbyRoute;
 
-                // Fall back to named routes
-                switch (settings.name) {
-                  case '/login':
-                    return MaterialPageRoute(builder: (_) => const LoginPage());
-                  case '/home':
-                    return MaterialPageRoute(
-                      builder: (_) => const MainScaffold(),
-                    );
-                  default:
-                    return MaterialPageRoute(
-                      builder: (_) => const MainScaffold(),
-                    );
-                }
-              },
-              onUnknownRoute: (settings) {
-                return MaterialPageRoute(builder: (_) => const MainScaffold());
-              },
-            );
-          },
-        ),
+              // Fall back to named routes
+              switch (settings.name) {
+                case '/login':
+                  return MaterialPageRoute(builder: (_) => const LoginPage());
+                case '/home':
+                  return MaterialPageRoute(
+                    builder: (_) => const MainScaffold(),
+                  );
+                default:
+                  return MaterialPageRoute(
+                    builder: (_) => const MainScaffold(),
+                  );
+              }
+            },
+            onUnknownRoute: (settings) {
+              return MaterialPageRoute(builder: (_) => const MainScaffold());
+            },
+          );
+        },
       ),
     );
-  }
-
-  static void _handleResume(BuildContext context, BookingResultState state) {
-    final auth = context.read<AuthCubit>().state;
-    if (auth is! AuthSuccess) return;
-
-    if (state is ResumeToPayment) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => PaymentPage(
-            bookingId: state.bookingId,
-            cafeId: '',
-            depositAmount: 0,
-            deadline: DateTime.now().add(const Duration(minutes: 15)),
-            config: null,
-          ),
-        ),
-        (route) => false,
-      );
-    }
-    if (state is ResumeToSuccess) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => BookingSuccessPage(bookingId: state.bookingId),
-        ),
-        (route) => false,
-      );
-    }
   }
 }
 

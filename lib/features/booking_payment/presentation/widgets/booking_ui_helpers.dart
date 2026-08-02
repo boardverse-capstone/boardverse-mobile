@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/theme.dart';
 import '../../domain/enums/booking_status.dart';
 import '../../domain/enums/payment_method.dart';
 import '../../domain/entities/booking_history_entity.dart';
@@ -27,12 +26,10 @@ class BookingUiHelpers {
         return StatusPillVariant.confirmed;
       case BookingStatus.checkedIn:
         return StatusPillVariant.checkedIn;
-      case BookingStatus.cancelledByPlayer:
+      case BookingStatus.noShow:
+        return StatusPillVariant.noShow;
+      case BookingStatus.cancelled:
         return StatusPillVariant.cancelledByPlayer;
-      case BookingStatus.cancelledByCafe:
-        return StatusPillVariant.cancelledByCafe;
-      case BookingStatus.expired:
-        return StatusPillVariant.expired;
     }
   }
 
@@ -44,12 +41,10 @@ class BookingUiHelpers {
         return 'Đã xác nhận';
       case BookingStatus.checkedIn:
         return 'Đang chơi';
-      case BookingStatus.cancelledByPlayer:
+      case BookingStatus.noShow:
+        return 'Vắng (No-show)';
+      case BookingStatus.cancelled:
         return 'Đã hủy';
-      case BookingStatus.cancelledByCafe:
-        return 'Quán hủy';
-      case BookingStatus.expired:
-        return 'Hết hạn';
     }
   }
 
@@ -62,12 +57,10 @@ class BookingUiHelpers {
         return StatusPillVariant.checkedIn;
       case 'pendingDeposit':
         return StatusPillVariant.pendingDeposit;
-      case 'cancelledByPlayer':
+      case 'noShow':
+        return StatusPillVariant.noShow;
+      case 'cancelled':
         return StatusPillVariant.cancelledByPlayer;
-      case 'cancelledByCafe':
-        return StatusPillVariant.cancelledByCafe;
-      case 'expired':
-        return StatusPillVariant.expired;
       default:
         return StatusPillVariant.neutral;
     }
@@ -81,12 +74,10 @@ class BookingUiHelpers {
         return 'Đang chơi';
       case 'pendingDeposit':
         return 'Chờ cọc';
-      case 'cancelledByPlayer':
+      case 'noShow':
+        return 'Vắng (No-show)';
+      case 'cancelled':
         return 'Đã hủy';
-      case 'cancelledByCafe':
-        return 'Quán hủy';
-      case 'expired':
-        return 'Hết hạn';
       default:
         return name;
     }
@@ -128,24 +119,16 @@ class BookingUiHelpers {
 
   static IconData paymentMethodIcon(PaymentMethod method) {
     switch (method) {
-      case PaymentMethod.sandboxMock:
-        return Icons.science_rounded;
-      case PaymentMethod.vnpay:
-        return Icons.account_balance_wallet_rounded;
-      case PaymentMethod.momo:
-        return Icons.phone_android_rounded;
+      case PaymentMethod.sepay:
+        return Icons.qr_code_2_rounded;
     }
   }
 
   static Color paymentMethodColor(PaymentMethod method, BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     switch (method) {
-      case PaymentMethod.sandboxMock:
-        return AppColors.warning;
-      case PaymentMethod.vnpay:
+      case PaymentMethod.sepay:
         return scheme.primary;
-      case PaymentMethod.momo:
-        return AppColors.error;
     }
   }
 

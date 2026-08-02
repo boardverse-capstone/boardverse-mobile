@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../network/api_response.dart';
+
 /// Base failure class for the domain layer.
 ///
 /// All failures carry a human-readable [message] that originates from
@@ -68,4 +70,55 @@ class ConflictFailure extends Failure {
 /// Failure caused by rate limiting (429).
 class RateLimitFailure extends Failure {
   const RateLimitFailure({required super.message});
+}
+
+/// Helper factory — map từ `ApiResponse` (envelope backend) sang `Failure`.
+///
+/// Phân loại qua `statusCode`:
+/// - 200..299 → gần như không reach Failure path (caller đã check `isSuccess`).
+/// - 400 → [BadRequestFailure]
+/// - 401 → [UnauthorizedFailure]
+/// - 403 → [ForbiddenFailure]
+/// - 404 → [NotFoundFailure]
+/// - 409 → [ConflictFailure]
+/// - 429 → [RateLimitFailure]
+/// - 5xx → [ServerFailure]
+/// - other → [ServerFailure]
+extension FailureFromApiResponseX on Failure {
+  /// Translation từ `ApiResponse` đã parse.
+  /// Nếu [response] success (isSuccess), giữ default — nên caller check
+  /// `isSuccess` trước khi gọi.
+  static Failure fromApiResponse(
+    ApiResponse<dynamic> response, {
+    String? fallbackMessage,
+    int? codeOverride,
+  }) {
+    final code = codeOverride ?? response.statusCode;
+    final message = response.message.isNotEmpty
+        ? response.message
+        : (fallbackMessage ?? _defaultMessageForCode(code));
+
+    switch (code) {
+      case 400:
+        return BadRequestFailure(message: message);
+      case 401:
+        return UnauthorizedFailure(message: message);
+      case 403:
+        return ForbiddenFailure(message: message);
+      case 404:
+        return NotFoundFailure(message: message);
+      case 409:
+        return ConflictFailure(message: message);
+      case 429:
+        return RateLimitFailure(message: message);
+      default:
+        return ServerFailure(message: message, statusCode: code);
+    }
+  }
+
+  static String _defaultMessageForCode(int code) {
+    if (code >= 500) return 'Lỗi server ($code). Vui lòng thử lại sau.';
+    if (code == 0) return 'Không có kết nối mạng. Vui lòng kiểm tra lại.';
+    return 'Yêu cầu thất bại ($code).';
+  }
 }

@@ -1,17 +1,11 @@
-/// Phương thức thanh toán cọc mà Host có thể chọn.
+/// Phương thức thanh toán cọc.
 ///
-/// Hiện tại chỉ hỗ trợ `sandboxMock`. Các giá trị khác đặt sẵn để
-/// khi tích hợp SDK VNPay / MoMo chỉ cần thêm implementation
-/// tương ứng ở tầng Data mà không phải đổi enum.
+/// Hiện tại backend chỉ expose 1 cổng duy nhất là SePay (qua
+/// `POST /api/payments/booking-deposit`). Enum để mở rộng sau nếu bổ sung
+/// VNPay/MoMo.
 enum PaymentMethod {
-  /// Giả lập thanh toán — không qua cổng thật, dùng cho dev/test.
-  sandboxMock,
-
-  /// Tích hợp VNPay (placeholder — chưa impl trong Task 2).
-  vnpay,
-
-  /// Tích hợp MoMo (placeholder — chưa impl trong Task 2).
-  momo,
+  /// Thanh toán qua SePay — flow duy nhất hiện tại.
+  sepay,
 }
 
 /// Helper extension cho [PaymentMethod].
@@ -19,24 +13,16 @@ extension PaymentMethodX on PaymentMethod {
   /// Tên hiển thị tiếng Việt.
   String get displayName {
     switch (this) {
-      case PaymentMethod.sandboxMock:
-        return 'Thanh toán mô phỏng (Dev)';
-      case PaymentMethod.vnpay:
-        return 'VNPay';
-      case PaymentMethod.momo:
-        return 'MoMo';
+      case PaymentMethod.sepay:
+        return 'SePay (QR ngân hàng)';
     }
   }
 
   /// Icon gợi ý cho UI.
   String get iconAsset {
     switch (this) {
-      case PaymentMethod.sandboxMock:
-        return 'assets/icons/payment_sandbox.png';
-      case PaymentMethod.vnpay:
-        return 'assets/icons/vnpay.png';
-      case PaymentMethod.momo:
-        return 'assets/icons/momo.png';
+      case PaymentMethod.sepay:
+        return 'assets/icons/sepay.png';
     }
   }
 }

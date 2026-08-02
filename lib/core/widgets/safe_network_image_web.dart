@@ -1,3 +1,11 @@
+// Web-only platform view factory — uses `dart:html` directly because the
+// Flutter web plugin migration to `package:web`/`dart:js_interop` for
+// `platformViewRegistry.registerViewFactory` callbacks that return
+// `dart:html` elements is still in progress. Until that lands we keep
+// the deprecated API; this file is not compiled on non-web targets.
+
+// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
+
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 

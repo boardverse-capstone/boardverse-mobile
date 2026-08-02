@@ -13,10 +13,16 @@ import '../widgets/countdown_banner.dart';
 import '../widgets/info_row.dart';
 import 'booking_success_page.dart';
 
-/// Trang thanh toán — hiển thị countdown, mở gateway, đợi kết quả.
+/// Trang thanh toán — hiển thị countdown, mở SePay URL, polling kết quả.
+///
+/// Đã chuyển sang flow thật:
+/// - `PaymentCubit.start` gọi `createDepositPayment` → `launchUrl(paymentUrl)`
+///   → polling `paymentStatus` mỗi 3s. Khi `Paid` → `PaymentSuccess` →
+///   navigate sang `BookingSuccessPage`.
 class PaymentPage extends StatefulWidget {
   final String bookingId;
   final String cafeId;
+  final String cafeName;
   final double depositAmount;
   final DateTime deadline;
   final DepositConfigEntity? config;
@@ -26,10 +32,11 @@ class PaymentPage extends StatefulWidget {
     super.key,
     required this.bookingId,
     required this.cafeId,
+    required this.cafeName,
     required this.depositAmount,
     required this.deadline,
     required this.config,
-    this.method = PaymentMethod.sandboxMock,
+    this.method = PaymentMethod.sepay,
   });
 
   @override
@@ -59,16 +66,16 @@ class _PaymentPageState extends State<PaymentPage> {
       amount: widget.depositAmount,
       method: widget.method,
       deadline: widget.deadline,
-      config: config ?? _placeholderConfig(),
+      config: config ?? _fallbackConfig(),
     );
   }
 
-  DepositConfigEntity _placeholderConfig() => DepositConfigEntity(
+  DepositConfigEntity _fallbackConfig() => DepositConfigEntity(
         cafeId: widget.cafeId,
-        firstHourPrice: 100000,
-        entryFee: 80000,
-        maxDeposit: 50000,
-        defaultDeposit: 50000,
+        firstHourPrice: widget.depositAmount,
+        entryFee: widget.depositAmount,
+        maxDeposit: widget.depositAmount,
+        defaultDeposit: widget.depositAmount,
         graceMinutes: 15,
         currency: 'VND',
       );
@@ -81,7 +88,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
   bool get _canPopSafely {
     final s = _cubit.state;
-    return s is! PaymentOpening && s is! PaymentProcessing;
+    return s is! PaymentOpening &&
+        s is! PaymentProcessing &&
+        s is! PaymentRegenerating;
   }
 
   Future<bool> _confirmCancel(BuildContext ctx) async {
@@ -279,7 +288,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   copyable: true,
                 ),
                 InfoRow(
-                  icon: Icons.schedule_rounded,
+                  icon: AppIcons.schedule,
                   label: 'Hạn chót',
                   value: BookingUiHelpers.formatDateTime(widget.deadline,
                       pattern: 'HH:mm — dd/MM'),
@@ -307,8 +316,7 @@ class _PaymentPageState extends State<PaymentPage> {
                       const SizedBox(width: AppSpacing.xs),
                       Expanded(
                         child: Text(
-                          'Trong môi trường phát triển, cổng thanh toán là giả lập — '
-                          'sau vài giây hệ thống sẽ tự động xác nhận thành công.',
+                          'Hệ thống sẽ mở cổng SePay để bạn quét QR. Sau khi thanh toán, đơn sẽ tự động xác nhận trong vài giây.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: AppColors.info,
                           ),
@@ -358,29 +366,128 @@ class _PaymentPageState extends State<PaymentPage> {
       );
     }
     if (state is PaymentAwaitingCallback) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton.icon(
-            onPressed: null,
-            icon: const Icon(Icons.credit_card_rounded),
-            label: const Text('Đang chờ cổng thanh toán...'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+      final s = state;
+      final buttons = <Widget>[];
+
+      if (s.requiresManualConfirmation) {
+        // VietQR fallback — render QR + chỉ dẫn user nhập transferContent
+        // thủ công trong app SePay.
+        buttons.add(
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.08),
+              borderRadius: AppRadius.cardRadius,
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.qr_code_2_rounded,
+                      color: AppColors.warning,
+                      size: AppIcons.md,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      'Quét QR thủ công',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Cổng SePay tạm thời lỗi — dùng VietQR tĩnh. Nhập nội dung '
+                  'chuyển khoản là mã đơn (${s.orderId ?? s.depositId ?? ''}) '
+                  'để hệ thống tự đối soát.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (s.qrUrl != null && s.qrUrl!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  SelectableText(
+                    s.qrUrl!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.info,
+                        ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          OutlinedButton.icon(
-            onPressed: () => _onCancelPayment(context),
-            icon: const Icon(Icons.cancel_outlined),
-            label: const Text('Hủy thanh toán'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.error,
-              side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
-              minimumSize: const Size.fromHeight(52),
-            ),
+        );
+        buttons.add(const SizedBox(height: AppSpacing.sm));
+      }
+
+      buttons.add(
+        FilledButton.icon(
+          onPressed: _cubit.forceRetry,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Tôi đã thanh toán — Kiểm tra ngay'),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
           ),
-        ],
+        ),
+      );
+
+      // Nút "Tạo QR mới" khi gần hết hạn (BR-06).
+      buttons.add(const SizedBox(height: AppSpacing.sm));
+      buttons.add(
+        OutlinedButton.icon(
+          onPressed: _cubit.regenerateQr,
+          icon: const Icon(Icons.autorenew_rounded),
+          label: const Text('Tạo QR mới'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
+        ),
+      );
+
+      buttons.add(const SizedBox(height: AppSpacing.sm));
+      buttons.add(
+        OutlinedButton.icon(
+          onPressed: () => _onCancelPayment(context),
+          icon: const Icon(Icons.cancel_outlined),
+          label: const Text('Hủy thanh toán'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.error,
+            side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+            minimumSize: const Size.fromHeight(52),
+          ),
+        ),
+      );
+
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: buttons);
+    }
+    if (state is PaymentRegenerating) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: AppRadius.cardRadius,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              'Đang tạo QR mới...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
       );
     }
     if (state is PaymentIdle) {

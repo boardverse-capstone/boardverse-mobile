@@ -1,7 +1,11 @@
+import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failures.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
+import '../../domain/entities/nearby_cafes_search_result_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../../domain/repositories/matchmaking_repository.dart';
 import '../../../lobby_management/domain/repositories/lobby_repository.dart';
@@ -90,11 +94,21 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     emit(const MatchmakingLoading());
 
     final gameResult = await repository.getBoardGameDetails(gameId);
-    final cafesResult = await repository.getNearbyCafesWithGame(
+
+    // Theo spec `cafe.md` (luồng mobile được recommend):
+    //   1. PUT /api/userprofile/me/location — lưu vị trí server
+    //   2. GET /api/cafes/nearby/me?gameTemplateId=... — không cần gửi
+    //      lat/lng vì server dùng LastKnownLocation trên profile.
+    // Nếu user chưa lưu vị trí (`/nearby/me` trả 400), fallback về
+    // public `GET /api/cafes/nearby` với hardcode HCMC.
+    final cafesResult = await _loadNearbyCafesWithFallback(
       gameId: gameId,
       latitude: latitude,
       longitude: longitude,
     );
+
+    debugPrint('🟢 [loadGameDetail] gameResult=$gameResult');
+    debugPrint('🟢 [loadGameDetail] cafesResult=$cafesResult');
 
     if (isClosed) return;
 
@@ -108,18 +122,39 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
         await cafesResult.fold(
           (failure) async => emit(MatchmakingFailure(message: failure.message)),
-          (cafes) async {
-            final nearbyCafes = _filterCafesWithGame(cafes, gameId);
+          (searchResult) async {
+            // Server `/api/cafes/nearby?gameTemplateId=...` (AC 2.1) đã đảm
+            // bảo chỉ trả về quán có ít nhất một hộp game của `gameTemplateId`
+            // (trạng thái `Available` **hoặc** `InUse`). Theo AC 3.1, quán
+            // vẫn hiển thị khi tất cả hộp đang `InUse` (UI: "Chờ game
+            // ~X phút").
+            //
+            // Vì vậy filter phải dựa trên `totalGameBoxCount` (Available +
+            // InUse) thay vì `availableGameCount` (chỉ Available) — trước
+            // đây filter chỉ `availableGameCount > 0` đã loại bỏ nhầm quán
+            // có hộp đang `InUse`, dẫn đến UI hiển thị "không có quán gần"
+            // dù server trả 200 đầy đủ.
+            final nearbyCafes = searchResult.cafes
+                .where((c) => c.totalGameBoxCount > 0)
+                .toList();
 
             if (!isGpsEnabled) {
-              emit(MatchmakingGpsDisabled(selectedGame: gameDetail.toBoardGameEntity()));
+              emit(MatchmakingGpsDisabled(
+                selectedGame: gameDetail.toBoardGameEntity(),
+              ));
               return;
             }
 
-            final outOfRadiusCafes = nearbyCafes
-                .where((c) => c.distanceKm > 15)
-                .toList();
-            if (outOfRadiusCafes.isNotEmpty && nearbyCafes.isEmpty) {
+            // Branch này trước đó có điều kiện logically-impossible
+            // `outOfRadiusCafes.isNotEmpty && nearbyCafes.isEmpty`
+            // (vì `outOfRadiusCafes` là subset của `nearbyCafes`). Khi
+            // server thực sự trả quán out-of-radius (player ở ngoài
+            // bán kính 15km), trả về `OutOfRadius` để UI hiển thị game
+            // tương tự. Ngược lại, render danh sách bình thường (kể cả
+            // những quán out-of-radius để user biết cần mở rộng bán kính).
+            final hasInRadius =
+                nearbyCafes.any((c) => (c.distanceMeters / 1000.0) <= 15);
+            if (!hasInRadius && nearbyCafes.isNotEmpty) {
               final similarResult = await repository.getSimilarGames(
                 gameId: gameId,
                 latitude: latitude,
@@ -128,7 +163,10 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
               if (isClosed) return;
               similarResult.fold(
                 (failure) => emit(
-                  MatchmakingOutOfRadius(selectedGame: gameDetail.toBoardGameEntity(), similarGames: []),
+                  MatchmakingOutOfRadius(
+                    selectedGame: gameDetail.toBoardGameEntity(),
+                    similarGames: const [],
+                  ),
                 ),
                 (similarGames) => emit(
                   MatchmakingOutOfRadius(
@@ -146,6 +184,9 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
                 nearbyCafes: nearbyCafes,
                 isGpsEnabled: isGpsEnabled,
                 isOutOfRadius: nearbyCafes.isEmpty,
+                emptyResultMessage: searchResult.emptyResultMessage,
+                alternativeSuggestions:
+                    searchResult.alternativeSuggestions,
               ),
             );
           },
@@ -211,10 +252,43 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     );
   }
 
-  List<CafeEntity> _filterCafesWithGame(List<CafeEntity> cafes, String gameId) {
-    return cafes
-        .where((cafe) => cafe.availableGameIds.contains(gameId))
-        .toList();
+  /// Helper: thử `/api/cafes/nearby/me` trước (dùng vị trí lưu trên profile
+  /// — chính xác với user thật). Nếu fail (vd: user chưa PUT location → 400),
+  /// fallback `/api/cafes/nearby` với lat/lng truyền vào (public).
+  ///
+  /// Trả về `Either<Failure, NearbyCafesSearchResultEntity>` — không throw
+  /// để caller có thể emit từ trong `Either.fold`.
+  Future<Either<Failure, NearbyCafesSearchResultEntity>>
+      _loadNearbyCafesWithFallback({
+    required String gameId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final meResult = await repository.getNearbyCafesForCurrentUser(
+      gameId: gameId,
+      radiusKm: 50.0,
+    );
+    return meResult.fold(
+      (failure) async {
+        // Fallback sang `/nearby` với lat/lng tham số.
+        return await repository.getNearbyCafesWithGameSearch(
+          gameId: gameId,
+          latitude: latitude,
+          longitude: longitude,
+        );
+      },
+      (data) async => Right(data),
+    );
+  }
+
+  /// Fallback filter dựa trên `totalGameBoxCount` (Available + InUse) —
+  /// server `/api/cafes/nearby?gameTemplateId=...` đã filter theo inventory
+  /// rồi, nhưng defensive check vẫn giữ để bỏ qua response rỗng / dữ liệu
+  /// cũ. Trước đây dùng `availableGameCount > 0` đã loại bỏ nhầm quán có
+  /// hộp đang `InUse` → gây bug "không có quán" trên UI.
+  List<CafeEntity> _filterCafesWithGame(
+      List<CafeEntity> cafes, String gameId) {
+    return cafes.where((cafe) => cafe.totalGameBoxCount > 0).toList();
   }
 
   // ─── Seat Availability Methods (BR-05, BR-06) ─────────────────────────

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
@@ -83,6 +84,14 @@ class MatchmakingGameDetail extends MatchmakingState {
   final String? seatErrorMessage;
   final String? selectedCafeId;
 
+  /// AC 5.1 — thông điệp UI khi không tìm được quán có game này gần player.
+  /// Null khi có ít nhất 1 quán.
+  final String? emptyResultMessage;
+
+  /// AC 5.2 — gợi ý game cùng thể loại còn hàng ([AlternativeGameSuggestionEntity]).
+  /// Backend trả `[]` khi có quán nào đó.
+  final List<AlternativeGameSuggestionEntity> alternativeSuggestions;
+
   const MatchmakingGameDetail({
     required this.game,
     required this.nearbyCafes,
@@ -93,6 +102,8 @@ class MatchmakingGameDetail extends MatchmakingState {
     this.isCheckingSeats = false,
     this.seatErrorMessage,
     this.selectedCafeId,
+    this.emptyResultMessage,
+    this.alternativeSuggestions = const [],
   });
 
   MatchmakingGameDetail copyWith({
@@ -106,6 +117,8 @@ class MatchmakingGameDetail extends MatchmakingState {
     String? seatErrorMessage,
     String? selectedCafeId,
     bool clearSeatError = false,
+    String? emptyResultMessage,
+    List<AlternativeGameSuggestionEntity>? alternativeSuggestions,
   }) {
     return MatchmakingGameDetail(
       game: game ?? this.game,
@@ -117,20 +130,25 @@ class MatchmakingGameDetail extends MatchmakingState {
       isCheckingSeats: isCheckingSeats ?? this.isCheckingSeats,
       seatErrorMessage: clearSeatError ? null : (seatErrorMessage ?? this.seatErrorMessage),
       selectedCafeId: selectedCafeId ?? this.selectedCafeId,
+      emptyResultMessage: emptyResultMessage ?? this.emptyResultMessage,
+      alternativeSuggestions:
+          alternativeSuggestions ?? this.alternativeSuggestions,
     );
   }
 
   @override
   List<Object?> get props => [
-        game, 
-        nearbyCafes, 
-        isGpsEnabled, 
-        isOutOfRadius, 
+        game,
+        nearbyCafes,
+        isGpsEnabled,
+        isOutOfRadius,
         similarGames,
         selectedCafeSeats,
         isCheckingSeats,
         seatErrorMessage,
         selectedCafeId,
+        emptyResultMessage,
+        alternativeSuggestions,
       ];
 }
 

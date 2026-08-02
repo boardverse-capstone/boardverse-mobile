@@ -14,11 +14,12 @@ class AppConfig {
 
   // ─── Data Source Mode ───────────────────────────────────────────────
 
-  /// Switch for Booking & Payment feature only.
-  /// - `true`: Use Mock datasources (for development)
-  /// - `false`: Use Remote datasources → real backend API (for production)
-  /// NOTE: Booking APIs pending backend implementation.
-  static const bool useMockData = true;
+  /// Switch tổng cho các datasource chưa tích hợp backend.
+  ///
+  /// Booking & Payment đã tích hợp backend thật (`/api/bookings`,
+  /// `/api/payments/...` — xem `.agents/docs/apis_docs/booking.md`).
+  /// Cờ này vẫn giữ để tắt các sandbox UI khác (nếu có) khi cần.
+  static const bool useMockData = false;
 
   // ─── Cache Configuration ───────────────────────────────────────────
 

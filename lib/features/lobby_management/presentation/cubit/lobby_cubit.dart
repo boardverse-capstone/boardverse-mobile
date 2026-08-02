@@ -352,21 +352,26 @@ class LobbyCubit extends Cubit<LobbyState> {
   // ─── Load Online Friends ───────────────────────────────────────────────
 
   Future<void> loadOnlineFriends() async {
+    // Lấy lobby (nếu có) từ current state — dùng cho `LobbyFriendsLoaded`
+    // payload để sheet có thể dùng sau. Nếu cubit chưa ở state có lobby
+    // (vd: user vừa mở sheet ngay khi `initLobbyState` đang chạy, hoặc
+    // realtime fail), ta vẫn load friends — không cần block.
     final currentState = state;
-    if (currentState is! LobbyCreated &&
-        currentState is! LobbyUpdatedRealtime) {
-      return;
-    }
-
     final lobby = currentState is LobbyCreated
         ? currentState.lobby
-        : (currentState as LobbyUpdatedRealtime).lobby;
+        : (currentState is LobbyUpdatedRealtime)
+            ? currentState.lobby
+            : null;
 
     final result = await _repository.getOnlineFriends();
     if (isClosed) return;
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
-      (friends) => emit(LobbyFriendsLoaded(friends: friends, lobby: lobby)),
+      (friends) => emit(
+        lobby != null
+            ? LobbyFriendsLoaded(friends: friends, lobby: lobby)
+            : LobbyFriendsLoaded(friends: friends, lobby: null),
+      ),
     );
   }
 

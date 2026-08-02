@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../../deeplink/deep_link_handler.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
@@ -17,26 +18,32 @@ import 'tournament_page.dart';
 ///
 /// Uses IndexedStack for instant tab switching without animation effects.
 class MainScaffold extends StatefulWidget {
-  const MainScaffold({super.key});
+  const MainScaffold({super.key, this.initialTabIndex});
+
+  /// Index tab để mở ban đầu (dùng cho deep-link SePay return).
+  final int? initialTabIndex;
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  static const _initialIndex = 0; // Home
-
+  static const _defaultInitialIndex = 0; // Home
   late final NavigationCubit _navigationCubit;
-  int _currentIndex = _initialIndex;
+  late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTabIndex ?? _defaultInitialIndex;
     _navigationCubit = NavigationCubit();
     // Listen yêu cầu "chuyển sang Lobby screen cho game X" từ
     // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm"). Đây là cầu nối
     // nghiệp vụ: Discovery → Lobby screen.
     LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
+    // Deep-link SePay return đã navigate vào MainScaffold; báo cho handler
+    // tiêu thụ queue.
+    DeepLinkHandler.instance.onNavigatorReady();
   }
 
   void _handleLobbySuggestion() {

@@ -15,10 +15,21 @@ class NearbyCafesSearchResultModel {
   });
 
   factory NearbyCafesSearchResultModel.fromJson(Map<String, dynamic> json) {
-    // Backend trả `{ "data": { "cafes": { "data": [...], "meta": {...} } } }`
-    // Cần đi vào đúng level: data → cafes → data
-    final dataJson = json['data'] as Map<String, dynamic>?;
-    final cafesJson = dataJson?['cafes'];
+    // Lưu ý: `json` ở đây đã được `ApiResponse.fromJson` strip wrapper
+    // (xem `getNearbyCafesSearch` / `getNearbyCafesForCurrentUser` trong
+    // matchmaking_remote_datasource_impl.dart). Tức là `json` chính là
+    // object `data` của envelope:
+    //   `{ "cafes": { "data": [...], "meta": {...} },
+    //      "emptyResultMessage": "...",
+    //      "alternativeSuggestions": [...] }`
+    // KHÔNG phải `{ "statusCode":..., "data": { ... } }`.
+    //
+    // Trước đây code cố đọc `json['data']` gây ra `dataJson = null` → luôn
+    // trả về `[]` dù server trả đầy đủ cafe. Bug này đã làm trang
+    // boardgame details hiển thị "Không có quán" dù endpoint thực tế
+    // trả 200 với danh sách đầy đủ.
+
+    final cafesJson = json['cafes'];
 
     List<CafeModel> cafes;
     if (cafesJson is Map<String, dynamic>) {
@@ -42,9 +53,9 @@ class NearbyCafesSearchResultModel {
 
     return NearbyCafesSearchResultModel(
       cafes: cafes,
-      emptyResultMessage: dataJson?['emptyResultMessage'] as String?,
+      emptyResultMessage: json['emptyResultMessage'] as String?,
       alternativeSuggestions:
-          (dataJson?['alternativeSuggestions'] as List?)
+          (json['alternativeSuggestions'] as List?)
                   ?.cast<Map<String, dynamic>>()
                   .map(AlternativeGameSuggestionModel.fromJson)
                   .toList() ??

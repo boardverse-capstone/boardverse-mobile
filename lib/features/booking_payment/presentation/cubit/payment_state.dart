@@ -27,15 +27,63 @@ class PaymentAwaitingCallback extends PaymentState {
   final PaymentMethod method;
   final DepositConfigEntity config;
 
+  /// Backend fallback sang VietQR tĩnh — user phải nhập manualRef
+  /// (transferContent) trong app SePay thay vì quét QR tự động.
+  final bool requiresManualConfirmation;
+
+  /// QR URL render được khi `requiresManualConfirmation=true`.
+  final String? qrUrl;
+
+  /// Deposit id dùng cho polling/manual lookup.
+  final String? depositId;
+
+  /// OrderId `BV-...` để hiển thị cho user.
+  final String? orderId;
+
   const PaymentAwaitingCallback({
     required this.amount,
     required this.deadline,
     required this.method,
     required this.config,
+    this.requiresManualConfirmation = false,
+    this.qrUrl,
+    this.depositId,
+    this.orderId,
   });
 
+  PaymentAwaitingCallback copyWith({
+    String? depositId,
+    String? orderId,
+    DateTime? deadline,
+    String? qrUrl,
+  }) =>
+      PaymentAwaitingCallback(
+        amount: amount,
+        deadline: deadline ?? this.deadline,
+        method: method,
+        config: config,
+        requiresManualConfirmation: requiresManualConfirmation,
+        qrUrl: qrUrl ?? this.qrUrl,
+        depositId: depositId ?? this.depositId,
+        orderId: orderId ?? this.orderId,
+      );
+
   @override
-  List<Object?> get props => [amount, deadline, method, config];
+  List<Object?> get props => [
+        amount,
+        deadline,
+        method,
+        config,
+        requiresManualConfirmation,
+        qrUrl,
+        depositId,
+        orderId,
+      ];
+}
+
+/// QR đã hết hạn (BR-06) — đang gọi `regenerate-qr`.
+class PaymentRegenerating extends PaymentState {
+  const PaymentRegenerating();
 }
 
 /// Đang gọi API `confirmBookingPayment`.

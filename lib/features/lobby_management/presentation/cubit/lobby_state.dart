@@ -81,9 +81,13 @@ class LobbyReady extends LobbyState {
 /// Danh sách bạn bè online — dùng cho flow MỜI THỰC (gửi notification).
 class LobbyFriendsLoaded extends LobbyState {
   final List<FriendEntity> friends;
-  final LobbyEntity lobby;
 
-  const LobbyFriendsLoaded({required this.friends, required this.lobby});
+  /// Lobby hiện tại — null nếu cubit chưa sync được lobby (vd: user mở
+  /// sheet ngay khi `initLobbyState` đang chạy). Sheet sẽ tự retry khi
+  /// cubit emit `LobbyCreated`/`LobbyUpdatedRealtime`.
+  final LobbyEntity? lobby;
+
+  const LobbyFriendsLoaded({required this.friends, this.lobby});
 
   @override
   List<Object?> get props => [friends, lobby];

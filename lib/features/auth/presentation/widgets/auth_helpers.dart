@@ -60,22 +60,37 @@ class AuthBackButton extends StatelessWidget {
 }
 
 /// Title + subtitle cho auth pages.
+///
+/// Mặc định dùng `Colors.white` để hiển thị trên gradient nền tối của
+/// `AuthGradientBackground`. Khi đặt bên trong `AuthFormCard` (nền
+/// `surface` — trắng ở light, tối ở dark), truyền
+/// `color: theme.colorScheme.onSurface` để chữ tự đổi màu theo theme.
 class AuthTitle extends StatelessWidget {
-  const AuthTitle({super.key, required this.title, this.subtitle});
+  const AuthTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.color = Colors.white,
+  });
 
   final String title;
   final String? subtitle;
 
+  /// Màu chữ title. Mặc định trắng (gradient). Truyền
+  /// `theme.colorScheme.onSurface` khi đặt trong `AuthFormCard`.
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final subtitleColor = color.withValues(alpha: 0.8);
 
     return Column(
       children: [
         Text(
           title,
           style: theme.textTheme.headlineMedium?.copyWith(
-            color: Colors.white,
+            color: color,
             fontWeight: FontWeight.w700,
           ),
           textAlign: TextAlign.center,
@@ -84,9 +99,7 @@ class AuthTitle extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle!,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: subtitleColor),
             textAlign: TextAlign.center,
           ),
         ],

@@ -3,46 +3,74 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/booking_entity.dart';
-import '../../domain/entities/booking_history_entity.dart';
+import '../../domain/entities/deposit_status_entity.dart';
 import '../../domain/enums/booking_status.dart';
 import '../../domain/repositories/booking_repository.dart';
 import 'booking_result_state.dart';
 
-/// Cubit dùng cho `BookingSuccessPage` + `BookingHistoryPage`
-/// + resume flow khi kill app giữa chừng.
+/// Cubit dùng cho `BookingSuccessPage` + `BookingDetailPage` + resume flow.
+///
+/// Tích hợp mới (gap #11):
+/// - `restoreFlow()` ưu tiên `pendingDepositId` (user đang mid-payment).
+/// - Sau khi `Paid` → tự clear pending keys (đã làm trong repo).
+/// - Polling 5s qua `getBookingById` để đón status thay đổi.
+/// - `loadRefundContext` → fetch DepositStatus khi booking terminal để
+///   render banner hoàn cọc / tịch thu (gap #11).
 class BookingResultCubit extends Cubit<BookingResultState> {
   final BookingRepository _repository;
-  StreamSubscription<BookingEntity>? _statusSub;
+  StreamSubscription<dynamic>? _statusSub;
 
   BookingResultCubit({required this._repository})
       : super(const ResultInitial());
 
-  /// Load booking theo id — dùng cho resume + Success page.
   Future<void> loadById(String bookingId) async {
     emit(const ResultLoading());
     final result = await _repository.getBookingById(bookingId);
     if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
-      (booking) => emit(mapStatusToState(booking)),
+      (booking) {
+        emit(mapStatusToState(booking));
+        // Khi terminal, thử fetch refund context (nếu có paymentRef).
+        final paymentRef = booking.paymentRef;
+        if (booking.status.isTerminal &&
+            paymentRef != null &&
+            paymentRef.isNotEmpty) {
+          loadRefundContext(paymentRef);
+        }
+      },
     );
   }
 
-  /// Polling status — đón khi server chuyển sang `checkedIn`.
-  /// Hủy subscription cũ trước khi đăng ký mới.
-  void startPolling(String bookingId, {Duration interval = const Duration(seconds: 3)}) {
+  /// Polling `GET /api/bookings/{id}` mỗi 5s để đón backend cập nhật
+  /// `status` (vd: thay đổi sang `CheckedIn` khi POS scan QR).
+  ///
+  /// Tự dừng khi:
+  /// - trạng thái đạt terminal (checkedIn/noShow/cancelled).
+  /// - trạng thái `confirmed` (BR-06 grace đã được set).
+  void startPollingStatus(
+    String bookingId, {
+    Duration interval = const Duration(seconds: 5),
+  }) {
     _statusSub?.cancel();
-    _statusSub = _repository
-        .watchBookingStatus(bookingId)
-        .listen((booking) {
-      if (booking.status == BookingStatus.checkedIn ||
-          booking.status.isTerminal) {
+    _statusSub = Stream<void>.periodic(interval).asyncMap((_) async {
+      final result = await _repository.getBookingById(bookingId);
+      return result.fold(
+        (failure) => null,
+        (booking) => booking,
+      );
+    }).listen((booking) {
+      if (booking == null) return;
+      if (booking.status == BookingStatus.checkedIn) {
         emit(mapStatusToState(booking));
+      } else if (booking.status.isTerminal) {
+        emit(mapStatusToState(booking));
+        _statusSub?.cancel();
       }
     });
   }
 
-  /// Host huỷ booking (success page có nút "Huỷ đơn").
+  /// Host huỷ booking (success page / detail page).
   Future<void> cancelByPlayer(String reason) async {
     final current = state;
     String? id;
@@ -58,92 +86,105 @@ class BookingResultCubit extends Cubit<BookingResultState> {
     if (isClosed) return;
     result.fold(
       (failure) => emit(ResultFailure(failure.message)),
-      (booking) => emit(ResultCancelled(booking)),
-    );
-  }
-
-  /// Lấy lịch sử booking.
-  Future<void> loadHistory() async {
-    emit(const ResultLoading());
-    final result = await _repository.getBookingHistory();
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(ResultFailure(failure.message)),
-      (items) => emit(ResultHistory(items)),
-    );
-  }
-
-  /// Lấy các booking sắp tới (confirmed + checkedIn).
-  Future<void> loadUpcomingBookings() async {
-    emit(const ResultLoading());
-    final result = await _repository.getUpcomingBookings();
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(ResultFailure(failure.message)),
-      (bookings) => emit(ResultUpcomingBookings(bookings)),
-    );
-  }
-
-  /// Load song song upcoming + history rồi emit 1 state duy nhất
-  /// để tránh race khi UI dùng chung 1 cubit cho cả 2 tab.
-  Future<void> loadUpcomingAndHistory() async {
-    final upcomingF = _repository.getUpcomingBookings();
-    final historyF = _repository.getBookingHistory();
-    final results = await Future.wait([upcomingF, historyF]);
-    final upcomingResult = results[0];
-    final historyResult = results[1];
-
-    final List<BookingEntity> upcoming = upcomingResult.fold(
-      (_) => <BookingEntity>[],
-      (list) => list as List<BookingEntity>,
-    );
-    final List<BookingHistoryEntity> history = historyResult.fold(
-      (_) => <BookingHistoryEntity>[],
-      (list) => list as List<BookingHistoryEntity>,
-    );
-
-    if (isClosed) return;
-    emit(ResultUpcomingAndHistory(
-      upcoming: upcoming,
-      history: history,
-    ));
-  }
-
-  /// Resume flow — kiểm tra `pendingBookingId` lưu ở secure storage.
-  Future<void> tryRestorePending() async {
-    final idResult = await _repository.getPendingBookingId();
-    final id = await idResult.fold((_) async => null, (v) async => v);
-    if (id == null || id.isEmpty) {
-      if (isClosed) return;
-      emit(const ResumeCleared());
-      return;
-    }
-    final result = await _repository.getBookingById(id);
-    if (isClosed) return;
-    result.fold(
-      (failure) {
-        // Không tìm thấy → clear để tránh vòng lặp.
-        _repository.clearPendingBookingId();
-        emit(const ResumeCleared());
-      },
       (booking) {
-        if (booking.status.isTerminal) {
-          _repository.clearPendingBookingId();
-          emit(const ResumeCleared());
-        } else if (booking.status == BookingStatus.pendingDeposit) {
-          emit(ResumeToPayment(booking.id));
-        } else if (booking.status == BookingStatus.confirmed) {
-          emit(ResumeToSuccess(booking.id));
-        } else {
-          emit(const ResumeCleared());
+        emit(ResultCancelled(booking));
+        final paymentRef = booking.paymentRef;
+        if (paymentRef != null && paymentRef.isNotEmpty) {
+          loadRefundContext(paymentRef);
         }
       },
     );
   }
 
+  /// Fetch trạng thái deposit (refund/forfeit) cho booking terminal.
+  /// Silent-fail nếu backend không trả (vd: thanh toán offline).
+  Future<void> loadRefundContext(String depositId) async {
+    final result = await _repository.getDepositStatus(depositId);
+    if (isClosed) return;
+    result.fold(
+      (_) {/* silent — không hiển thị banner */},
+      (status) {
+        if (status.status.isRefundRelevant) {
+          emit(RefundContextLoaded(status));
+        }
+      },
+    );
+  }
+
+  /// Resume flow khi mở app sau khi kill giữa chừng (gap #11).
+  ///
+  /// Priority:
+  /// 1. Nếu có `pendingDepositId` → user đang mid-payment → resume SePay
+  ///    flow (poll deposit status, navigate về PaymentPage khi Paid).
+  /// 2. Nếu có `pendingBookingId` → resume booking detail.
+  /// 3. Nếu không có → emit `ResumeCleared`.
+  Future<void> restoreFlow() async {
+    emit(const ResultLoading());
+    final depositIdResult = await _repository.getPendingDepositId();
+    final bookingIdResult = await _repository.getPendingBookingId();
+
+    String? pendingDepositId;
+    String? pendingBookingId;
+    depositIdResult.fold((_) => null, (value) => pendingDepositId = value);
+    bookingIdResult.fold((_) => null, (value) => pendingBookingId = value);
+
+    // Priority 1: deposit pending → resume payment flow.
+    final depId = pendingDepositId;
+    final bkId = pendingBookingId;
+    if (depId != null && depId.isNotEmpty) {
+      final statusResult = await _repository.getDepositStatus(depId);
+      if (isClosed) return;
+      DepositStatusEntity? status;
+      statusResult.fold((_) => null, (value) => status = value);
+      final s = status;
+      if (s != null && s.status == DepositStatus.paid) {
+        // Đã thanh toán rồi (webhook xử lý trước khi user mở lại app).
+        await _repository.clearPendingBookingId();
+        await _repository.clearPendingDepositId();
+        emit(const ResumeCleared());
+        return;
+      }
+      // Còn pending → resume tới PaymentPage (qua bookingId).
+      if (bkId != null && bkId.isNotEmpty) {
+        emit(ResumeToPayment(bkId));
+        return;
+      }
+    }
+
+    // Priority 2: chỉ có booking pending (không có deposit) → resume detail.
+    if (bkId != null && bkId.isNotEmpty) {
+      final bookingResult = await _repository.getBookingById(bkId);
+      if (isClosed) return;
+      BookingEntity? booking;
+      bookingResult.fold((_) => null, (value) => booking = value);
+      final b = booking;
+      if (b != null) {
+        emit(mapStatusToState(b));
+        return;
+      }
+    }
+
+    emit(const ResumeCleared());
+  }
+
   @override
   Future<void> close() async {
-    _statusSub?.cancel();
+    await _statusSub?.cancel();
     return super.close();
+  }
+}
+
+/// Vẫn giữ để UI cũ (Success page) build được khi status = PendingDeposit.
+BookingResultState mapStatusToState(BookingEntity booking) {
+  switch (booking.status) {
+    case BookingStatus.confirmed:
+      return ResultConfirmed(booking);
+    case BookingStatus.checkedIn:
+      return ResultCheckedIn(booking);
+    case BookingStatus.noShow:
+    case BookingStatus.cancelled:
+      return ResultCancelled(booking);
+    case BookingStatus.pendingDeposit:
+      return ResumeToPayment(booking.id);
   }
 }

@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/navigation/pages/bookings_page.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/navigation/pages/bookings_page.dart' show BookingRefreshSignal;
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/booking_history_entity.dart';
-import '../cubit/booking_result_cubit.dart';
-import '../cubit/booking_result_state.dart';
+import '../../domain/enums/booking_status.dart';
+import '../cubit/booking_history_cubit.dart';
 import '../widgets/booking_ui_helpers.dart';
 import '../widgets/no_show_badge.dart';
 import '../widgets/status_pill.dart';
 import 'booking_detail_page.dart';
 
-/// Trang lịch hẹn của user — có 2 tab: Sắp tới + Lịch sử.
+/// Trang lịch hẹn của user — 2 tab: Sắp tới + Lịch sử.
+///
+/// Sau refactor:
+/// - Dùng [BookingHistoryCubit] (BlocProvider riêng) thay vì root cubit.
+/// - Content-only widget (`BookingHistoryPageContent`) để có thể nhúng từ
+///   `BookingsPage` (kèm banner resume).
+///
+/// Page này là wrapper chỉ để dùng trong standalone test/debug; production
+/// dùng [BookingHistoryPageContent] trực tiếp (kèm banner).
 class BookingHistoryPage extends StatefulWidget {
   const BookingHistoryPage({super.key});
 
@@ -22,26 +30,20 @@ class BookingHistoryPage extends StatefulWidget {
 
 class _BookingHistoryPageState extends State<BookingHistoryPage>
     with SingleTickerProviderStateMixin {
-  late final BookingResultCubit _cubit;
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _cubit = context.read<BookingResultCubit>();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     BookingRefreshSignal.instance.addListener(_onRefreshRequested);
-    _loadData();
-  }
-
-  void _loadData() {
-    _cubit.loadUpcomingAndHistory();
   }
 
   void _onRefreshRequested() {
-    if (!mounted) return;
-    _loadData();
+    if (mounted) {
+      context.read<BookingHistoryCubit>().loadAll();
+    }
   }
 
   void _onTabChanged() {
@@ -59,15 +61,15 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return BlocProvider.value(
-      value: _cubit,
+    return BlocProvider<BookingHistoryCubit>(
+      create: (_) =>
+          BookingHistoryCubit(repository: context.read<dynamic>())
+            ..loadAll(),
       child: Column(
         children: [
           Material(
-            color: theme.appBarTheme.backgroundColor ??
-                theme.colorScheme.surface,
+            color: Theme.of(context).appBarTheme.backgroundColor ??
+                Theme.of(context).colorScheme.surface,
             child: TabBar(
               controller: _tabController,
               tabs: const [
@@ -77,29 +79,12 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
             ),
           ),
           Expanded(
-            child: BlocBuilder<BookingResultCubit, BookingResultState>(
-              builder: (context, state) {
-                return TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _UpcomingTab(
-                      state: state,
-                      onRefresh: () {
-                        _cubit.loadUpcomingAndHistory();
-                        return Future.value();
-                      },
-                      onChanged: _cubit.loadUpcomingBookings,
-                    ),
-                    _HistoryTab(
-                      state: state,
-                      onRefresh: () {
-                        _cubit.loadUpcomingAndHistory();
-                        return Future.value();
-                      },
-                    ),
-                  ],
-                );
-              },
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                _UpcomingTabContent(),
+                _HistoryTabContent(),
+              ],
             ),
           ),
         ],
@@ -108,32 +93,187 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
   }
 }
 
-/// Tab: Các booking sắp tới (pending + confirmed + checkedIn + cancelled).
-class _UpcomingTab extends StatelessWidget {
-  final BookingResultState state;
-  final Future<void> Function() onRefresh;
-  final Future<void> Function() onChanged;
+/// Convenience class giúp BookingHistoryPage tự-inject cubit từ context.
+class _UpcomingTabContent extends StatelessWidget {
+  const _UpcomingTabContent();
 
-  const _UpcomingTab({
-    required this.state,
-    required this.onRefresh,
-    required this.onChanged,
+  @override
+  Widget build(BuildContext context) =>
+      const _UpcomingTab(state: null, onRefresh: null);
+}
+
+class _HistoryTabContent extends StatelessWidget {
+  const _HistoryTabContent();
+
+  @override
+  Widget build(BuildContext context) =>
+      const _HistoryTab(state: null, onRefresh: null);
+}
+
+/// Body của `BookingHistoryPage` — dùng [BookingHistoryCubit] từ context.
+class BookingHistoryPageContent extends StatelessWidget {
+  final BookingHistoryState? state;
+  final Future<void> Function()? onRefresh;
+
+  /// Khi != null, hiển thị 1 tab duy nhất "Lịch quán" (gap #14).
+  /// Khi null, hiển thị 2 tab Sắp tới + Lịch sử (mặc định).
+  final String? cafeViewCafeId;
+
+  const BookingHistoryPageContent({
+    super.key,
+    this.state,
+    this.onRefresh,
+    this.cafeViewCafeId,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (state is ResultLoading) {
-      return _LoadingState();
+    return BlocBuilder<BookingHistoryCubit, BookingHistoryState>(
+      builder: (context, current) {
+        final effectiveState = state ?? current;
+        Future<void> Function() refresh;
+        if (onRefresh != null) {
+          refresh = onRefresh!;
+        } else {
+          final cubit = context.read<BookingHistoryCubit>();
+          // Chọn loadForCafe nếu cafeViewCafeId có giá trị.
+          if (cafeViewCafeId != null) {
+            refresh = () => cubit.loadForCafe(cafeViewCafeId!);
+          } else {
+            refresh = cubit.loadAll;
+          }
+        }
+
+        // TabBarView bắt buộc phải có `controller` (explicit) hoặc
+        // tìm được `DefaultTabController` trong scope. Page content này
+        // được nhúng từ nhiều nơi (standalone page, BookingsPage với
+        // banner, ...), không phải lúc nào cũng có controller sẵn →
+        // wrap với `DefaultTabController` để TabBarView hoạt động độc lập.
+        return DefaultTabController(
+          length: cafeViewCafeId != null ? 1 : 2,
+          child: Builder(
+            builder: (context) {
+              // Cafe view mode (gap #14) — 1 tab.
+              if (cafeViewCafeId != null) {
+                return TabBarView(
+                  children: [
+                    _CafeViewTab(
+                      state: effectiveState,
+                      onRefresh: refresh,
+                      cafeId: cafeViewCafeId!,
+                    ),
+                  ],
+                );
+              }
+
+              return TabBarView(
+                children: [
+                  _UpcomingTab(state: effectiveState, onRefresh: refresh),
+                  _HistoryTab(state: effectiveState, onRefresh: refresh),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Tab "Lịch quán" cho Player (gap #14) — render summary rút gọn.
+class _CafeViewTab extends StatelessWidget {
+  final BookingHistoryState? state;
+  final Future<void> Function()? onRefresh;
+  final String cafeId;
+
+  const _CafeViewTab({
+    required this.state,
+    required this.onRefresh,
+    required this.cafeId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (state == null || state is BookingHistoryLoading) {
+      return const _LoadingState();
+    }
+    if (state is BookingHistoryFailure) {
+      return _EmptyState(
+        icon: Icons.error_outline_rounded,
+        title: 'Không tải được lịch quán',
+        message: (state as BookingHistoryFailure).message,
+        onRefresh: onRefresh ?? () async {},
+      );
+    }
+    if (state is BookingHistoryLoaded) {
+      final list = (state as BookingHistoryLoaded).cafeView;
+      if (list.isEmpty) {
+        return _EmptyState(
+          icon: Icons.event_busy_rounded,
+          title: 'Quán chưa có lịch',
+          message: 'Hiện tại quán này không có booking công khai nào.',
+          onRefresh: onRefresh ?? () async {},
+        );
+      }
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (onRefresh != null) await onRefresh!();
+        },
+        child: ListView.separated(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          itemCount: list.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (ctx, index) {
+            final b = list[index];
+            return Card(
+              child: ListTile(
+                leading: Icon(
+                  Icons.event_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(
+                  '${b.scheduledStartTime.hour}:${b.scheduledStartTime.minute.toString().padLeft(2, '0')} '
+                  '→ ${b.scheduleEndTime.hour}:${b.scheduleEndTime.minute.toString().padLeft(2, '0')}',
+                ),
+                subtitle: Text('${b.playerQuantity} người'),
+                trailing: StatusPill(
+                  label: BookingUiHelpers.statusToLabel(b.status),
+                  variant: BookingUiHelpers.statusToVariant(b.status),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return const _LoadingState();
+  }
+}
+
+class _UpcomingTab extends StatelessWidget {
+  final BookingHistoryState? state;
+  final Future<void> Function()? onRefresh;
+
+  const _UpcomingTab({required this.state, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state == null) {
+      return const _LoadingState();
+    }
+    if (state is BookingHistoryLoading) {
+      return const _LoadingState();
     }
 
     final List<BookingEntity> upcomingBookings;
-    if (state is ResultUpcomingBookings) {
-      upcomingBookings = (state as ResultUpcomingBookings).bookings;
-    } else if (state is ResultUpcomingAndHistory) {
-      upcomingBookings = (state as ResultUpcomingAndHistory).upcoming;
+    if (state is BookingHistoryLoaded) {
+      upcomingBookings = (state as BookingHistoryLoaded).upcoming;
     } else {
       upcomingBookings = const <BookingEntity>[];
     }
+
+    Future<void> Function() refresh =
+        onRefresh ?? () => context.read<BookingHistoryCubit>().loadAll();
 
     if (upcomingBookings.isEmpty) {
       return _EmptyState(
@@ -141,12 +281,12 @@ class _UpcomingTab extends StatelessWidget {
         title: 'Chưa có lịch hẹn nào',
         message:
             'Bạn chưa có đơn đặt chỗ nào sắp tới. Hãy khám phá các quán và tạo lobby để bắt đầu!',
-        onRefresh: onRefresh,
+        onRefresh: refresh,
       );
     }
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: refresh,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
@@ -160,7 +300,7 @@ class _UpcomingTab extends StatelessWidget {
           final booking = upcomingBookings[i];
           return _UpcomingBookingCard(
             booking: booking,
-            onChanged: onChanged,
+            onChanged: refresh,
           );
         },
       ),
@@ -168,8 +308,6 @@ class _UpcomingTab extends StatelessWidget {
   }
 }
 
-/// Card tóm tắt booking — tap để mở trang chi tiết.
-/// Hiển thị: icon + game + quán + giờ + số ghế + trạng thái + chevron.
 class _UpcomingBookingCard extends StatelessWidget {
   final BookingEntity booking;
   final Future<void> Function() onChanged;
@@ -187,11 +325,9 @@ class _UpcomingBookingCard extends StatelessWidget {
         return Icons.sports_esports_rounded;
       case 'pendingDeposit':
         return Icons.hourglass_top_rounded;
-      case 'cancelledByPlayer':
-      case 'cancelledByCafe':
+      case 'cancelled':
+      case 'noShow':
         return Icons.cancel_rounded;
-      case 'expired':
-        return Icons.timer_off_rounded;
       default:
         return Icons.event_rounded;
     }
@@ -205,24 +341,21 @@ class _UpcomingBookingCard extends StatelessWidget {
         return AppColors.success;
       case 'pendingDeposit':
         return AppColors.warning;
-      case 'cancelledByPlayer':
-      case 'cancelledByCafe':
+      case 'cancelled':
+      case 'noShow':
         return AppColors.textSecondary;
-      case 'expired':
-        return AppColors.error;
       default:
         return AppColors.textSecondary;
     }
   }
 
-  void _openDetail(BuildContext context) async {
+  Future<void> _openDetail(BuildContext context) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => BookingDetailPage(booking: booking),
       ),
     );
-
     if (result == true) {
       await onChanged();
     }
@@ -253,7 +386,6 @@ class _UpcomingBookingCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Accent strip + status pill
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
@@ -310,9 +442,10 @@ class _UpcomingBookingCard extends StatelessWidget {
                                     Expanded(
                                       child: Text(
                                         booking.cafeName,
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color:
+                                              theme.colorScheme.onSurfaceVariant,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -364,8 +497,9 @@ class _UpcomingBookingCard extends StatelessWidget {
                           Expanded(
                             child: _MetaItem(
                               icon: AppIcons.money,
-                              label:
-                                  BookingUiHelpers.formatVnd(booking.depositAmount),
+                              label: BookingUiHelpers.formatVnd(
+                                booking.depositAmount,
+                              ),
                             ),
                           ),
                         ],
@@ -374,10 +508,10 @@ class _UpcomingBookingCard extends StatelessWidget {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: StatusPill(
-                          label: BookingUiHelpers.labelFromStringName(
-                              booking.status.name),
-                          variant: BookingUiHelpers.variantFromStringName(
-                              booking.status.name),
+                          label: BookingUiHelpers.statusToLabel(booking.status),
+                          variant: BookingUiHelpers.statusToVariant(
+                            booking.status,
+                          ),
                         ),
                       ),
                     ],
@@ -392,42 +526,42 @@ class _UpcomingBookingCard extends StatelessWidget {
   }
 }
 
-/// Tab: Lịch sử booking (đã qua).
 class _HistoryTab extends StatelessWidget {
-  final BookingResultState state;
-  final Future<void> Function() onRefresh;
+  final BookingHistoryState? state;
+  final Future<void> Function()? onRefresh;
 
-  const _HistoryTab({
-    required this.state,
-    required this.onRefresh,
-  });
+  const _HistoryTab({required this.state, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
-    if (state is ResultLoading) {
-      return _LoadingState();
+    if (state == null) {
+      return const _LoadingState();
+    }
+    if (state is BookingHistoryLoading) {
+      return const _LoadingState();
     }
 
     final List<BookingHistoryEntity> historyItems;
-    if (state is ResultHistory) {
-      historyItems = (state as ResultHistory).items;
-    } else if (state is ResultUpcomingAndHistory) {
-      historyItems = (state as ResultUpcomingAndHistory).history;
+    if (state is BookingHistoryLoaded) {
+      historyItems = (state as BookingHistoryLoaded).history;
     } else {
       historyItems = const <BookingHistoryEntity>[];
     }
+
+    Future<void> Function() refresh =
+        onRefresh ?? () => context.read<BookingHistoryCubit>().loadAll();
 
     if (historyItems.isEmpty) {
       return _EmptyState(
         icon: Icons.history_rounded,
         title: 'Chưa có lịch sử đặt chỗ',
         message: 'Các phiên chơi đã hoàn tất sẽ xuất hiện ở đây.',
-        onRefresh: onRefresh,
+        onRefresh: refresh,
       );
     }
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: refresh,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
@@ -448,6 +582,19 @@ class _HistoryCard extends StatelessWidget {
 
   const _HistoryCard({required this.item});
 
+  BookingStatus get _baseStatus {
+    switch (item.status) {
+      case BookingStatus.cancelled:
+        return BookingStatus.cancelled;
+      case BookingStatus.noShow:
+        return BookingStatus.noShow;
+      case BookingStatus.checkedIn:
+        return BookingStatus.checkedIn;
+      default:
+        return BookingStatus.cancelled;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -457,9 +604,7 @@ class _HistoryCard extends StatelessWidget {
       borderRadius: AppRadius.cardRadius,
       child: InkWell(
         borderRadius: AppRadius.cardRadius,
-        onTap: () {
-          // History items are read-only; no detail page jump.
-        },
+        onTap: () {},
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: AppRadius.cardRadius,
@@ -510,8 +655,7 @@ class _HistoryCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   item.cafeName,
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                   maxLines: 1,
@@ -524,8 +668,8 @@ class _HistoryCard extends StatelessWidget {
                       ),
                     ),
                     StatusPill(
-                      label: BookingUiHelpers.historyLabel(item.status),
-                      variant: BookingUiHelpers.historyVariant(item.status),
+                      label: BookingUiHelpers.statusToLabel(_baseStatus),
+                      variant: BookingUiHelpers.statusToVariant(_baseStatus),
                     ),
                   ],
                 ),
@@ -574,9 +718,9 @@ class _HistoryCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (item.hasNoShowBadge) ...[
+                if (item.status == BookingStatus.noShow) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Align(
+                  const Align(
                     alignment: Alignment.centerLeft,
                     child: NoShowBadge(),
                   ),
@@ -590,7 +734,6 @@ class _HistoryCard extends StatelessWidget {
   }
 }
 
-/// Small label + icon — dùng trong row meta của card.
 class _MetaItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -603,11 +746,7 @@ class _MetaItem extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          icon,
-          size: AppIcons.sm,
-          color: theme.colorScheme.primary,
-        ),
+        Icon(icon, size: AppIcons.sm, color: theme.colorScheme.primary),
         const SizedBox(width: AppSpacing.xxs),
         Flexible(
           child: Text(
@@ -625,8 +764,9 @@ class _MetaItem extends StatelessWidget {
   }
 }
 
-/// Loading state dùng shimmer placeholders.
 class _LoadingState extends StatelessWidget {
+  const _LoadingState();
+
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
@@ -638,7 +778,6 @@ class _LoadingState extends StatelessWidget {
   }
 }
 
-/// Empty state đồng nhất theo design system.
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;

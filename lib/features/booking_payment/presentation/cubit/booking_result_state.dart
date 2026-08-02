@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/booking_history_entity.dart';
+import '../../domain/entities/deposit_status_entity.dart';
 import '../../domain/enums/booking_status.dart';
 
 sealed class BookingResultState extends Equatable {
@@ -30,14 +31,6 @@ class ResultConfirmed extends BookingResultState {
 class ResultCheckedIn extends BookingResultState {
   final BookingEntity booking;
   const ResultCheckedIn(this.booking);
-
-  @override
-  List<Object?> get props => [booking];
-}
-
-class ResultExpired extends BookingResultState {
-  final BookingEntity booking;
-  const ResultExpired(this.booking);
 
   @override
   List<Object?> get props => [booking];
@@ -112,6 +105,16 @@ class ResultFailure extends BookingResultState {
   List<Object?> get props => [message];
 }
 
+/// Optional refund/forfeit context cho terminal bookings.
+/// UI dùng để render banner "Cọc đã hoàn X VND" / "Cọc bị tịch thu".
+class RefundContextLoaded extends BookingResultState {
+  final DepositStatusEntity depositStatus;
+  const RefundContextLoaded(this.depositStatus);
+
+  @override
+  List<Object?> get props => [depositStatus];
+}
+
 /// Map `BookingStatus` → state phù hợp.
 BookingResultState mapStatusToState(BookingEntity booking) {
   switch (booking.status) {
@@ -119,13 +122,10 @@ BookingResultState mapStatusToState(BookingEntity booking) {
       return ResultConfirmed(booking);
     case BookingStatus.checkedIn:
       return ResultCheckedIn(booking);
-    case BookingStatus.expired:
-      return ResultExpired(booking);
-    case BookingStatus.cancelledByPlayer:
-    case BookingStatus.cancelledByCafe:
+    case BookingStatus.noShow:
+    case BookingStatus.cancelled:
       return ResultCancelled(booking);
     case BookingStatus.pendingDeposit:
-      // Khi load bằng id, đang PENDING_DEPOSIT → cũng là ResumeToPayment.
       return ResumeToPayment(booking.id);
   }
 }

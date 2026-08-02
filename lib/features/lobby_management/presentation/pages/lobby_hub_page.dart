@@ -20,6 +20,7 @@ import '../widgets/lobby_game_filter_bar.dart';
 import '../widgets/lobby_explore_tab.dart';
 import '../widgets/lobby_history_tab.dart';
 import '../widgets/lobby_game_picker_sheet.dart';
+import '../widgets/lobby_create_entry_sheet.dart';
 import 'lobby_page.dart';
 import 'lobby_preview_page.dart';
 
@@ -258,7 +259,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   }
 
   /// Mở lobby từ danh sách "My Lobbies" (đã hosted/joined).
-  /// 
+  ///
   /// QUAN TRỌNG: User đã là member/host của lobby này rồi,
   /// KHÔNG gọi joinLobby() vì sẽ bị 409.
   /// Để LobbyPage.initState() tự kiểm tra membership và sync state.
@@ -274,7 +275,6 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   /// Join lobby mới (chưa là member) rồi mở LobbyPage.
   /// Chỉ dùng cho lobby công khai hoặc lobby được invite.
   Future<void> _joinAndOpen(String lobbyId, String? inviteCode) async {
-    // TODO: Kiểm tra membership trước khi join
     // Hiện tại vẫn gọi joinLobby nhưng sẽ bị 409 nếu đã là member
     // Cần cải thiện: sử dụng initLobbyState thay vì joinLobby
     final joinResult = await _lobbyCubit.joinLobby(lobbyId, inviteCode);
@@ -292,7 +292,8 @@ class _LobbyHubPageState extends State<LobbyHubPage>
         if (!mounted) return;
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+            builder: (_) =>
+                LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
           ),
         );
         return;
@@ -311,7 +312,21 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
+  /// Mở bottom sheet cho phép player chọn entry-point:
+  /// - "Đã chọn game trước" → flow cũ (`_openCreateWithPickedGame`)
+  /// - "Tạo lobby tại quán" → `LobbyCreateByCafePage` (mới)
+  /// - "Auto-match" → `LobbyAutoMatchPage` (mới)
   void _openCreateLobby() {
+    LobbyCreateEntrySheet.show(
+      context,
+      onPickGameFirst: _openCreateWithPickedGame,
+    );
+  }
+
+  /// Entry-point "Đã chọn game trước":
+  /// - Nếu player đã filter 1 game (`_selectedGame != null`) → mở cafe selection luôn.
+  /// - Ngược lại → mở sheet chọn game từ danh sách đã cache.
+  void _openCreateWithPickedGame() {
     if (_selectedGame != null) {
       _openConfigForCreate(_selectedGame!);
     } else {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../domain/entities/board_game_entity.dart';
@@ -28,10 +29,15 @@ class LobbyCafeSelectionPage extends StatefulWidget {
   final BoardGameEntity game;
   final MatchmakingCubit matchmakingCubit;
 
+  /// Walk-in flag — khi `true`, sau khi chọn cafe sẽ nhảy thẳng
+  /// `BookingSummaryPage(lobbyId: null)` thay vì `LobbyConfigPage` (gap #3).
+  final bool isWalkInSolo;
+
   const LobbyCafeSelectionPage({
     super.key,
     required this.game,
     required this.matchmakingCubit,
+    this.isWalkInSolo = false,
   });
 
   @override
@@ -206,6 +212,34 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
   }
 
   void _openConfigWithCafe(CafeEntity cafe) {
+    if (widget.isWalkInSolo) {
+      // Walk-in: skip lobby creation, jump straight to BookingSummaryPage.
+      // BookingSummaryPage sẽ tự load availability + bàn trống (gaps #1, #2).
+      final now = DateTime.now();
+      final startTime = DateTime(now.year, now.month, now.day, now.hour + 1);
+      final endTime = startTime.add(const Duration(hours: 2));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => BookingSummaryPage(
+            // lobbyId == null → walk-in (gap #3).
+            lobbyId: null,
+            cafeId: cafe.id,
+            cafeName: cafe.name,
+            // cafeTableId rỗng → cubit sẽ resolve từ availableTables API.
+            cafeTableId: '',
+            gameId: widget.game.id,
+            gameName: widget.game.name,
+            scheduledStartTime: startTime,
+            scheduleEndTime: endTime,
+            // Mặc định 1 người cho walk-in; user có thể chỉnh trong page.
+            seatCount: 1,
+            playerQuantity: 1,
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => LobbyConfigPage(

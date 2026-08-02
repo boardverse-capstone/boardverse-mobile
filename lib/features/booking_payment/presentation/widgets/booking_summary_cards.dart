@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/theme.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/booking_history_entity.dart';
+import '../../domain/enums/booking_status.dart';
 import 'booking_ui_helpers.dart';
 import 'no_show_badge.dart';
 import 'status_pill.dart';
@@ -338,8 +339,8 @@ class HistoryBookingSummaryCard extends StatelessWidget {
                       ),
                     ),
                     StatusPill(
-                      label: BookingUiHelpers.historyLabel(item.status),
-                      variant: BookingUiHelpers.historyVariant(item.status),
+                      label: BookingUiHelpers.historyLabel(item.status.historyBucket),
+                      variant: BookingUiHelpers.historyVariant(item.status.historyBucket),
                     ),
                   ],
                 ),
@@ -372,7 +373,7 @@ class HistoryBookingSummaryCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      if (item.hasNoShowBadge) const NoShowBadge(),
+                      if (item.status == BookingStatus.noShow) const NoShowBadge(),
                     ],
                   ),
                 ),
