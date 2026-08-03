@@ -1,3 +1,4 @@
+import '../../domain/entities/cafe_detail_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
 
 class CafeModel {
@@ -32,6 +33,18 @@ class CafeModel {
   final int availableGameCount;
   final SelectedGameAvailabilityStatus selectedGameAvailabilityStatus;
 
+  // ─── CafeDetail API fields ──────────────────────────────────────────
+  final double? latitude;
+  final double? longitude;
+  final DateTime? createdAt;
+  final double? basePrice; // Giá cơ bản từ API
+  final String? billingModel; // TIME_BASED, FIXED, TIERED
+  final double? tieredBlockRate;
+  final int? tieredBlockMinutes;
+  final double? depositPercentage;
+  final bool isPricingLocked;
+  final bool hasSePayConfigured;
+
   const CafeModel({
     required this.id,
     required this.name,
@@ -58,6 +71,17 @@ class CafeModel {
     this.availableGameCount = 0,
     this.selectedGameAvailabilityStatus =
         SelectedGameAvailabilityStatus.gameAvailable,
+    // CafeDetail fields
+    this.latitude,
+    this.longitude,
+    this.createdAt,
+    this.basePrice,
+    this.billingModel,
+    this.tieredBlockRate,
+    this.tieredBlockMinutes,
+    this.depositPercentage,
+    this.isPricingLocked = false,
+    this.hasSePayConfigured = false,
   });
 
   /// Parse từ `GET /api/cafes/{id}` (CafeDto cũ — không có distance, table).
@@ -97,6 +121,19 @@ class CafeModel {
       availableGameCount: (json['availableGameCount'] as int?) ?? 0,
       selectedGameAvailabilityStatus: _parseAvailabilityStatus(
           json['selectedGameAvailabilityStatus'] as String?),
+      // CafeDetail fields
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)
+          : null,
+      basePrice: (json['basePrice'] as num?)?.toDouble(),
+      billingModel: json['billingModel'] as String?,
+      tieredBlockRate: (json['tieredBlockRate'] as num?)?.toDouble(),
+      tieredBlockMinutes: json['tieredBlockMinutes'] as int?,
+      depositPercentage: (json['depositPercentage'] as num?)?.toDouble(),
+      isPricingLocked: json['isPricingLocked'] as bool? ?? false,
+      hasSePayConfigured: json['hasSePayConfigured'] as bool? ?? false,
     );
   }
 
@@ -222,4 +259,43 @@ class CafeModel {
         availableGameCount: availableGameCount,
         selectedGameAvailabilityStatus: selectedGameAvailabilityStatus,
       );
+
+  /// Chuyển CafeModel (từ API) sang CafeDetailEntity
+  /// dùng cho trang chi tiết quán cafe.
+  CafeDetailEntity toDetailEntity() {
+    // Parse billing model
+    BillingModel parsedBilling;
+    switch (billingModel) {
+      case 'FIXED':
+        parsedBilling = BillingModel.fixed;
+        break;
+      case 'TIERED':
+        parsedBilling = BillingModel.tiered;
+        break;
+      case 'TIME_BASED':
+      default:
+        parsedBilling = BillingModel.timeBased;
+    }
+
+    return CafeDetailEntity(
+      id: id,
+      name: name,
+      address: address,
+      imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
+      description: null,
+      phoneNumber: phoneNumber,
+      latitude: latitude,
+      longitude: longitude,
+      createdAt: createdAt ?? DateTime.now(),
+      // Pricing
+      billingModel: parsedBilling,
+      basePrice: basePrice ?? 0,
+      tieredBlockMinutes: tieredBlockMinutes,
+      depositPercentage: depositPercentage,
+      isPricingLocked: isPricingLocked,
+      hasSePayConfigured: hasSePayConfigured,
+      // Capacity
+      totalSeats: totalSeats,
+    );
+  }
 }

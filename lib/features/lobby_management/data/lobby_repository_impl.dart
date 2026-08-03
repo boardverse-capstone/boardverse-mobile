@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 
+import 'package:boardverse_mobile/core/cache/cacheable_repository.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../domain/entities/lobby_entity.dart';
@@ -12,12 +13,18 @@ import 'datasources/base/lobby_remote_datasource.dart';
 import 'realtime/lobby_realtime_service.dart';
 
 /// Implementation của [LobbyRepository].
-class LobbyRepositoryImpl implements LobbyRepository {
+///
+/// Extends [CacheableRepository] để dedupe `getHostedLobbies` và
+/// `getJoinedLobbies` — 2 endpoint này bị gọi từ cả
+/// `MyLobbiesCubit.load()` (LobbyHubPage tab "Phòng chờ") lẫn
+/// `BookingHistoryCubit.loadAll()` (BookingsPage) trong cùng session.
+class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository {
   LobbyRepositoryImpl({
     required LobbyRemoteDatasource remoteDatasource,
     required LobbyRealtimeService realtimeService,
   })  : _remote = remoteDatasource,
-        _realtime = realtimeService;
+        _realtime = realtimeService,
+        super(defaultTtl: const Duration(seconds: 30));
 
   final LobbyRemoteDatasource _remote;
   final LobbyRealtimeService _realtime;
@@ -268,12 +275,20 @@ class LobbyRepositoryImpl implements LobbyRepository {
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies() {
-    return _remote.getHostedLobbies();
+    // Dedupe: cùng response có thể được dùng bởi MyLobbiesCubit và
+    // BookingHistoryCubit trong vòng 30s.
+    return cache<Either<Failure, List<LobbyEntity>>>(
+      'lobbies-hosted',
+      () => _remote.getHostedLobbies(),
+    );
   }
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies() {
-    return _remote.getJoinedLobbies();
+    return cache<Either<Failure, List<LobbyEntity>>>(
+      'lobbies-joined',
+      () => _remote.getJoinedLobbies(),
+    );
   }
 
   // ─── Lobby Social ─────────────────────────────────────────────────

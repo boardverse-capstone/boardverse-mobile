@@ -110,8 +110,8 @@ class AppTypography {
         color: textColor,
       ),
       bodySmall: baseTextTheme.bodySmall?.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0.4,
         color: secondaryColor,
       ),
@@ -132,8 +132,8 @@ class AppTypography {
         color: textColor,
       ),
       labelSmall: baseTextTheme.labelSmall?.copyWith(
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
         color: secondaryColor,
       ),

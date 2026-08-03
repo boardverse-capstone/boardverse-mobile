@@ -66,10 +66,11 @@ class AppColors {
   static const Color surfaceElevatedDark = Color(0xFF2D2D2D);
   static const Color textSecondaryDark = Color(0xFFB3B3B3);
 
-  /// Text colors (Light mode)
+  /// Text colors (Light mode) — tăng contrast cho bodySmall/labelSmall
+  /// để text phụ dễ đọc hơn trên cả light & dark mode.
   static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF757575);
-  static const Color textTertiary = Color(0xFF9E9E9E);
+  static const Color textSecondary = Color(0xFF5C5C5C);
+  static const Color textTertiary = Color(0xFF757575);
   static const Color textDisabled = Color(0xFFBDBDBD);
 
   /// Border & Divider

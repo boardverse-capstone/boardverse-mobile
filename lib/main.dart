@@ -11,6 +11,7 @@ import 'core/widgets/game_loading_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/auth/presentation/pages/login_page.dart';
+import 'features/booking_payment/presentation/cubit/booking_history_cubit.dart';
 import 'features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
@@ -56,6 +57,9 @@ class BoardVerseApp extends StatelessWidget {
         BlocProvider<MyLobbiesCubit>(create: (_) => sl<MyLobbiesCubit>()),
         BlocProvider<BookingResultCubit>(
           create: (_) => sl<BookingResultCubit>(),
+        ),
+        BlocProvider<BookingHistoryCubit>(
+          create: (_) => sl<BookingHistoryCubit>(),
         ),
         BlocProvider<TournamentListCubit>(
           create: (_) => sl<TournamentListCubit>(),

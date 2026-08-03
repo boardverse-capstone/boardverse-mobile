@@ -18,10 +18,10 @@ class AppColorsDark {
   static const Color surfaceElevated = Color(0xFF2D2D2D);
   static const Color surfaceElevatedHigh = Color(0xFF383838);
 
-  /// Text colors (Dark mode)
+  /// Text colors (Dark mode) — tăng độ sáng cho text phụ để dễ đọc.
   static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB3B3B3);
-  static const Color textTertiary = Color(0xFF808080);
+  static const Color textSecondary = Color(0xFFD0D0D0);
+  static const Color textTertiary = Color(0xFF9E9E9E);
   static const Color textDisabled = Color(0xFF595959);
 
   /// Border & Divider (Dark)

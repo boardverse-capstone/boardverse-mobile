@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/game_category_entity.dart';
 
 /// Search bar widget for board game search
@@ -43,12 +45,9 @@ class _GameSearchBarState extends State<GameSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Search Text Field
         TextField(
           controller: _controller,
           decoration: InputDecoration(
@@ -65,26 +64,34 @@ class _GameSearchBarState extends State<GameSearchBar> {
                   )
                 : null,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.radiusSmAll,
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadius.radiusSmAll,
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.radiusSmAll,
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: theme.colorScheme.surfaceContainerHighest,
           ),
           onChanged: widget.onQueryChanged,
           onSubmitted: (_) => widget.onSearch?.call(),
         ),
-        
-        const SizedBox(height: 12),
-        
-        // Category Filter Chips
         if (widget.categories.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
           SizedBox(
-            height: 40,
+            height: AppSpacing.xxxl,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: widget.categories.length + 1,
               separatorBuilder: (BuildContext context, int index) =>
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.xs),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return FilterChip(
@@ -96,13 +103,12 @@ class _GameSearchBarState extends State<GameSearchBar> {
                     },
                   );
                 }
-                
                 final category = widget.categories[index - 1];
                 return FilterChip(
                   label: Text(category.name),
                   avatar: Icon(
                     _getCategoryIcon(category.iconName),
-                    size: 18,
+                    size: AppSpacing.md + 2,
                   ),
                   selected: _selectedCategory == category.id,
                   onSelected: (selected) {

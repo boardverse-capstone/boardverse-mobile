@@ -349,7 +349,7 @@ void setupDependencies() {
       repository: sl<BookingRepository>(),
     ),
   );
-  sl.registerFactory<BookingHistoryCubit>(
+  sl.registerLazySingleton<BookingHistoryCubit>(
     () => BookingHistoryCubit(repository: sl<BookingRepository>()),
   );
 

@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_category_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
+import '../widgets/animated_section_header.dart';
 import '../widgets/board_game_card.dart';
+import '../widgets/empty_board_game_illustration.dart';
+import '../widgets/filter_bottom_sheet.dart';
+import '../widgets/game_skeleton.dart';
+import '../widgets/hero_banner_carousel.dart';
+import '../widgets/quick_filter_chip.dart';
 import 'board_game_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
   final MatchmakingCubit matchmakingCubit;
 
-  const SearchPage({
-    super.key,
-    required this.matchmakingCubit,
-  });
+  const SearchPage({super.key, required this.matchmakingCubit});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -26,7 +32,6 @@ class _SearchPageState extends State<SearchPage> {
   int? _minPlayers;
   int? _maxPlayers;
 
-  // ─── New filter state (multi-select API mới) ───────────────────────
   final Set<String> _selectedCategoryIds = <String>{};
   final Set<DurationRange> _selectedDurationRanges = <DurationRange>{};
   List<GameCategoryEntity> _availableCategories = const [];
@@ -64,279 +69,346 @@ class _SearchPageState extends State<SearchPage> {
     widget.matchmakingCubit.loadCategories();
   }
 
+  Future<void> _refresh() async {
+    widget.matchmakingCubit.searchGames(query: _searchController.text);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+  }
+
   void _showFilterDrawer(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _FilterBottomSheet(
-        selectedCategory: _selectedCategory,
-        minPlayers: _minPlayers,
-        maxPlayers: _maxPlayers,
-        categories: _categories,
-        selectedCategoryIds: _selectedCategoryIds,
-        availableCategories: _availableCategories,
-        selectedDurationRanges: _selectedDurationRanges,
-        onApply: (category, minP, maxP, categoryIds, durationRanges) {
-          setState(() {
-            _selectedCategory = category;
-            _minPlayers = minP;
-            _maxPlayers = maxP;
-            _selectedCategoryIds
-              ..clear()
-              ..addAll(categoryIds);
-            _selectedDurationRanges
-              ..clear()
-              ..addAll(durationRanges);
-          });
-          // Dùng API paged mới — hỗ trợ multi-select categoryIds +
-          // durationRanges. Khi `_selectedCategoryIds.isEmpty` và
-          // `_selectedDurationRanges.isEmpty` thì fallback về
-          // `searchGames` cũ để tránh gửi filter rỗng.
-          if (_selectedCategoryIds.isNotEmpty ||
-              _selectedDurationRanges.isNotEmpty) {
-            widget.matchmakingCubit.searchWithFilterPaged(
-              query: _searchController.text,
-              categoryIds: _selectedCategoryIds.toList(),
-              playerCount: minP,
-              durationRanges: _selectedDurationRanges.toList(),
-            );
-          } else {
-            widget.matchmakingCubit.searchGames(
-              query: _searchController.text,
-              category: category,
-              minPlayers: minP,
-              maxPlayers: maxP,
-            );
-          }
-          Navigator.pop(context);
-        },
-      ),
+    FilterBottomSheet.show(
+      context,
+      selectedCategory: _selectedCategory,
+      minPlayers: _minPlayers,
+      maxPlayers: _maxPlayers,
+      categories: _categories,
+      selectedCategoryIds: _selectedCategoryIds,
+      availableCategories: _availableCategories,
+      selectedDurationRanges: _selectedDurationRanges,
+      onApply: (category, minP, maxP, categoryIds, durationRanges) {
+        setState(() {
+          _selectedCategory = category;
+          _minPlayers = minP;
+          _maxPlayers = maxP;
+          _selectedCategoryIds
+            ..clear()
+            ..addAll(categoryIds);
+          _selectedDurationRanges
+            ..clear()
+            ..addAll(durationRanges);
+        });
+        if (_selectedCategoryIds.isNotEmpty ||
+            _selectedDurationRanges.isNotEmpty) {
+          widget.matchmakingCubit.searchWithFilterPaged(
+            query: _searchController.text,
+            categoryIds: _selectedCategoryIds.toList(),
+            playerCount: minP,
+            durationRanges: _selectedDurationRanges.toList(),
+          );
+        } else {
+          widget.matchmakingCubit.searchGames(
+            query: _searchController.text,
+            category: category,
+            minPlayers: minP,
+            maxPlayers: maxP,
+          );
+        }
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return BlocProvider.value(
       value: widget.matchmakingCubit,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Tìm kiếm Board Game'),
-        ),
         body: BlocListener<MatchmakingCubit, MatchmakingState>(
           listenWhen: (prev, curr) =>
-              curr is MatchmakingSearchResults &&
-              curr.categories.isNotEmpty,
+              curr is MatchmakingSearchResults && curr.categories.isNotEmpty,
           listener: (context, state) {
             if (state is MatchmakingSearchResults) {
               setState(() => _availableCategories = state.categories);
             }
           },
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Tìm kiếm game...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    widget.matchmakingCubit.searchGames();
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                        ),
-                        onSubmitted: (value) {
-                          widget.matchmakingCubit.searchGames(
-                            query: value,
-                            category: _selectedCategory,
-                            minPlayers: _minPlayers,
-                            maxPlayers: _maxPlayers,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: () => _showFilterDrawer(context),
-                      icon: Badge(
-                        isLabelVisible: _selectedCategory != null ||
-                            _minPlayers != null ||
-                            _selectedCategoryIds.isNotEmpty ||
-                            _selectedDurationRanges.isNotEmpty,
-                        child: const Icon(Icons.tune),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_selectedCategory != null ||
-                  _minPlayers != null ||
-                  _selectedCategoryIds.isNotEmpty ||
-                  _selectedDurationRanges.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      if (_selectedCategory != null)
-                        Chip(
-                          label: Text(_selectedCategory!),
-                          onDeleted: () {
-                            setState(() => _selectedCategory = null);
-                            widget.matchmakingCubit.searchGames(
-                              query: _searchController.text,
-                            );
-                          },
-                        ),
-                      if (_minPlayers != null)
-                        Chip(
-                          label: Text('$_minPlayers+ người'),
-                          onDeleted: () {
-                            setState(() {
-                              _minPlayers = null;
-                              _maxPlayers = null;
-                            });
-                            widget.matchmakingCubit.searchGames(
-                              query: _searchController.text,
-                            );
-                          },
-                        ),
-                      for (final id in _selectedCategoryIds)
-                        Chip(
-                          label: Text(_availableCategories
-                              .firstWhere(
-                                (c) => c.id == id,
-                                orElse: () => GameCategoryEntity(
-                                    id: id, name: id),
-                              )
-                              .name),
-                          onDeleted: () {
-                            setState(() => _selectedCategoryIds.remove(id));
-                            _applyPagedSearch();
-                          },
-                        ),
-                      for (final range in _selectedDurationRanges)
-                        Chip(
-                          label: Text(_durationLabel(range)),
-                          onDeleted: () {
-                            setState(
-                                () => _selectedDurationRanges.remove(range));
-                            _applyPagedSearch();
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
-                  builder: (context, state) {
-                    if (state is MatchmakingLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+          child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
+            builder: (context, state) {
+              final games = state is MatchmakingSearchResults
+                  ? state.games
+                  : <BoardGameEntity>[];
+              // Lấy top 5 game nổi bật (rating cao nhất hoặc đầu list)
+              final featured = _pickFeaturedGames(games);
 
-                    if (state is MatchmakingFailure) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(state.message),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              onPressed: () =>
-                                  widget.matchmakingCubit.searchGames(),
-                              child: const Text('Thử lại'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    if (state is MatchmakingSearchResults) {
-                      if (state.games.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.outline,
+              return Column(
+                children: [
+                  Padding(
+                    padding: AppSpacing.paddingAllMd,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm game...',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        widget.matchmakingCubit.searchGames();
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: AppRadius.radiusSmAll,
+                                borderSide: BorderSide.none,
                               ),
-                              const SizedBox(height: 16),
-                              const Text('Không tìm thấy game phù hợp'),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: state.games.length,
-                        itemBuilder: (context, index) {
-                          final game = state.games[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: BoardGameCard(
-                              game: game,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      BoardGameDetailPage(
-                                    gameId: game.id,
-                                    matchmakingCubit: widget.matchmakingCubit,
-                                  ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: AppRadius.radiusSmAll,
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: AppRadius.radiusSmAll,
+                                borderSide: BorderSide(
+                                  color: theme.colorScheme.primary,
+                                  width: 2,
                                 ),
-                              ).then((_) => _loadGames()),
+                              ),
+                              filled: true,
                             ),
-                          );
-                        },
+                            onSubmitted: (value) {
+                              widget.matchmakingCubit.searchGames(
+                                query: value,
+                                category: _selectedCategory,
+                                minPlayers: _minPlayers,
+                                maxPlayers: _maxPlayers,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Material(
+                          color: theme.colorScheme.primaryContainer,
+                          borderRadius: AppRadius.radiusSmAll,
+                          child: InkWell(
+                            borderRadius: AppRadius.radiusSmAll,
+                            onTap: () => _showFilterDrawer(context),
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                              child: Badge(
+                                backgroundColor: theme.colorScheme.primary,
+                                isLabelVisible:
+                                    _selectedCategory != null ||
+                                    _minPlayers != null ||
+                                    _selectedCategoryIds.isNotEmpty ||
+                                    _selectedDurationRanges.isNotEmpty,
+                                child: Icon(
+                                  Icons.tune,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Quick filter chips pill-style (luôn hiển thị)
+                  _QuickFilterRow(
+                    selectedCategory: _selectedCategory,
+                    selectedCategoryIds: _selectedCategoryIds,
+                    selectedDurationRanges: _selectedDurationRanges,
+                    availableCategories: _availableCategories,
+                    onCategoryTap: (cat) {
+                      setState(() {
+                        _selectedCategory = _selectedCategory == cat
+                            ? null
+                            : cat;
+                      });
+                      widget.matchmakingCubit.searchGames(
+                        query: _searchController.text,
+                        category: _selectedCategory,
                       );
-                    }
-
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ),
-            ],
+                    },
+                    onCategoryIdTap: (id) {
+                      setState(() {
+                        if (_selectedCategoryIds.contains(id)) {
+                          _selectedCategoryIds.remove(id);
+                        } else {
+                          _selectedCategoryIds.add(id);
+                        }
+                      });
+                      _applyPagedSearch();
+                    },
+                    onDurationTap: (range) {
+                      setState(() {
+                        if (_selectedDurationRanges.contains(range)) {
+                          _selectedDurationRanges.remove(range);
+                        } else {
+                          _selectedDurationRanges.add(range);
+                        }
+                      });
+                      _applyPagedSearch();
+                    },
+                  ),
+                  if (_selectedCategory != null ||
+                      _minPlayers != null ||
+                      _selectedCategoryIds.isNotEmpty ||
+                      _selectedDurationRanges.isNotEmpty)
+                    _ActiveFilterBar(
+                      selectedCategory: _selectedCategory,
+                      minPlayers: _minPlayers,
+                      selectedCategoryIds: _selectedCategoryIds,
+                      availableCategories: _availableCategories,
+                      selectedDurationRanges: _selectedDurationRanges,
+                      onRemoveCategory: () {
+                        setState(() => _selectedCategory = null);
+                        widget.matchmakingCubit.searchGames(
+                          query: _searchController.text,
+                        );
+                      },
+                      onRemovePlayerCount: () {
+                        setState(() {
+                          _minPlayers = null;
+                          _maxPlayers = null;
+                        });
+                        widget.matchmakingCubit.searchGames(
+                          query: _searchController.text,
+                        );
+                      },
+                      onRemoveCategoryId: (id) {
+                        setState(() => _selectedCategoryIds.remove(id));
+                        _applyPagedSearch();
+                      },
+                      onRemoveDuration: (range) {
+                        setState(() => _selectedDurationRanges.remove(range));
+                        _applyPagedSearch();
+                      },
+                    ),
+                  Expanded(child: _buildResultsBody(context, state, featured)),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  String _durationLabel(DurationRange range) {
-    switch (range) {
-      case DurationRange.under30:
-        return '< 30 phút';
-      case DurationRange.thirtyToSixty:
-        return '30-60 phút';
-      case DurationRange.over60:
-        return '> 60 phút';
+  /// Chọn tối đa 5 game nổi bật để hiển thị trên Hero Carousel.
+  /// Ưu tiên: rating >= 4.5, sau đó đến category "Party", còn lại lấy
+  /// theo thứ tự trong list. Nếu không có game nào thì trả empty.
+  List<BoardGameEntity> _pickFeaturedGames(List<BoardGameEntity> games) {
+    if (games.isEmpty) return const [];
+    final sorted = [...games]
+      ..sort((a, b) {
+        final aScore =
+            (a.rating >= 4.5 ? 2 : 0) + (a.category == 'Party' ? 1 : 0);
+        final bScore =
+            (b.rating >= 4.5 ? 2 : 0) + (b.category == 'Party' ? 1 : 0);
+        return bScore.compareTo(aScore);
+      });
+    return sorted.take(5).toList();
+  }
+
+  Widget _buildResultsBody(
+    BuildContext context,
+    MatchmakingState state,
+    List<BoardGameEntity> featured,
+  ) {
+    if (state is MatchmakingLoading) {
+      return const GameSkeletonList();
     }
+    if (state is MatchmakingFailure) {
+      return _ErrorRetryView(
+        message: state.message,
+        onRetry: () => widget.matchmakingCubit.searchGames(),
+      );
+    }
+    if (state is MatchmakingSearchResults) {
+      if (state.games.isEmpty) {
+        return EmptyBoardGameState(
+          title: 'Không tìm thấy game phù hợp',
+          message: 'Thử thay đổi bộ lọc hoặc từ khoá tìm kiếm nhé.',
+          actionLabel: 'Đặt lại bộ lọc',
+          actionIcon: Icons.refresh,
+          onAction: () {
+            _searchController.clear();
+            _selectedCategory = null;
+            _minPlayers = null;
+            _maxPlayers = null;
+            _selectedCategoryIds.clear();
+            _selectedDurationRanges.clear();
+            widget.matchmakingCubit.searchGames();
+          },
+        );
+      }
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          slivers: [
+            // Hero carousel (chỉ hiện khi có featured games)
+            if (featured.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: HeroBannerCarousel(
+                  featuredGames: featured,
+                  onTapGame: (game) => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BoardGameDetailPage(
+                        gameId: game.id,
+                        matchmakingCubit: widget.matchmakingCubit,
+                      ),
+                    ),
+                  ).then((_) => _loadGames()),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              SliverToBoxAdapter(
+                child: AnimatedSectionHeader(
+                  title: 'Tất cả board game',
+                  subtitle: '${state.games.length} game sẵn sàng',
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+            ],
+            SliverPadding(
+              padding: AppSpacing.paddingAllMd,
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: AppSpacing.md,
+                  crossAxisSpacing: AppSpacing.md,
+                  // Tỉ lệ card khớp với AspectRatio 4/5 bên trong BoardGameCard
+                  childAspectRatio: 4 / 5,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final game = state.games[index];
+                  return BoardGameCard(
+                    game: game,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BoardGameDetailPage(
+                          gameId: game.id,
+                          matchmakingCubit: widget.matchmakingCubit,
+                        ),
+                      ),
+                    ).then((_) => _loadGames()),
+                  );
+                }, childCount: state.games.length),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   void _applyPagedSearch() {
-    if (_selectedCategoryIds.isNotEmpty ||
-        _selectedDurationRanges.isNotEmpty) {
+    if (_selectedCategoryIds.isNotEmpty || _selectedDurationRanges.isNotEmpty) {
       widget.matchmakingCubit.searchWithFilterPaged(
         query: _searchController.text,
         categoryIds: _selectedCategoryIds.toList(),
@@ -348,209 +420,29 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
-class _FilterBottomSheet extends StatefulWidget {
+/// Thanh chip filter đang active — dễ thấy và dễ xoá.
+class _ActiveFilterBar extends StatelessWidget {
   final String? selectedCategory;
   final int? minPlayers;
-  final int? maxPlayers;
-  final List<String> categories;
   final Set<String> selectedCategoryIds;
   final List<GameCategoryEntity> availableCategories;
   final Set<DurationRange> selectedDurationRanges;
-  final Function(
-    String?,
-    int?,
-    int?,
-    Set<String> categoryIds,
-    Set<DurationRange> durationRanges,
-  ) onApply;
+  final VoidCallback onRemoveCategory;
+  final VoidCallback onRemovePlayerCount;
+  final void Function(String id) onRemoveCategoryId;
+  final void Function(DurationRange range) onRemoveDuration;
 
-  const _FilterBottomSheet({
-    this.selectedCategory,
-    this.minPlayers,
-    this.maxPlayers,
-    required this.categories,
+  const _ActiveFilterBar({
+    required this.selectedCategory,
+    required this.minPlayers,
     required this.selectedCategoryIds,
     required this.availableCategories,
     required this.selectedDurationRanges,
-    required this.onApply,
+    required this.onRemoveCategory,
+    required this.onRemovePlayerCount,
+    required this.onRemoveCategoryId,
+    required this.onRemoveDuration,
   });
-
-  @override
-  State<_FilterBottomSheet> createState() => _FilterBottomSheetState();
-}
-
-class _FilterBottomSheetState extends State<_FilterBottomSheet> {
-  late String? _category;
-  late RangeValues _playerRange;
-  late Set<String> _categoryIds;
-  late Set<DurationRange> _durationRanges;
-
-  @override
-  void initState() {
-    super.initState();
-    _category = widget.selectedCategory;
-    _playerRange = RangeValues(
-      (widget.minPlayers ?? 2).toDouble(),
-      (widget.maxPlayers ?? 20).toDouble(),
-    );
-    _categoryIds = {...widget.selectedCategoryIds};
-    _durationRanges = {...widget.selectedDurationRanges};
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Bộ lọc',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton(
-                onPressed: () => widget.onApply(
-                  null,
-                  null,
-                  null,
-                  <String>{},
-                  <DurationRange>{},
-                ),
-                child: const Text('Xóa lọc'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Thể loại',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.categories.map((cat) {
-              final isSelected = _category == cat;
-              return FilterChip(
-                label: Text(cat),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    _category = selected ? cat : null;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          // ─── Multi-select categories từ backend ─────────────────────
-          if (widget.availableCategories.isNotEmpty) ...[
-            Text(
-              'Thể loại chi tiết (multi-select)',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.availableCategories.map((cat) {
-                final isSelected = _categoryIds.contains(cat.id);
-                return FilterChip(
-                  label: Text('${cat.name} (${cat.gameCount})'),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        _categoryIds.add(cat.id);
-                      } else {
-                        _categoryIds.remove(cat.id);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-          ],
-          // ─── Multi-select thời gian chơi ────────────────────────────
-          Text(
-            'Thời gian (multi-select)',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: DurationRange.values.map((range) {
-              final isSelected = _durationRanges.contains(range);
-              return FilterChip(
-                label: Text(_durationLabel(range)),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _durationRanges.add(range);
-                    } else {
-                      _durationRanges.remove(range);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Số người chơi: ${_playerRange.start.toInt()} - ${_playerRange.end.toInt()}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          RangeSlider(
-            values: _playerRange,
-            min: 2,
-            max: 20,
-            divisions: 18,
-            labels: RangeLabels(
-              _playerRange.start.toInt().toString(),
-              _playerRange.end.toInt().toString(),
-            ),
-            onChanged: (values) {
-              setState(() => _playerRange = values);
-            },
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => widget.onApply(
-                _category,
-                _playerRange.start.toInt(),
-                _playerRange.end.toInt(),
-                _categoryIds,
-                _durationRanges,
-              ),
-              child: const Text('Áp dụng'),
-            ),
-          ),
-          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-        ],
-      ),
-    );
-  }
 
   String _durationLabel(DurationRange range) {
     switch (range) {
@@ -561,5 +453,183 @@ class _FilterBottomSheetState extends State<_FilterBottomSheet> {
       case DurationRange.over60:
         return '> 60 phút';
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: AppSpacing.xxxl,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: AppSpacing.paddingHorizontalMd,
+        children: [
+          if (selectedCategory != null)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: InputChip(
+                label: Text(selectedCategory!),
+                onDeleted: onRemoveCategory,
+              ),
+            ),
+          if (minPlayers != null)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: InputChip(
+                label: Text('$minPlayers+ người'),
+                onDeleted: onRemovePlayerCount,
+              ),
+            ),
+          for (final id in selectedCategoryIds)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: InputChip(
+                label: Text(
+                  availableCategories
+                      .firstWhere(
+                        (c) => c.id == id,
+                        orElse: () => GameCategoryEntity(id: id, name: id),
+                      )
+                      .name,
+                ),
+                onDeleted: () => onRemoveCategoryId(id),
+              ),
+            ),
+          for (final range in selectedDurationRanges)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: InputChip(
+                label: Text(_durationLabel(range)),
+                onDeleted: () => onRemoveDuration(range),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickFilterRow extends StatelessWidget {
+  final String? selectedCategory;
+  final Set<String> selectedCategoryIds;
+  final Set<DurationRange> selectedDurationRanges;
+  final List<GameCategoryEntity> availableCategories;
+  final ValueChanged<String> onCategoryTap;
+  final ValueChanged<String> onCategoryIdTap;
+  final ValueChanged<DurationRange> onDurationTap;
+
+  const _QuickFilterRow({
+    required this.selectedCategory,
+    required this.selectedCategoryIds,
+    required this.selectedDurationRanges,
+    required this.availableCategories,
+    required this.onCategoryTap,
+    required this.onCategoryIdTap,
+    required this.onDurationTap,
+  });
+
+  String _durationLabel(DurationRange range) {
+    switch (range) {
+      case DurationRange.under30:
+        return '< 30 phút';
+      case DurationRange.thirtyToSixty:
+        return '30-60 phút';
+      case DurationRange.over60:
+        return '> 60 phút';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <QuickFilterItem>[];
+
+    items.add(
+      QuickFilterItem(
+        label: 'Party',
+        icon: Icons.celebration,
+        selected: selectedCategory == 'Party',
+        onTap: () => onCategoryTap('Party'),
+      ),
+    );
+    items.add(
+      QuickFilterItem(
+        label: 'Strategy',
+        icon: Icons.psychology,
+        selected: selectedCategory == 'Strategy',
+        onTap: () => onCategoryTap('Strategy'),
+      ),
+    );
+    items.add(
+      QuickFilterItem(
+        label: 'Co-op',
+        icon: Icons.handshake,
+        selected: selectedCategory == 'Cooperative',
+        onTap: () => onCategoryTap('Cooperative'),
+      ),
+    );
+
+    for (final range in DurationRange.values) {
+      items.add(
+        QuickFilterItem(
+          label: _durationLabel(range),
+          icon: Icons.timer_outlined,
+          selected: selectedDurationRanges.contains(range),
+          onTap: () => onDurationTap(range),
+        ),
+      );
+    }
+
+    for (final cat in availableCategories.take(3)) {
+      items.add(
+        QuickFilterItem(
+          label: cat.name,
+          icon: Icons.category_outlined,
+          selected: selectedCategoryIds.contains(cat.id),
+          onTap: () => onCategoryIdTap(cat.id),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: QuickFilterChipBar(items: items),
+    );
+  }
+}
+
+class _ErrorRetryView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorRetryView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: AppSpacing.paddingAllXl,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: AppSpacing.huge + AppSpacing.xs,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

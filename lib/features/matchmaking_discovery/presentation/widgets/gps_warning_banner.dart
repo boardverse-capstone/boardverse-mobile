@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+
 class GpsWarningBanner extends StatelessWidget {
   final VoidCallback? onEnableGps;
   final VoidCallback? onEnterManually;
@@ -15,12 +19,12 @@ class GpsWarningBanner extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: AppSpacing.paddingAllMd,
+      padding: AppSpacing.paddingAllMd,
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade300),
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: AppRadius.radiusSmAll,
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,45 +33,47 @@ class GpsWarningBanner extends StatelessWidget {
             children: [
               Icon(
                 Icons.location_off,
-                color: Colors.amber.shade800,
+                color: AppColors.warningDark,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   'GPS đang tắt',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.warningDark,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Bật GPS để xem các quán cafe gần bạn hoặc nhập vị trí thủ công.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.amber.shade900,
+              color: AppColors.warningDark,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: onEnableGps,
-                  icon: const Icon(Icons.gps_fixed, size: 18),
+                  icon: const Icon(Icons.gps_fixed, size: AppSpacing.md + 2),
                   label: const Text('Bật GPS'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.amber.shade800,
+                    backgroundColor: AppColors.warning,
+                    foregroundColor: AppColors.white,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onEnterManually,
-                  icon: const Icon(Icons.edit_location_alt, size: 18),
+                  icon: const Icon(Icons.edit_location_alt,
+                      size: AppSpacing.md + 2),
                   label: const Text('Nhập tay'),
                 ),
               ),

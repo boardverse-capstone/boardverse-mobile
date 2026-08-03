@@ -33,9 +33,18 @@ class _TournamentPageState extends State<TournamentPage> {
     super.initState();
     // `PostFrameCallback` đảm bảo `BlocProvider` cha (app root) đã sẵn sàng
     // trước khi `read<TournamentListCubit>()` chạy.
+    //
+    // Thêm guard `state is TournamentListInitial`: nếu cubit đã có data
+    // (đã load trước đó, ví dụ user đã mở tab Tournament trước đó rồi
+    // switch đi switch lại) thì không fetch lại. LazyIndexedStack đảm
+    // bảo `initState` chỉ chạy 1 lần khi tab lần đầu được mount, nhưng
+    // guard này vẫn an toàn nếu widget được rebuild lại vì lý do khác.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<TournamentListCubit>().loadTournaments();
+      final cubit = context.read<TournamentListCubit>();
+      if (cubit.state is TournamentListInitial) {
+        cubit.loadTournaments();
+      }
     });
   }
 

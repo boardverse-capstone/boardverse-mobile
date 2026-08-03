@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../entities/board_game_detail_entity.dart';
 import '../entities/board_game_entity.dart';
+import '../entities/cafe_detail_entity.dart';
 import '../entities/cafe_entity.dart';
 import '../entities/game_play_configuration_entity.dart';
 import '../entities/game_play_navigation_entity.dart';
@@ -99,6 +100,9 @@ abstract class MatchmakingRepository {
 
   /// Lấy thông tin quán theo ID.
   Future<Either<Failure, CafeEntity?>> getCafeById(String id);
+
+  /// Lấy chi tiết quán theo ID — `GET /api/cafes/{id}`
+  Future<Either<Failure, CafeDetailEntity?>> getCafeDetail(String id);
 
   /// Lấy games có sẵn tại quán (legacy, dùng cho Mock).
   Future<Either<Failure, List<BoardGameEntity>>> getCafeGames(String cafeId);

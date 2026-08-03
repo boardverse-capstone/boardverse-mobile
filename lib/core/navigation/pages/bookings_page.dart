@@ -15,7 +15,12 @@ import '../widgets/booking_pending_resume_helper.dart';
 ///
 /// Đã chuyển từ placeholder sang tích hợp history thật (real API) kèm
 /// resume flow thủ công (user bấm banner thay vì auto-navigate).
-class BookingsPage extends StatelessWidget {
+///
+/// Lazy load: chỉ gọi `loadAll()` lần đầu tiên tab này được mở (qua
+/// `LazyIndexedStack`). Các lần sau, switch đi switch lại giữa các tab,
+/// cubit đã có state → không fetch lại. Pull-to-refresh hoặc double-tap
+/// mới trigger re-fetch (qua `BookingRefreshSignal`).
+class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
 
   static void requestRefresh(BuildContext context) {
@@ -23,9 +28,25 @@ class BookingsPage extends StatelessWidget {
   }
 
   @override
+  State<BookingsPage> createState() => _BookingsPageState();
+}
+
+class _BookingsPageState extends State<BookingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Lazy activation: chỉ fetch khi tab được build lần đầu (qua
+    // LazyIndexedStack). Nếu cubit đã có data (đã load trước đó), bỏ qua.
+    final cubit = sl<BookingHistoryCubit>();
+    if (cubit.state is BookingHistoryInitial) {
+      cubit.loadAll();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<BookingHistoryCubit>(
-      create: (_) => sl<BookingHistoryCubit>()..loadAll(),
+    return BlocProvider<BookingHistoryCubit>.value(
+      value: sl<BookingHistoryCubit>(),
       child: const SafeArea(child: BookingsTabContent()),
     );
   }

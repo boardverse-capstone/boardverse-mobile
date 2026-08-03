@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../booking_payment/presentation/pages/booking_summary_page.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
@@ -270,24 +273,29 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
+            preferredSize: const Size.fromHeight(AppSpacing.xxxl + AppSpacing.xs),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
               child: Row(
                 children: [
                   Icon(
                     Icons.extension,
-                    size: 18,
+                    size: AppSpacing.md + 2,
                     color: theme.colorScheme.primary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.xs - 2),
                   Expanded(
                     child: Text(
                       widget.game.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -326,7 +334,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
               return RefreshIndicator(
                 onRefresh: _refresh,
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   children: [
                     if (!_hasUpdatedLocation)
                       _LocationBanner(
@@ -352,17 +360,27 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                       )
                     else ...[
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                        ),
                         child: Text(
                           '${cafes.length} quán phù hợp',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                       for (final cafe in cafes)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.sm,
+                            0,
+                            AppSpacing.sm,
+                            AppSpacing.xs,
+                          ),
                           child: _SelectableCafeCard(
                             cafe: cafe,
                             onTap: () => _openConfigWithCafe(cafe),
@@ -371,11 +389,16 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                     ],
                     if (hasSuggestions)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xl,
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                        ),
                         child: Text(
                           'Gợi ý game khác cùng thể loại',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -415,21 +438,21 @@ class _SelectableCafeCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSmAll),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.radiusSmAll,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(AppSpacing.sm + 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.local_cafe,
                 color: theme.colorScheme.primary,
-                size: 28,
+                size: AppSpacing.xl + AppSpacing.xs,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,11 +462,11 @@ class _SelectableCafeCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (cafe.address.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         cafe.address,
                         maxLines: 2,
@@ -453,10 +476,10 @@ class _SelectableCafeCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.xs),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xxs,
                       children: [
                         _Chip(
                           icon: Icons.location_on,
@@ -468,8 +491,8 @@ class _SelectableCafeCard extends StatelessWidget {
                             icon: Icons.hourglass_bottom,
                             label:
                                 'Chờ game ~${cafe.estimatedWaitMinutes} phút',
-                            color: Colors.orange.shade100,
-                            textColor: Colors.orange.shade900,
+                            color: AppColors.warning.withValues(alpha: 0.12),
+                            textColor: AppColors.warningDark,
                           ),
                         if (cafe.totalTableCount > 0)
                           _Chip(
@@ -518,21 +541,21 @@ class _Chip extends StatelessWidget {
     final bg = color ?? theme.colorScheme.surfaceContainerHighest;
     final fg = textColor ?? theme.colorScheme.onSurfaceVariant;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.radiusXsAll,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 4),
+          Icon(icon, size: AppSpacing.sm, color: fg),
+          const SizedBox(width: AppSpacing.xxs),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
               color: fg,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -558,20 +581,25 @@ class _LocationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        0,
+      ),
+      padding: AppSpacing.paddingAllSm,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.sm - 2),
       ),
       child: Row(
         children: [
           Icon(
             hasManualLocation ? Icons.edit_location_alt : Icons.my_location,
             color: theme.colorScheme.primary,
-            size: 20,
+            size: AppSpacing.lg,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
               hasManualLocation
@@ -585,19 +613,21 @@ class _LocationBanner extends StatelessWidget {
               onPressed: isUpdating ? null : onClearManualLocation,
               child: const Text('Dùng vị trí đã lưu'),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           FilledButton.tonal(
             onPressed: isUpdating ? null : onRefreshLocation,
             style: FilledButton.styleFrom(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs - 2,
+              ),
               visualDensity: VisualDensity.compact,
               textStyle: theme.textTheme.labelMedium,
             ),
             child: isUpdating
                 ? const SizedBox(
-                    width: 14,
-                    height: 14,
+                    width: AppSpacing.sm + 2,
+                    height: AppSpacing.sm + 2,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Cập nhật'),
@@ -616,17 +646,22 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Icon(
             Icons.store_mall_directory_outlined,
-            size: 56,
+            size: AppSpacing.huge + AppSpacing.xs,
             color: theme.colorScheme.outline,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -655,28 +690,28 @@ class _ErrorRetryView extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.paddingAllXl,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.cloud_off,
-              size: 56,
+              size: AppSpacing.huge + AppSpacing.xs,
               color: theme.colorScheme.error,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               message,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
               label: const Text('Thử lại'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             TextButton.icon(
               onPressed: () => onUpdateLocation(),
               icon: const Icon(Icons.my_location),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../lobby_management/presentation/pages/lobby_page.dart';
 import '../cubit/matchmaking_cubit.dart';
@@ -9,6 +11,12 @@ import '../cubit/matchmaking_state.dart';
 import 'lobby_cafe_selection_page.dart';
 import '../../domain/entities/board_game_entity.dart';
 
+/// Trang cấu hình lobby — đã được redesign theo stepper pattern:
+/// 1. Cafe + game (header tóm tắt)
+/// 2. Thời gian (ngày + giờ)
+/// 3. Cấu hình (số người + Karma + bán kính)
+/// Mỗi step có indicator rõ ràng; CTA "Tạo phòng" mở dialog summary
+/// trước khi submit.
 class LobbyConfigPage extends StatefulWidget {
   final String gameId;
   final String gameName;
@@ -40,11 +48,12 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
   int _additionalSlots = 2;
   bool _isCreatingLobby = false;
 
-  // ─── Phase 6: BR-10 + BR-08 inputs ─────────────────────────────────
   double _searchRadiusKm = 5.0;
   double _minimumKarma = 0.0;
-  // BR-08 Lead-time do server cấu hình (deposit-config của quán). Hiện mock
-  // mặc định 20 phút — phase sau sẽ lấy từ `BookingRemoteDatasource.getDepositConfig`.
+
+  /// BR-08 Lead-time do server cấu hình (deposit-config của quán). Hiện mock
+  /// mặc định 20 phút — phase sau sẽ lấy từ
+  /// `BookingRemoteDatasource.getDepositConfig`.
   final Duration _leadTime = const Duration(minutes: 20);
 
   @override
@@ -68,9 +77,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       confirmText: 'Xác nhận',
     );
     if (picked != null && mounted) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
     }
   }
 
@@ -81,9 +88,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       helpText: 'Chọn giờ hẹn',
     );
     if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
+      setState(() => _selectedTime = picked);
     }
   }
 
@@ -94,8 +99,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
         '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  /// Quay lại màn chọn cafe để user đổi quán. Dùng `pushReplacement` để
-  /// tránh stack sâu; page hiện tại sẽ được thay bằng LobbyCafeSelectionPage.
+  /// Quay lại màn chọn cafe để user đổi quán.
   void _changeCafe() {
     final game = widget.gameEntity;
     if (game == null) return;
@@ -109,13 +113,27 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     );
   }
 
+  /// Hiển thị summary dialog trước khi tạo lobby.
+  Future<bool> _confirmBeforeCreate() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _LobbySummaryDialog(
+        cafeName: widget.cafeName,
+        gameName: widget.gameName,
+        scheduledDate: _selectedDate,
+        scheduledTime: _selectedTime,
+        additionalSlots: _additionalSlots,
+        isPublic: _isPublic,
+        minimumKarma: _minimumKarma,
+        searchRadiusKm: _searchRadiusKm,
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   Future<void> _createLobby() async {
-    // Double-tap prevention: early return nếu đang tạo
     if (_isCreatingLobby) return;
 
-    // BR-07 — backend yêu cầu `cafeId` optional nhưng flow "đặt phòng tại
-    // quán đã biết" bắt buộc phải có. Phòng trường hợp user vào thẳng
-    // LobbyConfigPage mà chưa qua LobbyCafeSelectionPage (ví dụ: deep link).
     if (widget.cafeId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -146,7 +164,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
       return;
     }
 
-    // Set flag TRƯỚC khi bất kỳ async operation nào để prevent double-tap
+    final confirmed = await _confirmBeforeCreate();
+    if (!confirmed || !mounted) return;
+
     _isCreatingLobby = true;
 
     final result = await widget.matchmakingCubit.createLobby(
@@ -170,15 +190,6 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     _isCreatingLobby = false;
 
     if (result.success && result.lobbyId != null) {
-      // KHÔNG gọi `lobbyCubit.createLobby` ở đây — đã được tạo qua
-      // `matchmakingCubit.createLobby` ở trên (1 lần duy nhất). Trước
-      // đây code gọi thêm `lobbyCubit.createLobby` gây tạo lobby 2 lần
-      // trên server. Giờ chỉ cần:
-      // 1. Lấy `LobbyCubit` để truyền vào `LobbyPage` (cubit dùng để
-      //    join/leave/realtime).
-      // 2. Navigate sang `LobbyPage` với lobbyId vừa tạo — LobbyPage
-      //    sẽ gọi `joinLobby(lobbyId, null)` để set state + subscribe
-      //    realtime.
       final lobbyCubit = getIt<LobbyCubit>();
 
       if (mounted) {
@@ -204,6 +215,13 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     }
   }
 
+  String _karmaHint(double karma) {
+    if (karma == 0) return 'Không yêu cầu Karma tối thiểu.';
+    if (karma < 60) return 'Ngưỡng thấp — dễ kết nối.';
+    if (karma < 80) return 'Ngưỡng trung bình — cộng đồng phổ thông.';
+    return 'Ngưỡng cao — chỉ player uy tín.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -216,359 +234,612 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
         ),
         body: BlocBuilder<MatchmakingCubit, MatchmakingState>(
           builder: (context, state) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.local_cafe,
-                                color: theme.colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  widget.cafeName,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              if (widget.gameEntity != null)
-                                TextButton.icon(
+            final maxPlayers = state is MatchmakingGameDetail
+                ? state.game.maxPlayers
+                : (widget.gameEntity?.maxPlayers ?? 6);
+
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: AppSpacing.paddingAllMd,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _StepIndicator(
+                          currentStep: 1,
+                          steps: const ['Quán & Game', 'Thời gian', 'Cấu hình'],
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        _SectionCard(
+                          title: 'Quán & Game',
+                          trailing: widget.gameEntity != null
+                              ? TextButton.icon(
                                   onPressed: _changeCafe,
-                                  icon: const Icon(Icons.swap_horiz, size: 18),
+                                  icon: const Icon(
+                                    Icons.swap_horiz,
+                                    size: AppSpacing.md + 2,
+                                  ),
                                   label: const Text('Đổi quán'),
+                                )
+                              : null,
+                          child: Column(
+                            children: [
+                              _InfoRow(
+                                icon: Icons.local_cafe,
+                                iconColor: theme.colorScheme.primary,
+                                label: widget.cafeName,
+                              ),
+                              if (widget.gameEntity != null) ...[
+                                const Divider(
+                                  height: AppSpacing.xl,
                                 ),
-                            ],
-                          ),
-                          if (state is MatchmakingGameDetail) ...[
-                            const Divider(height: 24),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.extension,
-                                  color: theme.colorScheme.outline,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(state.game.name),
-                                const Spacer(),
-                                Text(
-                                  '${state.game.minPlayers}-${state.game.maxPlayers} người',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.outline,
+                                _InfoRow(
+                                  icon: Icons.extension,
+                                  iconColor: theme.colorScheme.outline,
+                                  label: widget.gameEntity!.name,
+                                  trailing: Text(
+                                    '${widget.gameEntity!.minPlayers}-${widget.gameEntity!.maxPlayers} người',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.outline,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Ngày hẹn',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectDate(context),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: theme.colorScheme.outline),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            color: theme.colorScheme.primary,
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _formatDate(context, _selectedDate),
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.edit,
-                            color: theme.colorScheme.outline,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Giờ hẹn',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectTime(context),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: theme.colorScheme.outline),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _selectedTime.format(context),
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.edit,
-                            color: theme.colorScheme.outline,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Chế độ phòng',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    title: const Text('Phòng công khai'),
-                    subtitle: Text(
-                      _isPublic
-                          ? 'Hiển thị trên danh sách tìm kiếm'
-                          : 'Chỉ bạn bè được mời',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    value: _isPublic,
-                    onChanged: (value) => setState(() => _isPublic = value),
-                  ),
-                  const SizedBox(height: 24),
-                  if (state is MatchmakingGameDetail) ...[
-                    Text(
-                      'Số người cần tuyển thêm',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _SectionCard(
+                          title: 'Thời gian',
+                          child: Column(
                             children: [
-                              Text(
-                                'Bạn đã có: 1 người',
-                                style: theme.textTheme.bodyMedium,
+                              _SelectorRow(
+                                icon: Icons.calendar_today,
+                                iconColor: theme.colorScheme.primary,
+                                label: 'Ngày hẹn',
+                                value: _formatDate(context, _selectedDate),
+                                onTap: () => _selectDate(context),
                               ),
-                              Text(
-                                '${_additionalSlots + 1} / ${state.game.maxPlayers} người',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
+                              const Divider(height: AppSpacing.xl),
+                              _SelectorRow(
+                                icon: Icons.access_time,
+                                iconColor: theme.colorScheme.primary,
+                                label: 'Giờ hẹn',
+                                value: _selectedTime.format(context),
+                                onTap: () => _selectTime(context),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Slider(
-                            value: _additionalSlots.toDouble(),
-                            min: 0,
-                            max: (state.game.maxPlayers - 1).toDouble(),
-                            divisions: state.game.maxPlayers - 1,
-                            label: '$_additionalSlots slot',
-                            onChanged: (value) {
-                              setState(() {
-                                _additionalSlots = value.toInt();
-                              });
-                            },
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _SectionCard(
+                          title: 'Cấu hình',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '${state.game.minPlayers - 1} tối thiểu',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.outline,
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Phòng công khai'),
+                                subtitle: Text(
+                                  _isPublic
+                                      ? 'Hiển thị trên danh sách tìm kiếm'
+                                      : 'Chỉ bạn bè được mời',
+                                  style: theme.textTheme.bodySmall,
                                 ),
+                                value: _isPublic,
+                                onChanged: (value) =>
+                                    setState(() => _isPublic = value),
                               ),
-                              Text(
-                                '${state.game.maxPlayers - 1} tối đa',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.outline,
-                                ),
+                              const Divider(height: AppSpacing.lg),
+                              _SliderField(
+                                label: 'Số người cần tuyển thêm',
+                                valueLabel:
+                                    '${_additionalSlots + 1} / $maxPlayers người',
+                                min: 0,
+                                max: (maxPlayers - 1).toDouble(),
+                                divisions: (maxPlayers - 1).clamp(1, 100),
+                                value: _additionalSlots.toDouble(),
+                                onChanged: (v) => setState(
+                                    () => _additionalSlots = v.toInt()),
+                                helper:
+                                    'Bạn đã có 1 người. Tối đa $maxPlayers người.',
+                              ),
+                              const Divider(height: AppSpacing.lg),
+                              _SliderField(
+                                label: 'Karma tối thiểu (BR-10)',
+                                valueLabel: '${_minimumKarma.toInt()} điểm',
+                                min: 0,
+                                max: 100,
+                                divisions: 20,
+                                value: _minimumKarma,
+                                onChanged: (v) =>
+                                    setState(() => _minimumKarma = v),
+                                helper: _karmaHint(_minimumKarma),
+                              ),
+                              const Divider(height: AppSpacing.lg),
+                              _SliderField(
+                                label: 'Bán kính tìm kiếm (BR-08)',
+                                valueLabel:
+                                    '${_searchRadiusKm.toStringAsFixed(1)} km',
+                                min: 1,
+                                max: 30,
+                                divisions: 29,
+                                value: _searchRadiusKm,
+                                onChanged: (v) =>
+                                    setState(() => _searchRadiusKm = v),
+                                helper:
+                                    'Quán trong bán kính này mới hiện trong tìm phòng.',
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  // ─── BR-10: ngưỡng Karma tối thiểu ────────────────────
-                  Text(
-                    'Điều kiện Karma (BR-10)',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outline),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Chỉ chấp nhận thành viên Karma ≥',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            Text(
-                              '${_minimumKarma.toInt()} điểm',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _minimumKarma == 0
-                              ? 'Không yêu cầu Karma tối thiểu.'
-                              : _minimumKarma < 60
-                                  ? 'Ngưỡng thấp — dễ kết nối.'
-                                  : _minimumKarma < 80
-                                      ? 'Ngưỡng trung bình — cộng đồng phổ thông.'
-                                      : 'Ngưỡng cao — chỉ player uy tín.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
-                        ),
-                        Slider(
-                          value: _minimumKarma,
-                          min: 0,
-                          max: 100,
-                          divisions: 20,
-                          label: '${_minimumKarma.toInt()} Karma',
-                          onChanged: (value) =>
-                              setState(() => _minimumKarma = value),
-                        ),
+                        const SizedBox(height: AppSpacing.xxl),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // ─── BR-08: bán kính tìm kiếm ───────────────────────
-                  Text(
-                    'Bán kính tìm kiếm',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                ),
+                _StickyBottomBar(
+                  onSubmit: _isCreatingLobby ? null : _createLobby,
+                  isSubmitting: _isCreatingLobby,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Step indicator ở đầu trang — cho thấy user đang ở step nào.
+class _StepIndicator extends StatelessWidget {
+  final int currentStep;
+  final List<String> steps;
+
+  const _StepIndicator({
+    required this.currentStep,
+    required this.steps,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        for (var i = 0; i < steps.length; i++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: AppSpacing.lg + 2,
+                  height: AppSpacing.lg + 2,
+                  decoration: BoxDecoration(
+                    color: i < currentStep
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outline),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Tìm lobby khả dụng trong vòng',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            Text(
-                              '${_searchRadiusKm.toStringAsFixed(1)} km',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Slider(
-                          value: _searchRadiusKm,
-                          min: 1,
-                          max: 30,
-                          divisions: 29,
-                          label: '${_searchRadiusKm.toStringAsFixed(1)} km',
-                          onChanged: (value) =>
-                              setState(() => _searchRadiusKm = value),
-                        ),
-                        Text(
-                          'Quán trong bán kính này mới hiện trong danh sách tìm phòng. '
-                          'Bạn có thể điều chỉnh tùy nhu cầu.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
+                  alignment: Alignment.center,
+                  child: i < currentStep
+                      ? const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: AppSpacing.md,
+                        )
+                      : Text(
+                          '${i + 1}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ],
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  steps[i],
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: i < currentStep
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface,
+                    fontWeight: i == currentStep - 1
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (i < steps.length - 1)
+            Container(
+              height: 2,
+              width: AppSpacing.md,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Card chứa 1 section — title ở trên, content bên dưới.
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: AppSpacing.paddingAllMd,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _isCreatingLobby ? null : _createLobby,
-                      icon: _isCreatingLobby
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.check),
-                      label: Text(_isCreatingLobby ? 'Đang tạo...' : 'Tạo phòng'),
+                ),
+                ?trailing,
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dòng thông tin icon + label (+ optional trailing widget).
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final Widget? trailing;
+
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: AppSpacing.lg, color: iconColor),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+/// Selector row — icon + label + value, click để mở picker.
+class _SelectorRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _SelectorRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.radiusSmAll,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Icon(icon, size: AppSpacing.lg, color: iconColor),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               ),
-            );
-          },
+            ),
+            Icon(Icons.chevron_right, color: theme.colorScheme.outline),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Slider field — label + value + slider + helper text.
+class _SliderField extends StatelessWidget {
+  final String label;
+  final String valueLabel;
+  final double min;
+  final double max;
+  final int divisions;
+  final double value;
+  final ValueChanged<double> onChanged;
+  final String helper;
+
+  const _SliderField({
+    required this.label,
+    required this.valueLabel,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.value,
+    required this.onChanged,
+    required this.helper,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: theme.textTheme.bodyMedium),
+            Text(
+              valueLabel,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          onChanged: onChanged,
+        ),
+        Text(
+          helper,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Sticky bottom bar với CTA "Tạo phòng" + summary.
+class _StickyBottomBar extends StatelessWidget {
+  final VoidCallback? onSubmit;
+  final bool isSubmitting;
+
+  const _StickyBottomBar({
+    required this.onSubmit,
+    required this.isSubmitting,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onSubmit,
+            icon: isSubmitting
+                ? const SizedBox(
+                    width: AppSpacing.lg,
+                    height: AppSpacing.lg,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check),
+            label: Text(isSubmitting ? 'Đang tạo...' : 'Xem lại & Tạo phòng'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog summary trước khi submit — user thấy toàn bộ config 1 lần cuối.
+class _LobbySummaryDialog extends StatelessWidget {
+  final String cafeName;
+  final String gameName;
+  final DateTime scheduledDate;
+  final TimeOfDay scheduledTime;
+  final int additionalSlots;
+  final bool isPublic;
+  final double minimumKarma;
+  final double searchRadiusKm;
+
+  const _LobbySummaryDialog({
+    required this.cafeName,
+    required this.gameName,
+    required this.scheduledDate,
+    required this.scheduledTime,
+    required this.additionalSlots,
+    required this.isPublic,
+    required this.minimumKarma,
+    required this.searchRadiusKm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheduledDateTime = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+      scheduledTime.hour,
+      scheduledTime.minute,
+    );
+
+    return AlertDialog(
+      title: const Text('Xác nhận tạo phòng'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SummaryRow(
+            icon: Icons.local_cafe,
+            label: 'Quán',
+            value: cafeName,
+          ),
+          _SummaryRow(
+            icon: Icons.extension,
+            label: 'Game',
+            value: gameName,
+          ),
+          _SummaryRow(
+            icon: Icons.calendar_today,
+            label: 'Thời gian',
+            value:
+                '${scheduledDateTime.day.toString().padLeft(2, '0')}/${scheduledDateTime.month.toString().padLeft(2, '0')}/${scheduledDateTime.year} '
+                '${scheduledTime.format(context)}',
+          ),
+          _SummaryRow(
+            icon: Icons.people,
+            label: 'Tuyển thêm',
+            value: '$additionalSlots người (tổng ${additionalSlots + 1})',
+          ),
+          _SummaryRow(
+            icon: Icons.lock_open,
+            label: 'Chế độ',
+            value: isPublic ? 'Công khai' : 'Riêng tư',
+          ),
+          _SummaryRow(
+            icon: Icons.star,
+            label: 'Karma tối thiểu',
+            value: '${minimumKarma.toInt()} điểm',
+          ),
+          _SummaryRow(
+            icon: Icons.radar,
+            label: 'Bán kính tìm',
+            value: '${searchRadiusKm.toStringAsFixed(1)} km',
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Chỉnh sửa'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Tạo phòng'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SummaryRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: AppSpacing.lg, color: theme.colorScheme.outline),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

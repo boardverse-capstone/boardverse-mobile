@@ -14,15 +14,17 @@ import '../../domain/repositories/booking_repository.dart';
 /// coupling) theo plan tổng.
 class BookingHistoryCubit extends Cubit<BookingHistoryState> {
   final BookingRepository _repository;
+  bool _isDisposed = false;
 
   BookingHistoryCubit({required this._repository})
       : super(const BookingHistoryInitial());
 
   /// Load toàn bộ booking của user hiện tại (hosted + joined).
   Future<void> loadAll() async {
+    if (_isDisposed) return;
     emit(const BookingHistoryLoading());
     final result = await _repository.loadAllForUser();
-    if (isClosed) return;
+    if (_isDisposed || isClosed) return;
     result.fold(
       (failure) => emit(BookingHistoryFailure(failure.message)),
       (uh) => emit(BookingHistoryLoaded(
@@ -37,9 +39,10 @@ class BookingHistoryCubit extends Cubit<BookingHistoryState> {
   /// Kết quả trả summary rút gọn (CafeBookingSummaryEntity), không
   /// dùng để push BookingDetailPage — chỉ hiển thị danh sách lịch.
   Future<void> loadForCafe(String cafeId) async {
+    if (_isDisposed) return;
     emit(const BookingHistoryLoading());
     final result = await _repository.getBookingsForCafe(cafeId);
-    if (isClosed) return;
+    if (_isDisposed || isClosed) return;
     result.fold(
       (failure) => emit(BookingHistoryFailure(failure.message)),
       (cafeList) => emit(BookingHistoryLoaded(
@@ -48,6 +51,12 @@ class BookingHistoryCubit extends Cubit<BookingHistoryState> {
         cafeView: cafeList,
       )),
     );
+  }
+
+  @override
+  Future<void> close() {
+    _isDisposed = true;
+    return super.close();
   }
 }
 

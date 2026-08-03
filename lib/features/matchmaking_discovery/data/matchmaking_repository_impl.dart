@@ -1,8 +1,10 @@
 import 'package:dartz/dartz.dart';
 
+import '../../../core/cache/cacheable_repository.dart';
 import '../../../core/error/failures.dart';
 import '../domain/entities/board_game_detail_entity.dart';
 import '../domain/entities/board_game_entity.dart';
+import '../domain/entities/cafe_detail_entity.dart';
 import '../domain/entities/cafe_entity.dart';
 import '../domain/entities/game_play_configuration_entity.dart';
 import '../domain/entities/game_play_navigation_entity.dart';
@@ -12,13 +14,22 @@ import '../domain/entities/search_filter_entity.dart';
 import '../domain/entities/game_category_entity.dart';
 import '../domain/repositories/matchmaking_repository.dart';
 import 'datasources/base/matchmaking_datasource.dart';
+import 'models/board_game_model.dart';
+import 'models/nearby_cafes_search_result_model.dart';
 
 /// Repository implementation sử dụng DataSource Abstraction Pattern
 /// Khi backend sẵn sàng, chỉ cần inject MatchmakingRemoteDatasource vào
-class MatchmakingRepositoryImpl implements MatchmakingRepository {
+///
+/// Extends [CacheableRepository] để dedupe các GET endpoint được gọi từ
+/// nhiều màn hình khác nhau (vd `searchBoardGames` từ SearchPage +
+/// LobbyHubPage, `getNearbyCafesForCurrentUser` từ BoardGameDetailPage +
+/// LobbyCafeSelectionPage + SearchPage). TTL mặc định 30 giây.
+class MatchmakingRepositoryImpl extends CacheableRepository
+    implements MatchmakingRepository {
   final MatchmakingDatasource datasource;
 
-  MatchmakingRepositoryImpl({required this.datasource});
+  MatchmakingRepositoryImpl({required this.datasource})
+      : super(defaultTtl: const Duration(seconds: 30));
 
   // ─── Board Games ─────────────────────────────────────────────────────
 
@@ -36,8 +47,14 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
         minPlayers: minPlayers,
         maxPlayers: maxPlayers,
       );
-      final results = await datasource.searchGames(filter);
-      return Right(results.map((m) => m.toEntity()).toList());
+      // Cache key theo từng filter signature để dedupe các lần gọi cùng
+      // tham số trong vòng 30s (vd SearchPage và LobbyHubPage mở cùng lúc
+      // khi user switch tab Discovery).
+      final models = await cache<List<BoardGameModel>>(
+        'search-board-games:${filter.cacheKey}',
+        () => datasource.searchGames(filter),
+      );
+      return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi tìm kiếm: ${e.toString()}'));
     }
@@ -47,8 +64,11 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
   Future<Either<Failure, List<BoardGameEntity>>> searchGames(
       SearchFilterEntity filter) async {
     try {
-      final results = await datasource.searchGames(filter);
-      return Right(results.map((m) => m.toEntity()).toList());
+      final models = await cache<List<BoardGameModel>>(
+        'search-games:${filter.cacheKey}',
+        () => datasource.searchGames(filter),
+      );
+      return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi tìm kiếm: ${e.toString()}'));
     }
@@ -57,8 +77,11 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
   @override
   Future<Either<Failure, List<BoardGameEntity>>> getAllGames() async {
     try {
-      final results = await datasource.getAllGames();
-      return Right(results.map((m) => m.toEntity()).toList());
+      final models = await cache<List<BoardGameModel>>(
+        'all-games',
+        () => datasource.getAllGames(),
+      );
+      return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi lấy danh sách game: ${e.toString()}'));
     }
@@ -192,11 +215,18 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
     int pageSize = 20,
   }) async {
     try {
-      final result = await datasource.getNearbyCafesForCurrentUser(
-        gameTemplateId: gameId,
-        radiusKm: radiusKm,
-        pageNumber: pageNumber,
-        pageSize: pageSize,
+      // Cache key theo gameId + radius (các params khác default ổn định).
+      // Dedupes BoardGameDetailPage, LobbyCafeSelectionPage, SearchPage
+      // cùng gọi endpoint này trong vòng 30s.
+      final key = 'cafes-nearby-me:$gameId:$radiusKm';
+      final result = await cache<NearbyCafesSearchResultModel>(
+        key,
+        () => datasource.getNearbyCafesForCurrentUser(
+          gameTemplateId: gameId,
+          radiusKm: radiusKm,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        ),
       );
       return Right(result.toEntity());
     } catch (e) {
@@ -230,6 +260,16 @@ class MatchmakingRepositoryImpl implements MatchmakingRepository {
       return Right(cafe?.toEntity());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi lấy thông tin quán: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CafeDetailEntity?>> getCafeDetail(String id) async {
+    try {
+      final cafe = await datasource.getCafeById(id);
+      return Right(cafe?.toDetailEntity());
+    } catch (e) {
+      return Left(ServerFailure(message: 'Lỗi lấy chi tiết quán: ${e.toString()}'));
     }
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/search_filter_entity.dart';
 
 /// Widget filter chips cho tìm kiếm nâng cao
@@ -20,22 +22,15 @@ class GameFilterChips extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
       children: [
-        // Player Count Filter
         _buildPlayerCountChip(context, theme),
-        
-        // Time Duration Filter
         _buildTimeFilterChip(context, theme),
-        
-        // Karma Filter
         _buildKarmaFilterChip(context, theme),
-        
-        // Clear All Button
         if (currentFilter.hasActiveFilters && onClearAll != null)
           ActionChip(
-            avatar: const Icon(Icons.clear_all, size: 18),
+            avatar: const Icon(Icons.clear_all, size: AppSpacing.md + 2),
             label: const Text('Xóa lọc'),
             onPressed: onClearAll,
           ),
@@ -50,7 +45,7 @@ class GameFilterChips extends StatelessWidget {
     return FilterChip(
       avatar: Icon(
         Icons.people,
-        size: 18,
+        size: AppSpacing.md + 2,
         color: hasFilter ? theme.colorScheme.primary : null,
       ),
       label: Text(label),
@@ -68,7 +63,7 @@ class GameFilterChips extends StatelessWidget {
     return FilterChip(
       avatar: Icon(
         Icons.timer,
-        size: 18,
+        size: AppSpacing.md + 2,
         color: hasFilter ? theme.colorScheme.primary : null,
       ),
       label: Text(label),
@@ -86,8 +81,8 @@ class GameFilterChips extends StatelessWidget {
     return FilterChip(
       avatar: Icon(
         Icons.star,
-        size: 18,
-        color: hasFilter ? Colors.amber : null,
+        size: AppSpacing.md + 2,
+        color: hasFilter ? AppColors.warning : null,
       ),
       label: Text(label),
       selected: hasFilter,
@@ -179,7 +174,7 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
   late int? _min;
   late int? _max;
 
-  final _playerOptions = List.generate(16, (i) => i + 2); // 2-17 players
+  final _playerOptions = List.generate(16, (i) => i + 2);
 
   @override
   void initState() {
@@ -191,7 +186,7 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.paddingAllMd,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +195,7 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
             'Số người chơi',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
@@ -208,7 +203,6 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
                   initialValue: _min,
                   decoration: const InputDecoration(
                     labelText: 'Tối thiểu',
-                    border: OutlineInputBorder(),
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Không chọn')),
@@ -220,13 +214,12 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
                   onChanged: (value) => setState(() => _min = value),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: DropdownButtonFormField<int?>(
                   initialValue: _max,
                   decoration: const InputDecoration(
                     labelText: 'Tối đa',
-                    border: OutlineInputBorder(),
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Không chọn')),
@@ -240,7 +233,7 @@ class _PlayerCountPickerState extends State<_PlayerCountPicker> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -284,7 +277,7 @@ class _TimePickerState extends State<_TimePicker> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.paddingAllMd,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,10 +286,10 @@ class _TimePickerState extends State<_TimePicker> {
             'Thời gian chơi',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
               ChoiceChip(
                 label: const Text('Tất cả'),
@@ -310,7 +303,7 @@ class _TimePickerState extends State<_TimePicker> {
                   )),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -354,7 +347,7 @@ class _KarmaPickerState extends State<_KarmaPicker> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.paddingAllMd,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,15 +356,15 @@ class _KarmaPickerState extends State<_KarmaPicker> {
             'Điểm Karma tối thiểu',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Lọc theo điểm uy tín của người chơi (BR-10)',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
               ChoiceChip(
                 label: const Text('Tất cả'),
@@ -385,7 +378,7 @@ class _KarmaPickerState extends State<_KarmaPicker> {
                   )),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: FilledButton(

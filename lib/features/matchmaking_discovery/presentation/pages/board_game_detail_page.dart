@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/navigation/lobby_suggestion_signal.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/alternative_game_suggestion_entity.dart';
-import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
+import '../pages/cafe_detail_page.dart';
 import '../pages/lobby_cafe_selection_page.dart';
 import '../widgets/cafe_card.dart';
 import '../widgets/game_detail_header.dart';
+import '../widgets/game_info_section.dart';
 import '../widgets/gps_warning_banner.dart';
 import '../widgets/similar_games_carousel.dart';
 
@@ -30,16 +34,19 @@ class BoardGameDetailPage extends StatefulWidget {
 
 class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   MatchmakingState? _lastDetailState;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    debugPrint(
-      '🔵 [BoardGameDetailPage.initState] gameId=${widget.gameId} '
-      'cubit=${widget.matchmakingCubit.runtimeType} '
-      'currentState=${widget.matchmakingCubit.state.runtimeType}',
-    );
+    _scrollController = ScrollController();
     widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,7 +56,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
       child: Scaffold(
         body: MultiBlocListener(
           listeners: [
-            // Listen play-navigation state để điều hướng sang Lobby / Solo Booking.
             BlocListener<MatchmakingCubit, MatchmakingState>(
               listenWhen: (prev, curr) =>
                   curr is MatchmakingPlayNavigationResolved ||
@@ -63,65 +69,42 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           ],
           child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
             builder: (context, state) {
-              debugPrint('🟣 [BoardGameDetailPage.builder] state=${state.runtimeType}');
               if (state is MatchmakingLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
-
               if (state is MatchmakingFailure) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(state.message),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: () =>
-                            widget.matchmakingCubit.loadGameDetail(
-                          gameId: widget.gameId,
-                        ),
-                        child: const Text('Thử lại'),
-                      ),
-                    ],
+                return _ErrorRetryView(
+                  message: state.message,
+                  onRetry: () => widget.matchmakingCubit.loadGameDetail(
+                    gameId: widget.gameId,
                   ),
                 );
               }
-
               if (state is MatchmakingGpsDisabled) {
                 return _buildGpsDisabledView(context, state);
               }
-
               if (state is MatchmakingOutOfRadius) {
                 return _buildOutOfRadiusView(context, state);
               }
 
-              // Cache last detail state để giữ UI khi đang resolve
-              // play-navigation.
               if (state is MatchmakingGameDetail) {
                 _lastDetailState = state;
-              }
-
-              if (state is MatchmakingGameDetail) {
                 return _buildGameDetailView(context, state);
               }
 
               if (state is MatchmakingPlayNavigationResolving &&
                   _lastDetailState != null) {
-                // Vẫn hiển thị UI cũ + overlay loading trong suốt.
-                final lastDetail = _lastDetailState as MatchmakingGameDetail;
+                final lastDetail =
+                    _lastDetailState as MatchmakingGameDetail;
                 return Stack(
                   children: [
                     _buildGameDetailView(context, lastDetail),
-                    const Positioned.fill(
+                    Positioned.fill(
                       child: ColoredBox(
-                        color: Color(0x33000000),
-                        child: Center(child: CircularProgressIndicator()),
+                        color: AppColors.black.withValues(alpha: 0.3),
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
                       ),
                     ),
                   ],
@@ -142,171 +125,53 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
 
   /// Xử lý kết quả từ `play-navigation` — điều hướng sang Lobby screen
   /// (group) hoặc Solo Booking (đặt bàn trực tiếp).
-  ///
-  /// Theo phân chia nghiệp vụ mới:
-  /// - Group → KHÔNG nhảy thẳng vào form tạo lobby tại đây. Phát
-  ///   [LobbySuggestionSignal] để MainScaffold chuyển sang tab Discovery,
-  ///   sub-tab "Phòng chờ" (`NearbyLobbiesPage`) với game preselected.
-  ///   Tại đó user có thể chọn "Tìm phòng" (advanced search) hoặc "Tạo
-  ///   phòng mới" (qua game picker đã preselect → `LobbyConfigPage`).
-  /// - Solo → đặt bàn trực tiếp (giữ nguyên flow đặt bàn).
   void _handlePlayNavigation(
-      BuildContext context, MatchmakingPlayNavigationResolved state) {
+    BuildContext context,
+    MatchmakingPlayNavigationResolved state,
+  ) {
     final nav = state.navigation;
     final gameId = nav.gameTemplateId;
     final gameName = nav.gameName ?? '';
 
+    final current = widget.matchmakingCubit.state;
+    BoardGameEntity? gameEntity;
+    if (current is MatchmakingGameDetail) {
+      gameEntity = current.game.toBoardGameEntity();
+    }
+    gameEntity ??= BoardGameEntity(
+      id: gameId,
+      name: gameName.isEmpty ? 'Game' : gameName,
+      description: '',
+      imageUrl: '',
+      minPlayers: nav.roomConfiguration.minPlayers,
+      maxPlayers: nav.roomConfiguration.maxPlayers,
+      estimatedMinutes: 0,
+      category: '',
+      components: const [],
+      mechanics: const [],
+      rating: 0,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LobbyCafeSelectionPage(
+          game: gameEntity!,
+          matchmakingCubit: widget.matchmakingCubit,
+          isWalkInSolo: nav.isSoloBooking,
+        ),
+      ),
+    );
+
     if (nav.isLobbyCreation) {
-      // Player đã chọn game → muốn tạo lobby tại quán đã biết (kịch bản
-      // "đã từng chơi ở quán"). Luồng:
-      // 1. Chọn cafe (LobbyCafeSelectionPage)
-      // 2. Cấu hình lobby (LobbyConfigPage)
-      // 3. Submit create lobby với cafeId
-      final current = widget.matchmakingCubit.state;
-      BoardGameEntity? gameEntity;
-      if (current is MatchmakingGameDetail) {
-        gameEntity = current.game.toBoardGameEntity();
-      }
-      gameEntity ??= BoardGameEntity(
-        id: gameId,
-        name: gameName.isEmpty ? 'Game' : gameName,
-        description: '',
-        imageUrl: '',
-        minPlayers: nav.roomConfiguration.minPlayers,
-        maxPlayers: nav.roomConfiguration.maxPlayers,
-        estimatedMinutes: 0,
-        category: '',
-        components: const [],
-        mechanics: const [],
-        rating: 0,
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LobbyCafeSelectionPage(
-            game: gameEntity!,
-            matchmakingCubit: widget.matchmakingCubit,
-          ),
-        ),
-      );
-
-      // Vẫn phát signal để các listener khác (vd: DiscoveryResetSignal từ
-      // double-tap) biết là user đang chuyển trang; không bắt buộc nhưng
-      // giúp đồng bộ với luồng "tìm phòng" khác.
       LobbySuggestionSignal.instance.request(gameEntity);
-    } else if (nav.isSoloBooking) {
-      // Solo mode → walk-in booking (gap #3) — đặt bàn trực tiếp không
-      // qua lobby. Backend mới chấp nhận `lobbyId == null` ở `POST /api/bookings`.
-      // Luồng: chọn cafe → chọn thời gian → BookingSummaryPage (lobbyId=null).
-      final current = widget.matchmakingCubit.state;
-      BoardGameEntity? gameEntity;
-      if (current is MatchmakingGameDetail) {
-        gameEntity = current.game.toBoardGameEntity();
-      }
-      gameEntity ??= BoardGameEntity(
-        id: gameId,
-        name: gameName.isEmpty ? 'Game' : gameName,
-        description: '',
-        imageUrl: '',
-        minPlayers: nav.roomConfiguration.minPlayers,
-        maxPlayers: nav.roomConfiguration.maxPlayers,
-        estimatedMinutes: 0,
-        category: '',
-        components: const [],
-        mechanics: const [],
-        rating: 0,
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LobbyCafeSelectionPage(
-            game: gameEntity!,
-            matchmakingCubit: widget.matchmakingCubit,
-            // Signal đánh dấu walk-in: cubit/page nhận diện qua flag này.
-            isWalkInSolo: true,
-          ),
-        ),
-      );
     }
   }
 
-  /// Card "Sẵn sàng chơi?" — bám sát logic PlayMode của backend.
-  /// Hiển thị nút Chơi một mình / Chơi cùng nhóm.
-  Widget _buildPlayActionCard(BuildContext context,
-      MatchmakingGameDetail state) {
-    final theme = Theme.of(context);
-    final supportsSolo = state.game.minPlayers == 1;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.bolt, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Sẵn sàng chơi?',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            supportsSolo
-                ? 'Bạn có thể chơi một mình hoặc rủ thêm bạn bè.'
-                : 'Game này cần tối thiểu ${state.game.minPlayers} người để bắt đầu.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onPrimaryContainer,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.person),
-                  label: const Text('Chơi một mình'),
-                  onPressed: supportsSolo
-                      ? () => widget.matchmakingCubit.resolvePlayNavigation(
-                            gameId: state.game.id,
-                            mode: PlayMode.solo,
-                          )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.groups),
-                  label: const Text('Chơi cùng nhóm'),
-                  onPressed: () =>
-                      widget.matchmakingCubit.resolvePlayNavigation(
-                    gameId: state.game.id,
-                    mode: PlayMode.group,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGpsDisabledView(BuildContext context, MatchmakingGpsDisabled state) {
+  Widget _buildGpsDisabledView(
+    BuildContext context,
+    MatchmakingGpsDisabled state,
+  ) {
     return CustomScrollView(
       slivers: [
         if (state.selectedGame != null)
@@ -314,51 +179,53 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         SliverToBoxAdapter(
           child: GpsWarningBanner(
             onEnableGps: () {
-              widget.matchmakingCubit.enableGpsAndReload(gameId: widget.gameId);
+              widget.matchmakingCubit.enableGpsAndReload(
+                gameId: widget.gameId,
+              );
             },
-            onEnterManually: () {
-              _showManualLocationDialog(context);
-            },
+            onEnterManually: () => _showManualLocationDialog(context),
           ),
         ),
         if (state.selectedGame != null)
           SliverToBoxAdapter(
-            child: _buildGameInfoSectionFromEntity(context, state.selectedGame!),
+            child: GameInfoSection.fromEntity(state.selectedGame!),
           ),
       ],
     );
   }
 
   Widget _buildOutOfRadiusView(
-      BuildContext context, MatchmakingOutOfRadius state) {
+    BuildContext context,
+    MatchmakingOutOfRadius state,
+  ) {
     return CustomScrollView(
       slivers: [
         GameDetailHeader(game: state.selectedGame),
         SliverToBoxAdapter(
           child: Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
+            margin: AppSpacing.paddingAllMd,
+            padding: AppSpacing.paddingAllMd,
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.shade200),
+              color: AppColors.error.withValues(alpha: 0.08),
+              borderRadius: AppRadius.radiusSmAll,
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
             ),
             child: Column(
               children: [
                 Icon(
                   Icons.location_off,
-                  size: 48,
-                  color: Colors.red.shade400,
+                  size: AppSpacing.huge,
+                  color: AppColors.error,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Không có quán nào trong bán kính 15km',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   'Dưới đây là các game tương tự mà bạn có thể thích:',
                   style: Theme.of(context).textTheme.bodySmall,
@@ -369,12 +236,12 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           ),
         ),
         SliverToBoxAdapter(
-          child: _buildGameInfoSectionFromEntity(context, state.selectedGame),
+          child: GameInfoSection.fromEntity(state.selectedGame),
         ),
         if (state.similarGames.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.only(top: 16),
+              padding: const EdgeInsets.only(top: AppSpacing.md),
               child: SimilarGamesCarousel(
                 games: state.similarGames,
                 onGameTap: (game) => Navigator.pushReplacement(
@@ -394,82 +261,173 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   }
 
   Widget _buildGameDetailView(
-      BuildContext context, MatchmakingGameDetail state) {
-    // Convert BoardGameDetailEntity to BoardGameEntity for widgets expecting BoardGameEntity
+    BuildContext context,
+    MatchmakingGameDetail state,
+  ) {
     final gameAsEntity = state.game.toBoardGameEntity();
 
-    return CustomScrollView(
-      slivers: [
-        GameDetailHeader(game: gameAsEntity),
-        SliverToBoxAdapter(
-          child: _buildGameInfoSection(context, state.game),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildPlayActionCard(context, state),
-          ),
-        ),
-        const SliverToBoxAdapter(
-          child: Divider(height: 32),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Quán cafe gần bạn',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+    final isResolving = widget.matchmakingCubit.state
+        is MatchmakingPlayNavigationResolving;
+    final supportsSolo = state.game.minPlayers == 1;
+
+    return Stack(
+      children: [
+        CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            GameDetailHeader(game: gameAsEntity),
+            SliverToBoxAdapter(
+              child: GameInfoSection.fromDetail(state.game),
             ),
-          ),
-        ),
-        if (state.nearbyCafes.isEmpty)
-          SliverToBoxAdapter(
-            child: _buildNearbyEmptyState(
-              context,
-              emptyMessage: state.emptyResultMessage,
-              alternatives: state.alternativeSuggestions,
-            ),
-          )
-        else
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final cafe = state.nearbyCafes[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: Padding(
+                  padding: AppSpacing.paddingHorizontalMd,
+                  child: Text(
+                    'Quán cafe gần bạn',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
-                  child: CafeCard(
-                    cafe: cafe,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LobbyCafeSelectionPage(
-                          game: gameAsEntity,
-                          matchmakingCubit: widget.matchmakingCubit,
+                ),
+              ),
+            ),
+            if (state.nearbyCafes.isEmpty)
+              SliverToBoxAdapter(
+                child: _buildNearbyEmptyState(
+                  context,
+                  emptyMessage: state.emptyResultMessage,
+                  alternatives: state.alternativeSuggestions,
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final cafe = state.nearbyCafes[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: CafeCard(
+                        cafe: cafe,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CafeDetailPage(
+                              cafeId: cafe.id,
+                              selectedGame: gameAsEntity,
+                              matchmakingCubit: widget.matchmakingCubit,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    onBookingTap: null, // Walk-in ẩn theo plan integration.
-                  ),
-                );
-              },
-              childCount: state.nearbyCafes.length,
+                    );
+                  },
+                  childCount: state.nearbyCafes.length,
+                ),
+              ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.huge + AppSpacing.lg),
             ),
-          ),
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 100),
+          ],
+        ),
+        _buildStickyBottomCta(
+          context: context,
+          state: state,
+          isResolving: isResolving,
+          supportsSolo: supportsSolo,
         ),
       ],
     );
   }
 
-  /// Empty state khi backend không trả về quán nào có game này (AC 5.1, 5.2).
-  /// Hiển thị thông điệp từ backend + carousel gợi ý game cùng thể loại
-  /// còn hàng (nếu có).
+  Widget _buildStickyBottomCta({
+    required BuildContext context,
+    required MatchmakingGameDetail state,
+    required bool isResolving,
+    required bool supportsSolo,
+  }) {
+    final theme = Theme.of(context);
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
+              if (supportsSolo) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.person_rounded, size: 20),
+                    label: const Text('Một mình'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.radiusMdAll,
+                      ),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    onPressed: isResolving
+                        ? null
+                        : () => widget.matchmakingCubit.resolvePlayNavigation(
+                              gameId: state.game.id,
+                              mode: PlayMode.solo,
+                            ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+              ],
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  icon: Icon(
+                    supportsSolo ? Icons.groups_rounded : Icons.calendar_today_rounded,
+                    size: 20,
+                  ),
+                  label: Text(supportsSolo ? 'Tạo lobby' : 'Đặt bàn'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusMdAll,
+                    ),
+                  ),
+                  onPressed: isResolving
+                      ? null
+                      : () => widget.matchmakingCubit.resolvePlayNavigation(
+                            gameId: state.game.id,
+                            mode: PlayMode.group,
+                          ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNearbyEmptyState(
     BuildContext context, {
     required String? emptyMessage,
@@ -479,16 +437,21 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     final message = emptyMessage ??
         'Không có quán nào có game này gần bạn. Hãy thử chọn game khác.';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: AppSpacing.paddingAllMd,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest
                   .withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.radiusSmAll,
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Row(
@@ -496,9 +459,9 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                 Icon(
                   Icons.location_off,
                   color: theme.colorScheme.outline,
-                  size: 24,
+                  size: AppSpacing.xl,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     message,
@@ -511,7 +474,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             ),
           ),
           if (alternatives.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             SimilarGamesCarousel(
               games: alternatives
                   .map<BoardGameEntity>((s) => s.toBoardGameEntity())
@@ -532,273 +495,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     );
   }
 
-  Widget _buildGameInfoSection(BuildContext context, BoardGameDetailEntity game) {
-    final theme = Theme.of(context);
-    final categoryName = game.categories.isNotEmpty
-        ? game.categories.first.name
-        : 'Board Game';
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  categoryName,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.star, color: Colors.amber.shade600, size: 20),
-              const SizedBox(width: 4),
-              Text(
-                game.playTime > 0 ? '~${game.playTime} phút' : '-',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Mô tả',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            game.description,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _InfoChip(
-                icon: Icons.people,
-                label: '${game.minPlayers}-${game.maxPlayers} người',
-              ),
-              const SizedBox(width: 8),
-              _InfoChip(
-                icon: Icons.timer,
-                label: '~${game.playTime} phút',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Linh kiện trong hộp',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (game.components.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: theme.colorScheme.outline,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Thông tin linh kiện trong hộp chưa được hệ thống cập nhật.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: game.components.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_box,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          game.components[index].componentName,
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Overload for BoardGameEntity (used in OutOfRadius/GpsDisabled states).
-  Widget _buildGameInfoSectionFromEntity(BuildContext context, BoardGameEntity game) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  game.category,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.star, color: Colors.amber.shade600, size: 20),
-              const SizedBox(width: 4),
-              Text(
-                game.rating.toStringAsFixed(1),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Mô tả',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            game.description,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _InfoChip(
-                icon: Icons.people,
-                label: '${game.minPlayers}-${game.maxPlayers} người',
-              ),
-              const SizedBox(width: 8),
-              _InfoChip(
-                icon: Icons.timer,
-                label: '~${game.estimatedMinutes} phút',
-              ),
-            ],
-          ),
-          if (game.components.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Linh kiện trong hộp',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: game.components.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_box,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          game.components[index],
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   void _showManualLocationDialog(BuildContext context) {
     final districtController = TextEditingController();
 
@@ -811,7 +507,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           decoration: const InputDecoration(
             labelText: 'Quận/Huyện',
             hintText: 'Ví dụ: Quận 1',
-            border: OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -835,37 +530,43 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
+class _ErrorRetryView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _InfoChip({
-    required this.icon,
-    required this.label,
+  const _ErrorRetryView({
+    required this.message,
+    required this.onRetry,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w500,
+    return Center(
+      child: Padding(
+        padding: AppSpacing.paddingAllXl,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: AppSpacing.huge + AppSpacing.xs,
+              color: theme.colorScheme.error,
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            ),
+          ],
+        ),
       ),
     );
   }

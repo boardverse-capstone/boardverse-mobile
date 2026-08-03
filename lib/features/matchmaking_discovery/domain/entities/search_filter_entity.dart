@@ -164,6 +164,23 @@ class SearchFilterEntity extends Equatable {
   /// Reset tất cả filters
   SearchFilterEntity clear() => const SearchFilterEntity();
 
+  /// Cache key dùng cho [CacheableRepository.cache] — đảm bảo 2 filter
+  /// cùng tham số sẽ trỏ về cùng entry cache, dedupe cross-screen GET.
+  String get cacheKey {
+    final ids = categoryIds?.join(',') ?? '';
+    final ranges = durationRanges?.map((r) => r.name).join(',') ?? '';
+    return [
+      'q=${query ?? ''}',
+      'cat=${category ?? ''}',
+      'ids=$ids',
+      'minP=${minPlayers ?? ''}',
+      'maxP=${maxPlayers ?? ''}',
+      'r=$radiusKm',
+      'k=$minKarma',
+      'ranges=$ranges',
+    ].join('|');
+  }
+
   @override
   List<Object?> get props => [
         query,

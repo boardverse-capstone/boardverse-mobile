@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
 
@@ -42,23 +45,26 @@ class SeatAvailabilityIndicator extends StatelessWidget {
 
   Widget _buildLoadingIndicator(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.radiusLgAll,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 14,
-            height: 14,
+            width: AppSpacing.sm + 2,
+            height: AppSpacing.sm + 2,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               color: theme.colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Text('Đang kiểm tra...', style: theme.textTheme.bodySmall),
         ],
       ),
@@ -72,22 +78,25 @@ class SeatAvailabilityIndicator extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: color.withValues(alpha: 0.12),
+          borderRadius: AppRadius.radiusLgAll,
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
+            Icon(icon, size: AppSpacing.md, color: color),
+            const SizedBox(width: AppSpacing.xs),
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: color,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -103,10 +112,10 @@ class SeatAvailabilityIndicator extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: AppSpacing.paddingAllSm,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.radiusSmAll,
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
@@ -115,13 +124,13 @@ class SeatAvailabilityIndicator extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 8),
+                Icon(icon, size: AppSpacing.md + 2, color: color),
+                const SizedBox(width: AppSpacing.xs),
                 Text(
                   label,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: color,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const Spacer(),
@@ -134,7 +143,7 @@ class SeatAvailabilityIndicator extends StatelessWidget {
               ],
             ),
             if (showDetailedInfo) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               _buildSeatBreakdown(theme),
             ],
           ],
@@ -150,19 +159,19 @@ class SeatAvailabilityIndicator extends StatelessWidget {
           theme,
           'Đang giữ chờ',
           availability!.holdingSeats,
-          Colors.orange,
+          AppColors.warning,
         ),
         _buildSeatRow(
           theme,
           'Đã đặt cọc',
           availability!.reservedSeats,
-          Colors.blue,
+          AppColors.info,
         ),
         _buildSeatRow(
           theme,
           'Đang sử dụng',
           availability!.inUseSeats,
-          Colors.red,
+          AppColors.error,
         ),
       ],
     );
@@ -170,15 +179,15 @@ class SeatAvailabilityIndicator extends StatelessWidget {
 
   Widget _buildSeatRow(ThemeData theme, String label, int count, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: AppSpacing.xs,
+            height: AppSpacing.xs,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Text(label, style: theme.textTheme.bodySmall),
           const Spacer(),
           Text(
@@ -198,24 +207,24 @@ class SeatAvailabilityIndicator extends StatelessWidget {
   ) {
     switch (status) {
       case CafeSeatStatus.available:
-        return (Colors.green, Icons.event_seat, '$available ghế trống');
+        return (AppColors.success, Icons.event_seat, '$available ghế trống');
       case CafeSeatStatus.limited:
-        return (Colors.orange, Icons.warning_amber, 'Còn $available ghế');
+        return (AppColors.warning, Icons.warning_amber, 'Còn $available ghế');
       case CafeSeatStatus.full:
-        return (Colors.red, Icons.block, 'Hết ghế');
+        return (AppColors.error, Icons.block, 'Hết ghế');
     }
   }
 
   (Color, IconData, String) _getOverallStatusInfo(SeatOverallStatus status) {
     switch (status) {
       case SeatOverallStatus.plenty:
-        return (Colors.green, Icons.event_seat, 'Nhiều ghế trống');
+        return (AppColors.success, Icons.event_seat, 'Nhiều ghế trống');
       case SeatOverallStatus.moderate:
-        return (Colors.blue, Icons.event_seat, 'Vừa đủ chỗ');
+        return (AppColors.info, Icons.event_seat, 'Vừa đủ chỗ');
       case SeatOverallStatus.limited:
-        return (Colors.orange, Icons.warning_amber, 'Ít ghế trống');
+        return (AppColors.warning, Icons.warning_amber, 'Ít ghế trống');
       case SeatOverallStatus.unavailable:
-        return (Colors.red, Icons.block, 'Hết ghế');
+        return (AppColors.error, Icons.block, 'Hết ghế');
     }
   }
 }

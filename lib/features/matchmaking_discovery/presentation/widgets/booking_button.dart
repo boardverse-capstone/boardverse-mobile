@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
 
@@ -57,22 +60,21 @@ class BookingButton extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Error/Warning Message
         if (errorMessage != null) ...[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: AppSpacing.paddingAllSm,
             decoration: BoxDecoration(
               color: theme.colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.radiusXsAll,
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.warning_amber,
                   color: theme.colorScheme.onErrorContainer,
-                  size: 20,
+                  size: AppSpacing.lg,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
                     errorMessage!,
@@ -84,32 +86,26 @@ class BookingButton extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
         ],
-
-        // Seat Info Summary
         if (availability != null || cafe != null) ...[
           _buildSeatInfoSummary(context, hasEnoughSeats),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
         ],
-
-        // Main Booking Button
         FilledButton.icon(
           onPressed: _getButtonAction(hasEnoughSeats, canBook),
           icon: _getButtonIcon(hasEnoughSeats),
           label: Text(_getButtonLabel(hasEnoughSeats, canBook)),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.radiusSmAll,
             ),
             backgroundColor: _getButtonColor(theme, canBook, hasEnoughSeats),
           ),
         ),
-
-        // Hint text
         if (!hasEnoughSeats && errorMessage == null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Vui lòng chọn quán có đủ $requiredSeats ghế trống',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -132,8 +128,8 @@ class BookingButton extends StatelessWidget {
   Widget _getButtonIcon(bool hasEnough) {
     if (isLoading || isCheckingSeats) {
       return const SizedBox(
-        width: 20,
-        height: 20,
+        width: AppSpacing.lg,
+        height: AppSpacing.lg,
         child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
@@ -159,7 +155,7 @@ class BookingButton extends StatelessWidget {
       return theme.colorScheme.primary;
     }
     if (!hasEnough) {
-      return theme.colorScheme.secondary;
+      return AppColors.warning;
     }
     return theme.colorScheme.surfaceContainerHighest;
   }
@@ -168,28 +164,23 @@ class BookingButton extends StatelessWidget {
     final theme = Theme.of(context);
     final availableCount = availability?.availableSeats ?? cafe!.availableSeats;
     final totalCount = availability?.totalSeats ?? cafe!.totalSeats;
+    final color = hasEnough ? AppColors.success : AppColors.warning;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: AppSpacing.paddingAllSm,
       decoration: BoxDecoration(
-        color: hasEnough
-            ? Colors.green.withValues(alpha: 0.1)
-            : Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: hasEnough
-              ? Colors.green.withValues(alpha: 0.3)
-              : Colors.orange.withValues(alpha: 0.3),
-        ),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.radiusXsAll,
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
           Icon(
             hasEnough ? Icons.check_circle : Icons.warning_amber,
-            color: hasEnough ? Colors.green : Colors.orange,
-            size: 24,
+            color: color,
+            size: AppSpacing.xl,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +191,7 @@ class BookingButton extends StatelessWidget {
                       : 'Không đủ ghế trống',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: hasEnough ? Colors.green : Colors.orange,
+                    color: color,
                   ),
                 ),
                 Text(

@@ -9,6 +9,7 @@ import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
 import '../widgets/board_verse_nav_bar.dart';
+import '../widgets/lazy_indexed_stack.dart';
 import 'bookings_page.dart';
 import 'discovery_tab.dart';
 import 'profile_page.dart';
@@ -60,8 +61,10 @@ class _MainScaffoldState extends State<MainScaffold> {
     super.dispose();
   }
 
-  /// Drives tab switching without animation. Uses IndexedStack for instant
-  /// page display.
+  /// Drives tab switching without animation. Uses [LazyIndexedStack] so
+  /// that tabs which the user has never opened do not run their `initState`
+  /// (and therefore do not trigger their initial GET requests) until they
+  /// are actually selected.
   void _onTabTapped(int index) {
     final clamped = index.clamp(0, NavTab.values.length - 1).toInt();
     if (clamped == _currentIndex) {
@@ -144,7 +147,7 @@ class _MainScaffoldState extends State<MainScaffold> {
               _handleBackNavigation(_currentIndex);
             },
             child: Scaffold(
-              body: IndexedStack(
+              body: LazyIndexedStack(
                 index: _currentIndex,
                 children: [
                   HomeOverviewPage(
