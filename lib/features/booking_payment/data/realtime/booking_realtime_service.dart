@@ -27,8 +27,7 @@ class BookingRealtimeService {
   Stream<BookingRealtimeEvent> get events => _events.stream;
   bool get isConnected => _isConnected;
 
-  BookingRealtimeService({required String accessToken})
-      : _accessToken = accessToken;
+  BookingRealtimeService(this._accessToken);
 
   Future<void> connect() async {
     if (_isConnected) return;

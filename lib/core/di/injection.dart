@@ -87,6 +87,15 @@ import '../../features/tournament/presentation/cubit/tournament_detail_cubit.dar
 import '../../features/tournament/presentation/cubit/my_registrations_cubit.dart';
 import '../../features/tournament/presentation/cubit/elo_history_cubit.dart';
 import '../../features/settings/presentation/cubit/theme_cubit.dart';
+import '../../features/wallet/data/datasources/wallet_remote_datasource.dart';
+import '../../features/wallet/data/wallet_repository_impl.dart';
+import '../../features/wallet/domain/repositories/wallet_repository.dart';
+import '../../features/wallet/presentation/cubit/wallet_cubit.dart';
+import '../../features/wallet/presentation/cubit/topup_cubit.dart';
+import '../../features/reservation/data/datasources/reservation_remote_datasource.dart';
+import '../../features/reservation/data/reservation_repository_impl.dart';
+import '../../features/reservation/domain/repositories/reservation_repository.dart';
+import '../../features/reservation/presentation/cubit/reservation_cubit.dart';
 import '../services/storage/theme_preferences_service.dart';
 import '../utils/current_user_resolver.dart';
 
@@ -316,7 +325,7 @@ void setupDependencies() {
 
   // Booking realtime service — SignalR.
   sl.registerLazySingleton<BookingRealtimeService>(
-    () => BookingRealtimeService(accessToken: ''),
+    () => BookingRealtimeService(''),
   );
 
   // Helper gọn cho banner resume trên tab Bookings — gói gọn
@@ -340,7 +349,7 @@ void setupDependencies() {
     () => BookingResultCubit(repository: sl<BookingRepository>()),
   );
   sl.registerFactory<BookingDetailActionsCubit>(
-    () => BookingDetailActionsCubit(repository: sl<BookingRepository>()),
+    () => BookingDetailActionsCubit(sl<BookingRepository>()),
   );
   sl.registerFactory<BookingRealtimeCubit>(
     () => BookingRealtimeCubit(
@@ -405,6 +414,41 @@ void setupDependencies() {
 
   sl.registerLazySingleton<ThemeCubit>(
     () => ThemeCubit(preferences: sl<ThemePreferencesService>()),
+  );
+
+  // ─── Feature: Wallet (BVC) ────────────────────────────────────────────
+  // Backend API: /api/v1/wallet/* (BR §2, §3)
+  sl.registerLazySingleton<WalletRemoteDatasource>(
+    () => WalletRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<WalletRepository>(
+    () => WalletRepositoryImpl(remoteDatasource: sl<WalletRemoteDatasource>()),
+  );
+
+  // Singleton cubit for persistent wallet state
+  sl.registerLazySingleton<WalletCubit>(
+    () => WalletCubit(repository: sl<WalletRepository>()),
+  );
+
+  // Factory cubit for top-up flow (creates new instance each time)
+  sl.registerFactory<TopUpCubit>(
+    () => TopUpCubit(repository: sl<WalletRepository>()),
+  );
+
+  // ─── Feature: Reservation (BVC atomic transaction) ──────────────────────
+  // Backend API: /api/v1/reservations/* (BR §6)
+  sl.registerLazySingleton<ReservationRemoteDatasource>(
+    () => ReservationRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<ReservationRepository>(
+    () => ReservationRepositoryImpl(remoteDatasource: sl<ReservationRemoteDatasource>()),
+  );
+
+  // Factory cubit for reservation flow (creates new instance each time)
+  sl.registerFactory<ReservationCubit>(
+    () => ReservationCubit(repository: sl<ReservationRepository>()),
   );
 
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────

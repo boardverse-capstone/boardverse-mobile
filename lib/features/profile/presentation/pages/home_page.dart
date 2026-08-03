@@ -25,6 +25,7 @@ import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_
 import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
 import 'package:boardverse_mobile/features/settings/presentation/pages/system_settings_page.dart';
+import 'package:boardverse_mobile/features/wallet/presentation/pages/wallet_page.dart';
 
 /// Trang chính của feature profile.
 ///
@@ -190,7 +191,7 @@ class _HomePageState extends State<HomePage> {
         onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
         onOpenLeaderboard: _openLeaderboard,
         onOpenFriends: _openFriendsPage,
-        onOpenHistory: () => _showToast('Lịch sử đấu sắp ra mắt'),
+        onOpenWallet: _openWalletPage,
         onOpenSettings: _openSystemSettings,
         onLogout: _logout,
       );
@@ -308,6 +309,10 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (_) => const FriendsPage()),
       );
 
+  void _openWalletPage() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const WalletPage()),
+      );
+
   void _openSystemSettings() => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const SystemSettingsPage()),
       );
@@ -412,7 +417,7 @@ class _DashboardShell extends StatelessWidget {
     required this.onDeleteLocation,
     required this.onOpenLeaderboard,
     required this.onOpenFriends,
-    required this.onOpenHistory,
+    required this.onOpenWallet,
     required this.onOpenSettings,
     required this.onLogout,
   });
@@ -427,7 +432,7 @@ class _DashboardShell extends StatelessWidget {
   final VoidCallback onDeleteLocation;
   final VoidCallback onOpenLeaderboard;
   final VoidCallback onOpenFriends;
-  final VoidCallback onOpenHistory;
+  final VoidCallback onOpenWallet;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
 
@@ -476,9 +481,9 @@ class _DashboardShell extends StatelessWidget {
                     onTap: onOpenLeaderboard,
                   ),
                   QuickActionItem(
-                    icon: AppIcons.bookingHistory,
-                    title: 'Lịch sử đấu',
-                    onTap: onOpenHistory,
+                    icon: AppIcons.money,
+                    title: 'Ví BVC',
+                    onTap: onOpenWallet,
                   ),
                   QuickActionItem(
                     icon: AppIcons.settings,

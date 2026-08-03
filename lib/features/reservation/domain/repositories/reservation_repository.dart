@@ -1,0 +1,89 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/error/failures.dart';
+import '../../../../core/network/paginated_response.dart';
+import '../entities/entities.dart';
+
+/// Repository interface cho reservation feature (BR §6)
+///
+/// Quản lý luồng:
+/// - Quote: tính toán cọc (không tạo row)
+/// - Confirm: atomic transaction (hold BVC + hold seat + hold game + create lobby)
+/// - Cancel: hủy reservation theo policy
+abstract class ReservationRepository {
+  /// Lấy danh sách reservations (phân trang, filter theo status/date/cafe)
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>> getReservations({
+    List<String>? statuses,
+    DateTime? playDate,
+    String? cafeId,
+    bool? hostedByMe,
+    bool? joinedByMe,
+    int page = 1,
+    int pageSize = 10,
+  });
+  /// Tạo quote cho reservation (không tạo DB row)
+  ///
+  /// [cafeId] - quán cần đặt
+  /// [gameId] - game muốn chơi
+  /// [playDate] - ngày chơi
+  /// [timeSlot] - khung giờ
+  /// [minPlayers], [maxPlayers] - số người
+  Future<Either<Failure, ReservationQuoteEntity>> createQuote({
+    required String cafeId,
+    required String gameId,
+    required DateTime playDate,
+    required TimeSlot timeSlot,
+    String? preferredStartTime,
+    required int minPlayers,
+    required int maxPlayers,
+    required String idempotencyKey,
+  });
+
+  /// Confirm reservation - atomic transaction
+  ///
+  /// Thực hiện:
+  /// 1. Validate lại quote
+  /// 2. Kiểm tra available seats >= maxPlayers
+  /// 3. Kiểm tra game copy còn
+  /// 4. Trừ availableBalance, cộng heldBalance
+  /// 5. Tạo Reservation (status = holding)
+  /// 6. Tạo Lobby (status = pendingActivation)
+  /// 7. Hold seats và game inventory
+  /// 8. Publish lobby → status = open
+  Future<Either<Failure, ReservationConfirmResult>> confirmReservation({
+    required String cafeId,
+    required String gameId,
+    required DateTime playDate,
+    required TimeSlot timeSlot,
+    String? preferredStartTime,
+    required int minPlayers,
+    required int maxPlayers,
+    required int expectedFinalDeposit,
+    required String idempotencyKey,
+  });
+
+  /// Cancel reservation
+  ///
+  /// [reason] - lý do hủy (optional)
+  /// Trả về số BVC được hoàn theo policy
+  Future<Either<Failure, ReservationCancelResult>> cancelReservation({
+    required String reservationId,
+    String? reason,
+  });
+
+  /// Lấy chi tiết reservation
+  Future<Either<Failure, ReservationEntity>> getReservation(String reservationId);
+
+  /// Lấy reservations của user (hosted)
+  Future<Either<Failure, List<ReservationEntity>>> getMyHostedReservations();
+
+  /// Lấy reservations của user (participating)
+  Future<Either<Failure, List<ReservationEntity>>> getMyParticipatingReservations();
+
+  /// Cafe approval cho lobby cần duyệt
+  Future<Either<Failure, void>> cafeApproval({
+    required String reservationId,
+    required bool approve,
+    String? reason,
+  });
+}

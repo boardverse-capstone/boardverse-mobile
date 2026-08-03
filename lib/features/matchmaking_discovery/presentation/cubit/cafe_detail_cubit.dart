@@ -6,9 +6,7 @@ import 'cafe_detail_state.dart';
 class CafeDetailCubit extends Cubit<CafeDetailState> {
   final MatchmakingRepository _repository;
 
-  CafeDetailCubit({required MatchmakingRepository repository})
-      : _repository = repository,
-        super(CafeDetailInitial());
+  CafeDetailCubit(this._repository) : super(CafeDetailInitial());
 
   Future<void> loadCafeDetail(String cafeId) async {
     emit(CafeDetailLoading());

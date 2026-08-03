@@ -193,44 +193,6 @@
         }
       }
     },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/end-game": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Trả game toàn bộ - chuyển session sang CHECKING để kiểm kê linh kiện. [Role: Manager, CafeStaff]\r\nBR-12: Bắt buộc phải trả game trước khi checkout.",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Đã trả game, chuyển sang kiểm kê."
-          },
-          "409": {
-            "description": "Phiên không ở trạng thái ACTIVE."
-          }
-        }
-      }
-    },
     "/api/cafes/{cafeId}/sessions/{sessionId}/partial-checkout": {
       "post": {
         "tags": [
@@ -710,27 +672,103 @@
         }
       }
     },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/games/check": {
-      "post": {
+    "/api/v1/admin/wallet": {
+      "get": {
         "tags": [
-          "ActiveSession"
+          "Admin - Wallet"
         ],
-        "summary": "Submit bảng kiểm kê linh kiện cho một game trong phiên chơi (BR-12).\r\nNhân viên POS quét linh kiện thực tế; thiếu → cộng phí phạt + đánh dấu MissingComponents.",
+        "summary": "Lấy danh sách tất cả wallets (phân trang).\r\nHỗ trợ filter theo search term, AccountStatus, RiskLevel.\r\n[Role: Admin]",
         "parameters": [
           {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "integer",
+              "format": "int32",
+              "default": 1
             }
           },
           {
-            "name": "sessionId",
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số item/trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "searchTerm",
+            "in": "query",
+            "description": "Tìm theo email, full name, hoặc userId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "statusFilter",
+            "in": "query",
+            "description": "Filter theo AccountStatus.",
+            "schema": {
+              "$ref": "#/components/schemas/AccountStatus"
+            }
+          },
+          {
+            "name": "riskLevelFilter",
+            "in": "query",
+            "description": "Filter theo RiskLevel.",
+            "schema": {
+              "$ref": "#/components/schemas/RiskLevel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách wallets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWalletPageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/wallet/{userId}": {
+      "get": {
+        "tags": [
+          "Admin - Wallet"
+        ],
+        "summary": "Lấy chi tiết wallet của một user (bao gồm thông tin user).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "userId",
             "in": "path",
-            "description": "Mã phiên chơi.",
+            "description": "UserId cần xem.",
             "required": true,
             "schema": {
               "type": "string",
@@ -738,47 +776,210 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết wallet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWalletDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User không có ví BVC.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/wallet/{userId}/transactions": {
+      "get": {
+        "tags": [
+          "Admin - Wallet"
+        ],
+        "summary": "Lấy lịch sử giao dịch BVC của một user.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "UserId cần xem lịch sử.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số item/trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lịch sử giao dịch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserTransactionsPageDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/wallet/set-status": {
+      "post": {
+        "tags": [
+          "Admin - Wallet"
+        ],
+        "summary": "Thay đổi AccountStatus của user (lock/unlock/suspend/ban).\r\nGhi PlayerActionHistory (BR-RISK-05).\r\n[Role: Admin]",
         "requestBody": {
-          "description": "Kết quả đếm linh kiện từng component.",
+          "description": "Thông tin thay đổi trạng thái.",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitComponentCheckRequestDto"
+                "$ref": "#/components/schemas/AdminSetStatusRequestDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitComponentCheckRequestDto"
+                "$ref": "#/components/schemas/AdminSetStatusRequestDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitComponentCheckRequestDto"
+                "$ref": "#/components/schemas/AdminSetStatusRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Đã lưu checklist; trả về phiên cập nhật."
+            "description": "Thay đổi thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetStatusResultDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Danh sách components rỗng."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không đủ quyền."
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
           },
           "404": {
-            "description": "Không tìm thấy phiên hoặc game."
+            "description": "User không tìm thấy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/wallet/adjust": {
+      "post": {
+        "tags": [
+          "Admin - Wallet"
+        ],
+        "summary": "Điều chỉnh số dư ví BVC của một user cụ thể (cộng hoặc trừ).\r\nDùng cho: compensation (nhầm user), manual refund, support adjustment, fraud penalty.\r\nKHÔNG qua SePay — ghi thẳng ledger AdminCredit/AdminDebit + audit note.\r\n[Role: Admin — mọi action ghi PlayerActionHistory sau (TODO phase sau).]",
+        "requestBody": {
+          "description": "Target user, amount BVC, direction, lý do, idempotency key.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAdjustBalanceRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAdjustBalanceRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAdjustBalanceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Điều chỉnh thành công, trả về snapshot số dư mới.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BvcHoldResult"
+                }
+              }
+            }
           },
-          "409": {
-            "description": "Phiên không ở trạng thái CHECKING."
+          "400": {
+            "description": "Dữ liệu không hợp lệ (amount ≤ 0, reason rỗng).",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "500": {
             "description": "Lỗi hệ thống."
+          },
+          "404": {
+            "description": "User chưa có ví (sẽ auto-create ví rỗng rồi mới cộng/trừ)."
           }
         }
       }
@@ -3249,144 +3450,6 @@
         }
       }
     },
-    "/api/bookings/{bookingId}/check-in": {
-      "post": {
-        "tags": [
-          "Booking"
-        ],
-        "summary": "Check-in tại quán.\r\nPOS quét QR/QRCode xác minh -> chuyển Confirmed -> CheckedIn.\r\n[Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "bookingId",
-            "in": "path",
-            "description": "Mã booking.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Check-in thành công.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookingResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Không có quyền.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy booking.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "409": {
-            "description": "Booking không ở trạng thái Confirmed.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
-    "/api/bookings/{bookingId}/check-out": {
-      "post": {
-        "tags": [
-          "Booking"
-        ],
-        "summary": "Check-out tại quán.\r\n[Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "bookingId",
-            "in": "path",
-            "description": "Mã booking.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Check-out thành công.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookingResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Không có quyền.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy booking.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "409": {
-            "description": "Booking chưa check-in.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
     "/api/bookings/{bookingId}/no-show-votes": {
       "post": {
         "tags": [
@@ -5207,7 +5270,7 @@
         "tags": [
           "CafePos"
         ],
-        "summary": "Đồng bộ sơ đồ bàn — tạo mới, cập nhật hoặc xóa bàn. [Role: Manager — chủ quán]",
+        "summary": "Đồng bộ sơ đồ bàn — tạo mới, cập nhật hoặc xóa bàn. Hỗ trợ 2 shape:\r\n1. Legacy: { \"tableNames\": [\"Bàn 1\", \"Bàn 2\"] } — chỉ tên, SeatCount giữ nguyên / default 4.\r\n2. Mới: { \"tables\": [{ \"name\": \"Bàn 1\", \"seatCount\": 8, \"sortOrder\": 0 }] } — đầy đủ Name + SeatCount + SortOrder.\r\nKhông gửi cả 2 cùng lúc. [Role: Manager — chủ quán]",
         "parameters": [
           {
             "name": "cafeId",
@@ -5221,7 +5284,7 @@
           }
         ],
         "requestBody": {
-          "description": "Danh sách tên bàn muốn giữ lại.",
+          "description": "Danh sách bàn muốn đồng bộ (1 trong 2 shape).",
           "content": {
             "application/json": {
               "schema": {
@@ -5245,7 +5308,7 @@
             "description": "Đồng bộ thành công, trả danh sách bàn hiện tại."
           },
           "400": {
-            "description": "Danh sách tên bàn không hợp lệ."
+            "description": "Payload rỗng, gửi cả 2 shape, hoặc seatCount/sortOrder ngoài range."
           },
           "401": {
             "description": "Thiếu token."
@@ -5258,6 +5321,79 @@
           },
           "500": {
             "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/tables/{tableId}": {
+      "patch": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Cập nhật một phần thông tin bàn (Name, SeatCount, SortOrder). Dùng để đổi số ghế (SeatCount) cho booking capacity. [Role: Manager — chủ quán]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tableId",
+            "in": "path",
+            "description": "Mã định danh bàn cần cập nhật.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Các trường muốn đổi (Name, SeatCount, SortOrder). Tất cả optional; ít nhất một phải có giá trị.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCafeTableRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCafeTableRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCafeTableRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật bàn thành công, trả về thông tin bàn sau khi sửa."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ hoặc không có trường nào để cập nhật."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải Manager chủ quán."
+          },
+          "404": {
+            "description": "Không tìm thấy bàn trong quán."
+          },
+          "409": {
+            "description": "Bàn đang có phiên chơi hoạt động, hoặc tên bàn đã trùng với bàn khác."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -5512,17 +5648,17 @@
         }
       }
     },
-    "/api/cafes/{cafeId}/pos/sessions/from-booking": {
+    "/api/cafes/{cafeId}/pos/check-in": {
       "post": {
         "tags": [
           "CafePos"
         ],
-        "summary": "Host-led check-in: Quét mã đặt chỗ (BookingCode) để kích hoạt phiên chơi cho cả nhóm.\r\nNhân viên quét mã QR trên ứng dụng của Host để check-in toàn bộ thành viên trong nhóm.\r\nMDC Happy Path Step 9",
+        "summary": "POS check-in: Staff quét QR (ReservationCode hoặc BookingCode legacy) để kích hoạt phiên chơi cho cả nhóm.\r\n            \r\nBR §21A.7 — Host-led check-in:\r\n  > \"Host đến quán, mở BookingSuccessPage hiển thị QR → Staff quét QR trên POS.\r\n  > POS validate: Booking tồn tại, status = confirmed, Nonce chưa được sử dụng,\r\n  > Thời gian nằm trong khung giờ cho phép.\r\n  > Booking.status = checkedIn, Game copy held → inUse, bắt đầu billing session.\"\r\n            \r\nCode detection (BR §21A.7 + ReservationCodeDetector):\r\n  - ReservationCode (8-char alphanumeric, exclude 0/1/I/O) → BVC Reservation flow.\r\n  - BookingCode \"BV{N}\" → VND BookingDeposit flow (backward compat).\r\n            \r\nIdempotent: scan cùng QR trả về cùng response (cùng ActiveSessionId).",
         "parameters": [
           {
             "name": "cafeId",
             "in": "path",
-            "description": "Mã định danh quán.",
+            "description": "Mã định danh quán staff đang vận hành.",
             "required": true,
             "schema": {
               "type": "string",
@@ -5531,21 +5667,21 @@
           }
         ],
         "requestBody": {
-          "description": "Mã đặt chỗ, bàn và game barcode.",
+          "description": "Mã check-in (ReservationCode | BookingCode), bàn và barcode hộp game.",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StartSessionFromBookingRequestDto"
+                "$ref": "#/components/schemas/CheckInRequestDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/StartSessionFromBookingRequestDto"
+                "$ref": "#/components/schemas/CheckInRequestDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/StartSessionFromBookingRequestDto"
+                "$ref": "#/components/schemas/CheckInRequestDto"
               }
             }
           }
@@ -5555,22 +5691,25 @@
             "description": "OK"
           },
           "201": {
-            "description": "Check-in thành công, phiên chơi đã được kích hoạt."
+            "description": "Check-in thành công, phiên chơi đã được kích hoạt (ActiveSession created)."
           },
           "400": {
-            "description": "Mã đặt chỗ không hợp lệ."
+            "description": "Dữ liệu request không hợp lệ hoặc ngoài time window check-in."
           },
           "401": {
-            "description": "Thiếu token."
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
           },
           "403": {
-            "description": "Không đủ quyền."
+            "description": "Không đủ quyền vận hành quán."
           },
           "404": {
-            "description": "Quán, bàn hoặc game không tồn tại."
+            "description": "Reservation/Booking, quán, bàn hoặc game không tồn tại."
           },
           "409": {
-            "description": "Đơn đặt chỗ chưa thanh toán hoặc bàn/game không khả dụng."
+            "description": "Reservation không thuộc cafe, sai cafe, chưa Confirmed, hoặc bàn/game không khả dụng."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -6765,9 +6904,8 @@
         "tags": [
           "Lobby"
         ],
-        "summary": "Tạo phòng chờ mới. [Role: Player]",
+        "summary": "Endpoint cũ — DEPRECATED. Tạo lobby phải qua\r\n`POST /api/v1/reservations/quote` + `POST /api/v1/reservations/confirm`\r\n(BR §XXI-B.1). Endpoint này sẽ bị xóa sau khi mobile app rollout.",
         "requestBody": {
-          "description": "Thông tin phòng chờ: game, giờ chơi, sức chứa, visibility (public/private), description, cover image, cafeId, bookingId.",
           "content": {
             "application/json": {
               "schema": {
@@ -6790,25 +6928,11 @@
           "200": {
             "description": "OK"
           },
-          "201": {
-            "description": "Phòng chờ đã tạo (kèm share code cho cả public/private)."
-          },
-          "400": {
-            "description": "Dữ liệu request không hợp lệ (vd: MaxMembers ngoài [GameTemplate.MinPlayers, MaxPlayers])."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không có quyền dùng booking này."
-          },
-          "404": {
-            "description": "Không tìm thấy game hoặc booking."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
+          "410": {
+            "description": "Endpoint đã deprecated, dùng ReservationController."
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/api/v1/lobbies/{lobbyId}/join": {
@@ -8998,6 +9122,336 @@
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/quote": {
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Tạo quote cho reservation. [Role: Player]\r\nQuote chỉ validate + tính toán, KHÔNG tạo row DB. Idempotent theo IdempotencyKey.",
+        "requestBody": {
+          "description": "CafeId, GameId, PlayDate, TimeSlot, MinPlayers, MaxPlayers, PreferredStartTime, IdempotencyKey.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationQuoteRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationQuoteRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationQuoteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả quote gồm số BVC cần hold, balance hiện tại, missing amount, buffer, expiresAt."
+          },
+          "400": {
+            "description": "Request không hợp lệ (playDate ngoài [today, +7], minPlayers < 2, timeSlot không đúng, preferredStartTime không nằm trong timeSlot window)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "User bị suspended/banned hoặc vượt cap tổng heldBalance."
+          },
+          "404": {
+            "description": "Cafe/Game không tồn tại hoặc cafe không có game này."
+          },
+          "409": {
+            "description": "Đã có lobby overlap, hoặc đã host lobby cho playDate+cafe+slot này."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/confirm": {
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Xác nhận reservation — atomic transaction (§21A.3 + BR-REQUIRED §17.4). [Role: Player]\r\nTrừ BVC từ ví, giữ seat + game copy, tạo Reservation + Lobby trong 1 transaction.\r\nLobby có playDate > 2 ngày sẽ vào trạng thái PendingCafeApproval (BR-NEW-11).",
+        "requestBody": {
+          "description": "CafeId, GameId, PlayDate, TimeSlot, MinPlayers, MaxPlayers, ExpectedFinalDeposit, IdempotencyKey.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationConfirmRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationConfirmRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationConfirmRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả ReservationId, LobbyId, RecruitmentDeadline, RequiresCafeApproval, CafeApprovalDeadline, HeldBvc."
+          },
+          "400": {
+            "description": "Quote đã thay đổi (ExpectedFinalDeposit sai), buffer quá ngắn, insufficient balance, validate thất bại."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "User không đủ điều kiện."
+          },
+          "404": {
+            "description": "Cafe/Game không tồn tại."
+          },
+          "409": {
+            "description": "IdempotencyKey đã dùng cho user khác; hoặc cafe hết chỗ / hết game copy."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/{reservationId}": {
+      "get": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Lấy chi tiết 1 reservation. [Role: Player — chỉ host hoặc member mới thấy]",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "description": "Mã reservation.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết reservation."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không có quyền xem."
+          },
+          "404": {
+            "description": "Không tìm thấy."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations": {
+      "get": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Lấy danh sách reservation của user. [Role: Player]\r\nMặc định: chỉ reservation do user host. Dùng joinedByMe=true để xem reservation đã tham gia.",
+        "parameters": [
+          {
+            "name": "Statuses",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ReservationStatus"
+              }
+            }
+          },
+          {
+            "name": "PlayDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "CafeId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "HostedByMe",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "JoinedByMe",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách reservation (phân trang)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/{reservationId}/cancel": {
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Host hủy reservation (BR-REFUND-02/03). [Role: Player — chỉ host của reservation mới được hủy]\r\nÁp dụng policy: grace 15p chưa có member → 100%; ≥24h trước giờ chơi → 100%; 6-24h → 50%; <6h → 0%.",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "description": "Id reservation cần hủy.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do hủy (optional, tối đa 500 ký tự).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelReservationRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelReservationRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelReservationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả RefundBvc, ForfeitBvc, RefundPolicyApplied."
+          },
+          "400": {
+            "description": "Reservation không ở trạng thái Holding."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải host của reservation."
+          },
+          "404": {
+            "description": "Không tìm thấy reservation."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/{reservationId}/cafe-approval": {
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Cafe duyệt hoặc từ chối lobby đang chờ (BR-NEW-11). [Role: Cafe Manager]\r\nSau khi approve → lobby chuyển sang Open, public cho members join.\r\nSau khi reject → lobby chuyển RejectedByCafe, refund 100% BVC cho host.",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "description": "Id reservation cần duyệt.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Approve=true/false, Reason (optional).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả Approved, LobbyStatus, RefundBvc."
+          },
+          "400": {
+            "description": "Lobby không ở trạng thái PendingCafeApproval."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy reservation."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
@@ -12181,10 +12635,188 @@
           }
         }
       }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Lấy số dư ví BVC của player đang đăng nhập.\r\nAuto-create ví rỗng nếu user lần đầu truy cập.\r\n[Role: Player — chỉ chính chủ; Admin có thể truy cập `/admin/wallet/{userId}` riêng.]",
+        "parameters": [
+          {
+            "name": "includeHeld",
+            "in": "query",
+            "description": "Có trả `HeldBalance` không. Mặc định `false` (an toàn UI mobile).\r\nĐặt `true` cho màn hình Wallet chi tiết.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về ví của user (auto-create nếu chưa có).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/topup": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Tạo đơn top-up BVC từ tiền thật (VND) qua SePay master account.\r\nValidate BR § II.2: tối thiểu 10.000 VND (= 10 BVC), bội số 1.000 VND.\r\nBR § XVII.1: idempotency — gửi lại cùng `IdempotencyKey` trả về cùng kết quả.\r\n[Role: Player — đã đăng nhập, account không bị suspended/banned.]",
+        "requestBody": {
+          "description": "Số tiền VND + idempotency key.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopUpRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopUpRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopUpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tạo đơn top-up thành công, trả về URL thanh toán.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopUpResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (dưới min, không chia hết).",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Tài khoản đang bị hạn chế.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống hoặc SePay gateway."
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/transactions": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Lịch sử sổ cái BVC của player đang đăng nhập (read-only).\r\nSắp xếp mới nhất trước. Phân trang.\r\n[Role: Player — chỉ chính chủ.]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang, bắt đầu từ 1. Mặc định 1.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số entry mỗi trang. Mặc định 20, tối đa 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về trang lịch sử ledger.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BvcTransactionPageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccountStatus": {
+        "enum": [
+          "Active",
+          "Warning",
+          "Restricted",
+          "Suspended",
+          "Banned"
+        ],
+        "type": "string"
+      },
       "AddCafeInventoryRequestDto": {
         "required": [
           "gameTemplateId"
@@ -12287,6 +12919,42 @@
             "pattern": "^[\\d\\s\\-\\+\\(\\)]+$",
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminAdjustBalanceRequestDto": {
+        "required": [
+          "amountBvc",
+          "idempotencyKey",
+          "isCredit",
+          "reason",
+          "targetUserId"
+        ],
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amountBvc": {
+            "maximum": 10000000,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int64"
+          },
+          "isCredit": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 5,
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -12483,6 +13151,65 @@
         },
         "additionalProperties": false
       },
+      "AdminSetStatusRequestDto": {
+        "required": [
+          "idempotencyKey",
+          "newStatus",
+          "reason",
+          "targetUserId"
+        ],
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "newStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "reason": {
+            "maxLength": 512,
+            "minLength": 5,
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminSetStatusResultDto": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "newStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "changedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "AdminUpdateBoardGameRequestDto": {
         "type": "object",
         "properties": {
@@ -12655,6 +13382,177 @@
           "role": {
             "minLength": 1,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminUserTransactionsPageDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BvcTransactionDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminWalletDetailDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "userPhoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "availableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heldBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalActiveDeposit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "riskMultiplier": {
+            "type": "number",
+            "format": "double"
+          },
+          "riskScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "isCoolingOff": {
+            "type": "boolean"
+          },
+          "coolingOffExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accountStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminWalletPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminWalletSummaryDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminWalletSummaryDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "availableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heldBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalActiveDeposit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "riskMultiplier": {
+            "type": "number",
+            "format": "double"
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "isCoolingOff": {
+            "type": "boolean"
+          },
+          "accountStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -13012,6 +13910,125 @@
         ],
         "type": "string"
       },
+      "BvcHoldResult": {
+        "type": "object",
+        "properties": {
+          "ledgerEntryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "newAvailableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "newHeldBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "balanceSnapshot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "wasIdempotentReplay": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BvcTransactionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/LedgerEntryType"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "relatedLobbyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "relatedBookingId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "relatedPaymentRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "balanceSnapshot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BvcTransactionPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BvcTransactionDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CafeApprovalRequestDto": {
+        "required": [
+          "reservationId"
+        ],
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approve": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CafeGameInventoryStatus": {
         "enum": [
           "Available",
@@ -13075,10 +14092,57 @@
         },
         "additionalProperties": false
       },
+      "CafeTableSyncItem": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "seatCount": {
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "sortOrder": {
+            "maximum": 9999,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CancelMatchRequestDto": {
         "type": "object",
         "properties": {
           "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CancelReservationRequestDto": {
+        "required": [
+          "reservationId"
+        ],
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 0,
             "type": "string",
             "nullable": true
           }
@@ -13104,6 +14168,30 @@
             "type": "string"
           },
           "confirmNewPassword": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInRequestDto": {
+        "required": [
+          "barcode",
+          "cafeTableId",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 20,
+            "minLength": 4,
+            "type": "string"
+          },
+          "cafeTableId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barcode": {
             "minLength": 1,
             "type": "string"
           }
@@ -13805,6 +14893,19 @@
         },
         "additionalProperties": false
       },
+      "LedgerEntryType": {
+        "enum": [
+          "TopUp",
+          "DepositHold",
+          "DepositRelease",
+          "DepositCapture",
+          "DepositForfeit",
+          "Adjustment",
+          "AdminCredit",
+          "AdminDebit"
+        ],
+        "type": "string"
+      },
       "LinkGoogleRequestDto": {
         "required": [
           "idToken"
@@ -14494,6 +15595,125 @@
         },
         "additionalProperties": false
       },
+      "ReservationConfirmRequestDto": {
+        "required": [
+          "cafeId",
+          "expectedFinalDeposit",
+          "gameId",
+          "idempotencyKey",
+          "playDate",
+          "timeSlot"
+        ],
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeSlot": {
+            "$ref": "#/components/schemas/TimeSlot"
+          },
+          "preferredStartTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "maxPlayers": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer",
+            "format": "int32"
+          },
+          "minPlayers": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer",
+            "format": "int32"
+          },
+          "expectedFinalDeposit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReservationQuoteRequestDto": {
+        "required": [
+          "cafeId",
+          "gameId",
+          "idempotencyKey",
+          "playDate",
+          "timeSlot"
+        ],
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeSlot": {
+            "$ref": "#/components/schemas/TimeSlot"
+          },
+          "preferredStartTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "maxPlayers": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer",
+            "format": "int32"
+          },
+          "minPlayers": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer",
+            "format": "int32"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReservationStatus": {
+        "enum": [
+          "Draft",
+          "Holding",
+          "Confirmed",
+          "Expired",
+          "CheckedIn",
+          "Completed",
+          "CancelledByPlayer",
+          "CancelledByCafe",
+          "NoShow"
+        ],
+        "type": "string"
+      },
       "ResetPasswordDto": {
         "required": [
           "newPassword",
@@ -14542,6 +15762,15 @@
           }
         },
         "additionalProperties": false
+      },
+      "RiskLevel": {
+        "enum": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ],
+        "type": "string"
       },
       "SePayAccountDto": {
         "type": "object",
@@ -14633,15 +15862,44 @@
             "type": "string",
             "nullable": true
           },
-          "gatewayTransactionId": {
+          "transactionDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accountNumber": {
             "type": "string",
             "nullable": true
           },
-          "orderId": {
+          "subAccount": {
             "type": "string",
             "nullable": true
           },
-          "amount": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferType": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "referenceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "accumulated": {
             "type": "number",
             "format": "double"
           },
@@ -14649,29 +15907,8 @@
             "type": "string",
             "nullable": true
           },
-          "status": {
-            "type": "string",
-            "nullable": true
-          },
-          "referenceCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "bankCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "bankAccount": {
-            "type": "string",
-            "nullable": true
-          },
           "note": {
             "type": "string",
-            "nullable": true
-          },
-          "paidAt": {
-            "type": "string",
-            "format": "date-time",
             "nullable": true
           },
           "signature": {
@@ -14682,6 +15919,26 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "gatewayTransactionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -14837,30 +16094,6 @@
           "barcode": {
             "maxLength": 50,
             "minLength": 3,
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "StartSessionFromBookingRequestDto": {
-        "required": [
-          "barcode",
-          "bookingCode",
-          "cafeTableId"
-        ],
-        "type": "object",
-        "properties": {
-          "bookingCode": {
-            "maxLength": 20,
-            "minLength": 4,
-            "type": "string"
-          },
-          "cafeTableId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "barcode": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -15025,9 +16258,6 @@
         "additionalProperties": false
       },
       "SyncCafeTablesRequestDto": {
-        "required": [
-          "tableNames"
-        ],
         "type": "object",
         "properties": {
           "tableNames": {
@@ -15035,7 +16265,16 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "nullable": true
+          },
+          "tables": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CafeTableSyncItem"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15072,6 +16311,66 @@
             "maxLength": 500,
             "minLength": 0,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimeSlot": {
+        "enum": [
+          "Morning",
+          "Afternoon",
+          "Evening",
+          "Night"
+        ],
+        "type": "string"
+      },
+      "TopUpRequestDto": {
+        "required": [
+          "amountVnd",
+          "idempotencyKey"
+        ],
+        "type": "object",
+        "properties": {
+          "amountVnd": {
+            "maximum": 100000000,
+            "minimum": 10000,
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TopUpResponseDto": {
+        "type": "object",
+        "properties": {
+          "paymentUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedBvc": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15226,6 +16525,32 @@
         },
         "additionalProperties": false
       },
+      "UpdateCafeTableRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string",
+            "nullable": true
+          },
+          "seatCount": {
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "sortOrder": {
+            "maximum": 9999,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateFriendPrivacyDto": {
         "type": "object",
         "properties": {
@@ -15330,19 +16655,12 @@
       "UpdateOperationalProfileRequestDto": {
         "required": [
           "billingModel",
-          "popularGamesList",
           "workingHours"
         ],
         "type": "object",
         "properties": {
           "workingHours": {
             "$ref": "#/components/schemas/WorkingHoursDto"
-          },
-          "numberOfTables": {
-            "maximum": 10000,
-            "minimum": 1,
-            "type": "integer",
-            "format": "int32"
           },
           "numberOfPrivateRooms": {
             "maximum": 1000,
@@ -15357,17 +16675,6 @@
               "type": "string"
             },
             "nullable": true
-          },
-          "numberOfGamesOwned": {
-            "maximum": 100000,
-            "minimum": 1,
-            "type": "integer",
-            "format": "int32"
-          },
-          "popularGamesList": {
-            "maxLength": 2000,
-            "minLength": 3,
-            "type": "string"
           },
           "hasGameMaster": {
             "type": "boolean"
@@ -15397,13 +16704,6 @@
             "minimum": 0,
             "type": "number",
             "format": "double"
-          },
-          "tableNames": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15714,6 +17014,38 @@
         },
         "additionalProperties": false
       },
+      "WalletDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "availableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heldBalance": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "riskMultiplier": {
+            "type": "number",
+            "format": "double"
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "isCoolingOff": {
+            "type": "boolean"
+          },
+          "accountStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          }
+        },
+        "additionalProperties": false
+      },
       "WorkingHoursDto": {
         "required": [
           "weekdayEnd",
@@ -15759,6 +17091,10 @@
   ],
   "tags": [
     {
+      "name": "Admin - Wallet",
+      "description": "Admin endpoints cho Ví BVC. Tách riêng `WalletController` để rõ ràng phân quyền.\r\nTheo BR-RISK-05: mọi admin action ghi audit (PlayerActionHistory) + ledger entry.\r\nTheo BR-RISK-07: chỉ Admin role."
+    },
+    {
       "name": "Booking",
       "description": "Controller cho Booking (đặt chỗ).\r\nTách riêng khỏi PaymentController để clear về mặt domain.\r\nFlow: Lobby (Full) -> Booking (PendingDeposit) -> BookingDeposit -> SePay -> Confirmed -> CheckedIn -> NoShow/Cancelled."
     },
@@ -15783,12 +17119,20 @@
       "description": "Payment controller cho toàn bộ luồng thanh toán booking deposit và session payment.\r\nTất cả endpoint booking deposit đi qua đây (không có BookingController riêng).\r\nBR-02, BR-03, BR-05, BR-06, BR-09, BR-15, BR-18."
     },
     {
+      "name": "Reservation",
+      "description": "API Reservation flow mới — Phase 2/3 (BR §21A.2..21A.6, §XXI-B.1).\r\nTheo rule `lobby-booking-deposit-bvc.mdc`:\r\n- POST /quote            : validate eligibility + tính cọc (idempotent, KHÔNG tạo row).\r\n- POST /confirm          : atomic transaction hold BVC + seat + game + tạo Reservation + Lobby.\r\n- POST /{id}/cancel      : host hủy theo BR-REFUND-02/03.\r\n- POST /{id}/cafe-approval: cafe duyệt lobby pending (BR-NEW-11).\r\n            \r\nEndpoint `POST /api/v1/lobbies` (LobbyController.CreateLobby) cũ đã bị chặn —\r\nlobby chỉ được tạo thông qua reservation flow."
+    },
+    {
       "name": "Tournament",
       "description": "API Tournament dành cho mobile app (Player).\r\n- Lấy danh sách giải Splendor đang mở.\r\n- Player đăng ký / rút lui.\r\n- Xem chi tiết giải + participants + matches."
     },
     {
       "name": "TournamentPos",
       "description": "API Tournament dành cho Web POS (Manager).\r\n- Tạo / sửa / mở đăng ký / bắt đầu / hủy / hoàn thành giải.\r\n- Check-in người chơi tại quán.\r\n- Ghi nhận kết quả các bàn đấu."
+    },
+    {
+      "name": "Wallet",
+      "description": "Controller cho Ví BVC + sổ cái ledger.\r\nTheo BR § II + § III — boardverse-lobby-booking-deposit-bvc.mdc.\r\nPhase 1: top-up (tiền thật → BVC) + đọc balance + lịch sử.\r\nPhase 3: thêm `POST /api/v1/reservations/confirm` sẽ dùng\r\nledger + wallet cho deposit hold/capture/release/forfeit."
     }
   ]
 }

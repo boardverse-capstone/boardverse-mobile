@@ -198,7 +198,13 @@ class _PillTab extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 6),
-          Text(label),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
           if (count > 0) ...[
             const SizedBox(width: 5),
             _RequestBadge(count: count),

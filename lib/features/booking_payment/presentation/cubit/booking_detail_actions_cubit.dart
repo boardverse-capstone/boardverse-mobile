@@ -48,9 +48,7 @@ class BookingDetailActionsCubit extends Cubit<BookingDetailActionsState> {
   String? _bookingId;
   StreamSubscription<void>? _sessionSub;
 
-  BookingDetailActionsCubit({required BookingRepository repository})
-      : _repository = repository,
-        super(const ActionsIdle());
+  BookingDetailActionsCubit(this._repository) : super(const ActionsIdle());
 
   void attach(String bookingId) {
     _bookingId = bookingId;

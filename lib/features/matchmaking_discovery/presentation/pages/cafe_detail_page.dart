@@ -31,9 +31,8 @@ class CafeDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => CafeDetailCubit(
-        repository: matchmakingCubit.repository,
-      )..loadCafeDetail(cafeId),
+      create: (context) =>
+          CafeDetailCubit(matchmakingCubit.repository)..loadCafeDetail(cafeId),
       child: _CafeDetailView(
         selectedGame: selectedGame,
         matchmakingCubit: matchmakingCubit,
@@ -164,10 +163,7 @@ class _CafeDetailView extends StatelessWidget {
                     // ── Contact Info ────────────────────────────────────
                     _SectionTitle(title: 'Liên hệ'),
                     const SizedBox(height: AppSpacing.sm),
-                    _InfoRow(
-                      icon: Icons.place_outlined,
-                      text: cafe.address,
-                    ),
+                    _InfoRow(icon: Icons.place_outlined, text: cafe.address),
                     if (cafe.phoneNumber != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       _TappableInfoRow(
@@ -205,8 +201,7 @@ class _CafeDetailView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     _InfoRow(
                       icon: Icons.calendar_today_outlined,
-                      text:
-                          'Tham gia: ${_formatDate(cafe.createdAt)}',
+                      text: 'Tham gia: ${_formatDate(cafe.createdAt)}',
                     ),
                     if (cafe.totalSeats != null && cafe.totalSeats! > 0) ...[
                       const SizedBox(height: AppSpacing.sm),
@@ -290,7 +285,8 @@ class _CafeDetailView extends StatelessWidget {
 
   Future<void> _openMap(double lat, double lng) async {
     final uri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -316,9 +312,7 @@ class _PricingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
         borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(
-          color: theme.colorScheme.primaryContainer,
-        ),
+        border: Border.all(color: theme.colorScheme.primaryContainer),
       ),
       child: Column(
         children: [
@@ -384,10 +378,7 @@ class _PricingCard extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    'Tiền cọc',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  child: Text('Tiền cọc', style: theme.textTheme.bodyMedium),
                 ),
                 Text(
                   cafe.depositDisplay,
@@ -448,12 +439,7 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: theme.colorScheme.outline),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
+        Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
       ],
     );
   }
@@ -517,18 +503,12 @@ class _SePayBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.green.withValues(alpha: 0.1),
         borderRadius: AppRadius.radiusSmAll,
-        border: Border.all(
-          color: Colors.green.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.verified,
-            size: 18,
-            color: Colors.green,
-          ),
+          const Icon(Icons.verified, size: 18, color: Colors.green),
           const SizedBox(width: AppSpacing.xs),
           Text(
             'Hỗ trợ thanh toán SePay',
@@ -548,10 +528,7 @@ class _BookCtaButton extends StatelessWidget {
   final String gameName;
   final VoidCallback onPressed;
 
-  const _BookCtaButton({
-    required this.gameName,
-    required this.onPressed,
-  });
+  const _BookCtaButton({required this.gameName, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
