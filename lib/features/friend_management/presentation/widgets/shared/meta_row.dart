@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/app_icons.dart';
 
 /// Reusable meta row widget showing karma points and mutual friends count.
 class MetaRow extends StatelessWidget {
@@ -24,10 +26,10 @@ class MetaRow extends StatelessWidget {
       items.addAll([
         Icon(
           Icons.local_fire_department_outlined,
-          size: compact ? 11 : 13,
-          color: Colors.orange.shade400,
+          size: compact ? AppIcons.xs : AppIcons.sm,
+          color: AppColors.warning,
         ),
-        SizedBox(width: compact ? 1 : 2),
+        SizedBox(width: compact ? 1 : AppSpacing.xxs),
         Text(
           '$karmaPoints',
           style: theme.textTheme.labelSmall?.copyWith(
@@ -54,10 +56,10 @@ class MetaRow extends StatelessWidget {
       items.addAll([
         Icon(
           Icons.people_alt_outlined,
-          size: compact ? 11 : 13,
+          size: compact ? AppIcons.xs : AppIcons.sm,
           color: theme.colorScheme.outline,
         ),
-        SizedBox(width: compact ? 1 : 3),
+        SizedBox(width: compact ? 1 : AppSpacing.xxs),
         Text(
           '$mutualFriendsCount${compact ? '' : ' bạn chung'}',
           style: theme.textTheme.labelSmall?.copyWith(

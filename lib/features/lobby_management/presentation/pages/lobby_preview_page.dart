@@ -7,16 +7,8 @@ import '../cubit/lobby_cubit.dart';
 import '../cubit/lobby_state.dart';
 import 'lobby_page.dart';
 
-/// Trang xem trước (preview) một lobby từ `/api/v1/lobbies/discoverable`.
-/// Flow Browse lobbies: List → Preview → Confirm Join → LobbyPage.
-///
-/// Mục đích:
-/// - Hiển thị đầy đủ thông tin lobby (game, cafe, host, slots, karma, ...) trước
-///   khi user quyết định tham gia.
-/// - Nút "Tham gia" mở confirm dialog với thông tin quan trọng (giờ, karma,
-///   slot trống) → user xác nhận → gọi `LobbyCubit.joinLobby` → navigate
-///   sang `LobbyPage`.
-class LobbyPreviewPage extends StatelessWidget {
+/// Modern lobby preview page với gradient hero header và elevated design.
+class LobbyPreviewPage extends StatefulWidget {
   final LobbyEntity lobby;
   final LobbyCubit lobbyCubit;
 
@@ -27,26 +19,22 @@ class LobbyPreviewPage extends StatelessWidget {
   });
 
   @override
+  State<LobbyPreviewPage> createState() => _LobbyPreviewPageState();
+}
+
+class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lobby = widget.lobby;
+    final lobbyCubit = widget.lobbyCubit;
 
     return BlocProvider.value(
       value: lobbyCubit,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Chi tiết phòng chờ'),
-          actions: [
-            IconButton(
-              tooltip: 'Đóng',
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
         body: BlocListener<LobbyCubit, LobbyState>(
           listener: (context, state) {
             if (state is LobbyCreated) {
-              // Join thành công → navigate sang LobbyPage (đè stack).
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
                   builder: (_) => LobbyPage(
@@ -56,199 +44,141 @@ class LobbyPreviewPage extends StatelessWidget {
                 ),
               );
             } else if (state is LobbyFailure) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: theme.colorScheme.error,
-                ),
-              );
+              final is409 = state.message.contains('409') ||
+                  state.message.contains('trạng thái mở') ||
+                  state.message.contains('đã đóng') ||
+                  state.message.contains('đang chờ cafe duyệt') ||
+                  state.message.contains('đang chơi');
+              if (is409) {
+                _showLobbyStatusDialog(state.message);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                );
+              }
             }
           },
           child: CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: _Header(lobby: lobby, theme: theme)),
+              // ── Gradient Hero Header ──────────────────────────────────
+              SliverToBoxAdapter(
+                child: _HeroHeader(lobby: lobby, theme: theme),
+              ),
+
+              // ── Detail grid ──────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.sm,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                  ),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   child: _DetailGrid(lobby: lobby, theme: theme),
                 ),
               ),
+
+              // ── Status banner ───────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   child: _StatusBanner(lobby: lobby, theme: theme),
                 ),
               ),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: AppSpacing.xl),
-              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
             ],
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.all(AppSpacing.md),
-          child: BlocBuilder<LobbyCubit, LobbyState>(
-            builder: (context, state) {
-              final isLoading = state is LobbyLoading;
-              final canJoin = lobby.status == LobbyStatus.open &&
-                  lobby.slotsRemaining > 0;
-              return FilledButton.icon(
-                onPressed: (isLoading || !canJoin)
-                    ? null
-                    : () => _confirmAndJoin(context),
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Icon(
-                        canJoin
-                            ? AppIcons.userAdd
-                            : AppIcons.lock,
-                      ),
-                label: Text(_buttonLabel(lobby, isLoading)),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md,
-                  ),
-                  textStyle: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+
+        // ── Bottom CTA ──────────────────────────────────────────────
+        bottomNavigationBar: _BottomCta(lobby: lobby, lobbyCubit: lobbyCubit),
       ),
     );
   }
 
-  String _buttonLabel(LobbyEntity lobby, bool isLoading) {
-    if (isLoading) return 'Đang tham gia...';
-    if (lobby.status != LobbyStatus.open) return 'Phòng không mở';
-    if (lobby.slotsRemaining <= 0) return 'Phòng đã đầy';
-    return 'Tham gia phòng';
-  }
-
-  Future<void> _confirmAndJoin(BuildContext context) async {
-    final theme = Theme.of(context);
-    final timeText =
-        '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}';
-
-    final confirmed = await showDialog<bool>(
+  void _showLobbyStatusDialog(String message) {
+    showModalBottomSheet(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: Icon(AppIcons.boardGame, color: theme.colorScheme.primary),
-        title: const Text('Xác nhận tham gia'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Bạn sắp tham gia phòng chờ:',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _ConfirmRow(
-              icon: AppIcons.boardGame,
-              label: 'Game',
-              value: lobby.gameName,
-              theme: theme,
-            ),
-            _ConfirmRow(
-              icon: AppIcons.cafe,
-              label: 'Quán',
-              value: lobby.cafeName.isEmpty ? '—' : lobby.cafeName,
-              theme: theme,
-            ),
-            _ConfirmRow(
-              icon: AppIcons.schedule,
-              label: 'Giờ hẹn',
-              value: timeText,
-              theme: theme,
-            ),
-            _ConfirmRow(
-              icon: AppIcons.users,
-              label: 'Slot trống',
-              value: '${lobby.slotsRemaining} chỗ',
-              theme: theme,
-            ),
-            if (lobby.minimumKarma > 0)
-              _ConfirmRow(
-                icon: AppIcons.karma,
-                label: 'Yêu cầu Karma',
-                value: '${lobby.minimumKarma.toInt()}+',
-                theme: theme,
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
               ),
-            if (!lobby.isPublic) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.tertiaryContainer.withValues(
-                    alpha: 0.5,
+            ),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+                borderRadius: AppRadius.radiusMdAll,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.info,
+                    color: Theme.of(ctx).colorScheme.tertiary,
+                    size: 28,
                   ),
-                  borderRadius: AppRadius.radiusSmAll,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      AppIcons.lock,
-                      size: AppIcons.sm,
-                      color: theme.colorScheme.onTertiaryContainer,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        'Phòng riêng tư. Bạn có thể vào nếu có mã mời hoặc '
-                        'là bạn bè của Host.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onTertiaryContainer,
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phòng không khả dụng',
+                          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
-                      ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          message,
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Đã hiểu'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Tham gia'),
-          ),
-        ],
       ),
     );
-
-    if (confirmed == true) {
-      lobbyCubit.joinLobby(lobby.id, lobby.inviteCode);
-    }
   }
 }
 
-class _Header extends StatelessWidget {
+// ══════════════════════════════════════════════════════════════════════════════
+//  HERO HEADER
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _HeroHeader extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
 
-  const _Header({required this.lobby, required this.theme});
+  const _HeroHeader({required this.lobby, required this.theme});
 
   @override
   Widget build(BuildContext context) {
@@ -259,106 +189,116 @@ class _Header extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.all(AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colors.primary, colors.tertiary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [colors.primary, colors.tertiary],
         ),
-        borderRadius: AppRadius.cardRadius,
-        boxShadow: AppElevation.shadowSm,
+        borderRadius: AppRadius.radiusLgAll,
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withAlpha(77),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              if (lobby.gameImageUrl != null && lobby.gameImageUrl!.isNotEmpty)
-                ClipRRect(
-                  borderRadius: AppRadius.radiusSmAll,
-                  child: Image.network(
-                    lobby.gameImageUrl!,
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 64,
-                      height: 64,
-                      color: Colors.white.withValues(alpha: 0.25),
-                      child: Icon(
-                        AppIcons.boardGame,
-                        color: colors.onPrimary,
-                        size: AppIcons.lg,
-                      ),
+          // Top: game info + time
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Game image
+                if (lobby.gameImageUrl != null && lobby.gameImageUrl!.isNotEmpty)
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      borderRadius: AppRadius.radiusMdAll,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                     ),
-                  ),
-                )
-              else
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: AppRadius.radiusSmAll,
-                  ),
-                  child: Icon(
-                    AppIcons.boardGame,
-                    color: colors.onPrimary,
-                    size: AppIcons.lg,
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      lobby.gameImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _GameInitial(name: lobby.gameName, colors: colors),
+                    ),
+                  )
+                else
+                  _GameInitial(name: lobby.gameName, colors: colors),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lobby.gameName,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.store_outlined, size: 16, color: Colors.white.withValues(alpha: 0.8)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              lobby.cafeName.isEmpty ? 'Quán chưa rõ' : lobby.cafeName,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lobby.gameName,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: colors.onPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      lobby.cafeName.isEmpty ? 'Quán chưa rõ' : lobby.cafeName,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onPrimary.withValues(alpha: 0.85),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
+              ],
             ),
+          ),
+
+          // Bottom: time + status
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: AppRadius.radiusMdAll,
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(AppRadius.radiusLg),
+              ),
             ),
             child: Row(
               children: [
-                Icon(
-                  AppIcons.schedule,
-                  color: colors.onPrimary,
-                  size: AppIcons.md,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Giờ hẹn: $hh:$mm',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: AppRadius.radiusMdAll,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.access_time, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Giờ hẹn: $hh:$mm',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),
@@ -367,6 +307,36 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GameInitial extends StatelessWidget {
+  final String name;
+  final ColorScheme colors;
+
+  const _GameInitial({required this.name, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+      ),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }
@@ -381,25 +351,30 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, icon, bg) = switch (lobby.status) {
-      LobbyStatus.open => ('Đang mở', AppIcons.boardGame, Colors.green),
-      LobbyStatus.full => ('Đã đầy', AppIcons.users, Colors.orange),
-      LobbyStatus.inProgress => ('Đang chơi', AppIcons.boardGame, Colors.blue),
-      _ => ('Không khả dụng', AppIcons.lock, Colors.grey),
+      LobbyStatus.open => ('Đang mở', AppIcons.boardGame, AppColors.success),
+      LobbyStatus.full => ('Đã đầy', AppIcons.users, AppColors.warning),
+      LobbyStatus.inProgress => ('Đang chơi', AppIcons.boardGame, AppColors.info),
+      _ => ('Không khả dụng', AppIcons.lock, AppColors.textSecondary),
     };
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xxs,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
         color: bg.withValues(alpha: 0.85),
         borderRadius: AppRadius.radiusFullAll,
+        boxShadow: [
+          BoxShadow(
+            color: bg.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: AppIcons.sm, color: Colors.white),
-          const SizedBox(width: AppSpacing.xxs),
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
@@ -413,6 +388,10 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  DETAIL GRID
+// ══════════════════════════════════════════════════════════════════════════════
+
 class _DetailGrid extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
@@ -421,7 +400,7 @@ class _DetailGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final slotsRemaining = lobby.slotsRemaining;
+    final colors = theme.colorScheme;
     final capacityProgress = lobby.maxPlayers == 0
         ? 0.0
         : (lobby.currentPlayers / lobby.maxPlayers).clamp(0.0, 1.0);
@@ -437,20 +416,22 @@ class _DetailGrid extends StatelessWidget {
                 value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
                 progress: capacityProgress,
                 theme: theme,
+                colors: colors,
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _DetailTile(
                 icon: AppIcons.userAdd,
                 label: 'Slot trống',
-                value: slotsRemaining.toString(),
+                value: lobby.slotsRemaining.toString(),
                 theme: theme,
+                colors: colors,
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
@@ -459,28 +440,29 @@ class _DetailGrid extends StatelessWidget {
                 label: 'Chế độ',
                 value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
                 theme: theme,
+                colors: colors,
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _DetailTile(
                 icon: AppIcons.karma,
                 label: 'Karma tối thiểu',
-                value: lobby.minimumKarma > 0
-                    ? '${lobby.minimumKarma.toInt()}+'
-                    : 'Không yêu cầu',
+                value: lobby.minimumKarma > 0 ? '${lobby.minimumKarma.toInt()}+' : 'Không yêu cầu',
                 theme: theme,
+                colors: colors,
               ),
             ),
           ],
         ),
         if (lobby.inviteCode != null && lobby.inviteCode!.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           _DetailTile(
             icon: AppIcons.copy,
             label: 'Mã mời phòng',
             value: lobby.inviteCode!,
             theme: theme,
+            colors: colors,
             highlight: true,
           ),
         ],
@@ -495,6 +477,7 @@ class _DetailTile extends StatelessWidget {
   final String value;
   final double? progress;
   final ThemeData theme;
+  final ColorScheme colors;
   final bool highlight;
 
   const _DetailTile({
@@ -503,22 +486,21 @@ class _DetailTile extends StatelessWidget {
     required this.value,
     this.progress,
     required this.theme,
+    required this.colors,
     this.highlight = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: highlight
-            ? colors.primaryContainer.withValues(alpha: 0.4)
-            : colors.surface,
-        borderRadius: AppRadius.radiusMdAll,
+        color: highlight ? colors.primaryContainer.withValues(alpha: 0.3) : colors.surface,
+        borderRadius: AppRadius.radiusLgAll,
         border: Border.all(
-          color: highlight ? colors.primary : colors.outlineVariant,
+          color: highlight ? colors.primary.withValues(alpha: 0.5) : colors.outlineVariant,
         ),
+        boxShadow: highlight ? null : AppElevation.shadowXs,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,10 +509,10 @@ class _DetailTile extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: AppIcons.sm,
+                size: 16,
                 color: highlight ? colors.primary : colors.onSurfaceVariant,
               ),
-              const SizedBox(width: AppSpacing.xs),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
@@ -543,22 +525,18 @@ class _DetailTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           if (progress != null) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: 8),
             ClipRRect(
               borderRadius: AppRadius.radiusFullAll,
               child: LinearProgressIndicator(
                 value: progress,
-                minHeight: 4,
+                minHeight: 6,
                 backgroundColor: colors.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
               ),
@@ -570,6 +548,10 @@ class _DetailTile extends StatelessWidget {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  STATUS BANNER
+// ══════════════════════════════════════════════════════════════════════════════
+
 class _StatusBanner extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
@@ -579,13 +561,13 @@ class _StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = theme.colorScheme;
+
     if (lobby.status == LobbyStatus.full) {
       return _Banner(
-        icon: AppIcons.users,
-        iconColor: Colors.orange,
-        text: 'Phòng đã đầy. Bạn có thể đăng ký vào danh sách chờ hoặc tìm '
-            'phòng khác.',
-        bgColor: Colors.orange.withValues(alpha: 0.12),
+        icon: Icons.groups,
+        iconColor: AppColors.warning,
+        text: 'Phòng đã đầy. Bạn có thể đăng ký vào danh sách chờ hoặc tìm phòng khác.',
+        bgColor: AppColors.warning.withValues(alpha: 0.08),
         theme: theme,
       );
     }
@@ -594,16 +576,15 @@ class _StatusBanner extends StatelessWidget {
         icon: AppIcons.lock,
         iconColor: colors.error,
         text: 'Phòng này hiện không nhận thêm thành viên.',
-        bgColor: colors.errorContainer.withValues(alpha: 0.5),
+        bgColor: colors.errorContainer.withValues(alpha: 0.3),
         theme: theme,
       );
     }
     return _Banner(
       icon: AppIcons.info,
       iconColor: colors.primary,
-      text: 'Bấm "Tham gia phòng" để vào lobby. Hệ thống sẽ kiểm tra Karma và '
-          'số slot trống trước khi xác nhận.',
-      bgColor: colors.primaryContainer.withValues(alpha: 0.3),
+      text: 'Bấm "Tham gia phòng" để vào lobby. Hệ thống sẽ kiểm tra Karma và số slot trống trước khi xác nhận.',
+      bgColor: colors.primaryContainer.withValues(alpha: 0.2),
       theme: theme,
     );
   }
@@ -627,24 +608,137 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: iconColor, size: AppIcons.md),
-          const SizedBox(width: AppSpacing.sm),
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text(text, style: theme.textTheme.bodySmall),
           ),
         ],
       ),
     );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  BOTTOM CTA
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _BottomCta extends StatelessWidget {
+  final LobbyEntity lobby;
+  final LobbyCubit lobbyCubit;
+
+  const _BottomCta({required this.lobby, required this.lobbyCubit});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: BlocBuilder<LobbyCubit, LobbyState>(
+          builder: (context, state) {
+            final isLoading = state is LobbyLoading;
+            final canJoin = lobby.status == LobbyStatus.open && lobby.slotsRemaining > 0;
+            return _GradientCtaButton(
+              isActive: canJoin && !isLoading,
+              isLoading: isLoading,
+              label: _buttonLabel(lobby, isLoading),
+              icon: canJoin ? AppIcons.userAdd : AppIcons.lock,
+              onTap: canJoin ? () => _confirmAndJoin(context) : null,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _buttonLabel(LobbyEntity lobby, bool isLoading) {
+    if (isLoading) return 'Đang tham gia...';
+    if (lobby.status != LobbyStatus.open) return 'Phòng không mở';
+    if (lobby.slotsRemaining <= 0) return 'Phòng đã đầy';
+    return 'Tham gia phòng';
+  }
+
+  Future<void> _confirmAndJoin(BuildContext context) async {
+    final theme = Theme.of(context);
+    final timeText =
+        '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
+        icon: Icon(AppIcons.boardGame, color: theme.colorScheme.primary),
+        title: const Text('Xác nhận tham gia'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Bạn sắp tham gia phòng chờ:', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: AppSpacing.md),
+            _ConfirmRow(icon: AppIcons.boardGame, label: 'Game', value: lobby.gameName, theme: theme),
+            _ConfirmRow(icon: AppIcons.cafe, label: 'Quán', value: lobby.cafeName.isEmpty ? '—' : lobby.cafeName, theme: theme),
+            _ConfirmRow(icon: AppIcons.schedule, label: 'Giờ hẹn', value: timeText, theme: theme),
+            _ConfirmRow(icon: AppIcons.users, label: 'Slot trống', value: '${lobby.slotsRemaining} chỗ', theme: theme),
+            if (lobby.minimumKarma > 0)
+              _ConfirmRow(icon: AppIcons.karma, label: 'Yêu cầu Karma', value: '${lobby.minimumKarma.toInt()}+', theme: theme),
+            if (!lobby.isPublic) ...[
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                  borderRadius: AppRadius.radiusSmAll,
+                ),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.lock, size: 16, color: theme.colorScheme.onTertiaryContainer),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Phòng riêng tư. Bạn cần mã mời hoặc là bạn bè của Host.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onTertiaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Huỷ')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Tham gia')),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      lobbyCubit.joinLobby(lobby.id, lobby.inviteCode);
+    }
   }
 }
 
@@ -654,12 +748,7 @@ class _ConfirmRow extends StatelessWidget {
   final String value;
   final ThemeData theme;
 
-  const _ConfirmRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.theme,
-  });
+  const _ConfirmRow({required this.icon, required this.label, required this.value, required this.theme});
 
   @override
   Widget build(BuildContext context) {
@@ -668,26 +757,88 @@ class _ConfirmRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         children: [
-          Icon(icon, size: AppIcons.sm, color: colors.primary),
+          Icon(icon, size: 16, color: colors.primary),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            '$label:',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
+          Text('$label:', style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GradientCtaButton extends StatelessWidget {
+  final bool isActive;
+  final bool isLoading;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _GradientCtaButton({
+    required this.isActive,
+    required this.isLoading,
+    required this.label,
+    required this.icon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isActive
+            ? LinearGradient(colors: [colors.primary, colors.primary.withAlpha(204)])
+            : null,
+        color: isActive ? null : colors.surfaceContainerHighest,
+        borderRadius: AppRadius.radiusMdAll,
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.radiusMdAll,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.radiusMdAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md + 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                else ...[
+                  Icon(icon, size: 22, color: isActive ? Colors.white : colors.onSurfaceVariant),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isActive ? Colors.white : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

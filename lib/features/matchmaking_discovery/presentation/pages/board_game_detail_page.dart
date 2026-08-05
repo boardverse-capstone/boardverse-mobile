@@ -158,7 +158,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         builder: (_) => LobbyCafeSelectionPage(
           game: gameEntity!,
           matchmakingCubit: widget.matchmakingCubit,
-          isWalkInSolo: nav.isSoloBooking,
         ),
       ),
     );

@@ -7045,6 +7045,64 @@
           }
         }
       },
+      "delete": {
+        "tags": [
+          "Lobby"
+        ],
+        "summary": "Host giải tán lobby — hard delete toàn bộ records (Lobby + Members + Messages + Invites + Reports).\r\nChỉ host mới được gọi. Không áp dụng khi lobby đã check-in tại quán hoặc đã đóng/rating.\r\nGiải phóng reservation về Holding để host tạo lobby mới cùng slot. [Role: Player — chỉ Host]",
+        "parameters": [
+          {
+            "name": "lobbyId",
+            "in": "path",
+            "description": "Mã phòng chờ.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do giải tán (optional).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DissolveLobbyRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DissolveLobbyRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DissolveLobbyRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Phòng chờ đã giải tán."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Host."
+          },
+          "404": {
+            "description": "Không tìm thấy phòng chờ."
+          },
+          "409": {
+            "description": "Phòng đã đóng hoặc đang trong phiên chơi, không thể giải tán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Lobby"
@@ -7112,9 +7170,9 @@
         "tags": [
           "Lobby"
         ],
-        "summary": "Tìm phòng chờ theo game + filter địa lý + karma. Private lobby bị ẩn khỏi search. [Role: Player]",
+        "summary": "Tìm phòng chờ theo game + filter địa lý + karma. Private lobby bị ẩn khỏi search. [Role: Player]\r\nBR-USER-LIMIT-02: excludeSelfOverlapping loại bỏ các lobby trùng lịch với user.",
         "requestBody": {
-          "description": "GameTemplateId bắt buộc; latitude/longitude/radiusKm tùy chọn; minKarmaScore tùy chọn.",
+          "description": "GameTemplateId bắt buộc; latitude/longitude/radiusKm tùy chọn; minKarmaScore tùy chọn; excludeSelfOverlapping.",
           "content": {
             "application/json": {
               "schema": {
@@ -7154,7 +7212,7 @@
         "tags": [
           "Lobby"
         ],
-        "summary": "Khám phá các lobby public đang mở (status=Open, IsPrivate=false) để player khác có thể thấy và join.\r\nHỗ trợ filter optional theo game và khoảng cách địa lý.\r\nĐây là API dành cho màn hình \"Browse lobbies\" trên mobile — không bắt buộc gameTemplateId như /search. [Role: Player]",
+        "summary": "Khám phá các lobby public đang mở (status=Open, IsPrivate=false) để player khác có thể thấy và join.\r\nHỗ trợ filter optional theo game và khoảng cách địa lý.\r\nĐây là API dành cho màn hình \"Browse lobbies\" trên mobile — không bắt buộc gameTemplateId như /search. [Role: Player]\r\nBR-USER-LIMIT-02: excludeSelfOverlapping loại bỏ các lobby trùng lịch với user.",
         "parameters": [
           {
             "name": "gameTemplateId",
@@ -7200,6 +7258,15 @@
               "type": "integer",
               "format": "int32",
               "default": 50
+            }
+          },
+          {
+            "name": "excludeSelfOverlapping",
+            "in": "query",
+            "description": "Loại bỏ lobby trùng lịch với user (BR-USER-LIMIT-02).",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -9336,6 +9403,167 @@
         }
       }
     },
+    "/api/v1/reservations/pending-cafe-approval": {
+      "get": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Lấy danh sách lobby đang chờ cafe duyệt (BR-NEW-11). [Role: Cafe Manager]\r\nLobby có playDate > 2 ngày sẽ ở trạng thái PendingCafeApproval và cần manager duyệt.",
+        "parameters": [
+          {
+            "name": "CafeId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "PlayDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "LobbyStatuses",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/LobbyStatus"
+              }
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách lobby pending approval (phân trang)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager của bất kỳ cafe nào."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/{reservationId}/cafe-approval": {
+      "get": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Lấy chi tiết một reservation đang chờ cafe duyệt (BR-NEW-11). [Role: Cafe Manager]",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "description": "Id reservation cần xem chi tiết.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết reservation pending approval."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy reservation hoặc reservation không ở trạng thái PendingCafeApproval."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Cafe duyệt hoặc từ chối lobby đang chờ (BR-NEW-11). [Role: Cafe Manager]\r\nSau khi approve → lobby chuyển sang Open, public cho members join.\r\nSau khi reject → lobby chuyển RejectedByCafe, refund 100% BVC cho host.",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "description": "Id reservation cần duyệt.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Approve=true/false, Reason (optional).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CafeApprovalRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả Approved, LobbyStatus, RefundBvc."
+          },
+          "400": {
+            "description": "Lobby không ở trạng thái PendingCafeApproval."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy reservation."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/v1/reservations/{reservationId}/cancel": {
       "post": {
         "tags": [
@@ -9386,66 +9614,6 @@
           },
           "403": {
             "description": "Không phải host của reservation."
-          },
-          "404": {
-            "description": "Không tìm thấy reservation."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
-    "/api/v1/reservations/{reservationId}/cafe-approval": {
-      "post": {
-        "tags": [
-          "Reservation"
-        ],
-        "summary": "Cafe duyệt hoặc từ chối lobby đang chờ (BR-NEW-11). [Role: Cafe Manager]\r\nSau khi approve → lobby chuyển sang Open, public cho members join.\r\nSau khi reject → lobby chuyển RejectedByCafe, refund 100% BVC cho host.",
-        "parameters": [
-          {
-            "name": "reservationId",
-            "in": "path",
-            "description": "Id reservation cần duyệt.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Approve=true/false, Reason (optional).",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CafeApprovalRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CafeApprovalRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CafeApprovalRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Trả Approved, LobbyStatus, RefundBvc."
-          },
-          "400": {
-            "description": "Lobby không ở trạng thái PendingCafeApproval."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không phải manager của cafe."
           },
           "404": {
             "description": "Không tìm thấy reservation."
@@ -12803,6 +12971,163 @@
           }
         }
       }
+    },
+    "/api/v1/wallet/topup/{topUpId}": {
+      "delete": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Hủy đơn top-up BVC đang Pending (chưa thanh toán).\r\nSet `Status = Cancelled`; webhook SePay tới sau sẽ bị reject tự động.\r\nChỉ chính chủ đơn mới hủy được. Không thể hủy đơn đã Paid/Expired/Failed/Cancelled.\r\n[Role: Player — chỉ chính chủ.]",
+        "parameters": [
+          {
+            "name": "topUpId",
+            "in": "path",
+            "description": "Id của `BvcTopUpRequest`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hủy đơn thành công."
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải chủ đơn.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy đơn top-up.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Đơn không ở trạng thái Pending (đã Paid/Expired/Failed/Cancelled).",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Đổi số tiền đơn top-up BVC đang Pending (chưa thanh toán).\r\nĐơn cũ được set `Cancelled`; đơn mới được tạo với SePay PaymentUrl + OrderId mới.\r\nValidate cùng rule với `POST /wallet/topup` (min 10.000 VND, bội số 1.000 VND).\r\nChỉ chính chủ đơn mới đổi được. Không thể đổi đơn đã terminal.\r\n[Role: Player — chỉ chính chủ.]",
+        "parameters": [
+          {
+            "name": "topUpId",
+            "in": "path",
+            "description": "Id của `BvcTopUpRequest`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Số tiền VND mới + idempotency key mới.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTopUpRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTopUpRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTopUpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật thành công, trả về QR mới với số tiền mới.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopUpResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Amount dưới min / không chia hết cho 1.000.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải chủ đơn.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy đơn top-up.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "409": {
+            "description": "Đơn không ở Pending, hoặc idempotency key đã dùng.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống hoặc SePay gateway."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14492,6 +14817,13 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "minKarmaScore": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -14779,6 +15111,17 @@
         },
         "additionalProperties": false
       },
+      "DissolveLobbyRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body cho dissolve lobby (DELETE /api/v1/lobbies/{lobbyId})."
+      },
       "FriendshipRelationshipDirection": {
         "enum": [
           "None",
@@ -14919,6 +15262,23 @@
           }
         },
         "additionalProperties": false
+      },
+      "LobbyStatus": {
+        "enum": [
+          "Open",
+          "Full",
+          "TimeoutFailed",
+          "HostCancelled",
+          "InProgress",
+          "Closed",
+          "RatingOpen",
+          "PendingActivation",
+          "PendingCafeApproval",
+          "RejectedByCafe",
+          "ExpiredByCafe",
+          "Viable"
+        ],
+        "type": "string"
       },
       "LoginRequestDto": {
         "required": [
@@ -15638,6 +15998,9 @@
             "type": "integer",
             "format": "int32"
           },
+          "isPrivate": {
+            "type": "boolean"
+          },
           "expectedFinalDeposit": {
             "type": "integer",
             "format": "int64"
@@ -15691,6 +16054,9 @@
             "minimum": 2,
             "type": "integer",
             "format": "int32"
+          },
+          "isPrivate": {
+            "type": "boolean"
           },
           "idempotencyKey": {
             "maxLength": 128,
@@ -15972,6 +16338,9 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "excludeSelfOverlapping": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -16616,6 +16985,13 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "minKarmaScore": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -16877,6 +17253,27 @@
             "minLength": 0,
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateTopUpRequestDto": {
+        "required": [
+          "amountVnd",
+          "idempotencyKey"
+        ],
+        "type": "object",
+        "properties": {
+          "amountVnd": {
+            "maximum": 100000000,
+            "minimum": 10000,
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
           }
         },
         "additionalProperties": false

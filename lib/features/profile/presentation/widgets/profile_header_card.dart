@@ -74,7 +74,7 @@ class ProfileHeaderCard extends StatelessWidget {
                     color: theme.colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xxs),
                 // Handle + tier
                 Row(
                   children: [
@@ -93,7 +93,7 @@ class ProfileHeaderCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.xs,
-                          vertical: 2,
+                          vertical: AppSpacing.xxs,
                         ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primaryContainer,
@@ -113,7 +113,7 @@ class ProfileHeaderCard extends StatelessWidget {
                 // Full name (if different from username)
                 if (profile.firstName != null ||
                     profile.lastName != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     profile.displayName,
                     maxLines: 1,

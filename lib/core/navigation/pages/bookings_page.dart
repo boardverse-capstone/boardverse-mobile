@@ -1,277 +1,425 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
-import '../../../core/di/injection.dart';
-import '../../../core/theme/theme.dart';
-import '../../../features/booking_payment/domain/entities/deposit_config_entity.dart';
-import '../../../features/booking_payment/domain/enums/payment_method.dart';
-import '../../../features/booking_payment/presentation/cubit/booking_history_cubit.dart';
-import '../../../features/booking_payment/presentation/pages/booking_history_page.dart';
-import '../../../features/booking_payment/presentation/pages/payment_page.dart';
-import '../widgets/booking_pending_resume_helper.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/theme/theme.dart';
+import '../../../../features/reservation/domain/entities/entities.dart';
+import '../../../../features/reservation/domain/repositories/reservation_repository.dart';
+import '../../../../features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
+import '../../../../features/lobby_management/presentation/cubit/my_lobbies_state.dart';
+import '../../../../features/lobby_management/domain/entities/lobby_entity.dart';
 
-/// Tab "Lịch đặt" (`BookingsPage`) — wrap `BookingHistoryPageContent` + banner
-/// "Tiếp tục thanh toán" nếu `pendingBookingId` còn trong secure storage.
+/// Tab "Lịch đặt" — hiển thị lịch sử reservation + lobby của user.
 ///
-/// Đã chuyển từ placeholder sang tích hợp history thật (real API) kèm
-/// resume flow thủ công (user bấm banner thay vì auto-navigate).
-///
-/// Lazy load: chỉ gọi `loadAll()` lần đầu tiên tab này được mở (qua
-/// `LazyIndexedStack`). Các lần sau, switch đi switch lại giữa các tab,
-/// cubit đã có state → không fetch lại. Pull-to-refresh hoặc double-tap
-/// mới trigger re-fetch (qua `BookingRefreshSignal`).
+/// Sau khi flow SePay/booking-payment cũ bị xoá, tab này đổi sang dùng
+/// Reservation API (`/api/v1/reservations`) + `MyLobbiesCubit` để hiển thị
+/// tất cả phòng chờ mà user đã tạo/tham gia (bao gồm cả reservation).
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
 
-  static void requestRefresh(BuildContext context) {
-    BookingRefreshSignal.instance.notify();
-  }
+  /// Backward-compat — các caller cũ (MainScaffold) gọi `requestRefresh`
+  /// khi user double-tap tab. Hiện tại không cần vì cả reservation list lẫn
+  /// lobby list đều auto-load khi build.
+  static void requestRefresh(BuildContext context) {}
 
   @override
   State<BookingsPage> createState() => _BookingsPageState();
 }
 
 class _BookingsPageState extends State<BookingsPage> {
-  @override
-  void initState() {
-    super.initState();
-    // Lazy activation: chỉ fetch khi tab được build lần đầu (qua
-    // LazyIndexedStack). Nếu cubit đã có data (đã load trước đó), bỏ qua.
-    final cubit = sl<BookingHistoryCubit>();
-    if (cubit.state is BookingHistoryInitial) {
-      cubit.loadAll();
-    }
-  }
+  late final ReservationRepository _reservationRepo;
+  late final MyLobbiesCubit _myLobbiesCubit;
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider<BookingHistoryCubit>.value(
-      value: sl<BookingHistoryCubit>(),
-      child: const SafeArea(child: BookingsTabContent()),
-    );
-  }
-}
-
-class BookingsTabContent extends StatelessWidget {
-  const BookingsTabContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final historyCubit = context.read<BookingHistoryCubit>();
-    return Column(
-      children: [
-        _PendingDepositBanner(historyCubit: historyCubit),
-        Expanded(
-          child: BlocBuilder<BookingHistoryCubit, BookingHistoryState>(
-            builder: (context, state) {
-              return BookingHistoryPageContent(
-                state: state,
-                onRefresh: historyCubit.loadAll,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PendingDepositBanner extends StatefulWidget {
-  final BookingHistoryCubit historyCubit;
-  const _PendingDepositBanner({required this.historyCubit});
-
-  @override
-  State<_PendingDepositBanner> createState() => _PendingDepositBannerState();
-}
-
-class _PendingDepositBannerState extends State<_PendingDepositBanner> {
-  String? _bookingId;
-  bool _loading = true;
+  late final Future<List<_ReservationRow>> _reservationsFuture;
 
   @override
   void initState() {
     super.initState();
-    _load();
-    BookingRefreshSignal.instance.addListener(_onRefresh);
+    _reservationRepo = sl<ReservationRepository>();
+    _myLobbiesCubit = context.read<MyLobbiesCubit>();
+    _reservationsFuture = _loadReservations();
+    _myLobbiesCubit.load(null);
   }
 
-  @override
-  void dispose() {
-    BookingRefreshSignal.instance.removeListener(_onRefresh);
-    super.dispose();
-  }
-
-  void _onRefresh() {
-    if (mounted) _load();
-  }
-
-  Future<void> _load() async {
-    final id = await sl<BookingPersistenceResumeHelper>().readPendingBookingId();
-    if (!mounted) return;
-    setState(() {
-      _bookingId = id;
-      _loading = false;
+  Future<List<_ReservationRow>> _loadReservations() async {
+    final result = await _reservationRepo.getReservations(pageSize: 50);
+    return result.fold((_) => const <_ReservationRow>[], (page) {
+      return page.items
+          .map((r) => _ReservationRow(reservation: r))
+          .toList(growable: false);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const SizedBox.shrink();
-    if (_bookingId == null || _bookingId!.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final theme = Theme.of(context);
-    return Material(
-      color: AppColors.warning.withValues(alpha: 0.12),
-      child: InkWell(
-        onTap: () => _resume(context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.sm,
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _reservationsFuture = _loadReservations();
+          });
+          await _myLobbiesCubit.load(null);
+          await _reservationsFuture;
+        },
+        child: ListView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.20),
-                  borderRadius: AppRadius.radiusSmAll,
-                ),
-                child: Icon(
-                  Icons.hourglass_top_rounded,
-                  size: AppIcons.md,
-                  color: AppColors.warning,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.event_note,
+              title: 'Lịch đặt của tôi',
+              subtitle: 'Các đơn reservation đã tạo qua BVC',
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            FutureBuilder<List<_ReservationRow>>(
+              future: _reservationsFuture,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const _LoadingPlaceholder();
+                }
+                final rows = snap.data ?? const <_ReservationRow>[];
+                if (rows.isEmpty) {
+                  return const _EmptyPlaceholder(
+                    icon: Icons.event_busy,
+                    message: 'Bạn chưa tạo đơn reservation nào.',
+                  );
+                }
+                return Column(
                   children: [
-                    Text(
-                      'Đang có đơn chờ thanh toán',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    for (final r in rows)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _ReservationCard(row: r),
                       ),
-                    ),
-                    Text(
-                      'Bấm để tiếp tục thanh toán cọc SePay.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                   ],
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _SectionTitle(
+              icon: Icons.meeting_room,
+              title: 'Phòng chờ của tôi',
+              subtitle: 'Phòng đã tạo hoặc tham gia',
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            BlocBuilder<MyLobbiesCubit, MyLobbiesState>(
+              bloc: _myLobbiesCubit,
+              builder: (context, state) {
+                if (state is MyLobbiesLoading) {
+                  return const _LoadingPlaceholder();
+                }
+                if (state is MyLobbiesFailure) {
+                  return _ErrorPlaceholder(message: state.message);
+                }
+                if (state is MyLobbiesLoaded) {
+                  final lobbies = <LobbyEntity>[...state.joined, ...state.hosted];
+                  if (lobbies.isEmpty) {
+                    return const _EmptyPlaceholder(
+                      icon: Icons.meeting_room_outlined,
+                      message: 'Bạn chưa tạo hoặc tham gia phòng chờ nào.',
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final l in lobbies)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: _LobbyCard(lobby: l),
+                        ),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+class _ReservationRow {
+  final ReservationEntity reservation;
+  const _ReservationRow({required this.reservation});
+}
+
+class _SectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _SectionTitle({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer,
+              borderRadius: AppRadius.radiusSmAll,
+            ),
+            child: Icon(icon, color: colors.onPrimaryContainer, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReservationCard extends StatelessWidget {
+  final _ReservationRow row;
+  const _ReservationCard({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final r = row.reservation;
+    final time = DateFormat('HH:mm • dd/MM').format(r.scheduledTime.toLocal());
+    final statusColor = _statusColor(colors, r.status);
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: colors.outlineVariant),
+        boxShadow: AppElevation.shadowSm,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  r.gameName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.radiusFullAll,
+                ),
+                child: Text(
+                  r.status.displayName,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+          _InfoRow(icon: Icons.storefront, text: r.cafeName),
+          _InfoRow(icon: Icons.schedule, text: time),
+          _InfoRow(
+            icon: Icons.confirmation_number,
+            text: 'Cọc: ${r.finalDeposit} BVC',
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _resume(BuildContext context) async {
-    // Capture các "InheritedWidget" handle TRƯỚC khi qua `await` để
-    // tránh `use_build_context_synchronously`.
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final helper = sl<BookingPersistenceResumeHelper>();
-    final rawId = await helper.readPendingId();
-    if (!mounted || rawId == null) return;
+  Color _statusColor(ColorScheme colors, ReservationStatus status) {
+    if (status.isTerminal) return colors.error;
+    if (status.isActive) return colors.primary;
+    return AppColors.warning;
+  }
+}
 
-    final deposit = await helper.fetchDepositStatus(rawId);
-    if (!mounted) return;
-    final booking = await helper.fetchBooking(rawId);
-    if (!mounted) return;
+class _LobbyCard extends StatelessWidget {
+  final LobbyEntity lobby;
+  const _LobbyCard({required this.lobby});
 
-    String bookingId = rawId;
-    String cafeId = '';
-    String cafeName = '';
-    double depositAmount = 0;
-    DateTime deadline = DateTime.now().add(const Duration(minutes: 5));
-
-    if (deposit != null) {
-      bookingId = deposit.bookingId ?? rawId;
-      cafeId = deposit.cafeId;
-      cafeName = deposit.cafeName ?? '';
-      depositAmount = deposit.amount;
-      deadline = deposit.qrExpiresAt ?? deadline;
-    } else if (booking != null) {
-      cafeId = booking.cafeId;
-      cafeName = booking.cafeName;
-      depositAmount = booking.depositAmount;
-      deadline = booking.depositDeadline;
-    } else {
-      await helper.clearPending();
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Đơn đặt chỗ đã hết hạn, vui lòng tạo lại.'),
-        ),
-      );
-      widget.historyCubit.loadAll();
-      return;
-    }
-
-    if (booking != null && booking.status.name != 'pendingDeposit') {
-      await helper.clearPending();
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Đơn đã hoàn tất hoặc hết hạn.')),
-      );
-      widget.historyCubit.loadAll();
-      return;
-    }
-
-    final config = cafeId.isNotEmpty
-        ? await helper.fetchDepositConfig(cafeId)
-        : null;
-    if (!mounted) return;
-    final cfg = config ??
-        DepositConfigEntity(
-          cafeId: cafeId,
-          firstHourPrice: 0,
-          entryFee: 0,
-          maxDeposit: depositAmount,
-          defaultDeposit: depositAmount,
-          graceMinutes: 15,
-        );
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => PaymentPage(
-          bookingId: bookingId,
-          cafeId: cafeId,
-          cafeName: cafeName,
-          depositAmount: depositAmount,
-          deadline: deadline,
-          config: cfg,
-          method: PaymentMethod.sepay,
-        ),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final time = DateFormat('HH:mm • dd/MM').format(lobby.scheduledTime.toLocal());
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: colors.outlineVariant),
+        boxShadow: AppElevation.shadowSm,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            lobby.gameName,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          _InfoRow(icon: Icons.storefront, text: lobby.cafeName),
+          _InfoRow(icon: Icons.schedule, text: time),
+          _InfoRow(
+            icon: Icons.group,
+            text: '${lobby.currentPlayers}/${lobby.maxPlayers} người',
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Singleton signal — đồng bộ refresh giữa các trang booking.
-///
-/// `BookingsPage` lắng nghe listener này để gọi `loadAll()` khi:
-/// - User double-tap vào tab Bookings.
-/// - Có booking mới được tạo (vd: từ `BookingSuccessPage`).
-/// - Deep-link SePay return trigger refresh.
-class BookingRefreshSignal extends ChangeNotifier {
-  BookingRefreshSignal._();
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _InfoRow({required this.icon, required this.text});
 
-  static final BookingRefreshSignal instance = BookingRefreshSignal._();
-
-  void notify() {
-    if (hasListeners) notifyListeners();
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: colors.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-/// Bridge tới [BookingRefreshSignal] — dùng cho `DeepLinkHandler` không
-/// muốn phụ thuộc trực tiếp vào widget tree.
-void notifyBookingRefresh() => BookingRefreshSignal.instance.notify();
+class _LoadingPlaceholder extends StatelessWidget {
+  const _LoadingPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _EmptyPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const _EmptyPlaceholder({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorPlaceholder extends StatelessWidget {
+  final String message;
+  const _ErrorPlaceholder({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
+        borderRadius: AppRadius.radiusMdAll,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: colors.onErrorContainer),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

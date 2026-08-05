@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_icons.dart';
 import '../../domain/entities/entities.dart';
 
-/// Widget hiển thị một giao dịch trong lịch sử
+/// Widget hiển thị một giao dịch trong lịch sử.
 class TransactionTile extends StatelessWidget {
   final TransactionEntity transaction;
   final VoidCallback? onTap;
@@ -19,7 +21,7 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isPositive = transaction.amount > 0;
-    final amountColor = isPositive ? Colors.green : Colors.red;
+    final amountColor = isPositive ? AppColors.success : AppColors.error;
     final amountPrefix = isPositive ? '+' : '';
 
     return InkWell(
@@ -87,28 +89,28 @@ class TransactionTile extends StatelessWidget {
     switch (type) {
       case TransactionType.topUp:
         icon = Icons.add_circle_outline;
-        color = Colors.green;
+        color = AppColors.success;
       case TransactionType.depositHold:
         icon = Icons.lock_outline;
-        color = Colors.orange;
+        color = AppColors.warning;
       case TransactionType.depositRelease:
         icon = Icons.lock_open_outlined;
-        color = Colors.blue;
+        color = AppColors.info;
       case TransactionType.depositCapture:
         icon = Icons.remove_circle_outline;
-        color = Colors.red;
+        color = AppColors.error;
       case TransactionType.depositForfeit:
         icon = Icons.warning_outlined;
-        color = Colors.red.shade700;
+        color = AppColors.error;
       case TransactionType.adjustment:
         icon = Icons.tune;
-        color = Colors.teal;
+        color = AppColors.secondary;
       case TransactionType.adminCredit:
         icon = Icons.admin_panel_settings_outlined;
-        color = Colors.purple;
+        color = AppColors.primary;
       case TransactionType.adminDebit:
         icon = Icons.admin_panel_settings_outlined;
-        color = Colors.orange;
+        color = AppColors.warning;
     }
 
     return Container(
@@ -116,9 +118,9 @@ class TransactionTile extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.radiusSmAll,
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: Icon(icon, color: color, size: AppIcons.md),
     );
   }
 

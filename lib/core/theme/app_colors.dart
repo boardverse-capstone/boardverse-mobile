@@ -121,4 +121,25 @@ class AppColors {
     Color(0xFFFFD600),
     Color(0xFFFFAB00),
   ];
+
+  // ========================
+  // ELO/RANKING COLORS
+  // ========================
+
+  /// ELO tier colors for leaderboard medals
+  static const Color eloBronze = Color(0xFFCD7F32);
+  static const Color eloSilver = Color(0xFFC0C0C0);
+  static const Color eloGold = Color(0xFFFFD700);
+  static const Color eloPlatinum = Color(0xFFE5E4E2);
+  static const Color eloDiamond = Color(0xFFB9F2FF);
+
+  /// Get medal color by rank (1=Gold, 2=Silver, 3=Bronze)
+  static Color getMedalColor(int rank) {
+    return switch (rank) {
+      1 => eloGold,
+      2 => eloSilver,
+      3 => eloBronze,
+      _ => textSecondary,
+    };
+  }
 }

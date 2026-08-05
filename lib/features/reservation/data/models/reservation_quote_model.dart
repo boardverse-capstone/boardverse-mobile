@@ -24,6 +24,7 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
     required super.missingAmount,
     required super.bufferMinutes,
     required super.bufferWarning,
+    super.isPrivate,
     required super.requiresCafeApproval,
     required super.expiresAt,
     required super.warnings,
@@ -56,6 +57,7 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
       missingAmount: data['missingAmount'] as int? ?? 0,
       bufferMinutes: data['bufferMinutes'] as int? ?? 0,
       bufferWarning: data['bufferWarning'] as bool? ?? false,
+      isPrivate: data['isPrivate'] as bool? ?? false,
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
       expiresAt: data['expiresAt'] != null
           ? DateTime.parse(data['expiresAt'] as String)
@@ -77,6 +79,7 @@ class QuoteRequestModel {
   final String? preferredStartTime;
   final int minPlayers;
   final int maxPlayers;
+  final bool isPrivate;
   final String idempotencyKey;
 
   const QuoteRequestModel({
@@ -87,6 +90,7 @@ class QuoteRequestModel {
     this.preferredStartTime,
     required this.minPlayers,
     required this.maxPlayers,
+    this.isPrivate = false,
     required this.idempotencyKey,
   });
 
@@ -95,10 +99,12 @@ class QuoteRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      'timeSlot': timeSlot,
+      // Backend dùng PascalCase: "Morning", "Afternoon", "Evening", "Night"
+      'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
+      'isPrivate': isPrivate,
       'idempotencyKey': idempotencyKey,
     };
   }
@@ -109,6 +115,7 @@ class ReservationConfirmResultModel extends ReservationConfirmResult {
   const ReservationConfirmResultModel({
     required super.reservationId,
     required super.lobbyId,
+    super.lobbyShareCode,
     required super.recruitmentDeadline,
     required super.requiresCafeApproval,
     super.cafeApprovalDeadline,
@@ -121,6 +128,8 @@ class ReservationConfirmResultModel extends ReservationConfirmResult {
     return ReservationConfirmResultModel(
       reservationId: data['reservationId'] as String,
       lobbyId: data['lobbyId'] as String,
+      lobbyShareCode:
+          (data['lobbyShareCode'] ?? data['shareCode']) as String?,
       recruitmentDeadline:
           DateTime.parse(data['recruitmentDeadline'] as String),
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
@@ -141,6 +150,7 @@ class ConfirmRequestModel {
   final String? preferredStartTime;
   final int minPlayers;
   final int maxPlayers;
+  final bool isPrivate;
   final int expectedFinalDeposit;
   final String idempotencyKey;
 
@@ -152,6 +162,7 @@ class ConfirmRequestModel {
     this.preferredStartTime,
     required this.minPlayers,
     required this.maxPlayers,
+    this.isPrivate = false,
     required this.expectedFinalDeposit,
     required this.idempotencyKey,
   });
@@ -161,10 +172,12 @@ class ConfirmRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      'timeSlot': timeSlot,
+      // Backend dùng PascalCase: "Morning", "Afternoon", "Evening", "Night"
+      'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
+      'isPrivate': isPrivate,
       'expectedFinalDeposit': expectedFinalDeposit,
       'idempotencyKey': idempotencyKey,
     };

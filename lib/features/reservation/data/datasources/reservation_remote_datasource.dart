@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/error/failures.dart';
 import '../../../../../core/network/paginated_response.dart';
 import '../models/models.dart';
@@ -15,7 +16,7 @@ abstract class ReservationRemoteDatasource {
     bool? hostedByMe,
     bool? joinedByMe,
     int page = 1,
-    int pageSize = 10,
+    int pageSize = 20,
   });
 
   /// Tạo quote (không tạo DB row)
@@ -29,16 +30,11 @@ abstract class ReservationRemoteDatasource {
   Future<Either<Failure, ReservationCancelResultModel>> cancelReservation(
     String reservationId,
     String? reason,
+    String idempotencyKey,
   );
 
   /// Lấy chi tiết reservation
   Future<Either<Failure, ReservationModel>> getReservation(String reservationId);
-
-  /// Lấy reservations của user (hosted)
-  Future<Either<Failure, List<ReservationModel>>> getMyHostedReservations();
-
-  /// Lấy reservations của user (participating)
-  Future<Either<Failure, List<ReservationModel>>> getMyParticipatingReservations();
 
   /// Cafe approval
   Future<Either<Failure, void>> cafeApproval(
@@ -61,32 +57,32 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
     bool? hostedByMe,
     bool? joinedByMe,
     int page = 1,
-    int pageSize = 10,
+    int pageSize = 20,
   }) async {
     try {
       final queryParams = <String, dynamic>{
-        'Page': page,
-        'PageSize': pageSize,
+        'page': page,
+        'pageSize': pageSize,
       };
 
       if (statuses != null && statuses.isNotEmpty) {
-        queryParams['Statuses'] = statuses;
+        queryParams['statuses'] = statuses;
       }
       if (playDate != null) {
-        queryParams['PlayDate'] = playDate.toIso8601String().split('T').first;
+        queryParams['playDate'] = playDate.toIso8601String().split('T').first;
       }
       if (cafeId != null) {
-        queryParams['CafeId'] = cafeId;
+        queryParams['cafeId'] = cafeId;
       }
       if (hostedByMe != null) {
-        queryParams['HostedByMe'] = hostedByMe;
+        queryParams['hostedByMe'] = hostedByMe;
       }
       if (joinedByMe != null) {
-        queryParams['JoinedByMe'] = joinedByMe;
+        queryParams['joinedByMe'] = joinedByMe;
       }
 
       final response = await dio.get(
-        '/api/v1/reservations',
+        ApiEndpoints.reservations,
         queryParameters: queryParams,
       );
 
@@ -122,7 +118,7 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
       QuoteRequestModel request) async {
     try {
       final response = await dio.post(
-        '/api/v1/reservations/quote',
+        ApiEndpoints.reservationQuote,
         data: request.toJson(),
       );
 
@@ -144,7 +140,7 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
       ConfirmRequestModel request) async {
     try {
       final response = await dio.post(
-        '/api/v1/reservations/confirm',
+        ApiEndpoints.reservationConfirm,
         data: request.toJson(),
       );
 
@@ -166,11 +162,14 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
   Future<Either<Failure, ReservationCancelResultModel>> cancelReservation(
     String reservationId,
     String? reason,
+    String idempotencyKey,
   ) async {
     try {
+      final body = <String, dynamic>{'idempotencyKey': idempotencyKey};
+      if (reason != null) body['reason'] = reason;
       final response = await dio.post(
-        '/api/v1/reservations/$reservationId/cancel',
-        data: reason != null ? {'reason': reason} : {},
+        ApiEndpoints.reservationCancel(reservationId),
+        data: body,
       );
 
       if (response.statusCode == 200) {
@@ -192,7 +191,7 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
       String reservationId) async {
     try {
       final response = await dio.get(
-        '/api/v1/reservations/$reservationId',
+        ApiEndpoints.reservationDetail(reservationId),
       );
 
       if (response.statusCode == 200) {
@@ -210,65 +209,13 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
   }
 
   @override
-  Future<Either<Failure, List<ReservationModel>>> getMyHostedReservations() async {
-    try {
-      final response = await dio.get(
-        '/api/v1/reservations/hosted',
-      );
-
-      if (response.statusCode == 200) {
-        final items = response.data['data'] as List<dynamic>? ?? [];
-        return Right(
-          items
-              .map((e) => ReservationModel.fromJson(e as Map<String, dynamic>))
-              .toList(),
-        );
-      }
-
-      return Left(ServerFailure(
-          message: 'Failed to get hosted reservations: ${response.statusCode}'));
-    } on DioException catch (e) {
-      return Left(_handleDioError(e));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, List<ReservationModel>>>
-      getMyParticipatingReservations() async {
-    try {
-      final response = await dio.get(
-        '/api/v1/reservations/joined',
-      );
-
-      if (response.statusCode == 200) {
-        final items = response.data['data'] as List<dynamic>? ?? [];
-        return Right(
-          items
-              .map((e) => ReservationModel.fromJson(e as Map<String, dynamic>))
-              .toList(),
-        );
-      }
-
-      return Left(ServerFailure(
-          message:
-              'Failed to get participating reservations: ${response.statusCode}'));
-    } on DioException catch (e) {
-      return Left(_handleDioError(e));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
   Future<Either<Failure, void>> cafeApproval(
     String reservationId,
     CafeApprovalRequestModel request,
   ) async {
     try {
       final response = await dio.post(
-        '/api/v1/reservations/$reservationId/cafe-approval',
+        ApiEndpoints.reservationCafeApproval(reservationId),
         data: request.toJson(),
       );
 

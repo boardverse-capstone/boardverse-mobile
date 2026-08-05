@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_elevation.dart';
 
 /// Bọc ngoài thống nhất cho mọi "card" trong profile:
 /// - 1px outlineVariant border
 /// - radius [AppRadius.radiusLg]
-/// - shadow nhẹ (xs)
+/// - shadow nhẹ (sm) cho depth
 ///
 /// Dùng [Material] thay vì [Container] để `InkWell` / `ListTile` bên trong có
 /// thể vẽ ink splashes trên surface của card.
@@ -32,6 +33,7 @@ class SectionCard extends StatelessWidget {
         borderRadius: AppRadius.radiusLgAll,
       ),
       clipBehavior: Clip.antiAlias,
+      elevation: AppElevation.elevationSm,
       child: Padding(padding: padding, child: child),
     );
   }

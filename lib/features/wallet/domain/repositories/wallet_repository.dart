@@ -34,8 +34,20 @@ abstract class WalletRepository {
   /// Lấy chi tiết một giao dịch
   Future<Either<Failure, TransactionEntity>> getTransactionById(String transactionId);
 
-  /// Kiểm tra xem top-up đã thành công chưa (polling)
+  /// Đổi số tiền đơn top-up đang Pending (chưa thanh toán).
+  /// Đơn cũ = Cancelled; đơn mới trả về qua [TopUpQuoteEntity].
+  Future<Either<Failure, TopUpQuoteEntity>> updateTopUp({
+    required String topUpId,
+    required int amountVnd,
+    required String idempotencyKey,
+  });
+
+  /// Hủy đơn top-up đang Pending (chưa thanh toán).
+  Future<Either<Failure, void>> cancelTopUp(String topUpId);
+
+  /// Kiểm tra xem top-up đã thành công chưa bằng cách check transaction history.
   ///
-  /// Backend sẽ trả về wallet với balance đã cập nhật nếu thành công
-  Future<Either<Failure, WalletEntity>> checkTopUpStatus(String orderId);
+  /// Thay vì check balance (sai), ta check transaction có relatedPaymentRef = orderId.
+  /// Đây là cách đúng để xác nhận topup đã được xử lý bởi SePay webhook.
+  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(String orderId);
 }

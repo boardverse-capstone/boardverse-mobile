@@ -25,6 +25,7 @@ class QuickActionItem {
 ///
 /// Mỗi item là 1 ô vuông bo tròn, icon trên + label dưới — phong cách minimal.
 /// Toàn bộ grid được bọc trong 1 surface bo góc với border + shadow nhẹ.
+/// Có gradient hover state và press animation.
 class QuickActionsCard extends StatelessWidget {
   const QuickActionsCard({super.key, required this.actions});
 
@@ -56,24 +57,94 @@ class QuickActionsCard extends StatelessWidget {
   }
 }
 
-class _ActionTile extends StatelessWidget {
+class _ActionTile extends StatefulWidget {
   const _ActionTile({required this.item});
 
   final QuickActionItem item;
 
   @override
+  State<_ActionTile> createState() => _ActionTileState();
+}
+
+class _ActionTileState extends State<_ActionTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      duration: const Duration(milliseconds: 140),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    setState(() => _isPressed = false);
+    _pressCtrl.reverse();
+  }
+
+  void _onTapCancel() {
+    setState(() => _isPressed = false);
+    _pressCtrl.reverse();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tint = item.tint ?? theme.colorScheme.primary;
+    final tint = widget.item.tint ?? theme.colorScheme.primary;
 
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: AppRadius.radiusMdAll,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: item.onTap,
-        borderRadius: AppRadius.radiusMdAll,
-        child: Padding(
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        );
+      },
+      child: GestureDetector(
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        onTap: widget.item.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            gradient: _isPressed
+                ? LinearGradient(
+                    colors: [
+                      tint.withValues(alpha: 0.15),
+                      tint.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: _isPressed ? null : theme.colorScheme.surfaceContainerHighest,
+            borderRadius: AppRadius.radiusMdAll,
+            border: Border.all(
+              color: _isPressed
+                  ? tint.withValues(alpha: 0.3)
+                  : Colors.transparent,
+            ),
+          ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
             vertical: AppSpacing.sm,
@@ -83,15 +154,21 @@ class _ActionTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.xs),
                 decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.12),
+                  color: _isPressed
+                      ? tint.withValues(alpha: 0.2)
+                      : tint.withValues(alpha: 0.12),
                   borderRadius: AppRadius.radiusSmAll,
                 ),
-                child: Icon(item.icon, color: tint, size: AppIcons.md),
+                child: Icon(
+                  widget.item.icon,
+                  color: tint,
+                  size: AppIcons.md,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  item.title,
+                  widget.item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -103,7 +180,9 @@ class _ActionTile extends StatelessWidget {
               Icon(
                 AppIcons.forward,
                 size: AppIcons.sm,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: _isPressed
+                    ? tint
+                    : theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../booking_payment/presentation/pages/booking_history_page.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_elevation.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../../profile/domain/entities/profile_entity.dart';
@@ -21,11 +24,6 @@ class HomeOverviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // KHÔNG tạo `BlocProvider<ProfileCubit>` ở đây — cubit đã được
-    // provide ở app root trong `main.dart`. Việc tạo provider trong
-    // `build()` sẽ sinh cubit mới mỗi frame → emit `ProfileLoading`
-    // liên tục → loop vô tận khiến UI kẹt ở skeleton và liên tục
-    // gọi `/api/userprofile` + `/api/userprofile/me/location`.
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -34,7 +32,7 @@ class HomeOverviewPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(context),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               _buildQuickActions(context),
               const HomeSectionHeader(
                 title: 'Tin tức & Sự kiện',
@@ -45,23 +43,23 @@ class HomeOverviewPage extends StatelessWidget {
                 description:
                     'Đăng ký ngay để nhận ưu đãi phí tham gia cho thành viên BoardVerse.',
                 icon: Icons.emoji_events_outlined,
-                color: Colors.amber,
+                color: AppColors.accent,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               HomeNewsPlaceholder(
                 title: 'Tính năng đề xuất đối thủ đang phát triển',
                 description:
                     'Bản cập nhật tiếp theo sẽ gợi ý đối thủ theo ELO và khoảng cách.',
                 icon: Icons.bolt_outlined,
-                color: Colors.deepPurple,
+                color: AppColors.primary,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               const HomeSectionHeader(
                 title: 'Gợi ý cho bạn',
                 icon: Icons.tips_and_updates_outlined,
               ),
               _buildSuggestion(context),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
@@ -72,22 +70,21 @@ class HomeOverviewPage extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [theme.colorScheme.primary, theme.colorScheme.tertiary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withValues(alpha: 0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: AppRadius.radiusLgAll,
+        boxShadow: AppElevation.shadowSm,
       ),
       child: BlocBuilder<ProfileCubit, ProfileState>(
         builder: (context, state) {
@@ -110,7 +107,7 @@ class HomeOverviewPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +119,7 @@ class HomeOverviewPage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       _greetingMessage(),
                       style: TextStyle(
@@ -149,43 +146,42 @@ class HomeOverviewPage extends StatelessWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         children: [
           Expanded(
             child: HomeQuickActionCard(
               icon: Icons.calendar_today,
               label: 'Đặt chỗ',
-              color: theme.colorScheme.primary,
+              color: AppColors.primary,
               onTap: () => onSwitchTab?.call(1),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: HomeQuickActionCard(
               icon: Icons.groups,
               label: 'Tìm phòng',
-              color: Colors.deepPurple,
+              color: AppColors.primaryDark,
               onTap: () => onSwitchTab?.call(2),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: HomeQuickActionCard(
               icon: Icons.history,
               label: 'Lịch sử',
-              color: Colors.teal,
+              color: AppColors.secondary,
               onTap: () => _openBookingHistory(context),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: HomeQuickActionCard(
               icon: Icons.emoji_events,
               label: 'Giải đấu',
-              color: Colors.orange,
+              color: AppColors.accentDark,
               onTap: () => onSwitchTab?.call(3),
             ),
           ),
@@ -197,7 +193,7 @@ class HomeOverviewPage extends StatelessWidget {
   Widget _buildSuggestion(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: BlocBuilder<ProfileCubit, ProfileState>(
         builder: (context, state) {
           if (state is! ProfileLoaded) {
@@ -205,7 +201,7 @@ class HomeOverviewPage extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppRadius.radiusMdAll,
               ),
               child: const Center(child: CircularProgressIndicator()),
             );
@@ -218,9 +214,9 @@ class HomeOverviewPage extends StatelessWidget {
   }
 
   void _openBookingHistory(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const BookingHistoryPage()));
+    // Chuyển sang tab Bookings (index 1) — danh sách reservation + lobby
+    // của user.
+    onSwitchTab?.call(1);
   }
 }
 
@@ -260,9 +256,9 @@ class _SuggestionList extends StatelessWidget {
       children: tips
           .map(
             (tip) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.radiusSmAll,
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(
                     alpha: 0.4,
@@ -271,7 +267,7 @@ class _SuggestionList extends StatelessWidget {
               ),
               child: Material(
                 color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.radiusSmAll,
                 child: ListTile(
                   leading: Icon(tip.$1, color: theme.colorScheme.primary),
                   title: Text(

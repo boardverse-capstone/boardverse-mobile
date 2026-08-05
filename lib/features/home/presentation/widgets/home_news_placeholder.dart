@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+
 class HomeNewsPlaceholder extends StatelessWidget {
   final String title;
   final String description;
@@ -18,11 +21,11 @@ class HomeNewsPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.radiusMdAll,
           gradient: LinearGradient(
             colors: [
               color.withValues(alpha: 0.12),
@@ -36,14 +39,14 @@ class HomeNewsPlaceholder extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.radiusSmAll,
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,7 +57,7 @@ class HomeNewsPlaceholder extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     description,
                     style: theme.textTheme.bodySmall?.copyWith(

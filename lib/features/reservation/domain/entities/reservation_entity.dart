@@ -65,7 +65,9 @@ enum ReservationStatus {
   expired,
   cancelledByPlayer,
   cancelledByCafe,
-  noShow;
+  noShow,
+  cancelledByHost,
+  rejectedByCafe;
 
   String get displayName {
     switch (this) {
@@ -87,8 +89,12 @@ enum ReservationStatus {
         return 'Hủy bởi người dùng';
       case ReservationStatus.cancelledByCafe:
         return 'Hủy bởi quán';
+      case ReservationStatus.cancelledByHost:
+        return 'Chủ phòng hủy';
       case ReservationStatus.noShow:
         return 'Không đến';
+      case ReservationStatus.rejectedByCafe:
+        return 'Quán từ chối';
     }
   }
 
@@ -102,7 +108,9 @@ enum ReservationStatus {
       this == ReservationStatus.expired ||
       this == ReservationStatus.cancelledByPlayer ||
       this == ReservationStatus.cancelledByCafe ||
-      this == ReservationStatus.noShow;
+      this == ReservationStatus.cancelledByHost ||
+      this == ReservationStatus.noShow ||
+      this == ReservationStatus.rejectedByCafe;
 
   static ReservationStatus fromString(String value) {
     return ReservationStatus.values.firstWhere(
@@ -168,10 +176,32 @@ enum LobbyStatus {
   }
 }
 
+extension LobbyStatusX on LobbyStatus {
+  bool get isCafePending => this == LobbyStatus.pendingCafeApproval;
+  bool get isRejectedByCafe => this == LobbyStatus.rejectedByCafe;
+  bool get isExpiredByCafe => this == LobbyStatus.expiredByCafe;
+}
+
+extension ReservationStatusX on ReservationStatus {
+  bool get isAwaitingCafeApproval =>
+      this == ReservationStatus.holding &&
+      // awaiting flag được suy ra từ lobbyStatus.pendingCafeApproval; đây
+      // chỉ là helper khi chỉ có reservation status.
+      false;
+
+  bool get isCancelledByCafe =>
+      this == ReservationStatus.cancelledByCafe ||
+      this == ReservationStatus.rejectedByCafe;
+}
+
 /// Entity cho Reservation (BR §2, §6)
 class ReservationEntity extends Equatable {
   final String id;
   final String hostId;
+
+  /// Tên hiển thị của host (từ backend).
+  final String? hostDisplayName;
+
   final String cafeId;
   final String cafeName;
   final String gameId;
@@ -191,15 +221,39 @@ class ReservationEntity extends Equatable {
   final ReservationStatus status;
   final int currentPlayers;
   final String? lobbyId;
+
+  /// Mã share code 8 ký tự của lobby (vd: K7H3NP9X).
+  /// Trong list API, backend trả dưới field `reservationCode`.
+  final String? lobbyShareCode;
   final LobbyStatus? lobbyStatus;
+  final bool isPrivate;
   final bool requiresCafeApproval;
   final DateTime? cafeApprovalDeadline;
+  final String? cafeRejectionReason;
+  final String? refundPolicyApplied;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  /// User hiện tại có phải host của reservation này không (chỉ có ở list API).
+  final bool? isHost;
+
+  /// Còn lại bao nhiêu giờ đến cafe approval deadline (tính từ server).
+  final int? remainingApprovalHours;
+
+  /// Còn lại bao nhiêu phút đến cafe approval deadline (tính từ server).
+  final int? remainingApprovalMinutes;
+
+  /// Cafe đã duyệt chưa. Một số endpoint chỉ trả status nhưng UI cần biết
+  /// chính xác để hiển thị banner.
+  final bool? isCafeApproved;
+
+  /// Thời điểm cafe duyệt (nếu có).
+  final DateTime? approvedAt;
 
   const ReservationEntity({
     required this.id,
     required this.hostId,
+    this.hostDisplayName,
     required this.cafeId,
     required this.cafeName,
     required this.gameId,
@@ -219,11 +273,20 @@ class ReservationEntity extends Equatable {
     required this.status,
     required this.currentPlayers,
     this.lobbyId,
+    this.lobbyShareCode,
     this.lobbyStatus,
+    this.isPrivate = false,
     required this.requiresCafeApproval,
     this.cafeApprovalDeadline,
+    this.cafeRejectionReason,
+    this.refundPolicyApplied,
     required this.createdAt,
     this.updatedAt,
+    this.isHost,
+    this.remainingApprovalHours,
+    this.remainingApprovalMinutes,
+    this.isCafeApproved,
+    this.approvedAt,
   });
 
   /// Tính số ghế còn trống
@@ -249,6 +312,7 @@ class ReservationEntity extends Equatable {
   List<Object?> get props => [
         id,
         hostId,
+        hostDisplayName,
         cafeId,
         gameId,
         playDate,
@@ -262,9 +326,15 @@ class ReservationEntity extends Equatable {
         status,
         currentPlayers,
         lobbyId,
+        lobbyShareCode,
         lobbyStatus,
         requiresCafeApproval,
         createdAt,
         updatedAt,
+        isHost,
+      remainingApprovalHours,
+        remainingApprovalMinutes,
+        isCafeApproved,
+        approvedAt,
       ];
 }

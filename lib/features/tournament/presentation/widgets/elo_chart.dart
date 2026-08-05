@@ -46,6 +46,38 @@ class EloChart extends StatelessWidget {
   }
 }
 
+/// Chart padding constants - consistent sizing for Elo history chart
+class _ChartPadding {
+  _ChartPadding._();
+
+  /// Left padding for Y-axis labels ( Elo values)
+  static const double left = 36.0;
+
+  /// Bottom padding for X-axis
+  static const double bottom = 24.0;
+
+  /// Top padding
+  static const double top = 8.0;
+
+  /// Right padding
+  static const double right = 8.0;
+
+  /// Grid line stroke width
+  static const double gridStrokeWidth = 1.0;
+
+  /// Chart line stroke width
+  static const double lineStrokeWidth = 2.5;
+
+  /// Data point dot radius
+  static const double dotRadius = 3.5;
+
+  /// Data point inner dot radius
+  static const double innerDotRadius = 2.5;
+
+  /// Grid lines count
+  static const int gridLines = 4;
+}
+
 class _EloLineChartPainter extends CustomPainter {
   final List<EloHistoryEntity> history;
   final Color lineColor;
@@ -67,10 +99,10 @@ class _EloLineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (history.length < 2) return;
 
-    const paddingLeft = 36.0;
-    const paddingBottom = 24.0;
-    const paddingTop = 8.0;
-    const paddingRight = 8.0;
+    const paddingLeft = _ChartPadding.left;
+    const paddingBottom = _ChartPadding.bottom;
+    const paddingTop = _ChartPadding.top;
+    const paddingRight = _ChartPadding.right;
 
     final chartWidth = size.width - paddingLeft - paddingRight;
     final chartHeight = size.height - paddingTop - paddingBottom;
@@ -88,10 +120,10 @@ class _EloLineChartPainter extends CustomPainter {
     // Grid + Y-axis labels
     final gridPaint = Paint()
       ..color = gridColor
-      ..strokeWidth = 1;
+      ..strokeWidth = _ChartPadding.gridStrokeWidth;
     final labelPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    const gridLines = 4;
+    const gridLines = _ChartPadding.gridLines;
     for (int i = 0; i <= gridLines; i++) {
       final y = paddingTop + chartHeight * (i / gridLines);
       final value = yMax - (yRange * (i / gridLines));
@@ -135,7 +167,7 @@ class _EloLineChartPainter extends CustomPainter {
     // Line
     final linePaint = Paint()
       ..color = lineColor
-      ..strokeWidth = 2.5
+      ..strokeWidth = _ChartPadding.lineStrokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -150,8 +182,8 @@ class _EloLineChartPainter extends CustomPainter {
     final dotPaint = Paint()..color = lineColor;
     final dotRingPaint = Paint()..color = Colors.white;
     for (final p in points) {
-      canvas.drawCircle(p, 3.5, dotRingPaint);
-      canvas.drawCircle(p, 2.5, dotPaint);
+      canvas.drawCircle(p, _ChartPadding.dotRadius, dotRingPaint);
+      canvas.drawCircle(p, _ChartPadding.innerDotRadius, dotPaint);
     }
   }
 

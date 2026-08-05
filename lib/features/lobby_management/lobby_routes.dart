@@ -11,9 +11,17 @@ import 'data/datasources/base/lobby_remote_datasource.dart';
 
 /// Route names for lobby-related pages.
 class LobbyRoutes {
+  // Lobby invite / discovery helpers.
   static const String lobbyInvites = '/lobby/invites';
   static const String joinByCode = '/lobby/join-by-code';
   static const String matchResult = '/lobby/match-result';
+
+  // Reservation / BVC lobby-creation flow.
+  static const String lobbyCreateSetup = '/lobby/create-setup';
+  static const String lobbyQuote = '/lobby/quote';
+  static const String lobbyPendingCafeApproval =
+      '/lobby/pending-cafe-approval';
+  static const String lobbyPage = '/lobby/page';
 
   static const String shareCodeDeepLink = 'boardverse://lobby/join';
   static const String lobbyDeepLink = 'boardverse://lobby';
@@ -30,6 +38,23 @@ class MatchResultPageArgs {
     required this.lobbyId,
     required this.gameName,
   });
+}
+
+/// Page arguments for [LobbyPendingCafeApprovalPage].
+class LobbyPendingCafeApprovalArgs {
+  final String reservationId;
+  final DateTime? cafeApprovalDeadline;
+
+  const LobbyPendingCafeApprovalArgs({
+    required this.reservationId,
+    this.cafeApprovalDeadline,
+  });
+}
+
+/// Page arguments for [LobbyPage] (post-creation / preview / joined lobby).
+class LobbyPageArgs {
+  final String lobbyId;
+  const LobbyPageArgs({required this.lobbyId});
 }
 
 /// Helper to build routes for lobby-related pages.

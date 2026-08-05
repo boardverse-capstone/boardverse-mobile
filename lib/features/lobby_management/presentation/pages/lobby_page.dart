@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
-import 'package:boardverse_mobile/features/booking_payment/presentation/pages/booking_summary_page.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_chat_message.dart';
@@ -28,12 +28,7 @@ class LobbyPage extends StatefulWidget {
 class _LobbyPageState extends State<LobbyPage> {
   final _chatController = TextEditingController();
   final List<LobbyChatMessage> _chatMessages = [];
-
-  /// Id của current user lấy từ JWT (nameIdentifier claim).
-  /// Cache sau khi load để dùng trong build.
   String? _currentUserId;
-
-  /// Track xem đã load messages chưa để tránh load lại nhiều lần.
   bool _chatLoaded = false;
 
   @override
@@ -45,15 +40,8 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _resolveCurrentUserAndJoin() async {
     final resolver = getIt<CurrentUserResolver>();
     final userId = await resolver.resolveUserId();
-
     if (!mounted) return;
-
-    if (userId != null) {
-      setState(() => _currentUserId = userId);
-    }
-
-    // Sử dụng `initLobbyState` để kiểm tra user đã là member chưa
-    // và xử lý phù hợp (join nếu cần, hoặc chỉ sync state nếu đã là host)
+    if (userId != null) setState(() => _currentUserId = userId);
     await widget.lobbyCubit.initLobbyState(widget.lobbyId, userId ?? '');
   }
 
@@ -67,7 +55,6 @@ class _LobbyPageState extends State<LobbyPage> {
   void _sendChatMessage() {
     final content = _chatController.text.trim();
     if (content.isEmpty) return;
-
     widget.lobbyCubit.sendChatMessage(widget.lobbyId, content);
     _chatController.clear();
   }
@@ -80,7 +67,6 @@ class _LobbyPageState extends State<LobbyPage> {
 
   void _showInviteFriendsSheet(BuildContext context, LobbyEntity lobby) {
     widget.lobbyCubit.loadOnlineFriends();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -88,15 +74,9 @@ class _LobbyPageState extends State<LobbyPage> {
         value: widget.lobbyCubit,
         child: BlocListener<LobbyCubit, LobbyState>(
           listenWhen: (prev, current) =>
-              current is LobbyUpdatedRealtime &&
-              prev is! LobbyUpdatedRealtime,
+              current is LobbyUpdatedRealtime && prev is! LobbyUpdatedRealtime,
           listener: (sheetCtx, _) {
-            // Friend vừa được add thẳng vào lobby → đóng sheet để user
-            // thấy lobby rendering với member mới. Realtime đã đẩy state
-            // `LobbyUpdatedRealtime` đồng thời.
-            if (Navigator.of(sheetCtx).canPop()) {
-              Navigator.of(sheetCtx).pop();
-            }
+            if (Navigator.of(sheetCtx).canPop()) Navigator.of(sheetCtx).pop();
           },
           child: BlocBuilder<LobbyCubit, LobbyState>(
             builder: (sheetCtx, state) {
@@ -120,31 +100,21 @@ class _LobbyPageState extends State<LobbyPage> {
 
   void _completeFriendAction(FriendEntity friend, LobbyEntity lobby) {
     widget.lobbyCubit.inviteFriend(widget.lobbyId, friend.odId);
-
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã gửi lời mời đến ${friend.username}'),
-      ),
+      SnackBar(content: Text('Đã gửi lời mời đến ${friend.username}')),
     );
   }
 
   void _completeAddFriendAction(FriendEntity friend, LobbyEntity lobby) {
-    // Dev-friendly add: gọi `simulateAddFriend` để mock-realtime thêm
-    // friend thẳng vào lobby ngay lập tức, tránh phải chờ friend accept
-    // notification. Sheet sẽ tự đóng sau khi cubit emit state mới.
     widget.lobbyCubit.simulateAddFriend(widget.lobbyId, friend.odId);
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã thêm ${friend.username} vào phòng'),
-      ),
+      SnackBar(content: Text('Đã thêm ${friend.username} vào phòng')),
     );
   }
 
   void _shareInviteCode(BuildContext context, String? code) {
     if (code == null) return;
-
     Clipboard.setData(ClipboardData(text: code));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -159,6 +129,7 @@ class _LobbyPageState extends State<LobbyPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
         icon: Icon(
           AppIcons.warning,
           size: AppIcons.massive,
@@ -179,21 +150,25 @@ class _LobbyPageState extends State<LobbyPage> {
     );
   }
 
+  void _showDissolvedSnackBar(BuildContext context, LobbyDissolved state) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Phòng chờ đã được giải tán và xoá khỏi hệ thống.'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: widget.lobbyCubit,
       child: BlocConsumer<LobbyCubit, LobbyState>(
         listener: (context, state) {
-          if (state is LobbyDismissed) {
-            _showDismissDialog(context, state);
-          }
-          if (state is LobbyReady) {
-            _openBookingSummary(context, state);
-          }
-          if (state is LobbyAutoBookingCreated) {
-            _onAutoBookingCreated(context, state);
-          }
+          if (state is LobbyDismissed) _showDismissDialog(context, state);
+          if (state is LobbyDissolved) _showDissolvedSnackBar(context, state);
           if (state is LobbyChatLoaded) {
             setState(() {
               _chatMessages.clear();
@@ -201,9 +176,9 @@ class _LobbyPageState extends State<LobbyPage> {
             });
           }
           if (state is LobbyChatError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         buildWhen: (previous, current) =>
@@ -212,14 +187,21 @@ class _LobbyPageState extends State<LobbyPage> {
             current is! LobbyChatLoaded &&
             current is! LobbyChatError,
         builder: (context, state) {
-          if (state is LobbyLoading) {
-            return const _LobbyLoadingScaffold();
-          }
-
+          if (state is LobbyLoading) return const _LobbyLoadingScaffold();
           if (state is LobbyFailure) {
             return _LobbyFailureScaffold(
               message: state.message,
               onRetry: () => widget.lobbyCubit.joinLobby(widget.lobbyId, null),
+            );
+          }
+          if (state is LobbyEnded) {
+            return _LobbyEndedView(
+              lobby: state.lobby,
+              currentUserId: _currentUserId ?? '',
+              onDissolve: () => _onDissolveEndedLobby(state.lobby),
+              onRecreate: () => _onRecreateEndedLobby(state.lobby),
+              onExtend: () => _onExtendEndedLobby(state.lobby),
+              onShowDetails: () => _showLobbyDetails(context, state.lobby),
             );
           }
 
@@ -227,116 +209,155 @@ class _LobbyPageState extends State<LobbyPage> {
               ? state.lobby
               : state is LobbyUpdatedRealtime
               ? state.lobby
-              : state is LobbyReady
-              ? state.lobby
-              : state is LobbyAutoBookingCreated
-              ? state.lobby
               : null;
 
-          if (lobby == null) {
-            return const _LobbyLoadingScaffold();
-          }
-
-          // Load chat messages khi lobby được tạo
+          if (lobby == null) return const _LobbyLoadingScaffold();
           _loadChatMessages();
-
           return _buildLobbyView(context, lobby);
         },
       ),
     );
   }
 
+  Future<void> _onDissolveEndedLobby(LobbyEntity lobby) async {
+    await widget.lobbyCubit.dissolveLobby(lobby.id);
+  }
+
+  Future<void> _onRecreateEndedLobby(LobbyEntity lobby) async {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Vào "Phòng chờ" → bấm "Tạo phòng" để tạo lobby mới.'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
+  Future<void> _onExtendEndedLobby(LobbyEntity lobby) =>
+      _onRecreateEndedLobby(lobby);
+
+  Future<bool> _confirmDissolveActive(BuildContext context) async {
+    final colors = Theme.of(context).colorScheme;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
+        icon: Icon(
+          AppIcons.delete,
+          size: AppIcons.massive,
+          color: colors.error,
+        ),
+        title: const Text('Giải tán phòng chờ?'),
+        content: const Text(
+          'Phòng chờ sẽ bị xoá vĩnh viễn khỏi hệ thống. '
+          'Tất cả tin nhắn, lời mời và báo cáo cũng sẽ bị xoá. '
+          'Bạn không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.error,
+              foregroundColor: colors.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Giải tán'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _onDissolveActiveLobby(LobbyEntity lobby) async {
+    final confirmed = await _confirmDissolveActive(context);
+    if (!confirmed || !mounted) return;
+    await widget.lobbyCubit.dissolveLobby(lobby.id);
+  }
+
   Widget _buildLobbyView(BuildContext context, LobbyEntity lobby) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isHost = lobby.hostId == (_currentUserId ?? '');
+    final showDissolve = isHost && lobby.status.canDissolve;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(lobby.gameName),
-        actions: [
-          IconButton(
-            tooltip: 'Chi tiết phòng',
-            icon: const Icon(AppIcons.info),
-            onPressed: () => _showLobbyDetails(context, lobby),
+      body: CustomScrollView(
+        slivers: [
+          // ── Modern AppBar ─────────────────────────────────────────────
+          SliverAppBar(
+            floating: true,
+            pinned: true,
+            expandedHeight: 0,
+            title: Text(
+              lobby.gameName,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            actions: [
+              if (showDissolve)
+                _AppBarAction(
+                  icon: AppIcons.delete,
+                  iconColor: colors.error,
+                  tooltip: 'Giải tán phòng',
+                  onTap: () => _onDissolveActiveLobby(lobby),
+                ),
+              _AppBarAction(
+                icon: AppIcons.info,
+                iconColor: colors.onSurfaceVariant,
+                tooltip: 'Chi tiết phòng',
+                onTap: () => _showLobbyDetails(context, lobby),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _LobbyHeader(
-            lobby: lobby,
-            theme: theme,
-            onShareInviteCode: () =>
-                _shareInviteCode(context, lobby.inviteCode),
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 720;
-                final chatSection = _ChatPanel(
-                  controller: _chatController,
-                  messages: _chatMessages,
-                  currentUserId: _currentUserId ?? '',
-                  onSend: _sendChatMessage,
-                );
 
-                final lobbyPanel = _MembersSection(
-                  lobby: lobby,
-                  currentUserId: _currentUserId ?? '',
-                  onInvite: () => _showInviteFriendsSheet(context, lobby),
-                );
-
-                if (wide) {
-                  return Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 3, child: lobbyPanel),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(flex: 2, child: chatSection),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.lg,
-                  ),
-                  children: [
-                    lobbyPanel,
-                    const SizedBox(height: AppSpacing.lg),
-                    chatSection,
-                  ],
-                );
-              },
+          // ── Lobby Hero Header ────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: _LobbyHeroHeader(
+              lobby: lobby,
+              theme: theme,
+              onShareInviteCode: () =>
+                  _shareInviteCode(context, lobby.inviteCode),
             ),
           ),
+
+          // ── Players Section ──────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: _PlayersSection(
+              lobby: lobby,
+              currentUserId: _currentUserId ?? '',
+              onInvite: () => _showInviteFriendsSheet(context, lobby),
+            ),
+          ),
+
+          // ── Chat Section ────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: _ChatSection(
+              controller: _chatController,
+              messages: _chatMessages,
+              currentUserId: _currentUserId ?? '',
+              onSend: _sendChatMessage,
+            ),
+          ),
+
+          // ── Bottom padding for safe area ────────────────────────────
+          const SliverToBoxAdapter(child: SizedBox(height: 160)),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.md,
-        ),
-        child: _LobbyBottomActions(
-          canBook: lobby.currentPlayers >= lobby.maxPlayers,
-          isHost: lobby.hostId == (_currentUserId ?? ''),
-          onLeave: () {
-            widget.lobbyCubit.leaveLobby(widget.lobbyId);
-            Navigator.pop(context);
-          },
-          onBook: () {
-            // Luồng mới: Host bấm xác nhận → gọi hostConfirmAndBook
-            // → emit LobbyReady → _openBookingSummary navigate.
-            widget.lobbyCubit.hostConfirmAndBook(widget.lobbyId);
-          },
-        ),
+
+      // ── Bottom Action Bar ───────────────────────────────────────────
+      bottomNavigationBar: _LobbyBottomBar(
+        lobby: lobby,
+        currentUserId: _currentUserId ?? '',
+        onLeave: () {
+          widget.lobbyCubit.leaveLobby(widget.lobbyId);
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -348,61 +369,851 @@ class _LobbyPageState extends State<LobbyPage> {
       builder: (sheetContext) => _LobbyDetailsSheet(lobby: lobby),
     );
   }
+}
 
-  void _openBookingSummary(BuildContext context, LobbyReady state) {
-    final lobby = state.lobby;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingSummaryPage(
-          lobbyId: lobby.id,
-          cafeId: lobby.cafeId,
-          cafeName: lobby.cafeName,
-          cafeTableId: lobby.cafeTableId ?? '',
-          gameId: lobby.gameId,
-          gameName: lobby.gameName,
-          scheduledStartTime: lobby.scheduledTime,
-          scheduleEndTime:
-              lobby.scheduledTime.add(const Duration(hours: 2)),
-          seatCount: lobby.currentPlayers,
-          playerQuantity: lobby.currentPlayers,
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: AppBar Action Button
+// ══════════════════════════════════════════════════════════════════════════
+
+class _AppBarAction extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _AppBarAction({
+    required this.icon,
+    required this.iconColor,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      icon: Icon(icon, color: iconColor),
+      onPressed: onTap,
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Lobby Hero Header
+// ══════════════════════════════════════════════════════════════════════════
+
+class _LobbyHeroHeader extends StatelessWidget {
+  final LobbyEntity lobby;
+  final ThemeData theme;
+  final VoidCallback onShareInviteCode;
+
+  const _LobbyHeroHeader({
+    required this.lobby,
+    required this.theme,
+    required this.onShareInviteCode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = theme.colorScheme;
+    final capacityProgress = lobby.maxPlayers == 0
+        ? 0.0
+        : (lobby.currentPlayers / lobby.maxPlayers).clamp(0.0, 1.0);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primary, colors.primary.withAlpha(204)],
         ),
+        borderRadius: AppRadius.radiusLgAll,
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withAlpha(77),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top row: Cafe info + Timer
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                // Cafe avatar + info
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: AppRadius.radiusMdAll,
+                  ),
+                  child: Icon(AppIcons.cafe, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lobby.cafeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Giờ hẹn: ${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                LobbyCountdownTimer(
+                  expiresAt: lobby.timeoutAt,
+                  onExpired: () {},
+                ),
+              ],
+            ),
+          ),
+
+          // Stats row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                _HeroStat(
+                  label: 'Thành viên',
+                  value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
+                  icon: AppIcons.users,
+                  progress: capacityProgress,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _HeroStat(
+                  label: 'Slot trống',
+                  value: lobby.slotsRemaining.toString(),
+                  icon: AppIcons.userAdd,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _HeroStat(
+                  label: 'Chế độ',
+                  value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
+                  icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
+                ),
+              ],
+            ),
+          ),
+
+          // Invite code pill
+          if (lobby.inviteCode != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: _InviteCodePill(
+                code: lobby.inviteCode!,
+                onTap: onShareInviteCode,
+                theme: theme,
+              ),
+            ),
+        ],
       ),
     );
   }
+}
 
-  void _onAutoBookingCreated(
-    BuildContext context,
-    LobbyAutoBookingCreated state,
-  ) {
-    final lobby = state.lobby;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Phòng đã đủ người! Đang tạo đơn đặt cọc tự động...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingSummaryPage(
-          lobbyId: lobby.id,
-          cafeId: lobby.cafeId,
-          cafeName: lobby.cafeName,
-          cafeTableId: lobby.cafeTableId ?? '',
-          gameId: lobby.gameId,
-          gameName: lobby.gameName,
-          scheduledStartTime: lobby.scheduledTime,
-          scheduleEndTime:
-              lobby.scheduledTime.add(const Duration(hours: 2)),
-          seatCount: lobby.currentPlayers,
-          playerQuantity: lobby.currentPlayers,
-          autoBookingId: state.bookingId,
+class _HeroStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final double? progress;
+
+  const _HeroStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: AppRadius.radiusMdAll,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: AppRadius.radiusFullAll,
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: Colors.white.withValues(alpha: 0.25),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
+
+class _InviteCodePill extends StatelessWidget {
+  final String code;
+  final VoidCallback onTap;
+  final ThemeData theme;
+
+  const _InviteCodePill({
+    required this.code,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.2),
+      borderRadius: AppRadius.radiusFullAll,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.radiusFullAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(AppIcons.userAdd, size: 16, color: Colors.white),
+              const SizedBox(width: AppSpacing.sm),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Mã mời',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    code,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Icon(
+                AppIcons.copy,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Players Section
+// ══════════════════════════════════════════════════════════════════════════
+
+class _PlayersSection extends StatelessWidget {
+  final LobbyEntity lobby;
+  final String currentUserId;
+  final VoidCallback onInvite;
+
+  const _PlayersSection({
+    required this.lobby,
+    required this.currentUserId,
+    required this.onInvite,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xxs),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: AppRadius.radiusXxsAll,
+                ),
+                child: Icon(
+                  AppIcons.users,
+                  size: AppIcons.sm,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Thành viên (${lobby.currentPlayers}/${lobby.maxPlayers})',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _InviteButton(onTap: onInvite),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Player grid
+          LobbyPlayerGrid(
+            players: lobby.players,
+            maxSlots: lobby.maxPlayers,
+            currentUserId: currentUserId,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InviteButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _InviteButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.primaryContainer,
+      borderRadius: AppRadius.radiusSmAll,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.radiusSmAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                AppIcons.userAdd,
+                size: 16,
+                color: colors.onPrimaryContainer,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Mời bạn',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Chat Section
+// ══════════════════════════════════════════════════════════════════════════
+
+class _ChatSection extends StatelessWidget {
+  final TextEditingController controller;
+  final List<LobbyChatMessage> messages;
+  final String currentUserId;
+  final VoidCallback onSend;
+
+  const _ChatSection({
+    required this.controller,
+    required this.messages,
+    required this.currentUserId,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xxs),
+                decoration: BoxDecoration(
+                  color: colors.secondaryContainer,
+                  borderRadius: AppRadius.radiusXxsAll,
+                ),
+                child: Icon(
+                  AppIcons.chat,
+                  size: AppIcons.sm,
+                  color: colors.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Tin nhắn',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Chat card
+          Container(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: AppRadius.radiusLgAll,
+              border: Border.all(color: colors.outlineVariant),
+              boxShadow: AppElevation.shadowSm,
+            ),
+            child: Column(
+              children: [
+                // Messages list
+                SizedBox(
+                  height: 240,
+                  child: messages.isEmpty
+                      ? _ChatEmptyState(theme: theme, colors: colors)
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) => _ChatBubble(
+                            message: messages[index],
+                            currentUserId: currentUserId,
+                          ),
+                        ),
+                ),
+                const Divider(height: 1),
+                // Input row
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          minLines: 1,
+                          maxLines: 3,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => onSend(),
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
+                            hintText: 'Nhắn tin...',
+                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.outline,
+                            ),
+                            prefixIcon: Icon(
+                              AppIcons.chat,
+                              size: AppIcons.md,
+                              color: colors.outline,
+                            ),
+                            filled: true,
+                            fillColor: colors.surfaceContainerHighest,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.radiusMdAll,
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              colors.primary,
+                              colors.primary.withAlpha(204),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.primary.withAlpha(77),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: onSend,
+                          icon: const Icon(
+                            AppIcons.send,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatEmptyState extends StatelessWidget {
+  final ThemeData theme;
+  final ColorScheme colors;
+
+  const _ChatEmptyState({required this.theme, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(AppIcons.chat, size: 48, color: colors.outline),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Chưa có tin nhắn',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Mở lời chào để làm quen!',
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.outline),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final LobbyChatMessage message;
+  final String currentUserId;
+
+  const _ChatBubble({required this.message, required this.currentUserId});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    if (message.isSystem) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+            ),
+            child: Text(
+              message.content,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isSelf = message.senderId == currentUserId;
+    final senderName = message.senderName;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: isSelf
+                ? colors.primaryContainer
+                : colors.secondaryContainer,
+            foregroundColor: isSelf
+                ? colors.onPrimaryContainer
+                : colors.onSecondaryContainer,
+            child: Text(
+              senderName.isEmpty
+                  ? '?'
+                  : senderName.characters.first.toUpperCase(),
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  senderName,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelf
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerHighest,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(AppRadius.radiusXs - 2),
+                      topRight: const Radius.circular(AppRadius.radiusMd),
+                      bottomLeft: const Radius.circular(AppRadius.radiusMd),
+                      bottomRight: const Radius.circular(AppRadius.radiusMd),
+                    ),
+                  ),
+                  child: Text(
+                    message.content,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Bottom Action Bar
+// ══════════════════════════════════════════════════════════════════════════
+
+class _LobbyBottomBar extends StatelessWidget {
+  final LobbyEntity lobby;
+  final String currentUserId;
+  final VoidCallback onLeave;
+
+  const _LobbyBottomBar({
+    required this.lobby,
+    required this.currentUserId,
+    required this.onLeave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: OutlinedButton.icon(
+          onPressed: onLeave,
+          icon: const Icon(AppIcons.logout, size: 18),
+          label: const Text('Rời phòng'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colors.onSurface,
+            side: BorderSide(color: colors.outlineVariant),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.radiusMdAll,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientCtaButton extends StatelessWidget {
+  final bool isActive;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _GradientCtaButton({
+    required this.isActive,
+    required this.label,
+    required this.icon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isActive
+            ? LinearGradient(
+                colors: [colors.primary, colors.primary.withAlpha(204)],
+              )
+            : null,
+        color: isActive ? null : colors.surfaceContainerHighest,
+        borderRadius: AppRadius.radiusMdAll,
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: colors.primary.withAlpha(77),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.radiusMdAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: isActive ? Colors.white : colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  label,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isActive ? Colors.white : colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Loading / Error Scaffolds
+// ══════════════════════════════════════════════════════════════════════════
 
 class _LobbyLoadingScaffold extends StatelessWidget {
   const _LobbyLoadingScaffold();
@@ -445,12 +1256,12 @@ class _LobbyFailureScaffold extends StatelessWidget {
       appBar: AppBar(title: const Text('Phòng chờ')),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: BoxDecoration(
                   color: colors.errorContainer,
                   shape: BoxShape.circle,
@@ -461,7 +1272,7 @@ class _LobbyFailureScaffold extends StatelessWidget {
                   color: colors.onErrorContainer,
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 'Không thể vào phòng',
                 style: theme.textTheme.titleLarge?.copyWith(
@@ -476,11 +1287,12 @@ class _LobbyFailureScaffold extends StatelessWidget {
                   color: colors.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(AppIcons.refresh),
-                label: const Text('Thử lại'),
+              const SizedBox(height: AppSpacing.xl),
+              _GradientCtaButton(
+                isActive: true,
+                label: 'Thử lại',
+                icon: AppIcons.refresh,
+                onTap: onRetry,
               ),
             ],
           ),
@@ -490,58 +1302,394 @@ class _LobbyFailureScaffold extends StatelessWidget {
   }
 }
 
-class _LobbyHeader extends StatelessWidget {
-  final LobbyEntity lobby;
-  final ThemeData theme;
-  final VoidCallback onShareInviteCode;
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Lobby Ended View
+// ══════════════════════════════════════════════════════════════════════════
 
-  const _LobbyHeader({
+class _LobbyEndedView extends StatelessWidget {
+  final LobbyEntity lobby;
+  final String currentUserId;
+  final VoidCallback onDissolve;
+  final VoidCallback onRecreate;
+  final VoidCallback onExtend;
+  final VoidCallback onShowDetails;
+
+  const _LobbyEndedView({
     required this.lobby,
+    required this.currentUserId,
+    required this.onDissolve,
+    required this.onRecreate,
+    required this.onExtend,
+    required this.onShowDetails,
+  });
+
+  bool get _isHost => lobby.hostId == currentUserId;
+
+  ({String title, IconData icon, Color color, String subtitle}) _statusInfo(
+    ColorScheme colors,
+  ) {
+    switch (lobby.status) {
+      case LobbyStatus.closed:
+        return (
+          title: 'Phòng đã đóng',
+          icon: Icons.lock_outline,
+          color: colors.error,
+          subtitle: 'Phòng đã được host đóng lại.',
+        );
+      case LobbyStatus.timeoutFailed:
+        return (
+          title: 'Phòng đã hết hạn',
+          icon: Icons.timer_off_outlined,
+          color: colors.error,
+          subtitle: 'Không đủ người tham gia trong thời gian chờ.',
+        );
+      case LobbyStatus.hostCancelled:
+        return (
+          title: 'Phòng đã bị huỷ',
+          icon: Icons.cancel_outlined,
+          color: colors.error,
+          subtitle: 'Host đã huỷ phòng chờ này.',
+        );
+      default:
+        return (
+          title: 'Phòng đã kết thúc',
+          icon: Icons.history,
+          color: colors.outline,
+          subtitle: 'Không còn nhận thành viên mới.',
+        );
+    }
+  }
+
+  Future<bool> _confirmDissolve(BuildContext context) async {
+    final colors = Theme.of(context).colorScheme;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
+        icon: Icon(
+          AppIcons.delete,
+          size: AppIcons.massive,
+          color: colors.error,
+        ),
+        title: const Text('Giải tán phòng chờ?'),
+        content: const Text(
+          'Phòng chờ sẽ bị xoá vĩnh viễn. Bạn không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.error,
+              foregroundColor: colors.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Giải tán'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final info = _statusInfo(colors);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          lobby.gameName,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        actions: [
+          if (_isHost && lobby.status.canDissolve)
+            IconButton(
+              tooltip: 'Giải tán phòng',
+              icon: Icon(AppIcons.delete, color: colors.error),
+              onPressed: () async {
+                final confirmed = await _confirmDissolve(context);
+                if (confirmed) onDissolve();
+              },
+            ),
+          IconButton(
+            tooltip: 'Chi tiết phòng',
+            icon: const Icon(AppIcons.info),
+            onPressed: onShowDetails,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: [
+          // Status banner
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [info.color, info.color.withAlpha(204)],
+              ),
+              borderRadius: AppRadius.radiusLgAll,
+              boxShadow: [
+                BoxShadow(
+                  color: info.color.withAlpha(51),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(info.icon, color: Colors.white, size: 32),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        info.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        info.subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Lobby info card
+          _EndedInfoCard(lobby: lobby),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Action buttons
+          if (_isHost) ...[
+            _ActionCard(
+              icon: AppIcons.delete,
+              title: 'Giải tán phòng',
+              subtitle: 'Xoá vĩnh viễn khỏi hệ thống.',
+              iconColor: colors.error,
+              isEnabled: lobby.status.canDissolve,
+              onTap: () async {
+                final confirmed = await _confirmDissolve(context);
+                if (confirmed) onDissolve();
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ActionCard(
+              icon: AppIcons.refresh,
+              title: 'Tạo lại phòng',
+              subtitle: 'Tạo lobby mới với cùng game và quán.',
+              iconColor: colors.primary,
+              onTap: onRecreate,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ActionCard(
+              icon: Icons.update,
+              title: 'Gia hạn phòng',
+              subtitle: 'Tạo lobby mới với thời gian mới.',
+              iconColor: colors.secondary,
+              onTap: onExtend,
+            ),
+          ] else
+            _ActionCard(
+              icon: AppIcons.refresh,
+              title: 'Tạo phòng mới',
+              subtitle: 'Tạo lobby mới của bạn với game yêu thích.',
+              iconColor: colors.primary,
+              onTap: onRecreate,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EndedInfoCard extends StatelessWidget {
+  final LobbyEntity lobby;
+
+  const _EndedInfoCard({required this.lobby});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final timeFmt = DateFormat('HH:mm • dd/MM/yyyy');
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadius.radiusLgAll,
+        border: Border.all(color: colors.outlineVariant),
+        boxShadow: AppElevation.shadowSm,
+      ),
+      child: Column(
+        children: [
+          _InfoRow(
+            icon: AppIcons.boardGame,
+            label: 'Trò chơi',
+            value: lobby.gameName,
+            theme: theme,
+            colors: colors,
+          ),
+          _InfoRow(
+            icon: AppIcons.cafe,
+            label: 'Quán',
+            value: lobby.cafeName,
+            theme: theme,
+            colors: colors,
+          ),
+          _InfoRow(
+            icon: AppIcons.schedule,
+            label: 'Giờ hẹn',
+            value: timeFmt.format(lobby.scheduledTime.toLocal()),
+            theme: theme,
+            colors: colors,
+          ),
+          _InfoRow(
+            icon: AppIcons.users,
+            label: 'Thành viên',
+            value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
+            theme: theme,
+            colors: colors,
+          ),
+          _InfoRow(
+            icon: AppIcons.user,
+            label: 'Chủ phòng',
+            value: lobby.hostName,
+            theme: theme,
+            colors: colors,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final ThemeData theme;
+  final ColorScheme colors;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
     required this.theme,
-    required this.onShareInviteCode,
+    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = theme.colorScheme;
-    final remainingSlots = lobby.slotsRemaining;
-    final capacityProgress = lobby.maxPlayers == 0
-        ? 0.0
-        : (lobby.currentPlayers / lobby.maxPlayers).clamp(0.0, 1.0);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        0,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.surfaceContainerHigh, colors.surfaceContainerHighest],
-        ),
-        borderRadius: AppRadius.cardRadius,
-        boxShadow: AppElevation.shadowXs,
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
         children: [
-          Row(
+          Icon(icon, size: 18, color: colors.primary),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color iconColor;
+  final bool isEnabled;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.iconColor,
+    this.isEnabled = true,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Material(
+      color: colors.surface,
+      borderRadius: AppRadius.radiusMdAll,
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        borderRadius: AppRadius.radiusMdAll,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.radiusMdAll,
+            border: Border.all(
+              color: isEnabled
+                  ? colors.outlineVariant
+                  : colors.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  color: (isEnabled ? iconColor : colors.outline).withValues(
+                    alpha: 0.1,
+                  ),
                   borderRadius: AppRadius.radiusSmAll,
                 ),
                 child: Icon(
-                  AppIcons.cafe,
-                  color: colors.onPrimaryContainer,
-                  size: AppIcons.lg,
+                  icon,
+                  color: isEnabled ? iconColor : colors.outline,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -550,586 +1698,41 @@ class _LobbyHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      lobby.cafeName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: colors.onSurface,
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isEnabled
+                            ? colors.onSurface
+                            : colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
+                    const SizedBox(height: 2),
                     Text(
-                      'Giờ hẹn: ${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
+                      subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                        color: isEnabled
+                            ? colors.onSurfaceVariant
+                            : colors.outline,
                       ),
                     ),
                   ],
                 ),
               ),
-              LobbyCountdownTimer(expiresAt: lobby.timeoutAt, onExpired: () {}),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: _HeaderStat(
-                  label: 'Thành viên',
-                  value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
-                  icon: AppIcons.users,
-                  progress: capacityProgress,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _HeaderStat(
-                  label: 'Slot trống',
-                  value: remainingSlots.toString(),
-                  icon: AppIcons.userAdd,
-                  progress: capacityProgress,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _HeaderStat(
-                  label: 'Chế độ',
-                  value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
-                  icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
-                ),
+              Icon(
+                Icons.chevron_right,
+                color: isEnabled ? colors.onSurfaceVariant : colors.outline,
               ),
             ],
           ),
-          if (lobby.inviteCode != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            Material(
-              color: colors.primaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.radiusMdAll,
-              ),
-              child: InkWell(
-                onTap: onShareInviteCode,
-                borderRadius: AppRadius.radiusMdAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.userAdd,
-                        size: AppIcons.md,
-                        color: colors.onPrimaryContainer,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Mã mời phòng',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              lobby.inviteCode!,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: colors.onPrimaryContainer,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Icon(
-                        AppIcons.copy,
-                        size: AppIcons.md,
-                        color: colors.onPrimaryContainer,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
-class _HeaderStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final double? progress;
-
-  const _HeaderStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: AppIcons.sm, color: colors.primary),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: AppSpacing.xs),
-            ClipRRect(
-              borderRadius: AppRadius.radiusFullAll,
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 4,
-                backgroundColor: colors.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _MembersSection extends StatelessWidget {
-  final LobbyEntity lobby;
-  final String currentUserId;
-  final VoidCallback onInvite;
-
-  const _MembersSection({
-    required this.lobby,
-    required this.currentUserId,
-    required this.onInvite,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SectionTitle(
-                title:
-                    'Thành viên (${lobby.currentPlayers}/${lobby.maxPlayers})',
-                leading: AppIcons.users,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: onInvite,
-              icon: const Icon(AppIcons.userAdd, size: AppIcons.sm),
-              label: const Text('Mời bạn bè'),
-              style: TextButton.styleFrom(
-                foregroundColor: colors.primary,
-                minimumSize: const Size(0, 40),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        LobbyPlayerGrid(
-          players: lobby.players,
-          maxSlots: lobby.maxPlayers,
-          currentUserId: currentUserId,
-        ),
-      ],
-    );
-  }
-}
-
-class _ChatPanel extends StatelessWidget {
-  final TextEditingController controller;
-  final List<LobbyChatMessage> messages;
-  final String currentUserId;
-  final VoidCallback onSend;
-
-  const _ChatPanel({
-    required this.controller,
-    required this.messages,
-    required this.currentUserId,
-    required this.onSend,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.cardRadius,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowXs,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 220,
-            child: messages.isEmpty
-                ? _ChatEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      return _ChatMessageBubble(
-                        message: message,
-                        currentUserId: currentUserId,
-                      );
-                    },
-                  ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    minLines: 1,
-                    maxLines: 3,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập tin nhắn...',
-                      prefixIcon: Icon(AppIcons.chat, size: AppIcons.md),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                FilledButton.tonal(
-                  onPressed: onSend,
-                  style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    minimumSize: const Size(48, 48),
-                  ),
-                  child: const Icon(AppIcons.send),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatEmptyState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(AppIcons.chat, size: AppIcons.xxl, color: colors.outline),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Chưa có tin nhắn nào',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            'Mở lời chào để làm quen các thành viên nhé!',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(color: colors.outline),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatMessageBubble extends StatelessWidget {
-  final LobbyChatMessage message;
-  final String currentUserId;
-
-  const _ChatMessageBubble({required this.message, required this.currentUserId});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final isSystem = message.isSystem;
-
-    // System messages (senderId = null) render riêng ở giữa — tránh để lẫn
-    // với chat của user dễ gây rối.
-    if (isSystem) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.xs,
-        ),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(AppRadius.radiusXl),
-            ),
-            child: Text(
-              message.content,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final isSelf = message.senderId == currentUserId;
-    final senderName = message.senderName;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: AppIcons.md - 4,
-            backgroundColor: isSelf
-                ? colors.primaryContainer
-                : colors.secondaryContainer,
-            foregroundColor: isSelf
-                ? colors.onPrimaryContainer
-                : colors.onSecondaryContainer,
-            child: Text(
-              senderName.isEmpty
-                  ? '?'
-                  : senderName.characters.first.toUpperCase(),
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  senderName,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelf
-                        ? colors.primaryContainer
-                        : colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(AppRadius.radiusXs - 2),
-                      topRight: Radius.circular(AppRadius.radiusMd),
-                      bottomLeft: Radius.circular(AppRadius.radiusMd),
-                      bottomRight: Radius.circular(AppRadius.radiusMd),
-                    ),
-                  ),
-                  child: Text(
-                    message.content,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LobbyBottomActions extends StatelessWidget {
-  final bool canBook;
-  final bool isHost;
-  final VoidCallback onLeave;
-  final VoidCallback onBook;
-
-  const _LobbyBottomActions({
-    required this.canBook,
-    required this.isHost,
-    required this.onLeave,
-    required this.onBook,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final accent = theme.brightness == Brightness.dark
-        ? AppColorsDark.cardGradientOrange.last
-        : AppColors.primary;
-
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onLeave,
-            icon: const Icon(AppIcons.logout),
-            label: const Text('Rời phòng'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colors.onSurface,
-              side: BorderSide(color: colors.outlineVariant),
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              textStyle: theme.textTheme.labelLarge,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          flex: 2,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: (canBook && isHost)
-                    ? [
-                        AppColors.primary,
-                        theme.brightness == Brightness.dark
-                            ? AppColorsDark.primary
-                            : AppColors.primaryDark,
-                      ]
-                    : [
-                        colors.surfaceContainerHighest,
-                        colors.surfaceContainerHighest,
-                      ],
-              ),
-              borderRadius: AppRadius.buttonRadius,
-              boxShadow: (canBook && isHost) ? AppElevation.shadowSm : null,
-            ),
-            child: FilledButton.icon(
-              onPressed: (canBook && isHost) ? onBook : null,
-              icon: const Icon(AppIcons.creditCard),
-              label: Text(_getButtonLabel(canBook, isHost)),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: accent,
-                disabledForegroundColor: colors.onSurfaceVariant,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                textStyle: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _getButtonLabel(bool canBook, bool isHost) {
-    if (!canBook) return 'Chờ đủ người';
-    if (!isHost) return 'Chờ Host xác nhận';
-    return 'Xác nhận & Đặt cọc';
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final IconData leading;
-
-  const _SectionTitle({required this.title, required this.leading});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.xxs),
-          decoration: BoxDecoration(
-            color: colors.primaryContainer,
-            borderRadius: AppRadius.radiusXxsAll,
-          ),
-          child: Icon(
-            leading,
-            size: AppIcons.sm,
-            color: colors.onPrimaryContainer,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Lobby Details Sheet
+// ══════════════════════════════════════════════════════════════════════════
 
 class _LobbyDetailsSheet extends StatelessWidget {
   final LobbyEntity lobby;
@@ -1141,31 +1744,31 @@ class _LobbyDetailsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    final rows = <_DetailRowData>[
-      _DetailRowData(
+    final rows = [
+      _DetailRow(
         icon: AppIcons.boardGame,
         label: 'Game',
         value: lobby.gameName,
       ),
-      _DetailRowData(icon: AppIcons.cafe, label: 'Quán', value: lobby.cafeName),
-      _DetailRowData(
+      _DetailRow(icon: AppIcons.cafe, label: 'Quán', value: lobby.cafeName),
+      _DetailRow(
         icon: AppIcons.schedule,
         label: 'Giờ hẹn',
         value:
             '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
       ),
-      _DetailRowData(
+      _DetailRow(
         icon: AppIcons.users,
         label: 'Người chơi',
         value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
       ),
-      _DetailRowData(
+      _DetailRow(
         icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
         label: 'Chế độ',
         value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
       ),
       if (lobby.inviteCode != null)
-        _DetailRowData(
+        _DetailRow(
           icon: AppIcons.copy,
           label: 'Mã mời',
           value: lobby.inviteCode!,
@@ -1204,7 +1807,7 @@ class _LobbyDetailsSheet extends StatelessWidget {
           ...rows.map(
             (row) => Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: _DetailRow(data: row),
+              child: row,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -1212,6 +1815,9 @@ class _LobbyDetailsSheet extends StatelessWidget {
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              ),
               child: const Text('Đóng'),
             ),
           ),
@@ -1221,22 +1827,16 @@ class _LobbyDetailsSheet extends StatelessWidget {
   }
 }
 
-class _DetailRowData {
+class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
 
-  _DetailRowData({
+  const _DetailRow({
     required this.icon,
     required this.label,
     required this.value,
   });
-}
-
-class _DetailRow extends StatelessWidget {
-  final _DetailRowData data;
-
-  const _DetailRow({required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -1250,7 +1850,7 @@ class _DetailRow extends StatelessWidget {
             color: colors.surfaceContainerHighest,
             borderRadius: AppRadius.radiusXxsAll,
           ),
-          child: Icon(data.icon, size: AppIcons.md, color: colors.primary),
+          child: Icon(icon, size: AppIcons.md, color: colors.primary),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -1258,13 +1858,13 @@ class _DetailRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                data.label,
+                label,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),
               ),
               Text(
-                data.value,
+                value,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -1276,6 +1876,10 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODERN: Friends Sheet
+// ══════════════════════════════════════════════════════════════════════════
 
 class _FriendsSheet extends StatelessWidget {
   final LobbyState state;
@@ -1321,32 +1925,9 @@ class _FriendsSheet extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
                 AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.xs,
-                AppSpacing.sm,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.outlineVariant,
-                      borderRadius: AppRadius.radiusFullAll,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                0,
-                AppSpacing.lg,
+                AppSpacing.md,
                 AppSpacing.md,
               ),
               child: Row(
@@ -1398,11 +1979,7 @@ class _FriendsSheet extends StatelessWidget {
                   Navigator.pop(sheetContext);
                   onInvite(friend);
                 },
-                onAdd: (friend) {
-                  // KHÔNG pop sheet ở đây — để UI rebuild khi cubit emit
-                  // state mới (LobbyUpdatedRealtime) rồi tự đóng.
-                  onAdd(friend);
-                },
+                onAdd: (friend) => onAdd(friend),
               ),
             ),
           ],
@@ -1420,7 +1997,6 @@ class _SheetLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -1436,16 +2012,4 @@ class _SheetLoading extends StatelessWidget {
       ),
     );
   }
-}
-
-class ChatMessage {
-  final String senderName;
-  final String message;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.senderName,
-    required this.message,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
 }

@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
-import '../../deeplink/deep_link_handler.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
@@ -42,9 +41,6 @@ class _MainScaffoldState extends State<MainScaffold> {
     // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm"). Đây là cầu nối
     // nghiệp vụ: Discovery → Lobby screen.
     LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
-    // Deep-link SePay return đã navigate vào MainScaffold; báo cho handler
-    // tiêu thụ queue.
-    DeepLinkHandler.instance.onNavigatorReady();
   }
 
   void _handleLobbySuggestion() {
@@ -79,15 +75,12 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   /// Double-tap logic per tab:
   /// - Home (0): no-op (scroll-to-top owned by HomeOverviewPage)
-  /// - Bookings (1): reload upcoming + history
+  /// - Bookings (1): no-op (data auto-loads on first build)
   /// - Discovery (2): reset inner sub-tab to "Khám phá game"
   /// - Tournament (3): no-op (mock data, no refresh needed yet)
   /// - Profile (4): no-op (data is already cached)
   void _handleDoubleTap(int tabIndex) {
     switch (tabIndex) {
-      case 1:
-        BookingsPage.requestRefresh(context);
-        break;
       case 2:
         DiscoveryTab.requestReset(context);
         break;
@@ -95,6 +88,7 @@ class _MainScaffoldState extends State<MainScaffold> {
         TournamentPage.requestRefresh(context);
         break;
       case 0:
+      case 1:
       case 4:
         break;
     }

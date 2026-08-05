@@ -19,6 +19,51 @@ enum LobbyStatus {
   hostCancelled,
 }
 
+extension LobbyStatusX on LobbyStatus {
+  /// Lobby đã kết thúc (không thể tương tác thêm — chỉ xem/action dissolve).
+  bool get isTerminal {
+    switch (this) {
+      case LobbyStatus.closed:
+      case LobbyStatus.timeoutFailed:
+      case LobbyStatus.hostCancelled:
+        return true;
+      case LobbyStatus.open:
+      case LobbyStatus.full:
+      case LobbyStatus.inProgress:
+      case LobbyStatus.ratingOpen:
+        return false;
+    }
+  }
+
+  /// Host có thể bấm "Giải tán" (DELETE /api/v1/lobbies/{id}) để hard
+  /// delete lobby khỏi DB.
+  ///
+  /// Backend swagger spec: không áp dụng khi lobby đã check-in tại quán
+  /// hoặc đã đóng/rating. Tương ứng ta chặn `InProgress` / `RatingOpen`
+  /// / `Closed`:
+  /// - InProgress/RatingOpen: phiên chơi đang diễn ra.
+  /// - Closed: lobby đã đóng rồi, không cần gọi lại.
+  bool get canDissolve {
+    switch (this) {
+      case LobbyStatus.open:
+      case LobbyStatus.full:
+      case LobbyStatus.timeoutFailed:
+      case LobbyStatus.hostCancelled:
+        return true;
+      case LobbyStatus.closed:
+      case LobbyStatus.inProgress:
+      case LobbyStatus.ratingOpen:
+        return false;
+    }
+  }
+
+  /// Lobby đã hết hạn do không đủ người — host có thể tạo lại.
+  bool get isExpired => this == LobbyStatus.timeoutFailed;
+
+  /// Lobby host đã chủ động huỷ.
+  bool get isHostCancelled => this == LobbyStatus.hostCancelled;
+}
+
 class LobbyEntity extends Equatable {
   final String id;
   final String gameId;
@@ -57,6 +102,10 @@ class LobbyEntity extends Equatable {
   /// BR-07: liên kết tới Booking của host khi lobby phát sinh từ Luồng B.
   final String? bookingId;
 
+  /// Reservation ID tạo ra lobby (theo plan migrate sang Reservation/BVC).
+  /// Poll `getHostedLobbies` dựa trên field này để nhận cafe-approval update.
+  final String? reservationId;
+
   /// BR-10: chỉ chấp nhận thành viên có Karma ≥ minimumKarma.
   final double minimumKarma;
 
@@ -88,6 +137,7 @@ class LobbyEntity extends Equatable {
     required this.createdAt,
     required this.timeoutAt,
     this.bookingId,
+    this.reservationId,
     this.minimumKarma = 0,
     this.searchRadiusKm = 5,
     this.distanceKm,
@@ -121,6 +171,7 @@ class LobbyEntity extends Equatable {
     DateTime? createdAt,
     DateTime? timeoutAt,
     Object? bookingId = _sentinel,
+    Object? reservationId = _sentinel,
     double? minimumKarma,
     double? searchRadiusKm,
     Object? gameImageUrl = _sentinel,
@@ -155,6 +206,9 @@ class LobbyEntity extends Equatable {
       bookingId: identical(bookingId, _sentinel)
           ? this.bookingId
           : bookingId as String?,
+      reservationId: identical(reservationId, _sentinel)
+          ? this.reservationId
+          : reservationId as String?,
       minimumKarma: minimumKarma ?? this.minimumKarma,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
       distanceKm: identical(distanceKm, _sentinel)
@@ -185,6 +239,7 @@ class LobbyEntity extends Equatable {
     createdAt,
     timeoutAt,
     bookingId,
+    reservationId,
     minimumKarma,
     searchRadiusKm,
     distanceKm,

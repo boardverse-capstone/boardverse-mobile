@@ -5,30 +5,32 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/game_category_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
+import '../utils/category_icon_mapper.dart';
 
 /// Filter Bottom Sheet hiện đại — pattern DraggableScrollableSheet:
 ///
 /// - Mở ở peek height 60%, kéo lên full 92%
 /// - Drag handle + sticky header (title + nút Xoá lọc)
-/// - Body scroll được với 4 sections:
-///   1. Thể loại chính — Grid 2 cột card-style
-///   2. Thể loại chi tiết — Grid 3 cột compact
-///   3. Thời gian — 3 time-block cards
-///   4. Số người chơi — Slider có bubble preview
+/// - Body scroll được với 3 sections:
+///   1. Thể loại — Grid 2 cột card-style (hardcode 6 thể loại VI)
+///   2. Thời gian — 3 time-block cards
+///   3. Số người chơi — Slider có bubble preview
 /// - Sticky bottom bar: Reset + Áp dụng (hiển thị số filter đang chọn)
+///
+/// Lưu ý: Danh sách thể loại hiện đang là hardcode VI (theo seed backend)
+/// để tránh gọi thêm API `/board-games/categories` và tránh trùng với
+/// quick filter row đang hiển thị cùng data. Icon được resolve qua
+/// [CategoryIconMapper] — key anchor trùng slug backend (`an-vai`, ...) để
+/// khi backend đổi tên vẫn map được.
 class FilterBottomSheet extends StatefulWidget {
   final String? selectedCategory;
   final int? minPlayers;
   final int? maxPlayers;
-  final List<String> categories;
-  final Set<String> selectedCategoryIds;
-  final List<GameCategoryEntity> availableCategories;
   final Set<DurationRange> selectedDurationRanges;
   final void Function(
     String? category,
     int? minPlayers,
     int? maxPlayers,
-    Set<String> categoryIds,
     Set<DurationRange> durationRanges,
   )
   onApply;
@@ -38,9 +40,6 @@ class FilterBottomSheet extends StatefulWidget {
     this.selectedCategory,
     this.minPlayers,
     this.maxPlayers,
-    required this.categories,
-    required this.selectedCategoryIds,
-    required this.availableCategories,
     required this.selectedDurationRanges,
     required this.onApply,
   });
@@ -51,12 +50,8 @@ class FilterBottomSheet extends StatefulWidget {
     required String? selectedCategory,
     required int? minPlayers,
     required int? maxPlayers,
-    required List<String> categories,
-    required Set<String> selectedCategoryIds,
-    required List<GameCategoryEntity> availableCategories,
     required Set<DurationRange> selectedDurationRanges,
-    required void Function(String?, int?, int?, Set<String>, Set<DurationRange>)
-    onApply,
+    required void Function(String?, int?, int?, Set<DurationRange>) onApply,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -68,9 +63,6 @@ class FilterBottomSheet extends StatefulWidget {
         selectedCategory: selectedCategory,
         minPlayers: minPlayers,
         maxPlayers: maxPlayers,
-        categories: categories,
-        selectedCategoryIds: selectedCategoryIds,
-        availableCategories: availableCategories,
         selectedDurationRanges: selectedDurationRanges,
         onApply: onApply,
       ),
@@ -84,7 +76,6 @@ class FilterBottomSheet extends StatefulWidget {
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
   late String? _category;
   late RangeValues _playerRange;
-  late Set<String> _categoryIds;
   late Set<DurationRange> _durationRanges;
 
   @override
@@ -95,14 +86,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       (widget.minPlayers ?? 1).toDouble(),
       (widget.maxPlayers ?? 20).toDouble(),
     );
-    _categoryIds = {...widget.selectedCategoryIds};
     _durationRanges = {...widget.selectedDurationRanges};
   }
 
   int _totalSelected() {
     var n = 0;
     if (_category != null) n++;
-    n += _categoryIds.length;
     n += _durationRanges.length;
     return n;
   }
@@ -111,7 +100,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     setState(() {
       _category = null;
       _playerRange = const RangeValues(1, 20);
-      _categoryIds = <String>{};
       _durationRanges = <DurationRange>{};
     });
   }
@@ -160,32 +148,11 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     _CategoryGrid(
-                      categories: widget.categories,
                       selected: _category,
                       onTap: (cat) => setState(() {
                         _category = _category == cat ? null : cat;
                       }),
                     ),
-                    if (widget.availableCategories.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      _SectionTitle(
-                        icon: Icons.local_offer_outlined,
-                        label: 'Thể loại chi tiết',
-                        trailing: '(${_categoryIds.length} đã chọn)',
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      _SubCategoryGrid(
-                        categories: widget.availableCategories,
-                        selectedIds: _categoryIds,
-                        onToggle: (id) => setState(() {
-                          if (_categoryIds.contains(id)) {
-                            _categoryIds.remove(id);
-                          } else {
-                            _categoryIds.add(id);
-                          }
-                        }),
-                      ),
-                    ],
                     const SizedBox(height: AppSpacing.lg),
                     _SectionTitle(
                       icon: Icons.schedule,
@@ -225,7 +192,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     _category,
                     _playerRange.start.toInt(),
                     _playerRange.end.toInt(),
-                    _categoryIds,
                     _durationRanges,
                   );
                   Navigator.pop(context);
@@ -353,37 +319,37 @@ class _SectionTitle extends StatelessWidget {
 }
 
 // ============================================================================
-// CATEGORY GRID (2 cột, lớn)
+// CATEGORY GRID (2 cột, hardcode 6 thể loại VI)
 // ============================================================================
 
+/// Danh sách thể loại hiển thị trong filter sheet — hardcode VI theo seed
+/// backend (`an-vai`, `chien-thuat`, ...). Slug được truyền kèm để
+/// [CategoryIconMapper] resolve icon đúng (không phụ thuộc ngôn ngữ).
+const List<GameCategoryEntity> _kHardcodedCategories = <GameCategoryEntity>[
+  GameCategoryEntity(id: 'an-vai', name: 'Ẩn vai', slug: 'an-vai'),
+  GameCategoryEntity(
+    id: 'chien-thuat',
+    name: 'Chiến thuật',
+    slug: 'chien-thuat',
+  ),
+  GameCategoryEntity(id: 'giai-tri', name: 'Giải trí', slug: 'giai-tri'),
+  GameCategoryEntity(id: 'hop-tac', name: 'Hợp tác', slug: 'hop-tac'),
+  GameCategoryEntity(id: 'doi-khang', name: 'Đối kháng', slug: 'doi-khang'),
+  GameCategoryEntity(id: 'phieu-luu', name: 'Phiêu lưu', slug: 'phieu-luu'),
+];
+
 class _CategoryGrid extends StatelessWidget {
-  final List<String> categories;
   final String? selected;
   final ValueChanged<String> onTap;
 
-  const _CategoryGrid({
-    required this.categories,
-    required this.selected,
-    required this.onTap,
-  });
-
-  static const _icons = <String, IconData>{
-    'Social Deduction': Icons.search,
-    'Strategy': Icons.psychology,
-    'Party': Icons.celebration,
-    'Cooperative': Icons.handshake,
-    'Card Game': Icons.style,
-    'Abstract': Icons.grid_view,
-  };
-
-  IconData _iconFor(String cat) => _icons[cat] ?? Icons.extension;
+  const _CategoryGrid({required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: categories.length,
+      itemCount: _kHardcodedCategories.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: AppSpacing.xs,
@@ -391,13 +357,13 @@ class _CategoryGrid extends StatelessWidget {
         childAspectRatio: 3.0,
       ),
       itemBuilder: (context, index) {
-        final cat = categories[index];
-        final isSelected = selected == cat;
+        final cat = _kHardcodedCategories[index];
+        final isSelected = selected == cat.name;
         return _SelectableCard(
-          icon: _iconFor(cat),
-          label: cat,
+          icon: CategoryIconMapper.iconFor(cat),
+          label: cat.name,
           selected: isSelected,
-          onTap: () => onTap(cat),
+          onTap: () => onTap(cat.name),
         );
       },
     );
@@ -483,97 +449,6 @@ class _SelectableCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ============================================================================
-// SUB CATEGORY GRID (3 cột, compact)
-// ============================================================================
-
-class _SubCategoryGrid extends StatelessWidget {
-  final List<GameCategoryEntity> categories;
-  final Set<String> selectedIds;
-  final ValueChanged<String> onToggle;
-
-  const _SubCategoryGrid({
-    required this.categories,
-    required this.selectedIds,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: categories.map((cat) {
-        final isSelected = selectedIds.contains(cat.id);
-        return InkWell(
-          onTap: () => onToggle(cat.id),
-          borderRadius: AppRadius.radiusFullAll,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? theme.colorScheme.secondaryContainer
-                  : theme.colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.radiusFullAll,
-              border: Border.all(
-                color: isSelected
-                    ? theme.colorScheme.secondary
-                    : Colors.transparent,
-                width: 1.2,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.xxs),
-                    child: Icon(
-                      Icons.check,
-                      size: AppSpacing.sm + 2,
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                Text(
-                  cat.name,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: isSelected
-                        ? theme.colorScheme.onSecondaryContainer
-                        : theme.colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xxs),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xxs + 1,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(AppSpacing.xxs),
-                  ),
-                  child: Text(
-                    '${cat.gameCount}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }
@@ -713,10 +588,7 @@ class _PlayerSlider extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _PlayerBubble(
-                label: 'Min',
-                value: values.start.toInt(),
-              ),
+              child: _PlayerBubble(label: 'Min', value: values.start.toInt()),
             ),
             Container(
               width: AppSpacing.md,

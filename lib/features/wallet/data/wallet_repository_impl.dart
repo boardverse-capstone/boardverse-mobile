@@ -47,8 +47,32 @@ class WalletRepositoryImpl implements WalletRepository {
   }
 
   @override
-  Future<Either<Failure, WalletEntity>> checkTopUpStatus(String orderId) async {
-    // Polling endpoint - same as getWallet
-    return await remoteDatasource.getWallet(includeHeld: true);
+  Future<Either<Failure, TopUpQuoteEntity>> updateTopUp({
+    required String topUpId,
+    required int amountVnd,
+    required String idempotencyKey,
+  }) async {
+    return await remoteDatasource.updateTopUp(
+      topUpId: topUpId,
+      amountVnd: amountVnd,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> cancelTopUp(String topUpId) async {
+    return await remoteDatasource.cancelTopUp(topUpId);
+  }
+
+  @override
+  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(String orderId) async {
+    // Gọi transactions để check xem có transaction nào match với orderId
+    final result = await remoteDatasource.getTransactions(page: 1, pageSize: 10);
+
+    return result.map((page) {
+      // Tìm transaction có relatedPaymentRef = orderId
+      // Backend format orderId là "BVC-XXXXXXXXXX"
+      return page.items.any((tx) => tx.relatedPaymentRef == orderId);
+    });
   }
 }

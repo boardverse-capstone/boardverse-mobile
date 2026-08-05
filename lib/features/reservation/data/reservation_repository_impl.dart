@@ -21,7 +21,7 @@ class ReservationRepositoryImpl implements ReservationRepository {
     bool? hostedByMe,
     bool? joinedByMe,
     int page = 1,
-    int pageSize = 10,
+    int pageSize = 20,
   }) async {
     final result = await remoteDatasource.getReservations(
       statuses: statuses,
@@ -44,6 +44,7 @@ class ReservationRepositoryImpl implements ReservationRepository {
     String? preferredStartTime,
     required int minPlayers,
     required int maxPlayers,
+    required bool isPrivate,
     required String idempotencyKey,
   }) async {
     final request = QuoteRequestModel(
@@ -54,6 +55,7 @@ class ReservationRepositoryImpl implements ReservationRepository {
       preferredStartTime: preferredStartTime,
       minPlayers: minPlayers,
       maxPlayers: maxPlayers,
+      isPrivate: isPrivate,
       idempotencyKey: idempotencyKey,
     );
 
@@ -69,6 +71,7 @@ class ReservationRepositoryImpl implements ReservationRepository {
     String? preferredStartTime,
     required int minPlayers,
     required int maxPlayers,
+    required bool isPrivate,
     required int expectedFinalDeposit,
     required String idempotencyKey,
   }) async {
@@ -80,6 +83,7 @@ class ReservationRepositoryImpl implements ReservationRepository {
       preferredStartTime: preferredStartTime,
       minPlayers: minPlayers,
       maxPlayers: maxPlayers,
+      isPrivate: isPrivate,
       expectedFinalDeposit: expectedFinalDeposit,
       idempotencyKey: idempotencyKey,
     );
@@ -91,8 +95,13 @@ class ReservationRepositoryImpl implements ReservationRepository {
   Future<Either<Failure, ReservationCancelResult>> cancelReservation({
     required String reservationId,
     String? reason,
+    required String idempotencyKey,
   }) async {
-    return await remoteDatasource.cancelReservation(reservationId, reason);
+    return await remoteDatasource.cancelReservation(
+      reservationId,
+      reason,
+      idempotencyKey,
+    );
   }
 
   @override
@@ -101,16 +110,29 @@ class ReservationRepositoryImpl implements ReservationRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReservationEntity>>> getMyHostedReservations() async {
-    final result = await remoteDatasource.getMyHostedReservations();
-    return result.map((list) => list.cast<ReservationEntity>());
+  Future<Either<Failure, ReservationEntity>> getReservationDetail(
+      String reservationId) async {
+    return await remoteDatasource.getReservation(reservationId);
   }
 
   @override
-  Future<Either<Failure, List<ReservationEntity>>>
-      getMyParticipatingReservations() async {
-    final result = await remoteDatasource.getMyParticipatingReservations();
-    return result.map((list) => list.cast<ReservationEntity>());
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+      getPendingCafeApprovals({
+    String? cafeId,
+    DateTime? playDate,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    return await remoteDatasource.getReservations(
+      statuses: const [
+        'awaitingCafeApproval',
+        'pendingCafeApproval',
+      ],
+      playDate: playDate,
+      cafeId: cafeId,
+      page: page,
+      pageSize: pageSize,
+    );
   }
 
   @override

@@ -41,37 +41,11 @@ import '../../features/match/presentation/cubit/match_result_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
-import '../../features/booking_payment/data/booking_persistence_service.dart';
-import '../../features/booking_payment/data/booking_repository_impl.dart';
-import '../../features/booking_payment/data/datasources/base/booking_rating_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/bookings_by_cafe_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/cafe_availability_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/cafe_table_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/payment_gateway.dart';
-import '../../features/booking_payment/data/datasources/base/session_status_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/gateway/sepay_payment_gateway.dart';
-import '../../features/booking_payment/data/datasources/remote/booking_rating_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/booking_remote_datasource_impl.dart';
-import '../../features/booking_payment/data/datasources/remote/bookings_by_cafe_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/cafe_availability_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/cafe_table_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/payment_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/session_status_remote_datasource.dart';
-import '../../features/booking_payment/data/realtime/booking_realtime_service.dart';
-import '../../features/booking_payment/domain/repositories/booking_repository.dart';
-import '../../features/booking_payment/presentation/cubit/booking_detail_actions_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_history_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_realtime_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_result_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_summary_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/payment_cubit.dart';
 import '../../features/notification/data/datasources/base/notification_remote_datasource.dart';
 import '../../features/notification/data/datasources/remote/notification_remote_datasource.dart';
 import '../../features/notification/data/notification_repository_impl.dart';
 import '../../features/notification/data/realtime/fcm_service.dart';
 import '../../features/notification/domain/repositories/notification_repository.dart';
-import '../../core/navigation/widgets/booking_pending_resume_helper.dart';
 import '../../features/in_game_experience/data/in_game_repository_impl.dart';
 import '../../features/in_game_experience/domain/repositories/in_game_repository.dart';
 import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart';
@@ -252,61 +226,6 @@ void setupDependencies() {
     () => MatchResultCubit(repository: sl<MatchResultRepository>()),
   );
 
-  // ─── Feature: Booking & Payment ─────────────────────────────────────
-  // Backend API thật — không còn mock. Xem `.agents/docs/apis_docs/booking.md`
-  // + `payment.md`. SePay gateway mở URL qua `url_launcher` + polling.
-  sl.registerLazySingleton<BookingRemoteDatasource>(
-    () => BookingRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  sl.registerLazySingleton<CafeTableRemoteDatasource>(
-    () => CafeTableRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  // Gap #2 — Cafe availability (capacity + alternative slots).
-  sl.registerLazySingleton<CafeAvailabilityRemoteDatasource>(
-    () => CafeAvailabilityRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  // Gap #4 + #5 — Booking rating (NoShow vote + cross-rating).
-  sl.registerLazySingleton<BookingRatingRemoteDatasource>(
-    () => BookingRatingRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  // Gap #8 — Session status realtime.
-  sl.registerLazySingleton<SessionStatusRemoteDatasource>(
-    () => SessionStatusRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  // Gap #14 — Cafe view cho Player.
-  sl.registerLazySingleton<BookingsByCafeRemoteDatasource>(
-    () => BookingsByCafeRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  sl.registerLazySingleton<PaymentRemoteDatasource>(
-    () => PaymentRemoteDatasource(dio: sl<Dio>()),
-  );
-
-  sl.registerLazySingleton<PaymentGateway>(
-    () => SepayPaymentGateway(paymentRemote: sl<PaymentRemoteDatasource>()),
-  );
-
-  sl.registerLazySingleton<BookingPersistenceService>(
-    () => BookingPersistenceService(storage: sl<FlutterSecureStorage>()),
-  );
-
-  sl.registerLazySingleton<BookingRepository>(
-    () => BookingRepositoryImpl(
-      datasource: sl<BookingRemoteDatasource>(),
-      cafeTableDatasource: sl<CafeTableRemoteDatasource>(),
-      cafeAvailabilityDatasource: sl<CafeAvailabilityRemoteDatasource>(),
-      bookingRatingDatasource: sl<BookingRatingRemoteDatasource>(),
-      sessionStatusDatasource: sl<SessionStatusRemoteDatasource>(),
-      bookingsByCafeDatasource: sl<BookingsByCafeRemoteDatasource>(),
-      persistence: sl<BookingPersistenceService>(),
-    ),
-  );
-
   // ─── Feature: Notification (FCM device tokens) ────────────────────
   // Gap #11 + lobby auto-cancel push (background events).
   sl.registerLazySingleton<NotificationRemoteDatasource>(
@@ -321,45 +240,6 @@ void setupDependencies() {
   // thêm `firebase_core` + `firebase_messaging` vào pubspec.yaml.
   sl.registerLazySingleton<FcmService>(
     () => NullFcmService(),
-  );
-
-  // Booking realtime service — SignalR.
-  sl.registerLazySingleton<BookingRealtimeService>(
-    () => BookingRealtimeService(''),
-  );
-
-  // Helper gọn cho banner resume trên tab Bookings — gói gọn
-  // getPendingBookingId + clearPending + fetchBooking.
-  sl.registerLazySingleton<BookingPersistenceResumeHelper>(
-    () => BookingPersistenceResumeHelper(sl<BookingRepository>()),
-  );
-
-  // Factory Cubits — dùng cho BookingSummaryPage / PaymentPage / Success.
-  sl.registerFactory<BookingSummaryCubit>(
-    () => BookingSummaryCubit(repository: sl<BookingRepository>()),
-  );
-  sl.registerFactory<PaymentCubit>(
-    () => PaymentCubit(
-      repository: sl<BookingRepository>(),
-      gateway: sl<PaymentGateway>(),
-      persistence: sl<BookingPersistenceService>(),
-    ),
-  );
-  sl.registerFactory<BookingResultCubit>(
-    () => BookingResultCubit(repository: sl<BookingRepository>()),
-  );
-  sl.registerFactory<BookingDetailActionsCubit>(
-    () => BookingDetailActionsCubit(sl<BookingRepository>()),
-  );
-  sl.registerFactory<BookingRealtimeCubit>(
-    () => BookingRealtimeCubit(
-      signalR: sl<BookingRealtimeService>(),
-      fcm: sl<FcmService>(),
-      repository: sl<BookingRepository>(),
-    ),
-  );
-  sl.registerLazySingleton<BookingHistoryCubit>(
-    () => BookingHistoryCubit(repository: sl<BookingRepository>()),
   );
 
   // ─── Feature: In Game Experience ──────────────────────────────────────
@@ -446,9 +326,14 @@ void setupDependencies() {
     () => ReservationRepositoryImpl(remoteDatasource: sl<ReservationRemoteDatasource>()),
   );
 
-  // Factory cubit for reservation flow (creates new instance each time)
+  // Factory cubit for reservation flow (creates new instance each time).
+  // Cubit cần cả `WalletRepository` để `refreshBalanceAndConfirm` có thể
+  // gọi `getWallet(includeHeld:true)` trước khi re-quote.
   sl.registerFactory<ReservationCubit>(
-    () => ReservationCubit(repository: sl<ReservationRepository>()),
+    () => ReservationCubit(
+      repository: sl<ReservationRepository>(),
+      walletRepository: sl<WalletRepository>(),
+    ),
   );
 
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────

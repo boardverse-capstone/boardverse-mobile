@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_icons.dart';
 import '../../domain/entities/entities.dart';
 
 /// Widget hiển thị số dư ví BVC (BR §2.4)
@@ -33,12 +34,9 @@ class BalanceCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary,
-            AppColors.primary.withValues(alpha: 0.8),
-          ],
+          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
         ),
-        borderRadius: BorderRadius.circular(AppRadius.radiusXl),
+        borderRadius: AppRadius.radiusXlAll,
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.3),
@@ -75,7 +73,7 @@ class BalanceCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 8, left: 4),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs, left: 4),
                 child: Text(
                   'BVC',
                   style: textTheme.titleMedium?.copyWith(
@@ -94,14 +92,14 @@ class BalanceCard extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                borderRadius: AppRadius.radiusSmAll,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.lock_outline,
-                    size: 14,
+                    size: AppIcons.xs,
                     color: Colors.white.withValues(alpha: 0.9),
                   ),
                   SizedBox(width: AppSpacing.xs),
@@ -128,7 +126,7 @@ class BalanceCard extends StatelessWidget {
                   foregroundColor: AppColors.primary,
                   padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                    borderRadius: AppRadius.radiusMdAll,
                   ),
                 ),
               ),
@@ -152,16 +150,16 @@ class BalanceCard extends StatelessWidget {
 
     switch (wallet.riskLevel) {
       case RiskLevel.low:
-        badgeColor = Colors.green;
+        badgeColor = AppColors.success;
         label = 'Thấp';
       case RiskLevel.medium:
-        badgeColor = Colors.orange;
+        badgeColor = AppColors.warning;
         label = 'Trung bình';
       case RiskLevel.high:
-        badgeColor = Colors.red.shade400;
+        badgeColor = AppColors.warning;
         label = 'Cao';
       case RiskLevel.critical:
-        badgeColor = Colors.red;
+        badgeColor = AppColors.error;
         label = 'Nguy hiểm';
     }
 
@@ -172,24 +170,15 @@ class BalanceCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: badgeColor.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        borderRadius: AppRadius.radiusSmAll,
         border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.shield_outlined,
-            size: 12,
-            color: badgeColor,
-          ),
+          Icon(Icons.shield_outlined, size: AppIcons.xs, color: badgeColor),
           SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: badgeColor,
-            ),
-          ),
+          Text(label, style: textTheme.labelSmall?.copyWith(color: badgeColor)),
         ],
       ),
     );

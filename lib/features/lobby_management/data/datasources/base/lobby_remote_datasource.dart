@@ -18,32 +18,6 @@ import '../../models/elo_update_model.dart';
 ///
 /// Việc switch tuân theo `AppConfig.useMockLobbyData` ở tầng DI.
 abstract class LobbyRemoteDatasource {
-  /// POST /api/v1/lobbies — tạo lobby mới.
-  /// Body theo spec `lobby.md` và Swagger `CreateLobbyRequestDto`:
-  /// ```json
-  /// {
-  ///   "gameTemplateId": "uuid",
-  ///   "scheduledStartTime": "ISO-8601 UTC",
-  ///   "maxMembers": 2..20,
-  ///   "seatCount": 1..50,
-  ///   "cancellationLeadTimeMinutes": 5..1440,
-  ///   "isPrivate": false,
-  ///   "cafeId": "uuid"  // optional — gắn lobby với quán cụ thể
-  /// }
-  /// ```
-  /// Tham số `searchRadiusKm` và `minimumKarma` vẫn là client-only (BR-10
-  /// áp dụng trên join/search, không phải lúc tạo).
-  Future<Either<Failure, LobbyEntity>> createLobby({
-    required String gameId,
-    required String cafeId,
-    required DateTime scheduledTime,
-    required int additionalSlots,
-    required bool isPublic,
-    double? searchRadiusKm,
-    double? minimumKarma,
-    Duration? leadTime,
-  });
-
   /// POST /api/v1/lobbies/{lobbyId}/join
   Future<Either<Failure, bool>> joinLobby(String lobbyId, String? inviteCode);
 
@@ -56,11 +30,15 @@ abstract class LobbyRemoteDatasource {
   /// POST /api/v1/lobbies/search — body chứa gameTemplateId, location,
   /// radius và minKarmaScore (xem spec `lobby.md:138-152`).
   /// Trả về danh sách summary (không kèm danh sách members đầy đủ).
+  ///
+  /// [excludeSelfOverlapping] = true để server loại bỏ các lobby có lịch
+  /// trùng với reservation của user hiện tại.
   Future<Either<Failure, List<LobbySummary>>> searchNearbyLobbies({
     required double latitude,
     required double longitude,
     required LobbySearchFilter filter,
     required double currentUserKarma,
+    bool excludeSelfOverlapping = true,
   });
 
   /// GET /api/v1/lobbies/discoverable?limit=N — flow Browse lobbies cho
@@ -73,12 +51,31 @@ abstract class LobbyRemoteDatasource {
   /// `getLobbyById`. Lưu ý: response có field alias khác
   /// (`gameTemplateId` ↔ `gameId`, `memberAvatars[]` ↔ `players[]`, ...)
   /// — đã được xử lý trong `LobbyModel.fromJson`.
+  ///
+  /// [excludeSelfOverlapping] = true để server loại bỏ lobby trùng lịch
+  /// với reservation của user hiện tại (BR: tránh join 2 lobby cùng giờ).
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    String? gameTemplateId,
+    double? latitude,
+    double? longitude,
+    double? radiusKm,
     int limit = 50,
+    bool excludeSelfOverlapping = true,
   });
 
   /// POST /api/v1/lobbies/{lobbyId}/close — Host only.
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId);
+
+  /// DELETE /api/v1/lobbies/{lobbyId} — Host giải tán lobby (hard delete).
+  /// Hard-delete toàn bộ Lobby + Members + Messages + Invites + Reports.
+  /// Chỉ host mới gọi. Không áp dụng khi lobby đã check-in hoặc
+  /// đã đóng/rating. Backend trả 409 nếu lobby đã booking thành công.
+  ///
+  /// Body (optional): { reason: "string" }
+  Future<Either<Failure, void>> dissolveLobby({
+    required String lobbyId,
+    String? reason,
+  });
 
   /// POST /api/v1/lobbies/{lobbyId}/lock — Host only.
   /// Status chuyển Open → Full, broadcast `LobbyFull`.
@@ -87,13 +84,9 @@ abstract class LobbyRemoteDatasource {
   /// POST /api/v1/lobbies/{lobbyId}/open-karma-window — Host only.
   Future<Either<Failure, LobbyEntity>> openKarmaWindow(String lobbyId);
 
-  /// POST /api/v1/lobbies/{lobbyId}/auto-booking — chỉ mock (server-
-  /// side sẽ tự trigger sau khi `LobbyFull` event; client không gọi
-  /// trừ khi mock). Giữ lại để tương thích `LobbyRepository` cũ.
-  Future<Either<Failure, String>> autoCreateBooking(String lobbyId);
-
   /// POST /api/v1/lobbies/{lobbyId}/transfer-host
   /// Host chuyển quyền host cho thành viên khác.
+  /// Body: { newHostUserId: "guid" }
   Future<Either<Failure, LobbyEntity>> transferHost({
     required String lobbyId,
     required String newHostId,
@@ -101,14 +94,20 @@ abstract class LobbyRemoteDatasource {
 
   /// POST /api/v1/lobbies/{lobbyId}/kick
   /// Host kick thành viên khỏi lobby.
+  /// Body: { targetUserId: "guid", reason: "..." }
   Future<Either<Failure, LobbyEntity>> kickMember({
     required String lobbyId,
-    required String memberId,
+    required String targetUserId,
+    String? reason,
   });
 
   /// POST /api/v1/lobbies/{lobbyId}/ready
   /// Member bấm Ready/Unready khi lobby FULL.
-  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId);
+  /// Body: { isReady: true }
+  Future<Either<Failure, LobbyEntity>> setReady({
+    required String lobbyId,
+    required bool isReady,
+  });
 
   /// GET /api/v1/lobbies/hosted
   /// Lấy danh sách lobby do user này host (cả active lẫn đã đóng).
@@ -120,10 +119,22 @@ abstract class LobbyRemoteDatasource {
 
   /// POST /api/v1/lobbies/{lobbyId}/report
   /// Báo cáo phòng chờ vi phạm.
+  /// Body: { category: "Harassment", reason: "..." }
   Future<Either<Failure, void>> reportLobby({
     required String lobbyId,
+    required String category,
     required String reason,
+  });
+
+  /// PATCH /api/v1/lobbies/{lobbyId}
+  /// Host cập nhật thông tin lobby (description, maxMembers, isPrivate, minKarmaScore).
+  /// Tất cả field optional — chỉ field gửi mới được cập nhật.
+  Future<Either<Failure, LobbyEntity>> updateLobby({
+    required String lobbyId,
     String? description,
+    int? maxMembers,
+    bool? isPrivate,
+    int? minKarmaScore,
   });
 
   /// POST /api/v1/lobbies/{lobbyId}/messages

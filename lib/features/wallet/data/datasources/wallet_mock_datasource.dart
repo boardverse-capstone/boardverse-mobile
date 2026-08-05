@@ -21,6 +21,7 @@ class WalletMockDatasource {
   static int _mockAvailableBalance = 0;
   static int _mockHeldBalance = 0;
   static final List<TransactionModel> _mockTransactions = [];
+  static final Map<String, TopUpQuoteModel> _mockTopUps = {};
 
   Future<Either<Failure, WalletModel>> getWallet({bool includeHeld = false}) async {
     // Simulate network delay
@@ -61,14 +62,17 @@ class WalletMockDatasource {
     // Generate mock payment URL
     final orderId = 'BVC-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
-    return Right(TopUpQuoteModel(
+    final quote = TopUpQuoteModel(
       paymentUrl: 'https://pay.sepay.vn/mock?order=$orderId',
       qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=$orderId',
       orderId: orderId,
+      topUpId: orderId, // mock dùng orderId làm topUpId
       expectedBvc: expectedBvc,
       expiresAt: DateTime.now().add(const Duration(minutes: 15)),
       idempotencyKey: idempotencyKey,
-    ));
+    );
+    _mockTopUps[orderId] = quote;
+    return Right(quote);
   }
 
   Future<Either<Failure, TransactionListModel>> getTransactions({
@@ -144,5 +148,48 @@ class WalletMockDatasource {
     _mockAvailableBalance = 0;
     _mockHeldBalance = 0;
     _mockTransactions.clear();
+    _mockTopUps.clear();
+  }
+
+  Future<Either<Failure, TopUpQuoteModel>> updateTopUp({
+    required String topUpId,
+    required int amountVnd,
+    required String idempotencyKey,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (amountVnd < 10000) {
+      return const Left(BadRequestFailure(
+        message: 'Số tiền tối thiểu là 10.000 VND',
+      ));
+    }
+    if (amountVnd % 1000 != 0) {
+      return const Left(BadRequestFailure(
+        message: 'Số tiền phải chia hết cho 1.000',
+      ));
+    }
+
+    // Cancelled old order
+    _mockTopUps.remove(topUpId);
+
+    final expectedBvc = amountVnd ~/ 1000;
+    final orderId = 'BVC-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final quote = TopUpQuoteModel(
+      paymentUrl: 'https://pay.sepay.vn/mock?order=$orderId',
+      qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=$orderId',
+      orderId: orderId,
+      topUpId: orderId, // mock dùng orderId làm topUpId
+      expectedBvc: expectedBvc,
+      expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+      idempotencyKey: idempotencyKey,
+    );
+    _mockTopUps[orderId] = quote;
+    return Right(quote);
+  }
+
+  Future<Either<Failure, void>> cancelTopUp(String topUpId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    _mockTopUps.remove(topUpId);
+    return const Right(null);
   }
 }

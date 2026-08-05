@@ -21,15 +21,14 @@ import '../base/lobby_remote_datasource.dart';
 /// Triển khai gọi REST API thật theo spec `.agents/docs/apis_docs/lobby.md`.
 ///
 /// Lưu ý mapping field:
-/// - **client → server**: `createLobby` body đổi từ `gameId/cafeId/...` sang
-///   `gameTemplateId/scheduledStartTime/maxMembers/cancellationLeadTimeMinutes`.
-///   Backend nhận `cafeId`, `isPrivate`, `seatCount` (optional). Client
-///   cờ "public" được đảo thành `isPrivate = false`.
-/// - **search**: chuyển từ GET query params → POST body theo spec.
 /// - **response parsing**: dùng `LobbyModel.fromJson` hiện có (camelCase).
 ///   Nếu backend trả PascalCase cần thêm converter (xem plan §Câu hỏi 1).
 ///
-/// Chỉ bind trong DI khi `AppConfig.useMockLobbyData = false`.
+/// **Lưu ý migrate (Reservation/BVC):**
+/// - Không còn `createLobby`/`autoCreateBooking`/`createLobbyForExistingBooking`.
+///   Việc tạo lobby đi qua flow Reservation: `quote → confirm` (xem
+///   `lib/features/reservation/...`). Chỉ bind trong DI khi
+///   `AppConfig.useMockLobbyData = false`.
 class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   final Dio _dio;
 
@@ -38,58 +37,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   // ════════════════════════════════════════════════════════════════════
   // Lobby CRUD
   // ════════════════════════════════════════════════════════════════════
-
-  @override
-  Future<Either<Failure, LobbyEntity>> createLobby({
-    required String gameId,
-    required String cafeId,
-    required DateTime scheduledTime,
-    required int additionalSlots,
-    required bool isPublic,
-    double? searchRadiusKm,
-    double? minimumKarma,
-    Duration? leadTime,
-  }) async {
-    try {
-      // Backend spec `lobby.md:48-56` + Swagger `CreateLobbyRequestDto`:
-      //   `gameTemplateId`, `scheduledStartTime`, `maxMembers`,
-      //   `cancellationLeadTimeMinutes`, optional `cafeId`, `isPrivate`,
-      //   `description`, `coverImageUrl`, `latitude`, `longitude`,
-      //   `seatCount`, `bookingId`, `minPlayers`.
-      //
-      // Lưu ý mapping:
-      // - `isPublic = true` ⇔ `isPrivate = false`; client dùng cờ "public"
-      //   cho UX quen thuộc → đảo sang backend.
-      // - `cafeId` chỉ gửi khi thực sự có giá trị (lobby tự do không gắn
-      //   quán sẽ bỏ field này).
-      // - `maxMembers = additionalSlots + 1` (host + slot tuyển thêm).
-      // - `seatCount = maxMembers` (BR-07: MaxMembers ≤ SeatCount). Phase
-      //   sau sẽ ràng buộc chặt hơn từ booking của quán.
-      // - BR-10 (`minimumKarma`) hiện không nằm trong CreateLobbyRequestDto
-      //   của backend; vẫn ghi nhận client-side cho UI.
-      final body = <String, dynamic>{
-        'gameTemplateId': gameId,
-        'scheduledStartTime': scheduledTime.toUtc().toIso8601String(),
-        'maxMembers': additionalSlots + 1,
-        'seatCount': additionalSlots + 1,
-        'cancellationLeadTimeMinutes': leadTime?.inMinutes ?? 30,
-        'isPrivate': !isPublic,
-        if (cafeId.isNotEmpty) 'cafeId': cafeId,
-      };
-      final res = await _dio.post<Map<String, dynamic>>(
-        ApiEndpoints.lobbiesList,
-        data: body,
-      );
-      final model = LobbyModel.fromJson(_unwrap(res.data));
-      return Right<Failure, LobbyEntity>(model.toEntity());
-    } on DioException catch (e) {
-      return Left<Failure, LobbyEntity>(_mapDioError(e));
-    } catch (e) {
-      return Left<Failure, LobbyEntity>(
-        ServerFailure(message: 'Lỗi không xác định: $e'),
-      );
-    }
-  }
 
   @override
   Future<Either<Failure, LobbyEntity?>> getLobbyById(String lobbyId) async {
@@ -118,6 +65,7 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     required double longitude,
     required LobbySearchFilter filter,
     required double currentUserKarma,
+    bool excludeSelfOverlapping = true,
   }) async {
     try {
       // Backend spec `lobby.md:138-152` — POST body thay vì GET query.
@@ -133,6 +81,7 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
         // latitude/longitude luôn gửi nếu có.
         'latitude': latitude,
         'longitude': longitude,
+        'excludeSelfOverlapping': excludeSelfOverlapping,
       };
       final res = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.lobbiesSearch,
@@ -154,19 +103,36 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    String? gameTemplateId,
+    double? latitude,
+    double? longitude,
+    double? radiusKm,
     int limit = 50,
+    bool excludeSelfOverlapping = true,
   }) async {
     try {
-      // GET /api/v1/lobbies/discoverable?limit=N — flow Browse lobbies.
+      // GET /api/v1/lobbies/discoverable — flow Browse lobbies.
       // Server đã filter theo vị trí user + visibility, không cần gửi
-      // location từ client. Pagination chỉ qua `limit` (mặc định 50).
-      //
-      // Backend bọc response trong envelope `{ statusCode, message, data, ... }`.
-      // Phải unwrap `data` trước khi cast sang List.
+      // `gameTemplateId` (optional). Hỗ trợ filter optional theo game + geo.
+      // ignore: use_null_aware_elements
+      final query = <String, dynamic>{
+        'limit': limit,
+        if (gameTemplateId != null && gameTemplateId.isNotEmpty)
+          'gameTemplateId': gameTemplateId,
+        // ignore: use_null_aware_elements
+        if (latitude != null) 'latitude': latitude,
+        // ignore: use_null_aware_elements
+        if (longitude != null) 'longitude': longitude,
+        // ignore: use_null_aware_elements
+        if (radiusKm != null) 'radiusKm': radiusKm,
+        'excludeSelfOverlapping': excludeSelfOverlapping,
+      };
       final res = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.lobbiesDiscoverable,
-        queryParameters: {'limit': limit},
+        queryParameters: query,
       );
+      // Backend bọc response trong envelope `{ statusCode, message, data, ... }`.
+      // Phải unwrap `data` trước khi cast sang List.
       final payload = res.data ?? const <String, dynamic>{};
       final dynamic rawList = payload['data'] ?? payload['items'] ?? payload;
       if (rawList is! List) {
@@ -296,6 +262,41 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }
 
   @override
+  Future<Either<Failure, void>> dissolveLobby({
+    required String lobbyId,
+    String? reason,
+  }) async {
+    try {
+      final path = ApiEndpoints.lobbyDissolve(lobbyId);
+      final body = reason != null ? {'reason': reason} : null;
+      await _dio.delete<Map<String, dynamic>>(
+        path,
+        data: body,
+      );
+      // 200: lobby đã giải tán (hard delete thành công).
+      return const Right<Failure, void>(null);
+    } on DioException catch (e) {
+      // 409: lobby đã booking thành công / đang trong phiên chơi /
+      // đã đóng — không thể giải tán.
+      if (e.response?.statusCode == 409) {
+        final apiMsg = e.response?.data is Map
+            ? (e.response!.data as Map)['message'] as String?
+            : null;
+        return Left<Failure, void>(ServerFailure(
+          message: apiMsg ??
+              'Phòng đã đặt cọc hoặc đang trong phiên chơi, không thể giải tán.',
+          statusCode: 409,
+        ));
+      }
+      return Left<Failure, void>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, void>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId) async {
     try {
       final path = ApiEndpoints.lobbyLock.replaceAll('{id}', lobbyId);
@@ -328,20 +329,6 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
         ServerFailure(message: 'Lỗi không xác định: $e'),
       );
     }
-  }
-
-  @override
-  Future<Either<Failure, String>> autoCreateBooking(String lobbyId) async {
-    // backend lobby.md không expose endpoint này cho client — backend tự
-    // trigger khi `LobbyFull` event. Method này chỉ dùng cho mock mode.
-    // Nếu backend vẫn cung cấp endpoint nội bộ, xem
-    // `ApiEndpoints.lobbyAutoBooking` (legacy) và điều chỉnh sau.
-    return const Left<Failure, String>(
-      ServerFailure(
-        message:
-            'autoCreateBooking không được expose trên real API — backend tự trigger.',
-      ),
-    );
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -649,7 +636,7 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       final path = ApiEndpoints.lobbyTransferHost(lobbyId);
       final res = await _dio.post<Map<String, dynamic>>(
         path,
-        data: {'newHostId': newHostId},
+        data: {'newHostUserId': newHostId},
       );
       final model = LobbyModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyEntity>(model.toEntity());
@@ -665,13 +652,17 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, LobbyEntity>> kickMember({
     required String lobbyId,
-    required String memberId,
+    required String targetUserId,
+    String? reason,
   }) async {
     try {
       final path = ApiEndpoints.lobbyKick(lobbyId);
       final res = await _dio.post<Map<String, dynamic>>(
         path,
-        data: {'memberId': memberId},
+        data: {
+          'targetUserId': targetUserId,
+          ...?reason != null ? {'reason': reason} : null,
+        },
       );
       final model = LobbyModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyEntity>(model.toEntity());
@@ -685,10 +676,46 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }
 
   @override
-  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId) async {
+  Future<Either<Failure, LobbyEntity>> setReady({
+    required String lobbyId,
+    required bool isReady,
+  }) async {
     try {
       final path = ApiEndpoints.lobbyReady(lobbyId);
-      final res = await _dio.post<Map<String, dynamic>>(path);
+      final res = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: {'isReady': isReady},
+      );
+      final model = LobbyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> updateLobby({
+    required String lobbyId,
+    String? description,
+    int? maxMembers,
+    bool? isPrivate,
+    int? minKarmaScore,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (description != null) body['description'] = description;
+      if (maxMembers != null) body['maxMembers'] = maxMembers;
+      if (isPrivate != null) body['isPrivate'] = isPrivate;
+      if (minKarmaScore != null) body['minKarmaScore'] = minKarmaScore;
+
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '${ApiEndpoints.lobbiesList}/$lobbyId',
+        data: body,
+      );
       final model = LobbyModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyEntity>(model.toEntity());
     } on DioException catch (e) {
@@ -747,16 +774,16 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, void>> reportLobby({
     required String lobbyId,
+    required String category,
     required String reason,
-    String? description,
   }) async {
     try {
       final path = ApiEndpoints.lobbyReport(lobbyId);
       await _dio.post<Map<String, dynamic>>(
         path,
         data: {
+          'category': category,
           'reason': reason,
-          ...?description != null ? {'description': description} : null,
         },
       );
       return const Right<Failure, void>(null);

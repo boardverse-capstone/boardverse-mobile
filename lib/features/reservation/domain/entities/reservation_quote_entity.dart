@@ -26,6 +26,7 @@ class ReservationQuoteEntity extends Equatable {
   final int missingAmount;
   final int bufferMinutes;
   final bool bufferWarning;
+  final bool isPrivate;
   final bool requiresCafeApproval;
   final DateTime expiresAt;
   final List<String> warnings;
@@ -52,6 +53,7 @@ class ReservationQuoteEntity extends Equatable {
     required this.missingAmount,
     required this.bufferMinutes,
     required this.bufferWarning,
+    this.isPrivate = false,
     required this.requiresCafeApproval,
     required this.expiresAt,
     required this.warnings,
@@ -86,6 +88,7 @@ class ReservationQuoteEntity extends Equatable {
         missingAmount,
         bufferMinutes,
         bufferWarning,
+        isPrivate,
         requiresCafeApproval,
         expiresAt,
       ];
@@ -112,6 +115,7 @@ enum BufferWarningLevel {
 class ReservationConfirmResult extends Equatable {
   final String reservationId;
   final String lobbyId;
+  final String? lobbyShareCode;
   final DateTime recruitmentDeadline;
   final bool requiresCafeApproval;
   final DateTime? cafeApprovalDeadline;
@@ -120,6 +124,7 @@ class ReservationConfirmResult extends Equatable {
   const ReservationConfirmResult({
     required this.reservationId,
     required this.lobbyId,
+    this.lobbyShareCode,
     required this.recruitmentDeadline,
     required this.requiresCafeApproval,
     this.cafeApprovalDeadline,
@@ -130,6 +135,7 @@ class ReservationConfirmResult extends Equatable {
   List<Object?> get props => [
         reservationId,
         lobbyId,
+        lobbyShareCode,
         recruitmentDeadline,
         requiresCafeApproval,
         cafeApprovalDeadline,

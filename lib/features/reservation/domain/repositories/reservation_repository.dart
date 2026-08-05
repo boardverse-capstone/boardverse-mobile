@@ -19,14 +19,16 @@ abstract class ReservationRepository {
     bool? hostedByMe,
     bool? joinedByMe,
     int page = 1,
-    int pageSize = 10,
+    int pageSize = 20,
   });
+
   /// Tạo quote cho reservation (không tạo DB row)
   ///
   /// [cafeId] - quán cần đặt
   /// [gameId] - game muốn chơi
   /// [playDate] - ngày chơi
   /// [timeSlot] - khung giờ
+  /// [isPrivate] - lobby private (bỏ qua cafe approval) hay public (cần cafe duyệt)
   /// [minPlayers], [maxPlayers] - số người
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
     required String cafeId,
@@ -36,6 +38,7 @@ abstract class ReservationRepository {
     String? preferredStartTime,
     required int minPlayers,
     required int maxPlayers,
+    required bool isPrivate,
     required String idempotencyKey,
   });
 
@@ -58,6 +61,7 @@ abstract class ReservationRepository {
     String? preferredStartTime,
     required int minPlayers,
     required int maxPlayers,
+    required bool isPrivate,
     required int expectedFinalDeposit,
     required String idempotencyKey,
   });
@@ -69,16 +73,24 @@ abstract class ReservationRepository {
   Future<Either<Failure, ReservationCancelResult>> cancelReservation({
     required String reservationId,
     String? reason,
+    required String idempotencyKey,
   });
 
   /// Lấy chi tiết reservation
   Future<Either<Failure, ReservationEntity>> getReservation(String reservationId);
 
-  /// Lấy reservations của user (hosted)
-  Future<Either<Failure, List<ReservationEntity>>> getMyHostedReservations();
+  /// Lấy reservation theo id (alias cho getReservation để khớp plan).
+  Future<Either<Failure, ReservationEntity>> getReservationDetail(
+      String reservationId);
 
-  /// Lấy reservations của user (participating)
-  Future<Either<Failure, List<ReservationEntity>>> getMyParticipatingReservations();
+  /// Lấy danh sách reservation đang chờ cafe duyệt (cho Cafe Manager).
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+      getPendingCafeApprovals({
+    String? cafeId,
+    DateTime? playDate,
+    int page = 1,
+    int pageSize = 20,
+  });
 
   /// Cafe approval cho lobby cần duyệt
   Future<Either<Failure, void>> cafeApproval({

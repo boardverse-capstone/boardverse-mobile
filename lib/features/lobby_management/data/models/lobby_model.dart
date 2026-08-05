@@ -116,6 +116,7 @@ class LobbyModel {
   final DateTime createdAt;
   final DateTime timeoutAt;
   final String? bookingId;
+  final String? reservationId;
   final double minimumKarma;
   final double searchRadiusKm;
   final double? distanceKm;
@@ -142,6 +143,7 @@ class LobbyModel {
     required this.createdAt,
     required this.timeoutAt,
     this.bookingId,
+    this.reservationId,
     this.minimumKarma = 0,
     this.searchRadiusKm = 5,
     this.gameImageUrl,
@@ -235,6 +237,7 @@ class LobbyModel {
       createdAt: DateTime.parse(createdAtRaw),
       timeoutAt: DateTime.parse(timeoutAtRaw),
       bookingId: json['bookingId'] as String?,
+      reservationId: json['reservationId'] as String?,
       minimumKarma: (json['minimumKarma'] as num?)?.toDouble() ?? 0,
       searchRadiusKm: (json['searchRadiusKm'] as num?)?.toDouble() ?? 5,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
@@ -281,6 +284,7 @@ class LobbyModel {
     'createdAt': createdAt.toIso8601String(),
     'timeoutAt': timeoutAt.toIso8601String(),
     'bookingId': bookingId,
+    'reservationId': reservationId,
     'minimumKarma': minimumKarma,
     'searchRadiusKm': searchRadiusKm,
     'distanceKm': distanceKm,
@@ -312,6 +316,7 @@ class LobbyModel {
     DateTime? createdAt,
     DateTime? timeoutAt,
     Object? bookingId = _sentinel,
+    Object? reservationId = _sentinel,
     double? minimumKarma,
     double? searchRadiusKm,
     Object? distanceKm = _sentinel,
@@ -343,6 +348,9 @@ class LobbyModel {
       bookingId: identical(bookingId, _sentinel)
           ? this.bookingId
           : bookingId as String?,
+      reservationId: identical(reservationId, _sentinel)
+          ? this.reservationId
+          : reservationId as String?,
       minimumKarma: minimumKarma ?? this.minimumKarma,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
       distanceKm: identical(distanceKm, _sentinel)
@@ -377,6 +385,7 @@ class LobbyModel {
     createdAt: createdAt,
     timeoutAt: timeoutAt,
     bookingId: bookingId,
+    reservationId: reservationId,
     minimumKarma: minimumKarma,
     searchRadiusKm: searchRadiusKm,
   );

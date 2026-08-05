@@ -54,6 +54,20 @@ class LobbyUpdatedRealtime extends LobbyState {
   List<Object?> get props => [lobby];
 }
 
+/// Lobby đã kết thúc (`Closed` / `TimeoutFailed` / `HostCancelled`).
+///
+/// Phát ra từ `initLobbyState` khi player mở lobby hết hạn từ
+/// tab "Phòng của tôi". LobbyPage render UI read-only + action bar
+/// (Giải tán / Tạo lại / Gia hạn / Xem chi tiết) thay vì active lobby UI.
+class LobbyEnded extends LobbyState {
+  final LobbyEntity lobby;
+
+  const LobbyEnded({required this.lobby});
+
+  @override
+  List<Object?> get props => [lobby];
+}
+
 class LobbyDismissed extends LobbyState {
   final String title;
   final String message;
@@ -67,15 +81,6 @@ class LobbyDismissed extends LobbyState {
 
   @override
   List<Object?> get props => [title, message, reasonCode];
-}
-
-class LobbyReady extends LobbyState {
-  final LobbyEntity lobby;
-
-  const LobbyReady({required this.lobby});
-
-  @override
-  List<Object?> get props => [lobby];
 }
 
 /// Danh sách bạn bè online — dùng cho flow MỜI THỰC (gửi notification).
@@ -152,20 +157,19 @@ class LobbyListEmpty extends LobbyState {
   List<Object?> get props => [message];
 }
 
-/// Luồng A: lobby vừa đầy → đã auto tạo booking [pendingDeposit] cho host.
-class LobbyAutoBookingCreated extends LobbyState {
-  final LobbyEntity lobby;
+// ─── Host Actions States ─────────────────────────────────────────────────
 
-  /// Id booking vừa được server trả về (dùng cho resume / persistence).
-  final String bookingId;
+/// Host đã giải tán lobby (hard delete thành công).
+/// Sau khi lobby bị xoá, danh sách "Phòng của tôi" sẽ không còn
+/// hiển thị lobby này nữa.
+class LobbyDissolved extends LobbyState {
+  final String lobbyId;
 
-  const LobbyAutoBookingCreated({required this.lobby, required this.bookingId});
+  const LobbyDissolved({required this.lobbyId});
 
   @override
-  List<Object?> get props => [lobby, bookingId];
+  List<Object?> get props => [lobbyId];
 }
-
-// ─── Host Actions States ─────────────────────────────────────────────────
 
 /// Host đã chuyển quyền host thành công.
 class LobbyHostTransferred extends LobbyState {

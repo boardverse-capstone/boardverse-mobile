@@ -1,8 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -34,8 +33,6 @@ class TopUpPage extends StatefulWidget {
 class _TopUpPageState extends State<TopUpPage> {
   final TextEditingController _customAmountController = TextEditingController();
   int _selectedAmountVnd = 100000; // Default 100K VND
-  Timer? _countdownTimer;
-  Duration _remainingTime = Duration.zero;
 
   @override
   void initState() {
@@ -48,7 +45,6 @@ class _TopUpPageState extends State<TopUpPage> {
   @override
   void dispose() {
     _customAmountController.dispose();
-    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -95,29 +91,6 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  void _startCountdown(DateTime deadline) {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final remaining = deadline.difference(DateTime.now());
-      if (remaining.isNegative) {
-        timer.cancel();
-        setState(() {
-          _remainingTime = Duration.zero;
-        });
-      } else {
-        setState(() {
-          _remainingTime = remaining;
-        });
-      }
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -128,11 +101,12 @@ class _TopUpPageState extends State<TopUpPage> {
         centerTitle: true,
       ),
       body: BlocConsumer<TopUpCubit, TopUpState>(
+        listenWhen: (previous, current) => previous.runtimeType != current.runtimeType,
         listener: (context, state) {
           if (state is TopUpAwaitingPayment) {
-            _startCountdown(state.deadline);
+            // StaticExpiryDisplay widget tự tính remaining từ deadline khi build.
+            // KHÔNG có timer nên không rebuild liên tục.
           } else if (state is TopUpSuccess) {
-            _countdownTimer?.cancel();
             _showSuccessDialog(context, state);
           } else if (state is TopUpFailed) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -145,8 +119,16 @@ class _TopUpPageState extends State<TopUpPage> {
             _showExpiredDialog(context);
           }
         },
+        buildWhen: (previous, current) {
+          // LUÔN return false khi cùng type → Không bao giờ rebuild
+          // từ polling. StaticExpiryDisplay tự tính remaining từ deadline, không cần state change.
+          if (previous.runtimeType != current.runtimeType) return true;
+          return false;
+        },
         builder: (context, state) {
           return SingleChildScrollView(
+            // Khóa lại scroll offset khi build lại để tránh nhảy về đầu.
+            key: const PageStorageKey<String>('topup_scroll'),
             padding: EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -413,63 +395,41 @@ class _TopUpPageState extends State<TopUpPage> {
   }
 
   Widget _buildCountdownSection(BuildContext context, TopUpAwaitingPayment state) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
-        Container(
-          padding: EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: _remainingTime.inMinutes < 2
-                ? Colors.red.withValues(alpha: 0.1)
-                : Colors.orange.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.access_time,
-                size: 48,
-                color: _remainingTime.inMinutes < 2
-                    ? Colors.red
-                    : Colors.orange,
-              ),
-              SizedBox(height: AppSpacing.sm),
-              Text(
-                'Mã thanh toán hết hạn sau',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              SizedBox(height: AppSpacing.xs),
-              Text(
-                _formatDuration(_remainingTime),
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: _remainingTime.inMinutes < 2
-                      ? Colors.red
-                      : Colors.orange,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: AppSpacing.md),
+        _buildQrSection(context, state, textTheme),
+        SizedBox(height: AppSpacing.lg),
+        _buildPaymentInstructions(context, state, textTheme),
+        SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () {
-                  context.read<TopUpCubit>().retryTopUp(
-                    onSuccess: () {
-                      widget.onSuccess?.call();
-                    },
-                  );
+                  _showCancelConfirmation(context);
                 },
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tạo mã mới'),
+                icon: const Icon(Icons.close),
+                label: const Text('Hủy đơn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+              ),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showUpdateAmountDialog(context),
+                icon: const Icon(Icons.edit),
+                label: const Text('Đổi số tiền'),
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                 ),
               ),
             ),
-            SizedBox(width: AppSpacing.md),
+            SizedBox(width: AppSpacing.sm),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
@@ -486,23 +446,209 @@ class _TopUpPageState extends State<TopUpPage> {
             ),
           ],
         ),
-        SizedBox(height: AppSpacing.md),
-        ElevatedButton(
-          onPressed: () {
-            context.read<TopUpCubit>().checkStatus(
-              onSuccess: () {
-                widget.onSuccess?.call();
-              },
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-          ),
-          child: const Text('Tôi đã thanh toán'),
-        ),
       ],
+    );
+  }
+
+  void _showUpdateAmountDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đổi số tiền đơn top-up'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            hintText: 'Số tiền mới (VND)',
+            suffixText: 'VND',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newAmount =
+                  int.tryParse(controller.text.replaceAll(',', '')) ?? 0;
+              Navigator.pop(ctx);
+              context.read<TopUpCubit>().updateCurrentTopUp(
+                newAmountVnd: newAmount,
+                onSuccess: () {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã đổi số tiền đơn.')),
+                    );
+                  }
+                },
+              );
+            },
+            child: const Text('Cập nhật'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Hiển thị QR code trực tiếp trong app — user quét bằng app ngân hàng.
+  ///
+  /// Lý do không dùng countdown timer:
+  /// - Polling 5s tự check transaction history để biết success.
+  /// - User cần thấy QR ngay để quét thanh toán.
+  Widget _buildQrSection(
+      BuildContext context, TopUpAwaitingPayment state, TextTheme textTheme) {
+    final qrUrl = state.quote.qrUrl;
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Quét QR để thanh toán',
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text(
+            'Số tiền: ${_formatVnd(state.quote.amountVnd)}',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            'Mã đơn: ${state.quote.orderId}',
+            style: textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SizedBox(height: AppSpacing.md),
+          // QR code — load ảnh từ qrUrl (backend SePay trả URL ảnh QR).
+          Container(
+            padding: EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: qrUrl.isEmpty
+                ? SizedBox(
+                    height: 220,
+                    width: 220,
+                    child: const Center(child: CircularProgressIndicator()),
+                  )
+                : Image.network(
+                    qrUrl,
+                    height: 220,
+                    width: 220,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return SizedBox(
+                        height: 220,
+                        width: 220,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildFallbackQr(context, state.quote);
+                    },
+                  ),
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text(
+            'Mở app ngân hàng và quét QR này',
+            style: textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback khi load ảnh QR từ network fail.
+  /// Dùng qr_flutter để render QR từ paymentUrl.
+  Widget _buildFallbackQr(BuildContext context, dynamic quote) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          QrImageView(
+            data: quote.paymentUrl,
+            version: QrVersions.auto,
+            size: 220,
+            backgroundColor: Colors.white,
+            errorCorrectionLevel: QrErrorCorrectLevel.M,
+          ),
+          SizedBox(height: AppSpacing.sm),
+          const Text(
+            'Không thể tải ảnh QR. Dùng mã QR này.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        ),
+        title: const Text('Hủy thanh toán?'),
+        content: const Text(
+          'Đơn nạp BVC sẽ bị hủy. Nếu bạn đã chuyển khoản, vui lòng liên hệ admin để được hoàn tiền.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<TopUpCubit>().cancelCurrentTopUp(
+                onCancel: () {
+                  // Reset về initial để user có thể tạo đơn mới
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã hủy đơn nạp BVC'),
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hủy thanh toán'),
+          ),
+        ],
+      ),
     );
   }
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/theme.dart';
-import '../../../../core/navigation/pages/bookings_page.dart' show BookingRefreshSignal;
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/booking_history_entity.dart';
 import '../../domain/enums/booking_status.dart';
@@ -14,102 +13,11 @@ import 'booking_detail_page.dart';
 
 /// Trang lịch hẹn của user — 2 tab: Sắp tới + Lịch sử.
 ///
-/// Sau refactor:
-/// - Dùng [BookingHistoryCubit] (BlocProvider riêng) thay vì root cubit.
-/// - Content-only widget (`BookingHistoryPageContent`) để có thể nhúng từ
-///   `BookingsPage` (kèm banner resume).
+/// Body-only widget (`BookingHistoryPageContent`) để có thể nhúng từ
+/// `BookingsPage` (kèm banner resume). Wrapper `BookingHistoryPage` cũ
+/// đã được xoá khi tab Bookings chuyển sang dùng Reservation API +
+/// `MyLobbiesCubit` (không còn `BookingRefreshSignal`).
 ///
-/// Page này là wrapper chỉ để dùng trong standalone test/debug; production
-/// dùng [BookingHistoryPageContent] trực tiếp (kèm banner).
-class BookingHistoryPage extends StatefulWidget {
-  const BookingHistoryPage({super.key});
-
-  @override
-  State<BookingHistoryPage> createState() => _BookingHistoryPageState();
-}
-
-class _BookingHistoryPageState extends State<BookingHistoryPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    BookingRefreshSignal.instance.addListener(_onRefreshRequested);
-  }
-
-  void _onRefreshRequested() {
-    if (mounted) {
-      context.read<BookingHistoryCubit>().loadAll();
-    }
-  }
-
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) return;
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    BookingRefreshSignal.instance.removeListener(_onRefreshRequested);
-    _tabController.removeListener(_onTabChanged);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider<BookingHistoryCubit>(
-      create: (_) =>
-          BookingHistoryCubit(repository: context.read<dynamic>())
-            ..loadAll(),
-      child: Column(
-        children: [
-          Material(
-            color: Theme.of(context).appBarTheme.backgroundColor ??
-                Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Sắp tới'),
-                Tab(text: 'Lịch sử'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: const [
-                _UpcomingTabContent(),
-                _HistoryTabContent(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Convenience class giúp BookingHistoryPage tự-inject cubit từ context.
-class _UpcomingTabContent extends StatelessWidget {
-  const _UpcomingTabContent();
-
-  @override
-  Widget build(BuildContext context) =>
-      const _UpcomingTab(state: null, onRefresh: null);
-}
-
-class _HistoryTabContent extends StatelessWidget {
-  const _HistoryTabContent();
-
-  @override
-  Widget build(BuildContext context) =>
-      const _HistoryTab(state: null, onRefresh: null);
-}
-
 /// Body của `BookingHistoryPage` — dùng [BookingHistoryCubit] từ context.
 class BookingHistoryPageContent extends StatelessWidget {
   final BookingHistoryState? state;
@@ -298,10 +206,7 @@ class _UpcomingTab extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, i) {
           final booking = upcomingBookings[i];
-          return _UpcomingBookingCard(
-            booking: booking,
-            onChanged: refresh,
-          );
+          return _UpcomingBookingCard(booking: booking, onChanged: refresh);
         },
       ),
     );
@@ -312,10 +217,7 @@ class _UpcomingBookingCard extends StatelessWidget {
   final BookingEntity booking;
   final Future<void> Function() onChanged;
 
-  const _UpcomingBookingCard({
-    required this.booking,
-    required this.onChanged,
-  });
+  const _UpcomingBookingCard({required this.booking, required this.onChanged});
 
   IconData _statusIcon() {
     switch (booking.status.name) {
@@ -352,9 +254,7 @@ class _UpcomingBookingCard extends StatelessWidget {
   Future<void> _openDetail(BuildContext context) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => BookingDetailPage(booking: booking),
-      ),
+      MaterialPageRoute(builder: (_) => BookingDetailPage(booking: booking)),
     );
     if (result == true) {
       await onChanged();
@@ -444,9 +344,10 @@ class _UpcomingBookingCard extends StatelessWidget {
                                         booking.cafeName,
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
-                                          color:
-                                              theme.colorScheme.onSurfaceVariant,
-                                        ),
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -479,8 +380,9 @@ class _UpcomingBookingCard extends StatelessWidget {
                           Container(
                             width: 1,
                             height: 24,
-                            color: theme.colorScheme.outlineVariant
-                                .withValues(alpha: 0.5),
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                           Expanded(
                             child: _MetaItem(
@@ -491,8 +393,9 @@ class _UpcomingBookingCard extends StatelessWidget {
                           Container(
                             width: 1,
                             height: 24,
-                            color: theme.colorScheme.outlineVariant
-                                .withValues(alpha: 0.5),
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                           Expanded(
                             child: _MetaItem(
@@ -622,8 +525,9 @@ class _HistoryCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.sm),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer
-                            .withValues(alpha: 0.6),
+                        color: theme.colorScheme.primaryContainer.withValues(
+                          alpha: 0.6,
+                        ),
                         borderRadius: AppRadius.radiusSmAll,
                       ),
                       child: Icon(
@@ -680,8 +584,9 @@ class _HistoryCard extends StatelessWidget {
                     vertical: AppSpacing.xs,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.4),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.4,
+                    ),
                     borderRadius: AppRadius.radiusXsAll,
                   ),
                   child: Row(

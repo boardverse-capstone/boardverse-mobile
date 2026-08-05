@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_icons.dart';
 import '../../domain/entities/entities.dart';
 import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';
@@ -60,7 +61,7 @@ class FriendCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   _ActivityChip(
                     label: badge.label,
                     color: badge.color ?? theme.colorScheme.outline,
@@ -68,7 +69,7 @@ class FriendCard extends StatelessWidget {
                   ),
                   if (friend.karmaPoints > 0 ||
                       (friend.mutualFriendsCount ?? 0) > 0) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     MetaRow(
                       karmaPoints: friend.karmaPoints,
                       mutualFriendsCount: friend.mutualFriendsCount,
@@ -89,6 +90,16 @@ class FriendCard extends StatelessWidget {
   }
 }
 
+/// Activity dot size constants
+class _ActivityDotSize {
+  _ActivityDotSize._();
+
+  static const double dotSize = 14.0;
+  static const double borderWidth = 2.5;
+  static const double lobbyDotSize = 6.0;
+}
+
+/// Avatar section with tier border and activity status dot.
 class _AvatarSection extends StatelessWidget {
   const _AvatarSection({
     required this.username,
@@ -123,14 +134,14 @@ class _AvatarSection extends StatelessWidget {
             right: 0,
             bottom: 0,
             child: Container(
-              width: 14,
-              height: 14,
+              width: _ActivityDotSize.dotSize,
+              height: _ActivityDotSize.dotSize,
               decoration: BoxDecoration(
                 color: activityColor,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Theme.of(context).colorScheme.surface,
-                  width: 2.5,
+                  width: _ActivityDotSize.borderWidth,
                 ),
               ),
             ),
@@ -141,6 +152,7 @@ class _AvatarSection extends StatelessWidget {
   }
 }
 
+/// Activity chip showing online/offline/in lobby status.
 class _ActivityChip extends StatelessWidget {
   const _ActivityChip({
     required this.label,
@@ -158,23 +170,26 @@ class _ActivityChip extends StatelessWidget {
 
     if (isInLobby) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xxs,
+        ),
         decoration: BoxDecoration(
           color: theme.colorScheme.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: AppRadius.radiusSmAll,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 6,
-              height: 6,
+              width: _ActivityDotSize.lobbyDotSize,
+              height: _ActivityDotSize.lobbyDotSize,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: AppSpacing.xxs),
             Text(
               'Trong phòng',
               style: theme.textTheme.labelSmall?.copyWith(
@@ -191,11 +206,11 @@ class _ActivityChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 6,
-          height: 6,
+          width: _ActivityDotSize.lobbyDotSize,
+          height: _ActivityDotSize.lobbyDotSize,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: AppSpacing.xxs),
         Flexible(
           child: Text(
             label,
@@ -209,6 +224,7 @@ class _ActivityChip extends StatelessWidget {
   }
 }
 
+/// Action button for inviting to lobby or joining.
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.isInLobby,
@@ -225,12 +241,12 @@ class _ActionButton extends StatelessWidget {
         height: 36,
         child: FilledButton.icon(
           onPressed: onPressed,
-          icon: const Icon(Icons.meeting_room_outlined, size: 16),
+          icon: const Icon(Icons.meeting_room_outlined, size: AppIcons.sm),
           label: const Text('Vào phòng', style: TextStyle(fontSize: 12)),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              borderRadius: AppRadius.radiusMdAll,
             ),
           ),
         ),
@@ -241,12 +257,12 @@ class _ActionButton extends StatelessWidget {
       height: 36,
       child: FilledButton.icon(
         onPressed: onPressed,
-        icon: const Icon(Icons.add_circle_outline, size: 16),
+        icon: const Icon(Icons.add_circle_outline, size: AppIcons.sm),
         label: const Text('Mời', style: TextStyle(fontSize: 12)),
         style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            borderRadius: AppRadius.radiusMdAll,
           ),
         ),
       ),

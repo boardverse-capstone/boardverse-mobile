@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../core/navigation/widgets/booking_pending_resume_helper.dart';
 import '../../../../core/theme/theme.dart';
 import '../cubit/booking_summary_cubit.dart';
 import '../cubit/booking_summary_state.dart';
@@ -22,7 +21,6 @@ import 'payment_page.dart';
 /// - `lobbyId` nullable: walk-in flow (gap #3) cho phép đặt chỗ không qua lobby.
 /// - Auto-load bàn trống + availability (gap #1, #2) — user có thể đổi bàn
 ///   qua `TablePickerSheet`.
-/// - `autoBookingId` (Luồng A): skip createBooking, push thẳng PaymentPage.
 class BookingSummaryPage extends StatefulWidget {
   /// Nullable cho walk-in booking (gap #3).
   final String? lobbyId;
@@ -36,9 +34,6 @@ class BookingSummaryPage extends StatefulWidget {
   final int seatCount;
   final int? playerQuantity;
 
-  /// Id booking đã được auto-create từ Luồng A (lobby đầy).
-  final String? autoBookingId;
-
   const BookingSummaryPage({
     super.key,
     this.lobbyId,
@@ -51,7 +46,6 @@ class BookingSummaryPage extends StatefulWidget {
     required this.scheduleEndTime,
     required this.seatCount,
     required this.playerQuantity,
-    this.autoBookingId,
   });
 
   @override
@@ -76,34 +70,6 @@ class _BookingSummaryPageState extends State<BookingSummaryPage> {
         scheduleEndTime: _scheduledEndTime,
         seatCount: widget.seatCount,
       );
-
-    if (widget.autoBookingId != null) {
-      // Luồng A: booking đã có → skip bước submit, nhảy thẳng PaymentPage
-      // sau khi load config xong. Fetch booking thật để hiển thị deadline.
-      _cubit.stream.first.then((_) => _fetchAutoBookingAndContinue());
-    }
-  }
-
-  Future<void> _fetchAutoBookingAndContinue() async {
-    final repo = sl<BookingPersistenceResumeHelper>();
-    final booking = await repo.fetchBooking(widget.autoBookingId!);
-    if (!mounted || booking == null) return;
-    final config = await repo.fetchDepositConfig(booking.cafeId);
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PaymentPage(
-          bookingId: booking.id,
-          cafeId: booking.cafeId,
-          cafeName: booking.cafeName,
-          depositAmount: booking.depositAmount,
-          deadline: booking.depositDeadline,
-          config: config,
-          method: PaymentMethod.sepay,
-        ),
-      ),
-    );
   }
 
   @override

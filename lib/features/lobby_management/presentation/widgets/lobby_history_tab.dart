@@ -2,21 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../../core/theme/theme.dart';
-import '../../../booking_payment/presentation/cubit/booking_result_cubit.dart';
-import '../../../booking_payment/presentation/cubit/booking_result_state.dart';
-import '../../../booking_payment/presentation/pages/booking_detail_page.dart';
-import '../../../booking_payment/presentation/widgets/booking_summary_cards.dart';
-import '../../../booking_payment/domain/entities/booking_entity.dart';
-import '../../../booking_payment/domain/entities/booking_history_entity.dart';
+import '../../../../core/theme/theme.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../cubit/my_lobbies_cubit.dart';
 import '../cubit/my_lobbies_state.dart';
 
-/// Tab Lịch sử - Hiển thị phòng chờ của tôi và lịch sử đặt chỗ.
+/// Tab "Của tôi" trong Lobby Hub — chỉ hiển thị danh sách phòng chờ
+/// mà user đã tạo hoặc tham gia (gồm cả lobby liên kết tới reservation).
+///
+/// Sau khi booking_payment (VND/SePay) bị xoá, các section
+/// "Đặt chỗ sắp tới" và "Lịch sử đặt chỗ" không còn cần thiết — chúng
+/// được thay thế bằng tab Bookings mới (hiển thị reservation + lobby).
 class LobbyHistoryTab extends StatelessWidget {
   final MyLobbiesCubit myLobbiesCubit;
-  final BookingResultCubit bookingCubit;
   final DateFormat timeFormatter;
   final void Function(LobbyEntity) onTapLobby;
   final VoidCallback onRefresh;
@@ -24,7 +22,6 @@ class LobbyHistoryTab extends StatelessWidget {
   const LobbyHistoryTab({
     super.key,
     required this.myLobbiesCubit,
-    required this.bookingCubit,
     required this.timeFormatter,
     required this.onTapLobby,
     required this.onRefresh,
@@ -37,15 +34,12 @@ class LobbyHistoryTab extends StatelessWidget {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _MyLobbiesSection(cubit: myLobbiesCubit, onTapLobby: onTapLobby),
+            child: _MyLobbiesSection(
+              cubit: myLobbiesCubit,
+              onTapLobby: onTapLobby,
+            ),
           ),
-          SliverToBoxAdapter(
-            child: _UpcomingBookingsSection(cubit: bookingCubit),
-          ),
-          SliverToBoxAdapter(
-            child: _BookingHistorySection(cubit: bookingCubit),
-          ),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
         ],
       ),
     );
@@ -73,11 +67,35 @@ class _MyLobbiesSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.meeting_room, color: colors.primary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Phòng chờ của tôi',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [colors.primary, colors.primary.withAlpha(204)],
+                      ),
+                      borderRadius: AppRadius.radiusSmAll,
+                    ),
+                    child: const Icon(Icons.meeting_room, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phòng chờ của tôi',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Phòng đã tạo hoặc tham gia',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -90,7 +108,12 @@ class _MyLobbiesSection extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, MyLobbiesState state, ThemeData theme, ColorScheme colors) {
+  Widget _buildContent(
+    BuildContext context,
+    MyLobbiesState state,
+    ThemeData theme,
+    ColorScheme colors,
+  ) {
     if (state is MyLobbiesLoading) {
       return const Center(
         child: Padding(
@@ -99,19 +122,16 @@ class _MyLobbiesSection extends StatelessWidget {
         ),
       );
     }
-
-    if (state is MyLobbiesFailure) {
-      return _SectionError(message: state.message);
-    }
-
+    if (state is MyLobbiesFailure) return _SectionError(message: state.message);
     if (state is MyLobbiesLoaded) {
       if (state.isEmpty) {
         return _SectionEmpty(
           icon: Icons.meeting_room_outlined,
           message: 'Bạn chưa tạo hoặc tham gia phòng chờ nào.',
+          colors: colors,
+          theme: theme,
         );
       }
-
       return Column(
         children: [
           for (final lobby in state.joined)
@@ -119,7 +139,7 @@ class _MyLobbiesSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: _HistoryLobbyCard(
                 lobby: lobby,
-                isActive: true,
+                isJoined: true,
                 onTap: () => onTapLobby(lobby),
               ),
             ),
@@ -128,36 +148,39 @@ class _MyLobbiesSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: _HistoryLobbyCard(
                 lobby: lobby,
-                isActive: false,
+                isJoined: false,
                 onTap: () => onTapLobby(lobby),
               ),
             ),
         ],
       );
     }
-
     return _SectionEmpty(
       icon: Icons.meeting_room_outlined,
       message: 'Chưa có phòng chờ nào.',
+      colors: colors,
+      theme: theme,
     );
   }
 }
 
 class _HistoryLobbyCard extends StatelessWidget {
   final LobbyEntity lobby;
-  final bool isActive;
+  final bool isJoined;
   final VoidCallback onTap;
 
   const _HistoryLobbyCard({
     required this.lobby,
-    required this.isActive,
+    required this.isJoined,
     required this.onTap,
   });
 
-  Color _getStatusColor(ThemeData theme) {
+  Color _statusColor(ThemeData theme) {
+    final successColor =
+        theme.brightness == Brightness.dark ? AppColorsDark.success : AppColors.success;
     switch (lobby.status) {
       case LobbyStatus.open:
-        return theme.colorScheme.primary;
+        return successColor;
       case LobbyStatus.full:
       case LobbyStatus.inProgress:
         return theme.colorScheme.tertiary;
@@ -170,7 +193,7 @@ class _HistoryLobbyCard extends StatelessWidget {
     }
   }
 
-  String _getStatusText() {
+  String _statusText() {
     switch (lobby.status) {
       case LobbyStatus.open:
         return 'Đang tuyển';
@@ -189,109 +212,138 @@ class _HistoryLobbyCard extends StatelessWidget {
     }
   }
 
+  bool get _isActive =>
+      lobby.status == LobbyStatus.open ||
+      lobby.status == LobbyStatus.full ||
+      lobby.status == LobbyStatus.inProgress ||
+      lobby.status == LobbyStatus.ratingOpen;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final statusColor = _getStatusColor(theme);
+    final statusColor = _statusColor(theme);
 
-    return Material(
-      color: colors.surface,
-      borderRadius: AppRadius.cardRadius,
-      child: InkWell(
-        borderRadius: AppRadius.cardRadius,
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.cardRadius,
-            border: Border.all(
-              color: isActive ? statusColor.withValues(alpha: 0.5) : colors.outlineVariant,
-            ),
-            boxShadow: AppElevation.shadowXxs,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.radiusMdAll,
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadius.radiusLgAll,
+        border: Border.all(
+          color: _isActive ? statusColor.withValues(alpha: 0.4) : colors.outlineVariant,
+        ),
+        boxShadow: AppElevation.shadowSm,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.radiusLgAll,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.radiusLgAll,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [statusColor, statusColor.withAlpha(204)],
+                    ),
+                    borderRadius: AppRadius.radiusMdAll,
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _isActive ? Icons.sports_esports : Icons.meeting_room_outlined,
+                    color: Colors.white,
+                  ),
                 ),
-                child: Icon(
-                  isActive ? Icons.sports_esports : Icons.meeting_room,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            lobby.gameName,
-                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor,
-                              borderRadius: AppRadius.radiusXsAll,
-                            ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              'HOẠT ĐỘNG',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 9,
+                              lobby.gameName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.access_time, size: 14, color: statusColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')} • '
-                          '${lobby.scheduledTime.day}/${lobby.scheduledTime.month}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.15),
-                            borderRadius: AppRadius.radiusXsAll,
-                          ),
-                          child: Text(
-                            _getStatusText(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
+                          if (_isActive)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [statusColor, statusColor.withAlpha(204)],
+                                ),
+                                borderRadius: AppRadius.radiusFullAll,
+                              ),
+                              child: Text(
+                                'HOẠT ĐỘNG',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time, size: 14, color: statusColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')} • '
+                            '${lobby.scheduledTime.day}/${lobby.scheduledTime.month}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: AppSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: AppRadius.radiusFullAll,
+                            ),
+                            child: Text(
+                              _statusText(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: colors.outline),
-            ],
+                Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+              ],
+            ),
           ),
         ),
       ),
@@ -299,139 +351,28 @@ class _HistoryLobbyCard extends StatelessWidget {
   }
 }
 
-class _UpcomingBookingsSection extends StatelessWidget {
-  final BookingResultCubit cubit;
-
-  const _UpcomingBookingsSection({required this.cubit});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return BlocBuilder<BookingResultCubit, BookingResultState>(
-      bloc: cubit,
-      builder: (context, state) {
-        final upcoming = _extractUpcoming(state);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Icon(Icons.event_available, color: colors.tertiary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Đặt chỗ sắp tới',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (upcoming.isEmpty)
-                _SectionEmpty(
-                  icon: Icons.event_busy,
-                  message: 'Chưa có lịch hẹn nào.',
-                )
-              else
-                for (final b in upcoming)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: UpcomingBookingSummaryCard(
-                      booking: b,
-                      onChanged: () async {},
-                      detailPageBuilder: (ctx, booking) => BookingDetailPage(booking: booking),
-                    ),
-                  ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  List<BookingEntity> _extractUpcoming(BookingResultState state) {
-    if (state is ResultUpcomingBookings) return state.bookings;
-    if (state is ResultUpcomingAndHistory) return state.upcoming;
-    return const [];
-  }
-}
-
-class _BookingHistorySection extends StatelessWidget {
-  final BookingResultCubit cubit;
-
-  const _BookingHistorySection({required this.cubit});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return BlocBuilder<BookingResultCubit, BookingResultState>(
-      bloc: cubit,
-      builder: (context, state) {
-        final history = _extractHistory(state);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Icon(Icons.history, color: colors.secondary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Lịch sử đặt chỗ',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (history.isEmpty)
-                _SectionEmpty(
-                  icon: Icons.history,
-                  message: 'Chưa có lịch sử đặt chỗ.',
-                )
-              else
-                for (final h in history)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: HistoryBookingSummaryCard(item: h),
-                  ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  List<BookingHistoryEntity> _extractHistory(BookingResultState state) {
-    if (state is ResultHistory) return state.items;
-    if (state is ResultUpcomingAndHistory) return state.history;
-    return const [];
-  }
-}
-
 class _SectionEmpty extends StatelessWidget {
   final IconData icon;
   final String message;
+  final ColorScheme colors;
+  final ThemeData theme;
 
-  const _SectionEmpty({required this.icon, required this.message});
+  const _SectionEmpty({
+    required this.icon,
+    required this.message,
+    required this.colors,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -440,7 +381,9 @@ class _SectionEmpty extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -473,7 +416,9 @@ class _SectionError extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: theme.textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onErrorContainer,
+              ),
             ),
           ),
         ],

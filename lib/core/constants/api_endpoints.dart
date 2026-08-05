@@ -228,6 +228,12 @@ class ApiEndpoints {
   /// POST /api/v1/lobbies/{id}/messages — Gửi tin nhắn chat trong lobby.
   static String lobbyMessages(String id) => '/api/v1/lobbies/$id/messages';
 
+  /// DELETE /api/v1/lobbies/{lobbyId} — Host giải tán lobby (hard delete).
+  /// Xoá vĩnh viễn Lobby + Members + Messages + Invites + Reports.
+  /// Chỉ host mới gọi. Không áp dụng khi lobby đã check-in hoặc đã đóng/rating.
+  /// Backend trả 409 nếu lobby đã booking thành công.
+  static String lobbyDissolve(String id) => '/api/v1/lobbies/$id';
+
   /// GET /api/v1/lobbies/hosted — Lấy danh sách lobby do user này host.
   static const String lobbyHosted = '/api/v1/lobbies/hosted';
 
@@ -318,4 +324,38 @@ class ApiEndpoints {
   /// POST /tournaments/{id}/unregister
   static String tournamentUnregister(String id) =>
       '/api/v1/tournaments/$id/unregister';
+
+  // ─── Reservations (Lobby creation + BVC deposit) ───────────────────
+  // Lobby creation is atomic through quote → confirm. Direct POST /lobbies
+  // is deprecated and must not be used by the mobile client.
+  static const String reservations = '/api/v1/reservations';
+  static const String reservationQuote = '/api/v1/reservations/quote';
+  static const String reservationConfirm = '/api/v1/reservations/confirm';
+  static const String reservationsPendingCafeApproval =
+      '/api/v1/reservations/pending-cafe-approval';
+
+  static String reservationDetail(String id) => '/api/v1/reservations/$id';
+  static String reservationCancel(String id) =>
+      '/api/v1/reservations/$id/cancel';
+  static String reservationCafeApproval(String id) =>
+      '/api/v1/reservations/$id/cafe-approval';
+
+  // ─── Wallet (Player BVC) ────────────────────────────────────────────
+  // Base: /api/v1/wallet — ví BVC + sổ cái ledger.
+  // Docs: .agents/docs/apis_docs/wallet.md
+  static const String wallet = '/api/v1/wallet';
+
+  /// POST /api/v1/wallet/topup — tạo đơn top-up BVC qua SePay.
+  static const String walletTopup = '/api/v1/wallet/topup';
+
+  /// GET /api/v1/wallet/transactions — lịch sử ledger phân trang.
+  static const String walletTransactions = '/api/v1/wallet/transactions';
+
+  /// DELETE /api/v1/wallet/topup/{topUpId} — hủy đơn top-up Pending.
+  static String walletTopupCancel(String topUpId) =>
+      '/api/v1/wallet/topup/$topUpId';
+
+  /// PATCH /api/v1/wallet/topup/{topUpId} — đổi số tiền đơn top-up Pending.
+  static String walletTopupUpdate(String topUpId) =>
+      '/api/v1/wallet/topup/$topUpId';
 }

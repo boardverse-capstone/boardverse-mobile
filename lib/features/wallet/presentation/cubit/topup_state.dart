@@ -39,6 +39,11 @@ class TopUpCheckingStatus extends TopUpState {
   const TopUpCheckingStatus();
 }
 
+/// Đang gọi API hủy top-up
+class TopUpCancelling extends TopUpState {
+  const TopUpCancelling();
+}
+
 /// Top-up thành công
 class TopUpSuccess extends TopUpState {
   final int amountBvc;
@@ -66,6 +71,11 @@ class TopUpFailed extends TopUpState {
 /// Top-up hết hạn (timeout)
 class TopUpExpired extends TopUpState {
   const TopUpExpired();
+}
+
+/// Top-up đã bị user hủy thành công
+class TopUpCancelled extends TopUpState {
+  const TopUpCancelled();
 }
 
 /// Các gói top-up được đề xuất (BR §2.5)

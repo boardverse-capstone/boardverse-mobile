@@ -386,44 +386,11 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
   }
 
   // ─── Create Lobby ─────────────────────────────────────────────────────
-
-  Future<({bool success, String? lobbyId, String? error})> createLobby({
-    required String gameId,
-    required String gameName,
-    required String cafeId,
-    required String cafeName,
-    required DateTime scheduledTime,
-    required int additionalSlots,
-    required bool isPublic,
-    double? searchRadiusKm,
-    double? minimumKarma,
-    Duration? leadTime,
-  }) async {
-    final repo = lobbyRepository;
-    if (repo == null) {
-      return (success: false, lobbyId: null, error: 'Lobby service not available');
-    }
-
-    try {
-      final result = await repo.createLobby(
-        gameId: gameId,
-        cafeId: cafeId,
-        scheduledTime: scheduledTime,
-        additionalSlots: additionalSlots,
-        isPublic: isPublic,
-        searchRadiusKm: searchRadiusKm,
-        minimumKarma: minimumKarma,
-        leadTime: leadTime,
-      );
-
-      return result.fold(
-        (failure) => (success: false, lobbyId: null, error: failure.message),
-        (lobby) => (success: true, lobbyId: lobby.id, error: null),
-      );
-    } catch (e) {
-      return (success: false, lobbyId: null, error: e.toString());
-    }
-  }
+  // Method `createLobby` đã bị xoá theo plan migrate Lobby sang
+  // Reservation/BVC. Page `LobbyConfigPage` giờ gọi trực tiếp
+  // `ReservationCubit.createQuote()` rồi push `LobbyQuotePage` để user
+  // đặt cọc. `LobbyCreateSetupPage` (route trung gian cũ) đã bị xoá vì
+  // bị chồng với `LobbyConfigPage`.
 
   // ─── Get User's Active Lobby ──────────────────────────────────────────
 

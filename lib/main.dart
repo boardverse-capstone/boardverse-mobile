@@ -4,15 +4,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/deeplink/deep_link_handler.dart';
 import 'core/di/injection.dart';
-import 'core/navigation/pages/bookings_page.dart';
 import 'core/navigation/pages/main_scaffold.dart';
 import 'core/theme/theme.dart';
 import 'core/widgets/game_loading_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/cubit/auth_state.dart';
 import 'features/auth/presentation/pages/login_page.dart';
-import 'features/booking_payment/presentation/cubit/booking_history_cubit.dart';
-import 'features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
@@ -34,11 +31,13 @@ Future<void> main() async {
   setupDependencies();
   await DeepLinkHandler.instance.initialize(
     navigatorKey: rootNavigatorKey,
-    onBookingsRefresh: notifyBookingRefresh,
+    onBookingsRefresh: _noop,
   );
 
   runApp(const BoardVerseApp());
 }
+
+void _noop() {}
 
 class BoardVerseApp extends StatelessWidget {
   const BoardVerseApp({super.key});
@@ -55,12 +54,6 @@ class BoardVerseApp extends StatelessWidget {
         BlocProvider<LobbyCubit>(create: (_) => sl<LobbyCubit>()),
         BlocProvider<LobbySearchCubit>(create: (_) => sl<LobbySearchCubit>()),
         BlocProvider<MyLobbiesCubit>(create: (_) => sl<MyLobbiesCubit>()),
-        BlocProvider<BookingResultCubit>(
-          create: (_) => sl<BookingResultCubit>(),
-        ),
-        BlocProvider<BookingHistoryCubit>(
-          create: (_) => sl<BookingHistoryCubit>(),
-        ),
         BlocProvider<TournamentListCubit>(
           create: (_) => sl<TournamentListCubit>(),
         ),

@@ -103,3 +103,44 @@ class ReservationCancelError extends ReservationState {
   @override
   List<Object?> get props => [message];
 }
+
+/// Quote hết hạn (user cần tạo lại quote trước khi confirm).
+class ReservationQuoteExpired extends ReservationState {
+  const ReservationQuoteExpired();
+}
+
+/// Reservation đang chờ cafe duyệt (sau khi confirm thành công nhưng
+/// `requiresCafeApproval == true`).
+class ReservationPendingCafeApproval extends ReservationState {
+  final String reservationId;
+  final String? lobbyId;
+  final DateTime? cafeApprovalDeadline;
+
+  const ReservationPendingCafeApproval({
+    required this.reservationId,
+    this.lobbyId,
+    this.cafeApprovalDeadline,
+  });
+
+  @override
+  List<Object?> get props => [reservationId, lobbyId, cafeApprovalDeadline];
+}
+
+/// Reservation bị cafe từ chối duyệt.
+class ReservationRejectedByCafe extends ReservationState {
+  final String reservationId;
+  final String? reason;
+  final int refundBvc;
+  final String refundPolicyApplied;
+
+  const ReservationRejectedByCafe({
+    required this.reservationId,
+    this.reason,
+    required this.refundBvc,
+    required this.refundPolicyApplied,
+  });
+
+  @override
+  List<Object?> get props =>
+      [reservationId, reason, refundBvc, refundPolicyApplied];
+}

@@ -29,73 +29,6 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
   final LobbyRemoteDatasource _remote;
   final LobbyRealtimeService _realtime;
 
-  // ─── Create Lobby ────────────────────────────────────────────────────
-
-  @override
-  Future<Either<Failure, LobbyEntity>> createLobby({
-    required String gameId,
-    required String cafeId,
-    required DateTime scheduledTime,
-    required int additionalSlots,
-    required bool isPublic,
-    double? searchRadiusKm,
-    double? minimumKarma,
-    Duration? leadTime,
-  }) {
-    return _remote.createLobby(
-      gameId: gameId,
-      cafeId: cafeId,
-      scheduledTime: scheduledTime,
-      additionalSlots: additionalSlots,
-      isPublic: isPublic,
-      searchRadiusKm: searchRadiusKm,
-      minimumKarma: minimumKarma,
-      leadTime: leadTime,
-    );
-  }
-
-  // ─── Create Lobby for existing booking (Luồng B / BR-07) ─────────────
-
-  @override
-  Future<Either<Failure, LobbyEntity>> createLobbyForExistingBooking({
-    required String bookingId,
-    required int bookingSeatCount,
-    required String gameId,
-    required String cafeId,
-    required DateTime scheduledTime,
-    required int additionalSlots,
-    required bool isPublic,
-    double? searchRadiusKm,
-    double? minimumKarma,
-    Duration? leadTime,
-  }) async {
-    // BR-07: validate maxMembers ≤ bookingSeatCount ngay tại client —
-    // backend cũng validate nhưng kiểm sớm ở client để UX mượt hơn.
-    if (additionalSlots + 1 > bookingSeatCount) {
-      return Left(
-        ServerFailure(
-          message:
-              'Số người trong phòng chờ (${additionalSlots + 1}) vượt quá số ghế còn lại của đơn đặt chỗ ($bookingSeatCount). Vui lòng chọn số slot nhỏ hơn.',
-        ),
-      );
-    }
-    // BR-07 OK — tạo lobby với bookingId đính kèm.
-    final result = await _remote.createLobby(
-      gameId: gameId,
-      cafeId: cafeId,
-      scheduledTime: scheduledTime,
-      additionalSlots: additionalSlots,
-      isPublic: isPublic,
-      searchRadiusKm: searchRadiusKm,
-      minimumKarma: minimumKarma,
-      leadTime: leadTime,
-    );
-    return result.fold(
-      (failure) => Left<Failure, LobbyEntity>(failure),
-      (lobby) => Right<Failure, LobbyEntity>(lobby.copyWith(bookingId: bookingId)),
-    );
-  }
-
   // ─── Read ────────────────────────────────────────────────────────────
 
   @override
@@ -129,6 +62,13 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
   @override
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId) =>
       _remote.closeLobby(lobbyId);
+
+  @override
+  Future<Either<Failure, void>> dissolveLobby({
+    required String lobbyId,
+    String? reason,
+  }) =>
+      _remote.dissolveLobby(lobbyId: lobbyId, reason: reason);
 
   @override
   Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId) =>
@@ -220,24 +160,33 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
     required double longitude,
     required LobbySearchFilter filter,
     required double currentUserKarma,
+    bool excludeSelfOverlapping = true,
   }) =>
       _remote.searchNearbyLobbies(
         latitude: latitude,
         longitude: longitude,
         filter: filter,
         currentUserKarma: currentUserKarma,
+        excludeSelfOverlapping: excludeSelfOverlapping,
       );
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
+    String? gameTemplateId,
+    double? latitude,
+    double? longitude,
+    double? radiusKm,
     int limit = 50,
+    bool excludeSelfOverlapping = true,
   }) =>
-      _remote.discoverableLobbies(limit: limit);
-
-  @override
-  Future<Either<Failure, String>> autoCreateBookingWhenFull(String lobbyId) {
-    return _remote.autoCreateBooking(lobbyId);
-  }
+      _remote.discoverableLobbies(
+        gameTemplateId: gameTemplateId,
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: radiusKm,
+        limit: limit,
+        excludeSelfOverlapping: excludeSelfOverlapping,
+      );
 
   @override
   Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
@@ -261,14 +210,39 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
   @override
   Future<Either<Failure, LobbyEntity>> kickMember({
     required String lobbyId,
-    required String memberId,
+    required String targetUserId,
+    String? reason,
   }) {
-    return _remote.kickMember(lobbyId: lobbyId, memberId: memberId);
+    return _remote.kickMember(
+      lobbyId: lobbyId,
+      targetUserId: targetUserId,
+      reason: reason,
+    );
   }
 
   @override
-  Future<Either<Failure, LobbyEntity>> setReady(String lobbyId) {
-    return _remote.setReady(lobbyId);
+  Future<Either<Failure, LobbyEntity>> setReady({
+    required String lobbyId,
+    required bool isReady,
+  }) {
+    return _remote.setReady(lobbyId: lobbyId, isReady: isReady);
+  }
+
+  @override
+  Future<Either<Failure, LobbyEntity>> updateLobby({
+    required String lobbyId,
+    String? description,
+    int? maxMembers,
+    bool? isPrivate,
+    int? minKarmaScore,
+  }) {
+    return _remote.updateLobby(
+      lobbyId: lobbyId,
+      description: description,
+      maxMembers: maxMembers,
+      isPrivate: isPrivate,
+      minKarmaScore: minKarmaScore,
+    );
   }
 
   // ─── Lobby Lists ─────────────────────────────────────────────────
@@ -296,13 +270,13 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
   @override
   Future<Either<Failure, void>> reportLobby({
     required String lobbyId,
+    required String category,
     required String reason,
-    String? description,
   }) {
     return _remote.reportLobby(
       lobbyId: lobbyId,
+      category: category,
       reason: reason,
-      description: description,
     );
   }
 

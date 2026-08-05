@@ -4,24 +4,28 @@ import 'package:equatable/equatable.dart';
 ///
 /// Sau khi tạo top-up, backend trả về:
 /// - `paymentUrl`: URL để mở SePay thanh toán
-/// - `qrUrl`: URL QR code
+/// - `qrUrl`: URL QR code (URL của ảnh QR) — dùng để hiển thị trong app
 /// - `orderId`: Mã đơn (prefix "BVC-")
+/// - `topUpId`: Guid của BvcTopUpRequest — cần để gọi DELETE/PATCH
 /// - `expectedBvc`: Số BVC dự kiến nhận được
 /// - `expiresAt`: Thời hạn thanh toán
 class TopUpQuoteEntity extends Equatable {
   /// URL thanh toán SePay
   final String paymentUrl;
 
-  /// URL QR code (render được)
+  /// URL QR code (ảnh QR từ SePay)
   final String qrUrl;
 
   /// Mã đơn hàng (prefix "BVC-")
   final String orderId;
 
+  /// Guid của BvcTopUpRequest — cần để cancel/update đơn
+  final String topUpId;
+
   /// Số BVC dự kiến nhận được (= amountVnd / 1000)
   final int expectedBvc;
 
-  /// Thời hạn thanh toán (thường 15 phút)
+  /// Thời hạn thanh toán
   final DateTime expiresAt;
 
   /// Idempotency key đã dùng (để retry nếu cần)
@@ -31,6 +35,7 @@ class TopUpQuoteEntity extends Equatable {
     required this.paymentUrl,
     required this.qrUrl,
     required this.orderId,
+    required this.topUpId,
     required this.expectedBvc,
     required this.expiresAt,
     required this.idempotencyKey,
@@ -42,14 +47,12 @@ class TopUpQuoteEntity extends Equatable {
   /// Kiểm tra QR còn hạn không
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 
-  /// Thời gian còn lại (Duration)
-  Duration get remainingTime => expiresAt.difference(DateTime.now());
-
   @override
   List<Object?> get props => [
         paymentUrl,
         qrUrl,
         orderId,
+        topUpId,
         expectedBvc,
         expiresAt,
         idempotencyKey,

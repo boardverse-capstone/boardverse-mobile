@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/error/failures.dart';
 import '../models/models.dart';
 
@@ -23,6 +24,20 @@ abstract class WalletRemoteDatasource {
 
   /// Lấy chi tiết giao dịch
   Future<Either<Failure, TransactionModel>> getTransactionById(String transactionId);
+
+  /// PATCH /api/v1/wallet/topup/{topUpId}
+  /// Đổi số tiền đơn top-up BVC đang Pending (chưa thanh toán).
+  /// Đơn cũ = Cancelled, đơn mới = Pending với SePay URL mới.
+  Future<Either<Failure, TopUpQuoteModel>> updateTopUp({
+    required String topUpId,
+    required int amountVnd,
+    required String idempotencyKey,
+  });
+
+  /// DELETE /api/v1/wallet/topup/{topUpId}
+  /// Hủy đơn top-up BVC đang Pending (chưa thanh toán).
+  /// Set local flag Status = Cancelled. Webhook SePay sau sẽ tự reject.
+  Future<Either<Failure, void>> cancelTopUp(String topUpId);
 }
 
 /// Implementation using Dio
@@ -35,7 +50,7 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
   Future<Either<Failure, WalletModel>> getWallet({bool includeHeld = false}) async {
     try {
       final response = await dio.get(
-        '/api/v1/wallet',
+        ApiEndpoints.wallet,
         queryParameters: {'includeHeld': includeHeld},
       );
 
@@ -59,7 +74,7 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/wallet/topup',
+        ApiEndpoints.walletTopup,
         data: {
           'amountVnd': amountVnd,
           'idempotencyKey': idempotencyKey,
@@ -86,7 +101,7 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/wallet/transactions',
+        ApiEndpoints.walletTransactions,
         queryParameters: {
           'page': page,
           'pageSize': pageSize,
@@ -110,7 +125,7 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
   Future<Either<Failure, TransactionModel>> getTransactionById(String transactionId) async {
     try {
       final response = await dio.get(
-        '/api/v1/wallet/transactions/$transactionId',
+        '${ApiEndpoints.walletTransactions}/$transactionId',
       );
 
       if (response.statusCode == 200) {
@@ -119,6 +134,55 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
       }
 
       return Left(ServerFailure(message: 'Failed to get transaction: ${response.statusCode}'));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, TopUpQuoteModel>> updateTopUp({
+    required String topUpId,
+    required int amountVnd,
+    required String idempotencyKey,
+  }) async {
+    try {
+      final response = await dio.patch(
+        ApiEndpoints.walletTopupUpdate(topUpId),
+        data: {
+          'amountVnd': amountVnd,
+          'idempotencyKey': idempotencyKey,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data['data'] as Map<String, dynamic>;
+        return Right(TopUpQuoteModel.fromJson(data));
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to update top-up: ${response.statusCode}',
+      ));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> cancelTopUp(String topUpId) async {
+    try {
+      final response = await dio.delete(ApiEndpoints.walletTopupCancel(topUpId));
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to cancel top-up: ${response.statusCode}',
+      ));
     } on DioException catch (e) {
       return Left(_handleDioError(e));
     } catch (e) {

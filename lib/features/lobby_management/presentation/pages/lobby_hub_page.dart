@@ -4,12 +4,14 @@ import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../../booking_payment/presentation/cubit/booking_result_cubit.dart';
+import '../../../../core/navigation/lobby_flow_navigator.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../matchmaking_discovery/domain/entities/board_game_entity.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_state.dart';
 import '../../../matchmaking_discovery/presentation/pages/lobby_cafe_selection_page.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
+import '../widgets/lobby_game_picker_sheet.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
@@ -19,20 +21,10 @@ import '../cubit/my_lobbies_cubit.dart';
 import '../widgets/lobby_game_filter_bar.dart';
 import '../widgets/lobby_explore_tab.dart';
 import '../widgets/lobby_history_tab.dart';
-import '../widgets/lobby_game_picker_sheet.dart';
-import '../widgets/lobby_create_entry_sheet.dart';
 import 'lobby_page.dart';
 import 'lobby_preview_page.dart';
 
-/// Trang Lobby chính với 2 tabs:
-/// - Tab "Khám phá": Xem các phòng chờ công khai đang hoạt động
-/// - Tab "Lịch sử": Xem phòng chờ của tôi (hosted + joined)
-///
-/// APIs được gọi:
-/// - `/api/v1/lobbies/discoverable?limit=50` - Lobby công khai
-/// - `/api/v1/lobbies/hosted` - Lobby đã tạo
-/// - `/api/v1/lobbies/joined` - Lobby đã tham gia
-/// - `/api/v1/board-games?pageNumber=1&pageSize=20` - Danh sách game (cho filter)
+/// Modern Lobby Hub page với gradient FAB, pill tab indicator.
 class LobbyHubPage extends StatefulWidget {
   const LobbyHubPage({super.key});
 
@@ -51,13 +43,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   late final LobbyCubit _lobbyCubit;
   late final MatchmakingCubit _matchmakingCubit;
   late final MyLobbiesCubit _myLobbiesCubit;
-  late final BookingResultCubit _bookingCubit;
   late final LobbyRealtimeService _realtime;
 
-  // Lazy loading state
   bool _hasLoadedInitialData = false;
-
-  // Filter state
   bool _showGameFilter = false;
   BoardGameEntity? _selectedGame;
   double _radiusKm = 15.0;
@@ -72,19 +60,15 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
 
-    // Initialize cubits from DI
     _searchCubit = context.read<LobbySearchCubit>();
     _lobbyCubit = context.read<LobbyCubit>();
     _matchmakingCubit = context.read<MatchmakingCubit>();
     _myLobbiesCubit = context.read<MyLobbiesCubit>();
-    _bookingCubit = context.read<BookingResultCubit>();
     _realtime = GetIt.instance<LobbyRealtimeService>();
   }
 
   void _onTabChanged() {
-    if (!_tabController.indexIsChanging) {
-      _ensureDataLoaded();
-    }
+    if (!_tabController.indexIsChanging) _ensureDataLoaded();
   }
 
   void _ensureDataLoaded() {
@@ -114,7 +98,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
         radiusKm: 50.0,
       );
     } catch (_) {
-      // Realtime optional - continue without it
+      // Realtime optional
     }
   }
 
@@ -129,43 +113,37 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Phòng chờ'),
-        centerTitle: false,
+        title: Text(
+          'Phòng chờ',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
         actions: [
           if (_tabController.index == 0)
             IconButton(
               tooltip: _showGameFilter ? 'Ẩn bộ lọc' : 'Bộ lọc game',
               icon: Icon(_showGameFilter ? Icons.tune : Icons.filter_list),
-              onPressed: () {
-                setState(() => _showGameFilter = !_showGameFilter);
-              },
+              onPressed: () => setState(() => _showGameFilter = !_showGameFilter),
             ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: false,
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.colorScheme.outline,
-          indicatorColor: theme.colorScheme.primary,
-          indicatorSize: TabBarIndicatorSize.label,
-          indicatorWeight: 3,
-          labelStyle: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: _ModernTabBar(
+            controller: _tabController,
+            theme: theme,
+            colors: colors,
           ),
-          tabs: const [
-            Tab(icon: Icon(Icons.explore), text: 'Khám phá'),
-            Tab(icon: Icon(Icons.history), text: 'Lịch sử'),
-          ],
         ),
       ),
       body: Column(
         children: [
-          // Game filter bar (only on Khám phá tab)
-          if (_tabController.index == 0 && _showGameFilter)
-            LobbyGameFilterBar(
+          // Game filter bar
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: LobbyGameFilterBar(
               selectedGame: _selectedGame,
               radiusKm: _radiusKm,
               minKarma: _minKarma,
@@ -174,6 +152,10 @@ class _LobbyHubPageState extends State<LobbyHubPage>
               onKarmaChanged: _onKarmaChanged,
               onClear: _clearFilter,
             ),
+            crossFadeState: _showGameFilter ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+
           // Tab content
           Expanded(
             child: TabBarView(
@@ -188,7 +170,6 @@ class _LobbyHubPageState extends State<LobbyHubPage>
                 ),
                 LobbyHistoryTab(
                   myLobbiesCubit: _myLobbiesCubit,
-                  bookingCubit: _bookingCubit,
                   timeFormatter: _timeFormatter,
                   onTapLobby: _openMyLobby,
                   onRefresh: _loadMyLobbies,
@@ -198,12 +179,10 @@ class _LobbyHubPageState extends State<LobbyHubPage>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'lobby_hub_fab',
-        onPressed: _openCreateLobby,
-        icon: const Icon(Icons.add),
-        label: const Text('Tạo phòng'),
-      ),
+
+      // Gradient FAB
+      floatingActionButton: _ModernFab(onPressed: _openCreateLobby),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -258,11 +237,6 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
-  /// Mở lobby từ danh sách "My Lobbies" (đã hosted/joined).
-  ///
-  /// QUAN TRỌNG: User đã là member/host của lobby này rồi,
-  /// KHÔNG gọi joinLobby() vì sẽ bị 409.
-  /// Để LobbyPage.initState() tự kiểm tra membership và sync state.
   Future<void> _openMyLobby(LobbyEntity lobby) async {
     if (!mounted) return;
     Navigator.of(context).push(
@@ -272,11 +246,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
-  /// Join lobby mới (chưa là member) rồi mở LobbyPage.
-  /// Chỉ dùng cho lobby công khai hoặc lobby được invite.
   Future<void> _joinAndOpen(String lobbyId, String? inviteCode) async {
-    // Hiện tại vẫn gọi joinLobby nhưng sẽ bị 409 nếu đã là member
-    // Cần cải thiện: sử dụng initLobbyState thay vì joinLobby
     final joinResult = await _lobbyCubit.joinLobby(lobbyId, inviteCode);
     if (!mounted) return;
 
@@ -286,21 +256,30 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
 
     if (failureOrLobby != null) {
-      // Nếu lỗi 409 (đã là member), vẫn cho phép vào lobby
-      if (failureOrLobby.message.contains('đã là thành viên') ||
-          failureOrLobby.message.contains('already')) {
+      final msg = failureOrLobby.message;
+      final is409 = msg.contains('409') ||
+          msg.contains('trạng thái mở') ||
+          msg.contains('đã đóng') ||
+          msg.contains('đang chờ cafe duyệt') ||
+          msg.contains('đang chơi');
+
+      if (msg.contains('đã là thành viên') || msg.contains('already')) {
         if (!mounted) return;
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) =>
-                LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+            builder: (_) => LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
           ),
         );
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failureOrLobby.message)));
+
+      if (is409) {
+        _showLobbyStatusDialog(msg);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
       return;
     }
 
@@ -312,62 +291,253 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     );
   }
 
-  /// Mở bottom sheet cho phép player chọn entry-point:
-  /// - "Đã chọn game trước" → flow cũ (`_openCreateWithPickedGame`)
-  /// - "Tạo lobby tại quán" → `LobbyCreateByCafePage` (mới)
-  /// - "Auto-match" → `LobbyAutoMatchPage` (mới)
-  void _openCreateLobby() {
-    LobbyCreateEntrySheet.show(
-      context,
-      onPickGameFirst: _openCreateWithPickedGame,
-    );
-  }
-
-  /// Entry-point "Đã chọn game trước":
-  /// - Nếu player đã filter 1 game (`_selectedGame != null`) → mở cafe selection luôn.
-  /// - Ngược lại → mở sheet chọn game từ danh sách đã cache.
-  void _openCreateWithPickedGame() {
-    if (_selectedGame != null) {
-      _openConfigForCreate(_selectedGame!);
-    } else {
-      _showGamePicker();
-    }
-  }
-
-  Future<void> _showGamePicker() async {
-    final state = _matchmakingCubit.state;
-    final games = state is MatchmakingSearchResults
-        ? state.games
-        : <BoardGameEntity>[];
-
-    if (games.isEmpty) {
-      _matchmakingCubit.searchGames();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang tải danh sách game...')),
-      );
-      return;
-    }
-
-    final picked = await showModalBottomSheet<BoardGameEntity>(
+  void _showLobbyStatusDialog(String message) {
+    showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) => LobbyGamePickerSheet(games: games),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+                borderRadius: AppRadius.radiusMdAll,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.info,
+                    color: Theme.of(ctx).colorScheme.tertiary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phòng không khả dụng',
+                          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          message,
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Đã hiểu'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
     );
-
-    if (picked != null && mounted) {
-      _openConfigForCreate(picked);
-    }
   }
 
-  void _openConfigForCreate(BoardGameEntity game) {
-    // Luồng mới: tạo lobby cần chọn cafe trước (player đã biết quán → chọn
-    // quán đã từng chơi → cấu hình lobby → tạo). Mở [LobbyCafeSelectionPage]
-    // thay vì nhảy thẳng vào [LobbyConfigPage] để có cafeId gửi lên backend.
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LobbyCafeSelectionPage(
-          game: game,
-          matchmakingCubit: _matchmakingCubit,
+  /// Mở flow tạo lobby.
+  ///
+  /// Luồng đơn giản hoá sau khi bỏ `LobbyCreateSetupPage`:
+  ///   1. Cần có game đã chọn (từ filter bar hoặc game picker).
+  ///   2. Mở `LobbyCafeSelectionPage` để chọn quán cafe.
+  ///   3. `LobbyConfigPage` → `LobbyQuotePage` (đặt cọc) → lobby.
+  ///
+  /// Nếu chưa có game, hiển thị bottom sheet picker để user chọn game
+  /// trước khi tiếp tục.
+  Future<void> _openCreateLobby() async {
+    var game = _selectedGame;
+    if (game == null) {
+      // Khởi tạo search games một lần (cached) và hiển thị picker.
+      final state = _matchmakingCubit.state;
+      if (state is! MatchmakingSearchResults) {
+        await _matchmakingCubit.searchGames();
+      }
+      if (!mounted) return;
+      final picked = await showModalBottomSheet<BoardGameEntity>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetCtx) {
+          final s = _matchmakingCubit.state;
+          final games = s is MatchmakingSearchResults ? s.games : <BoardGameEntity>[];
+          return LobbyGamePickerSheet(games: games);
+        },
+      );
+      if (picked == null) return;
+      game = picked;
+      setState(() => _selectedGame = picked);
+    }
+
+    if (!mounted) return;
+    LobbyFlowNavigator.push(
+      context,
+      LobbyCafeSelectionPage(
+        game: game,
+        matchmakingCubit: _matchmakingCubit,
+      ),
+    );
+  }
+}
+
+/// Modern pill-style tab bar với gradient indicator.
+class _ModernTabBar extends StatelessWidget implements PreferredSizeWidget {
+  final TabController controller;
+  final ThemeData theme;
+  final ColorScheme colors;
+
+  const _ModernTabBar({
+    required this.controller,
+    required this.theme,
+    required this.colors,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(48);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: AppRadius.radiusFullAll,
+        ),
+        child: TabBar(
+          controller: controller,
+          isScrollable: false,
+          dividerColor: Colors.transparent,
+          indicator: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [colors.primary, colors.primary.withAlpha(204)],
+            ),
+            borderRadius: AppRadius.radiusFullAll,
+            boxShadow: [
+              BoxShadow(
+                color: colors.primary.withAlpha(64),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.all(4),
+          labelColor: Colors.white,
+          unselectedLabelColor: colors.onSurfaceVariant,
+          labelStyle: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          labelPadding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          tabs: const [
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.explore, size: 18),
+                  SizedBox(width: 6),
+                  Text('Khám phá'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history, size: 18),
+                  SizedBox(width: 6),
+                  Text('Của tôi'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Modern gradient FAB.
+class _ModernFab extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _ModernFab({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primary, colors.primary.withAlpha(204)],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withAlpha(102),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add, color: Colors.white, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  'Tạo phòng',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

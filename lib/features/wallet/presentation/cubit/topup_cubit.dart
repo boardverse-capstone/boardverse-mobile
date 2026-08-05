@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../domain/entities/entities.dart';
 import '../../domain/repositories/wallet_repository.dart';
 import 'topup_state.dart';
 
@@ -13,14 +12,16 @@ import 'topup_state.dart';
 /// 1. User chọn số tiền nạp
 /// 2. Tạo top-up quote qua API
 /// 3. Mở SePay URL để thanh toán
-/// 4. Polling kiểm tra trạng thái
+/// 4. Polling kiểm tra transaction history (không phải balance)
 /// 5. Cập nhật ví khi thành công
 class TopUpCubit extends Cubit<TopUpState> {
   final WalletRepository repository;
   Timer? _pollingTimer;
   String? _currentOrderId;
-  int? _lastAmountVnd;
+  String? _currentTopUpId;
   int? _lastExpectedBvc;
+  int? _lastAmountVnd;
+  int? _previousBalance;
 
   TopUpCubit({required this.repository}) : super(const TopUpInitial());
 
@@ -43,6 +44,12 @@ class TopUpCubit extends Cubit<TopUpState> {
     _lastAmountVnd = amountVnd;
     emit(const TopUpCreating());
 
+    // Get current balance before topup
+    final walletResult = await repository.getWallet();
+    if (walletResult.isRight()) {
+      _previousBalance = walletResult.getOrElse(() => throw Exception()).availableBalance;
+    }
+
     // Generate idempotency key
     final idempotencyKey =
         'topup-${DateTime.now().millisecondsSinceEpoch}-${_generateRandomString(8)}';
@@ -60,6 +67,7 @@ class TopUpCubit extends Cubit<TopUpState> {
       },
       (quote) async {
         _currentOrderId = quote.orderId;
+        _currentTopUpId = quote.topUpId;
         _lastExpectedBvc = quote.expectedBvc;
 
         // Open SePay payment URL
@@ -68,13 +76,13 @@ class TopUpCubit extends Cubit<TopUpState> {
           await launchUrl(paymentUri, mode: LaunchMode.externalApplication);
         }
 
-        // Emit awaiting state with deadline
+        // Emit awaiting state with deadline + QR
         emit(TopUpAwaitingPayment(
           quote: quote,
           deadline: quote.expiresAt,
         ));
 
-        // Start polling
+        // Start polling with 5 second interval
         _startPolling(() {
           onSuccess();
         });
@@ -94,15 +102,81 @@ class TopUpCubit extends Cubit<TopUpState> {
     await createTopUp(amountVnd: _lastAmountVnd!, onSuccess: onSuccess);
   }
 
-  /// Kiểm tra trạng thái top-up (gọi thủ công)
-  Future<void> checkStatus({
+  /// Đổi số tiền đơn top-up đang Pending.
+  /// Gọi PATCH /api/v1/wallet/topup/{topUpId}.
+  Future<void> updateCurrentTopUp({
+    required int newAmountVnd,
     required void Function() onSuccess,
   }) async {
-    if (_currentOrderId == null) return;
-    await _pollStatus(onSuccess: onSuccess);
+    if (_currentTopUpId == null) {
+      emit(const TopUpFailed(reason: 'Không có đơn top-up đang chờ'));
+      return;
+    }
+    if (newAmountVnd < 10000 || newAmountVnd % 1000 != 0) {
+      emit(const TopUpFailed(reason: 'Số tiền không hợp lệ'));
+      return;
+    }
+
+    emit(const TopUpCreating());
+    final idempotencyKey =
+        'topup-${DateTime.now().millisecondsSinceEpoch}-${_generateRandomString(8)}';
+    final result = await repository.updateTopUp(
+      topUpId: _currentTopUpId!,
+      amountVnd: newAmountVnd,
+      idempotencyKey: idempotencyKey,
+    );
+
+    if (isClosed) return;
+
+    await result.fold(
+      (failure) async {
+        emit(TopUpFailed(reason: failure.message));
+      },
+      (quote) async {
+        _currentOrderId = quote.orderId;
+        _currentTopUpId = quote.topUpId;
+        _lastExpectedBvc = quote.expectedBvc;
+        _lastAmountVnd = quote.amountVnd;
+        emit(TopUpAwaitingPayment(
+          quote: quote,
+          deadline: quote.expiresAt,
+        ));
+        _startPolling(onSuccess);
+      },
+    );
   }
 
-  /// Mở lại URL thanh toán
+  /// Hủy đơn top-up đang Pending.
+  /// Gọi DELETE /api/v1/wallet/topup/{topUpId}.
+  Future<void> cancelCurrentTopUp({
+    required void Function() onCancel,
+  }) async {
+    if (_currentTopUpId == null) {
+      emit(const TopUpFailed(reason: 'Không có đơn top-up để hủy'));
+      return;
+    }
+
+    emit(const TopUpCancelling());
+
+    final result = await repository.cancelTopUp(_currentTopUpId!);
+
+    if (isClosed) return;
+
+    await result.fold(
+      (failure) async {
+        emit(TopUpFailed(reason: 'Không thể hủy: ${failure.message}'));
+      },
+      (_) async {
+        _stopPolling();
+        _currentOrderId = null;
+        _currentTopUpId = null;
+        emit(const TopUpCancelled());
+        onCancel();
+      },
+    );
+  }
+
+  /// Mở lại URL thanh toán SePay
   Future<void> openPaymentUrl() async {
     if (state is TopUpAwaitingPayment) {
       final currentState = state as TopUpAwaitingPayment;
@@ -113,17 +187,20 @@ class TopUpCubit extends Cubit<TopUpState> {
     }
   }
 
-  /// Hủy top-up
+  /// Reset về initial state
   void cancel() {
     _stopPolling();
     _currentOrderId = null;
+    _currentTopUpId = null;
     emit(const TopUpInitial());
   }
 
+  /// Start polling - chỉ kiểm tra ngầm, KHÔNG emit state mới
+  /// Interval 5 giây để giảm tải server.
   void _startPolling(void Function() onSuccess) {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _pollStatus(onSuccess: onSuccess);
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _pollOnceSilent(onSuccess: onSuccess);
     });
   }
 
@@ -132,12 +209,14 @@ class TopUpCubit extends Cubit<TopUpState> {
     _pollingTimer = null;
   }
 
-  Future<void> _pollStatus({
+  /// Poll một lần SILENTLY - không emit state trung gian.
+  /// Chỉ emit khi có thay đổi thực sự: success hoặc expired.
+  Future<void> _pollOnceSilent({
     required void Function() onSuccess,
   }) async {
     if (_currentOrderId == null) return;
 
-    // Check if expired
+    // Check expiration first
     if (state is TopUpAwaitingPayment) {
       final currentState = state as TopUpAwaitingPayment;
       if (DateTime.now().isAfter(currentState.deadline)) {
@@ -147,51 +226,32 @@ class TopUpCubit extends Cubit<TopUpState> {
       }
     }
 
-    emit(const TopUpCheckingStatus());
-
-    final walletResult = await repository.checkTopUpStatus(_currentOrderId!);
+    // Call API to check transaction history
+    final result = await repository.checkTopUpSuccessByOrderId(_currentOrderId!);
 
     if (isClosed) return;
 
-    await walletResult.fold(
+    await result.fold(
       (failure) async {
-        // Continue polling on network error - don't fail immediately
+        // Network error → continue silently, don't interrupt user
       },
-      (wallet) async {
-        // Check if balance has increased (rough check)
-        // In production, backend would return the specific top-up status
-        if (wallet.availableBalance > 0 &&
-            _lastExpectedBvc != null &&
-            wallet.availableBalance >= _lastExpectedBvc!) {
+      (isSuccess) async {
+        if (isSuccess) {
           _stopPolling();
+          // Lấy balance server-side thay vì cộng local (đề phòng lệch
+          // nếu user có nhiều đơn top-up hoặc cộng Karma/bonus).
+          final walletRes = await repository.getWallet(includeHeld: true);
+          final newBalance = walletRes.fold(
+            (_) => (_previousBalance ?? 0) + (_lastExpectedBvc ?? 0),
+            (w) => w.availableBalance,
+          );
           emit(TopUpSuccess(
-            amountBvc: _lastExpectedBvc!,
-            newBalance: wallet.availableBalance,
+            amountBvc: _lastExpectedBvc ?? 0,
+            newBalance: newBalance,
           ));
           onSuccess();
-        } else {
-          // Continue waiting
-          if (state is! TopUpAwaitingPayment) {
-            // Re-emit awaiting state if we changed it
-            final lastQuote = _currentOrderId != null
-                ? TopUpQuoteEntity(
-                    paymentUrl: '',
-                    qrUrl: '',
-                    orderId: _currentOrderId!,
-                    expectedBvc: _lastExpectedBvc ?? 0,
-                    expiresAt: DateTime.now().add(const Duration(minutes: 15)),
-                    idempotencyKey: '',
-                  )
-                : null;
-
-            if (lastQuote != null) {
-              emit(TopUpAwaitingPayment(
-                quote: lastQuote,
-                deadline: lastQuote.expiresAt,
-              ));
-            }
-          }
         }
+        // Otherwise → do nothing, stay in current state
       },
     );
   }

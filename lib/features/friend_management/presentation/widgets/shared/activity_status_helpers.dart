@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/entities/entities.dart';
 
 /// Helper widget `extension` cho [ActivityStatus] — chuyển enum sang màu và
@@ -12,13 +13,13 @@ extension FriendStatusPresentation on ActivityStatus {
   Color get color {
     switch (this) {
       case ActivityStatus.online:
-        return Colors.green;
+        return AppColors.success;
       case ActivityStatus.recentlyActive:
-        return Colors.lightGreen;
+        return AppColors.successLight;
       case ActivityStatus.away:
-        return Colors.orange;
+        return AppColors.warning;
       case ActivityStatus.offline:
-        return Colors.grey;
+        return AppColors.textSecondary;
     }
   }
 
@@ -40,15 +41,15 @@ extension GamerTierPresentation on GamerTier {
   Color get color {
     switch (this) {
       case GamerTier.bronze:
-        return const Color(0xFFCD7F32);
+        return AppColors.eloBronze;
       case GamerTier.silver:
-        return const Color(0xFFC0C0C0);
+        return AppColors.eloSilver;
       case GamerTier.gold:
-        return const Color(0xFFFFD700);
+        return AppColors.eloGold;
       case GamerTier.platinum:
-        return const Color(0xFFB0E0E6);
+        return AppColors.eloPlatinum;
       case GamerTier.diamond:
-        return const Color(0xFFB9F2FF);
+        return AppColors.eloDiamond;
     }
   }
 }

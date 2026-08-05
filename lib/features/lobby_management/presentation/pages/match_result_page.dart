@@ -285,7 +285,7 @@ class _MatchResultPageState extends State<MatchResultPage> {
               Text(
                 'Mã trận: ${state.submitResponse.matchHistoryId}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
           ],
