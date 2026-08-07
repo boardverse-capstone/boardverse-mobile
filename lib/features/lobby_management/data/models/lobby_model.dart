@@ -5,13 +5,18 @@ import '../../domain/entities/lobby_entity.dart';
 /// trả về string khác (e.g. "Open", "open", "OPEN"). Khi deserialize JSON,
 /// gọi `LobbyStatusModelX.fromWire(...)` để chuẩn hoá.
 enum LobbyStatusModel {
+  pendingActivation,
+  pendingCafeApproval,
   open,
+  viable,
   full,
   inProgress,
   ratingOpen,
   closed,
   timeoutFailed,
-  hostCancelled;
+  hostCancelled,
+  rejectedByCafe,
+  expiredByCafe;
 
   static LobbyStatusModel fromWire(String? value) {
     if (value == null) return LobbyStatusModel.open;
@@ -19,7 +24,7 @@ enum LobbyStatusModel {
     for (final s in LobbyStatusModel.values) {
       if (s.name == normalized) return s;
     }
-    // Backward-compat cho mock cũ.
+    // Backward-compat cho mock cũ + alias từ backend docs.
     switch (normalized) {
       case 'waiting':
       case 'filling':
@@ -33,6 +38,18 @@ enum LobbyStatusModel {
       case 'ratingopen':
       case 'rating_open':
         return LobbyStatusModel.ratingOpen;
+      case 'pendingactivation':
+      case 'pending_activation':
+        return LobbyStatusModel.pendingActivation;
+      case 'pendingcafeapproval':
+      case 'pending_cafe_approval':
+        return LobbyStatusModel.pendingCafeApproval;
+      case 'rejectedbycafe':
+      case 'rejected_by_cafe':
+        return LobbyStatusModel.rejectedByCafe;
+      case 'expiredbycafe':
+      case 'expired_by_cafe':
+        return LobbyStatusModel.expiredByCafe;
     }
     return LobbyStatusModel.open;
   }
@@ -61,14 +78,20 @@ class LobbyPlayerModel {
 
   factory LobbyPlayerModel.fromJson(Map<String, dynamic> json) {
     return LobbyPlayerModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      avatarUrl: json['avatarUrl'] as String,
-      isHost: json['isHost'] as bool,
-      isReady: json['isReady'] as bool,
-      joinedAt: json['joinedAt'] as String,
-      karma: (json['karma'] as num?)?.toDouble() ?? 70,
+      id: (json['id'] ?? '') as String,
+      userId: (json['userId'] ?? '') as String,
+      name: (json['name'] ?? json['userName'] ?? '') as String,
+      avatarUrl: (json['avatarUrl'] ?? '') as String,
+      isHost: (json['isHost'] ?? false) as bool,
+      // Backend `readyAt` (DateTime? — null nếu chưa ready). Một số mock
+      // schema cũ dùng `isReady: bool` — fallback cả 2.
+      isReady: (json['readyAt'] != null) ||
+          ((json['isReady'] ?? false) as bool),
+      joinedAt: (json['joinedAt'] ?? DateTime.now().toIso8601String())
+          as String,
+      karma: (json['karma'] as num?)?.toDouble() ??
+          (json['karmaPoints'] as num?)?.toDouble() ??
+          70,
     );
   }
 
@@ -122,6 +145,10 @@ class LobbyModel {
   final double? distanceKm;
   final double? cafeLat;
   final double? cafeLng;
+  final DateTime? closedAt;
+  final String? closedReason;
+  final int? cancellationLeadTimeMinutes;
+  final DateTime? playStartedAt;
 
   LobbyModel({
     required this.id,
@@ -150,6 +177,10 @@ class LobbyModel {
     this.distanceKm,
     this.cafeLat,
     this.cafeLng,
+    this.closedAt,
+    this.closedReason,
+    this.cancellationLeadTimeMinutes,
+    this.playStartedAt,
   });
 
   factory LobbyModel.fromJson(Map<String, dynamic> json) {
@@ -166,8 +197,6 @@ class LobbyModel {
     // ta fallback giá trị mặc định an toàn cho các field optional này.
     final hostId = (json['hostId'] ?? json['hostUserId'] ?? '') as String;
     final gameId = (json['gameId'] ?? json['gameTemplateId'] ?? '') as String;
-    final currentPlayers =
-        (json['currentPlayers'] ?? json['currentMembers'] ?? 0) as int;
     final maxPlayers = (json['maxPlayers'] ?? json['maxMembers'] ?? 0) as int;
     final isPublic = _parseVisibility(
       json['isPublic'] ?? json['visibility'],
@@ -187,16 +216,16 @@ class LobbyModel {
         as String;
 
     // timeoutAt: optional ở `/discoverable`. Fallback `+6h` để UI không crash.
-    final timeoutAtRaw = (json['timeoutAt'] ??
+    final timeoutAtRaw = (json['timeoutAt'] ?? json['expiresAt'] ??
             DateTime.now()
                 .add(const Duration(hours: 6))
                 .toIso8601String())
         as String;
 
-    // Players: chỉ /discoverable mới có `memberAvatars` (List<String>),
-    // không có full DTO (id/name/karma/joinedAt). Convert thành LobbyPlayerModel
-    // tối thiểu để UI vẫn render được avatar (URL có thể trống).
-    final playersJson = (json['players'] ?? json['memberAvatars']) as List?;
+    // Members: response `/lobbies/{id}` mới dùng `members[]` (PascalCase)
+    // với full DTO. Cũng fallback `players[]` để tương thích schema cũ.
+    final playersJson =
+        (json['members'] ?? json['players'] ?? json['memberAvatars']) as List?;
     final players = playersJson == null
         ? <LobbyPlayerModel>[]
         : (playersJson.first is Map
@@ -215,34 +244,60 @@ class LobbyModel {
                     ))
                 .toList());
 
+    // currentPlayers: response mới không trả `currentPlayers` — derive từ
+    // `members.length` (host + members đều được tính là 1 slot). Khi có
+    // `currentPlayers` thì ưu tiên dùng nó để tương thích mock cũ.
+    final currentPlayersRaw = json['currentPlayers'] ?? json['currentMembers'];
+    final derivedCurrentPlayers = currentPlayersRaw != null
+        ? (currentPlayersRaw as num).toInt()
+        : players.length;
+
     return LobbyModel(
       id: json['id'] as String,
       gameId: gameId,
       gameName: (json['gameName'] ?? '') as String,
       gameImageUrl: json['gameImageUrl'] as String?,
       cafeId: (json['cafeId'] ?? '') as String,
+      // `cafeName` optional ở schema mới (vd: `/lobbies/{id}`) — fallback
+      // rỗng; cubit merge với cached lobby trước khi emit state để UI
+      // vẫn hiển thị tên quán cũ.
       cafeName: (json['cafeName'] ?? '') as String,
       cafeTableId: json['cafeTableId']?.toString(),
       hostId: hostId,
+      // `hostName` optional ở schema mới — fallback 'Chủ phòng' để UI không
+      // hiển thị ô trống. cubit có thể merge với cached lobby để lấy tên thật.
       hostName: (json['hostName'] ?? '') as String,
       scheduledTime: DateTime.parse(scheduledTimeRaw),
-      currentPlayers: currentPlayers,
+      currentPlayers: derivedCurrentPlayers,
       maxPlayers: maxPlayers,
       // `/discoverable` không trả `minPlayers` — fallback = 2 (BR-07 min).
       minPlayers: (json['minPlayers'] as int?) ?? 2,
       isPublic: isPublic,
-      inviteCode: json['inviteCode'] as String?,
+      // `shareCode` (PascalCase) ≈ `inviteCode` (camelCase) — fallback cả 2
+      // để tương thích schema cũ và mới.
+      inviteCode: (json['inviteCode'] ?? json['shareCode']) as String?,
       status: LobbyStatusModel.fromWire(json['status'] as String?),
       players: players,
       createdAt: DateTime.parse(createdAtRaw),
       timeoutAt: DateTime.parse(timeoutAtRaw),
       bookingId: json['bookingId'] as String?,
       reservationId: json['reservationId'] as String?,
-      minimumKarma: (json['minimumKarma'] as num?)?.toDouble() ?? 0,
+      // `minKarmaScore` (PascalCase) ≈ `minKarma` (camelCase) — fallback cả 2.
+      minimumKarma: (json['minimumKarma'] as num?)?.toDouble() ??
+          (json['minKarmaScore'] as num?)?.toDouble() ??
+          0,
       searchRadiusKm: (json['searchRadiusKm'] as num?)?.toDouble() ?? 5,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       cafeLat: (json['cafeLat'] as num?)?.toDouble(),
       cafeLng: (json['cafeLng'] as num?)?.toDouble(),
+      closedAt: json['closedAt'] != null
+          ? DateTime.tryParse(json['closedAt'] as String)
+          : null,
+      closedReason: json['closedReason'] as String?,
+      cancellationLeadTimeMinutes: (json['cancellationLeadTimeMinutes'] as num?)?.toInt(),
+      playStartedAt: json['playStartedAt'] != null
+          ? DateTime.tryParse(json['playStartedAt'] as String)
+          : null,
     );
   }
 
@@ -290,6 +345,10 @@ class LobbyModel {
     'distanceKm': distanceKm,
     'cafeLat': cafeLat,
     'cafeLng': cafeLng,
+    'closedAt': closedAt?.toIso8601String(),
+    'closedReason': closedReason,
+    'cancellationLeadTimeMinutes': cancellationLeadTimeMinutes,
+    'playStartedAt': playStartedAt?.toIso8601String(),
   };
 
   int get slotsRemaining => maxPlayers - currentPlayers;
@@ -322,6 +381,10 @@ class LobbyModel {
     Object? distanceKm = _sentinel,
     Object? cafeLat = _sentinel,
     Object? cafeLng = _sentinel,
+    Object? closedAt = _sentinel,
+    Object? closedReason = _sentinel,
+    Object? cancellationLeadTimeMinutes = _sentinel,
+    Object? playStartedAt = _sentinel,
   }) {
     return LobbyModel(
       id: id ?? this.id,
@@ -362,6 +425,21 @@ class LobbyModel {
       cafeLng: identical(cafeLng, _sentinel)
           ? this.cafeLng
           : cafeLng as double?,
+      closedAt: identical(closedAt, _sentinel)
+          ? this.closedAt
+          : closedAt as DateTime?,
+      closedReason: identical(closedReason, _sentinel)
+          ? this.closedReason
+          : closedReason as String?,
+      cancellationLeadTimeMinutes: identical(
+        cancellationLeadTimeMinutes,
+        _sentinel,
+      )
+          ? this.cancellationLeadTimeMinutes
+          : cancellationLeadTimeMinutes as int?,
+      playStartedAt: identical(playStartedAt, _sentinel)
+          ? this.playStartedAt
+          : playStartedAt as DateTime?,
     );
   }
 
@@ -388,12 +466,22 @@ class LobbyModel {
     reservationId: reservationId,
     minimumKarma: minimumKarma,
     searchRadiusKm: searchRadiusKm,
+    closedAt: closedAt,
+    closedReason: closedReason,
+    cancellationLeadTimeMinutes: cancellationLeadTimeMinutes,
+    playStartedAt: playStartedAt,
   );
 
   static LobbyStatus _statusToEntity(LobbyStatusModel status) {
     switch (status) {
+      case LobbyStatusModel.pendingActivation:
+        return LobbyStatus.pendingActivation;
+      case LobbyStatusModel.pendingCafeApproval:
+        return LobbyStatus.pendingCafeApproval;
       case LobbyStatusModel.open:
         return LobbyStatus.open;
+      case LobbyStatusModel.viable:
+        return LobbyStatus.viable;
       case LobbyStatusModel.full:
         return LobbyStatus.full;
       case LobbyStatusModel.inProgress:
@@ -406,6 +494,10 @@ class LobbyModel {
         return LobbyStatus.timeoutFailed;
       case LobbyStatusModel.hostCancelled:
         return LobbyStatus.hostCancelled;
+      case LobbyStatusModel.rejectedByCafe:
+        return LobbyStatus.rejectedByCafe;
+      case LobbyStatusModel.expiredByCafe:
+        return LobbyStatus.expiredByCafe;
     }
   }
 }

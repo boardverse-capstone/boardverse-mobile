@@ -253,6 +253,10 @@ class ApiEndpoints {
       '/api/v1/lobbies/invites/me/pending';
   static const String lobbyInvitesMe = '/api/v1/lobbies/invites/me';
   static const String lobbyInvites = '/api/v1/lobbies/{lobbyId}/invites';
+  static const String lobbyInvitesResend =
+      '/api/v1/lobbies/invites/{inviteId}/resend';
+  static const String lobbyInvitableFriends =
+      '/api/v1/lobbies/{lobbyId}/invitable-friends';
   static const String lobbyInviteAccept =
       '/api/v1/lobbies/invites/{inviteId}/accept';
   static const String lobbyInviteDecline =

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 
 import 'package:boardverse_mobile/core/navigation/pages/leaderboard_page.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/widgets/app_toast_card.dart';
 import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
@@ -324,7 +324,7 @@ class _HomePageState extends State<HomePage> {
       autoDismiss: true,
       snackbarDuration: const Duration(seconds: 3),
       position: DelightSnackbarPosition.top,
-      builder: (context) => ToastCard(
+      builder: (context) => AppToastCard(
         leading: Icon(
           isError ? Icons.error_outline : Icons.check,
           color: isError

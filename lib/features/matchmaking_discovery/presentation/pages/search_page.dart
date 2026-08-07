@@ -4,18 +4,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/board_game_entity.dart';
-import '../../domain/entities/game_category_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
-import '../utils/category_icon_mapper.dart';
 import '../widgets/animated_section_header.dart';
 import '../widgets/board_game_card.dart';
 import '../widgets/empty_board_game_illustration.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/game_skeleton.dart';
 import '../widgets/hero_banner_carousel.dart';
-import '../widgets/quick_filter_chip.dart';
+import '../widgets/search/active_filter_bar.dart';
+import '../widgets/search/quick_filter_row.dart';
+import '../widgets/search/search_error_retry_view.dart';
 import 'board_game_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
@@ -26,19 +26,6 @@ class SearchPage extends StatefulWidget {
   @override
   State<SearchPage> createState() => _SearchPageState();
 }
-
-/// Danh sách thể loại hiển thị trong quick filter row — hardcode VI theo
-/// seed backend (`an-vai`, `chien-thuat`, ...). Icon lấy qua
-/// [CategoryIconMapper]. Cùng nguồn với grid trong FilterBottomSheet,
-/// tránh trùng UI và không phải gọi API `/board-games/categories` riêng.
-const List<GameCategoryEntity> _kHardcodedCategories = <GameCategoryEntity>[
-  GameCategoryEntity(id: 'an-vai', name: 'Ẩn vai', slug: 'an-vai'),
-  GameCategoryEntity(id: 'chien-thuat', name: 'Chiến thuật', slug: 'chien-thuat'),
-  GameCategoryEntity(id: 'giai-tri', name: 'Giải trí', slug: 'giai-tri'),
-  GameCategoryEntity(id: 'hop-tac', name: 'Hợp tác', slug: 'hop-tac'),
-  GameCategoryEntity(id: 'doi-khang', name: 'Đối kháng', slug: 'doi-khang'),
-  GameCategoryEntity(id: 'phieu-luu', name: 'Phiêu lưu', slug: 'phieu-luu'),
-];
 
 class _SearchPageState extends State<SearchPage> {
   final _searchController = TextEditingController();
@@ -184,7 +171,7 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                 ),
                 // Quick filter chips pill-style (luôn hiển thị)
-                _QuickFilterRow(
+                QuickFilterRow(
                   selectedCategory: _selectedCategory,
                   selectedDurationRanges: _selectedDurationRanges,
                   onCategoryTap: (cat) {
@@ -217,7 +204,7 @@ class _SearchPageState extends State<SearchPage> {
                 if (_selectedCategory != null ||
                     _minPlayers != null ||
                     _selectedDurationRanges.isNotEmpty)
-                  _ActiveFilterBar(
+                  ActiveFilterBar(
                     selectedCategory: _selectedCategory,
                     minPlayers: _minPlayers,
                     selectedDurationRanges: _selectedDurationRanges,
@@ -280,7 +267,7 @@ class _SearchPageState extends State<SearchPage> {
       return const GameSkeletonList();
     }
     if (state is MatchmakingFailure) {
-      return _ErrorRetryView(
+      return SearchErrorRetryView(
         message: state.message,
         onRetry: () => widget.matchmakingCubit.searchGames(),
       );
@@ -363,169 +350,5 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
     return const SizedBox.shrink();
-  }
-}
-
-/// Thanh chip filter đang active — dễ thấy và dễ xoá.
-class _ActiveFilterBar extends StatelessWidget {
-  final String? selectedCategory;
-  final int? minPlayers;
-  final Set<DurationRange> selectedDurationRanges;
-  final VoidCallback onRemoveCategory;
-  final VoidCallback onRemovePlayerCount;
-  final void Function(DurationRange range) onRemoveDuration;
-
-  const _ActiveFilterBar({
-    required this.selectedCategory,
-    required this.minPlayers,
-    required this.selectedDurationRanges,
-    required this.onRemoveCategory,
-    required this.onRemovePlayerCount,
-    required this.onRemoveDuration,
-  });
-
-  String _durationLabel(DurationRange range) {
-    switch (range) {
-      case DurationRange.under30:
-        return '< 30 phút';
-      case DurationRange.thirtyToSixty:
-        return '30-60 phút';
-      case DurationRange.over60:
-        return '> 60 phút';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: AppSpacing.xxxl,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: AppSpacing.paddingHorizontalMd,
-        children: [
-          if (selectedCategory != null)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text(selectedCategory!),
-                onDeleted: onRemoveCategory,
-              ),
-            ),
-          if (minPlayers != null)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text('$minPlayers+ người'),
-                onDeleted: onRemovePlayerCount,
-              ),
-            ),
-          for (final range in selectedDurationRanges)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text(_durationLabel(range)),
-                onDeleted: () => onRemoveDuration(range),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickFilterRow extends StatelessWidget {
-  final String? selectedCategory;
-  final Set<DurationRange> selectedDurationRanges;
-  final ValueChanged<String> onCategoryTap;
-  final ValueChanged<DurationRange> onDurationTap;
-
-  const _QuickFilterRow({
-    required this.selectedCategory,
-    required this.selectedDurationRanges,
-    required this.onCategoryTap,
-    required this.onDurationTap,
-  });
-
-  String _durationLabel(DurationRange range) {
-    switch (range) {
-      case DurationRange.under30:
-        return '< 30 phút';
-      case DurationRange.thirtyToSixty:
-        return '30-60 phút';
-      case DurationRange.over60:
-        return '> 60 phút';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <QuickFilterItem>[];
-
-    // Category chips — dùng cùng hardcoded list với FilterBottomSheet,
-    // không gọi API backend. Icon resolve qua CategoryIconMapper.
-    for (final cat in _kHardcodedCategories) {
-      items.add(
-        QuickFilterItem(
-          label: cat.name,
-          icon: CategoryIconMapper.iconFor(cat),
-          selected: selectedCategory == cat.name,
-          onTap: () => onCategoryTap(cat.name),
-        ),
-      );
-    }
-
-    for (final range in DurationRange.values) {
-      items.add(
-        QuickFilterItem(
-          label: _durationLabel(range),
-          icon: Icons.timer_outlined,
-          selected: selectedDurationRanges.contains(range),
-          onTap: () => onDurationTap(range),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: QuickFilterChipBar(items: items),
-    );
-  }
-}
-
-class _ErrorRetryView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorRetryView({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: AppSpacing.paddingAllXl,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off,
-              size: AppSpacing.huge + AppSpacing.xs,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

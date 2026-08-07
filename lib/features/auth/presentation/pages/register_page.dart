@@ -1,11 +1,11 @@
 import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_toast_card.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import '../widgets/widgets.dart';
@@ -87,7 +87,7 @@ class _RegisterPageState extends State<RegisterPage>
       autoDismiss: true,
       snackbarDuration: const Duration(seconds: 3),
       position: DelightSnackbarPosition.top,
-      builder: (context) => ToastCard(
+      builder: (context) => AppToastCard(
         leading: Icon(
           isError ? Icons.error_outline : Icons.check_circle_outlined,
           color: isError

@@ -24,9 +24,10 @@ import '../../features/lobby_management/data/datasources/remote/real_lobby_remot
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
 import '../../features/lobby_management/data/lobby_repository_impl.dart';
 import '../../features/lobby_management/data/realtime/lobby_realtime_service.dart';
-import '../../features/lobby_management/data/realtime/real_lobby_realtime_service.dart';
+import '../../features/lobby_management/data/realtime/mock_lobby_realtime_service.dart';
 import '../../features/lobby_management/domain/repositories/lobby_repository.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_cubit.dart';
+import '../../features/lobby_management/presentation/cubit/lobby_reservation_cubit.dart';
 import '../../features/friend_management/data/datasources/base/friend_remote_datasource.dart';
 import '../../features/friend_management/data/datasources/remote/real_friend_remote_datasource.dart';
 import '../../features/friend_management/data/friend_repository_impl.dart';
@@ -156,7 +157,7 @@ void setupDependencies() {
   );
 
   sl.registerLazySingleton<LobbyRealtimeService>(
-    () => RealLobbyRealtimeService(storage: sl<FlutterSecureStorage>()),
+    () => MockLobbyRealtimeService(),
   );
 
   sl.registerLazySingleton<LobbyRepository>(
@@ -334,6 +335,12 @@ void setupDependencies() {
       repository: sl<ReservationRepository>(),
       walletRepository: sl<WalletRepository>(),
     ),
+  );
+
+  /// Factory cubit load + poll reservation detail cho LobbyPage.
+  /// Mỗi LobbyPage mount sẽ tạo 1 instance mới; tự dispose khi page pop.
+  sl.registerFactory<LobbyReservationCubit>(
+    () => LobbyReservationCubit(repository: sl<ReservationRepository>()),
   );
 
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────

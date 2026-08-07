@@ -99,7 +99,7 @@ class QuoteRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      // Backend dùng PascalCase: "Morning", "Afternoon", "Evening", "Night"
+      // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
       'minPlayers': minPlayers,
@@ -172,7 +172,7 @@ class ConfirmRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      // Backend dùng PascalCase: "Morning", "Afternoon", "Evening", "Night"
+      // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
       'minPlayers': minPlayers,

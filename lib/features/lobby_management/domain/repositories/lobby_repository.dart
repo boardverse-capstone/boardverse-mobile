@@ -4,6 +4,9 @@ import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
+import '../../domain/entities/lobby_invite_entity.dart';
+import '../../domain/entities/lobby_invitable_friend.dart';
+import '../../domain/entities/lobby_share_info.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../../domain/entities/lobby_chat_message.dart';
 
@@ -20,6 +23,67 @@ abstract class LobbyRepository {
   Future<Either<Failure, void>> leaveLobby(String lobbyId);
 
   Future<Either<Failure, void>> inviteFriend(String lobbyId, String friendId);
+
+  // ─── Lobby Invites & Share Code (BR-LOBBY-INVITE-*) ─────────────────
+
+  /// POST /api/v1/lobbies/{lobbyId}/invites — Gửi lời mời cho 1 user.
+  /// [message] optional, tối đa 300 ký tự.
+  Future<Either<Failure, void>> sendLobbyInvite({
+    required String lobbyId,
+    required String inviteeId,
+    String? message,
+  });
+
+  /// GET /api/v1/lobbies/{lobbyId}/invites
+  /// Lấy lịch sử invite của lobby, optional filter theo status.
+  Future<Either<Failure, List<LobbyInviteEntity>>> getLobbyInvites({
+    required String lobbyId,
+    LobbyInviteStatus? status,
+    int limit = 100,
+  });
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/resend
+  /// Gửi lại invite đã ở terminal state.
+  Future<Either<Failure, LobbyInviteEntity>> resendInvite(String inviteId);
+
+  /// GET /api/v1/lobbies/{lobbyId}/invitable-friends
+  /// Lấy danh sách friend kèm trạng thái invite (server-side tính).
+  Future<Either<Failure, List<LobbyInvitableFriend>>> getInvitableFriends({
+    required String lobbyId,
+    String? search,
+    bool onlineOnly = false,
+    int? minKarma,
+    List<LobbyInviteFriendStatus> statusFilter = const [],
+    int limit = 100,
+  });
+
+  /// GET /api/v1/lobbies/invites/me/pending — Inbox lời mời đang chờ
+  /// (status = Pending, chưa hết hạn).
+  Future<Either<Failure, List<LobbyInviteEntity>>> getPendingLobbyInvites();
+
+  /// GET /api/v1/lobbies/invites/me?status={status}
+  /// Lấy tất cả lời mời với filter status (optional).
+  Future<Either<Failure, List<LobbyInviteEntity>>> getAllLobbyInvites({
+    LobbyInviteStatus? status,
+  });
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/accept — Accept lời mời
+  /// (tự động join lobby). Trả về LobbyEntity mới.
+  Future<Either<Failure, LobbyEntity>> acceptLobbyInvite(String inviteId);
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/decline — Từ chối lời mời.
+  Future<Either<Failure, void>> declineLobbyInvite(String inviteId);
+
+  /// DELETE /api/v1/lobbies/invites/{inviteId} — Inviter hủy lời mời
+  /// đã gửi.
+  Future<Either<Failure, void>> cancelLobbyInvite(String inviteId);
+
+  /// GET /api/v1/lobbies/{lobbyId}/share-info — Lấy share code của lobby
+  /// (chỉ member mới xem được).
+  Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(String lobbyId);
+
+  /// POST /api/v1/lobbies/join-by-code — Join lobby bằng share code.
+  Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode);
 
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends();
 

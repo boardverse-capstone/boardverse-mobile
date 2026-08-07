@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse_mobile/core/di/injection.dart';
+import 'package:boardverse_mobile/core/navigation/lobby_join_signal.dart';
 import 'presentation/cubit/lobby_invite_cubit.dart';
 import 'presentation/cubit/match_result_cubit.dart';
 import 'presentation/pages/join_by_code_page.dart';
 import 'presentation/pages/lobby_invites_page.dart';
+import 'presentation/pages/lobby_invites_sent_page.dart';
+import 'presentation/pages/lobby_invites_history_page.dart';
 import 'presentation/pages/match_result_page.dart';
 import 'data/datasources/base/lobby_remote_datasource.dart';
 
@@ -13,6 +16,8 @@ import 'data/datasources/base/lobby_remote_datasource.dart';
 class LobbyRoutes {
   // Lobby invite / discovery helpers.
   static const String lobbyInvites = '/lobby/invites';
+  static const String lobbyInvitesSent = '/lobby/invites-sent';
+  static const String lobbyInvitesHistory = '/lobby/invites-history';
   static const String joinByCode = '/lobby/join-by-code';
   static const String matchResult = '/lobby/match-result';
 
@@ -43,10 +48,14 @@ class MatchResultPageArgs {
 /// Page arguments for [LobbyPendingCafeApprovalPage].
 class LobbyPendingCafeApprovalArgs {
   final String reservationId;
+  final String? cafeId;
+  final String? cafeName;
   final DateTime? cafeApprovalDeadline;
 
   const LobbyPendingCafeApprovalArgs({
     required this.reservationId,
+    this.cafeId,
+    this.cafeName,
     this.cafeApprovalDeadline,
   });
 }
@@ -55,6 +64,16 @@ class LobbyPendingCafeApprovalArgs {
 class LobbyPageArgs {
   final String lobbyId;
   const LobbyPageArgs({required this.lobbyId});
+}
+
+/// Page arguments cho [LobbyInvitesHistoryPage].
+class LobbyInvitesHistoryPageArgs {
+  final String lobbyId;
+  final String? lobbyName;
+  const LobbyInvitesHistoryPageArgs({
+    required this.lobbyId,
+    this.lobbyName,
+  });
 }
 
 /// Helper to build routes for lobby-related pages.
@@ -68,20 +87,38 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
           child: LobbyInvitesPage(
             lobbyInviteCubit: getIt<LobbyInviteCubit>(),
             onJoinLobby: (lobbyId) {
-              // Navigate to lobby - caller should handle navigation
+              // Phát signal để MainScaffold navigate đến LobbyPage.
+              LobbyJoinSignal.instance.request(lobbyId);
             },
           ),
         ),
       );
 
+    case LobbyRoutes.lobbyInvitesSent:
+      return MaterialPageRoute(
+        builder: (_) => const LobbyInvitesSentPage(),
+      );
+
+    case LobbyRoutes.lobbyInvitesHistory:
+      final args =
+          settings.arguments as LobbyInvitesHistoryPageArgs? ??
+              const LobbyInvitesHistoryPageArgs(lobbyId: '');
+      return MaterialPageRoute(
+        builder: (_) => LobbyInvitesHistoryPage(
+          lobbyId: args.lobbyId,
+          lobbyName: args.lobbyName,
+        ),
+      );
+
     case LobbyRoutes.joinByCode:
-      // final args = settings.arguments as Map<String, dynamic>?;
-      // final shareCode = args?['shareCode'] as String?; // To be used for pre-filling code
       return MaterialPageRoute(
         builder: (_) => JoinByCodePage(
           remoteDatasource: getIt<LobbyRemoteDatasource>(),
           onJoined: (lobby) {
-            // Navigate to lobby - caller should handle navigation
+            // Phát signal để MainScaffold navigate tới LobbyPage — đảm
+            // bảo pop hết stack trung gian và chỉ giữ MainScaffold + LobbyPage
+            // (nhánh "Join bằng mã" → user đã là member của lobby).
+            LobbyJoinSignal.instance.request(lobby.id);
           },
         ),
       );

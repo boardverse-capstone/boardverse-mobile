@@ -12,6 +12,8 @@ import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
 import '../pages/cafe_detail_page.dart';
 import '../pages/lobby_cafe_selection_page.dart';
+import '../widgets/board_game_detail/board_game_detail_error_retry_view.dart';
+import '../widgets/board_game_detail/board_game_detail_shimmer.dart';
 import '../widgets/cafe_card.dart';
 import '../widgets/game_detail_header.dart';
 import '../widgets/game_info_section.dart';
@@ -70,10 +72,10 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
             builder: (context, state) {
               if (state is MatchmakingLoading) {
-                return const Center(child: CircularProgressIndicator());
+                return const BoardGameDetailShimmer();
               }
               if (state is MatchmakingFailure) {
-                return _ErrorRetryView(
+                return BoardGameDetailErrorRetryView(
                   message: state.message,
                   onRetry: () => widget.matchmakingCubit.loadGameDetail(
                     gameId: widget.gameId,
@@ -103,7 +105,11 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                       child: ColoredBox(
                         color: AppColors.black.withValues(alpha: 0.3),
                         child: const Center(
-                          child: CircularProgressIndicator(),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          ),
                         ),
                       ),
                     ),
@@ -112,7 +118,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
               }
 
               if (state is MatchmakingPlayNavigationResolving) {
-                return const Center(child: CircularProgressIndicator());
+                return const BoardGameDetailShimmer();
               }
 
               return const SizedBox.shrink();
@@ -524,48 +530,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             child: const Text('Tìm kiếm'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorRetryView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorRetryView({
-    required this.message,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: AppSpacing.paddingAllXl,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off,
-              size: AppSpacing.huge + AppSpacing.xs,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
-            ),
-          ],
-        ),
       ),
     );
   }

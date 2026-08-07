@@ -7,12 +7,14 @@ import 'package:boardverse_mobile/features/friend_management/data/models/friend_
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
+import '../../../domain/entities/lobby_invitable_friend.dart';
 import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
 import '../../../domain/entities/lobby_chat_message.dart';
 import '../../../domain/entities/match_result_entity.dart';
 import '../../models/lobby_model.dart';
 import '../../models/lobby_invite_model.dart';
+import '../../models/lobby_invitable_friend_model.dart';
 import '../../models/lobby_share_info_model.dart';
 import '../../models/match_result_model.dart';
 import '../../models/elo_update_model.dart';
@@ -481,6 +483,135 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       return Left<Failure, void>(
         ServerFailure(message: 'Lỗi không xác định: $e'),
       );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getLobbyInvites({
+    required String lobbyId,
+    LobbyInviteStatus? status,
+    int limit = 100,
+  }) async {
+    try {
+      final path = ApiEndpoints.lobbyInvites.replaceAll('{lobbyId}', lobbyId);
+      final query = <String, dynamic>{'limit': limit};
+      if (status != null) query['status'] = _statusToQuery(status);
+      final res = await _dio.get<dynamic>(path, queryParameters: query);
+      final raw = _unwrapList(res.data);
+      final list = raw
+          .map((e) => LobbyInviteModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return Right<Failure, List<LobbyInviteEntity>>(
+        list.map((m) => m.toEntity()).toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyInviteEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyInviteEntity>> resendInvite(String inviteId) async {
+    try {
+      final path = ApiEndpoints.lobbyInvitesResend.replaceAll(
+        '{inviteId}',
+        inviteId,
+      );
+      final res = await _dio.post<dynamic>(path);
+      final raw = _unwrap(res.data);
+      final model = LobbyInviteModel.fromJson(raw);
+      return Right<Failure, LobbyInviteEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyInviteEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyInviteEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyInvitableFriend>>> getInvitableFriends({
+    required String lobbyId,
+    String? search,
+    bool onlineOnly = false,
+    int? minKarma,
+    List<LobbyInviteFriendStatus> statusFilter = const [],
+    int limit = 100,
+  }) async {
+    try {
+      final path = ApiEndpoints.lobbyInvitableFriends.replaceAll(
+        '{lobbyId}',
+        lobbyId,
+      );
+      final query = <String, dynamic>{'onlineOnly': onlineOnly, 'limit': limit};
+      if (search != null && search.trim().isNotEmpty) {
+        query['search'] = search.trim();
+      }
+      if (minKarma != null) query['minKarma'] = minKarma;
+      if (statusFilter.isNotEmpty) {
+        query['status'] = statusFilter.map(_friendStatusToQuery).join(',');
+      }
+      final res = await _dio.get<dynamic>(path, queryParameters: query);
+      final raw = _unwrapList(res.data);
+      final list = raw
+          .map(
+            (e) => LobbyInvitableFriendModel.fromJson(
+              e as Map<String, dynamic>,
+            ),
+          )
+          .toList();
+      return Right<Failure, List<LobbyInvitableFriend>>(
+        list.map((m) => m.toEntity()).toList(),
+      );
+    } on DioException catch (e) {
+      return Left<Failure, List<LobbyInvitableFriend>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyInvitableFriend>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  /// Map enum sang PascalCase query value.
+  String _statusToQuery(LobbyInviteStatus s) {
+    switch (s) {
+      case LobbyInviteStatus.pending:
+        return 'Pending';
+      case LobbyInviteStatus.accepted:
+        return 'Accepted';
+      case LobbyInviteStatus.declined:
+        return 'Declined';
+      case LobbyInviteStatus.cancelled:
+        return 'Cancelled';
+      case LobbyInviteStatus.expired:
+        return 'Expired';
+    }
+  }
+
+  String _friendStatusToQuery(LobbyInviteFriendStatus s) {
+    switch (s) {
+      case LobbyInviteFriendStatus.invitable:
+        return 'Invitable';
+      case LobbyInviteFriendStatus.invitePending:
+        return 'InvitePending';
+      case LobbyInviteFriendStatus.inviteAccepted:
+        return 'InviteAccepted';
+      case LobbyInviteFriendStatus.inviteNotPending:
+        return 'InviteNotPending';
+      case LobbyInviteFriendStatus.alreadyMember:
+        return 'AlreadyMember';
+      case LobbyInviteFriendStatus.blockedByThem:
+        return 'BlockedByThem';
+      case LobbyInviteFriendStatus.blockedByMe:
+        return 'BlockedByMe';
+      case LobbyInviteFriendStatus.lobbyClosed:
+        return 'LobbyClosed';
+      case LobbyInviteFriendStatus.unknown:
+        return '';
     }
   }
 

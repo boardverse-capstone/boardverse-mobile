@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../domain/entities/lobby_entity.dart';
+
 /// Service for persisting lobby state locally.
 ///
 /// This allows:
@@ -69,8 +71,79 @@ class LobbyPersistenceService {
   }
 
   /// Clear all lobby persistence data
+  /// Build một [LobbyEntity] tối thiểu từ cached details (dùng làm fallback
+  /// khi response backend thiếu field như `hostName`, `cafeName`,
+  /// `inviteCode` — schema mới `/lobbies/{id}` chỉ trả id chứ không trả
+  /// tên hiển thị).
+  ///
+  /// Trả null nếu không có cached details.
+  LobbyEntity? getCachedLobbyEntity() {
+    final details = _cachedDetails;
+    if (details == null) return null;
+    return _buildEntityFromCache(details);
+  }
+
+  /// Load cached details vào memory. Idempotent — gọi nhiều lần không sao.
+  Future<void> loadCachedDetails() async {
+    final raw = await _storage.read(key: _lobbyDetailsKey);
+    if (raw == null) {
+      _cachedDetails = null;
+      return;
+    }
+    try {
+      _cachedDetails = jsonDecode(raw) as Map<String, dynamic>;
+    } on FormatException {
+      _cachedDetails = null;
+    }
+  }
+
+  LobbyEntity? _buildEntityFromCache(Map<String, dynamic> details) {
+    final id = details['id'] as String?;
+    if (id == null) return null;
+
+    DateTime parseDate(dynamic v) {
+      if (v == null) return DateTime.now();
+      return DateTime.tryParse(v.toString()) ?? DateTime.now();
+    }
+
+    // Parse status — fallback 'open' nếu cache cũ không có field.
+    final statusRaw = (details['status'] as String?)?.toLowerCase() ?? 'open';
+    final status = LobbyStatus.values.firstWhere(
+      (s) => s.name == statusRaw,
+      orElse: () => LobbyStatus.open,
+    );
+
+    final timeoutAt = parseDate(details['expiresAt'] ?? details['timeoutAt']);
+
+    return LobbyEntity(
+      id: id,
+      gameId: (details['gameId'] as String?) ?? '',
+      gameName: (details['gameName'] as String?) ?? '',
+      cafeId: (details['cafeId'] as String?) ?? '',
+      cafeName: (details['cafeName'] as String?) ?? '',
+      hostId: (details['hostId'] as String?) ?? '',
+      hostName: (details['hostName'] as String?) ?? '',
+      scheduledTime: parseDate(details['scheduledTime']),
+      currentPlayers: (details['currentPlayers'] as int?) ?? 0,
+      maxPlayers: (details['maxPlayers'] as int?) ?? 2,
+      minPlayers: (details['minPlayers'] as int?) ?? 2,
+      isPublic: (details['isPublic'] as bool?) ?? true,
+      inviteCode: details['inviteCode'] as String?,
+      status: status,
+      players: const [],
+      createdAt: parseDate(details['createdAt']),
+      timeoutAt: timeoutAt,
+      playStartedAt: details['playStartedAt'] != null
+          ? DateTime.tryParse(details['playStartedAt'].toString())
+          : null,
+    );
+  }
+
   Future<void> clearAll() async {
+    _cachedDetails = null;
     await clearActiveLobbyId();
     await clearLobbyDetails();
   }
+
+  Map<String, dynamic>? _cachedDetails;
 }

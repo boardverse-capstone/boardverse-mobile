@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/deeplink/deep_link_handler.dart';
 import 'core/di/injection.dart';
@@ -29,6 +30,13 @@ Future<void> main() async {
 
   await dotenv.load(fileName: '.env');
   setupDependencies();
+
+  // Khởi tạo locale data cho `intl.DateFormat` — tránh LocaleDataException
+  // khi widget dùng `DateFormat(..., 'vi')` (vd: `ScheduledTimeCountdown`).
+  // Cần gọi trước khi `runApp`.
+  await initializeDateFormatting('vi');
+  await initializeDateFormatting('en_US');
+
   await DeepLinkHandler.instance.initialize(
     navigatorKey: rootNavigatorKey,
     onBookingsRefresh: _noop,

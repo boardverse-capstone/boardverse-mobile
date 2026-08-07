@@ -114,16 +114,23 @@ class ReservationQuoteExpired extends ReservationState {
 class ReservationPendingCafeApproval extends ReservationState {
   final String reservationId;
   final String? lobbyId;
+
+  /// Cafe id/name — UI cần hiển thị "đang chờ quán X duyệt".
+  final String? cafeId;
+  final String? cafeName;
   final DateTime? cafeApprovalDeadline;
 
   const ReservationPendingCafeApproval({
     required this.reservationId,
     this.lobbyId,
+    this.cafeId,
+    this.cafeName,
     this.cafeApprovalDeadline,
   });
 
   @override
-  List<Object?> get props => [reservationId, lobbyId, cafeApprovalDeadline];
+  List<Object?> get props =>
+      [reservationId, lobbyId, cafeId, cafeName, cafeApprovalDeadline];
 }
 
 /// Reservation bị cafe từ chối duyệt.

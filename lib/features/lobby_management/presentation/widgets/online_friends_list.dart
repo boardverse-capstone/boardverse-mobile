@@ -10,6 +10,18 @@ class OnlineFriendsList extends StatelessWidget {
   final Function(FriendEntity)? onViewProfile;
   final ScrollController? controller;
 
+  /// Set các friendId đã gửi lời mời thành công — tile sẽ disable nút
+  /// "Mời" (đổi thành "Đã mời" + icon check) để user biết đã mời rồi.
+  final Set<String> invitedFriendIds;
+
+  /// Cờ bật/tắt nút "Thêm" trên mỗi friend tile.
+  ///
+  /// Mặc định `false` — chỉ hiển thị khi caller chủ động bật (một số
+  /// màn hình dev/diagnostic cần nút này, ví dụ "giả lập thêm bạn vào phòng").
+  /// Trong lobby thực tế chỉ dùng nút "Mời", nên không truyền `onAdd` là
+  /// nút này tự ẩn.
+  final bool showAddButton;
+
   const OnlineFriendsList({
     super.key,
     required this.friends,
@@ -17,6 +29,8 @@ class OnlineFriendsList extends StatelessWidget {
     this.onAdd,
     this.onViewProfile,
     this.controller,
+    this.invitedFriendIds = const <String>{},
+    this.showAddButton = false,
   });
 
   @override
@@ -36,8 +50,9 @@ class OnlineFriendsList extends StatelessWidget {
         final friend = friends[index];
         return _FriendTile(
           friend: friend,
+          alreadyInvited: invitedFriendIds.contains(friend.odId),
           onInvite: onInvite,
-          onAdd: onAdd,
+          onAdd: showAddButton ? onAdd : null,
           onViewProfile: onViewProfile,
         );
       },
@@ -51,11 +66,16 @@ class _FriendTile extends StatelessWidget {
   final Function(FriendEntity)? onAdd;
   final Function(FriendEntity)? onViewProfile;
 
+  /// `true` nếu friend này đã được mời thành công trong session —
+  /// tile sẽ disable nút "Mời" và đổi thành "Đã mời" + icon check.
+  final bool alreadyInvited;
+
   const _FriendTile({
     required this.friend,
     this.onInvite,
     this.onAdd,
     this.onViewProfile,
+    this.alreadyInvited = false,
   });
 
   @override
@@ -175,6 +195,7 @@ class _FriendTile extends StatelessWidget {
 
               final actions = _FriendActions(
                 friend: friend,
+                alreadyInvited: alreadyInvited,
                 onInvite: canInteract ? onInvite : null,
                 onAdd: canInteract ? onAdd : null,
               );
@@ -228,10 +249,22 @@ class _FriendActions extends StatelessWidget {
   final Function(FriendEntity)? onInvite;
   final Function(FriendEntity)? onAdd;
 
-  const _FriendActions({required this.friend, this.onInvite, this.onAdd});
+  /// `true` nếu friend đã được mời thành công — đổi nút "Mời" thành
+  /// "Đã mời" + icon check + disable để tránh mời trùng.
+  final bool alreadyInvited;
+
+  const _FriendActions({
+    required this.friend,
+    this.onInvite,
+    this.onAdd,
+    this.alreadyInvited = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Wrap(
       spacing: AppSpacing.xs,
       runSpacing: AppSpacing.xs,
@@ -244,11 +277,26 @@ class _FriendActions extends StatelessWidget {
             label: const Text('Thêm'),
           ),
         if (onInvite != null)
-          OutlinedButton.icon(
-            onPressed: () => onInvite?.call(friend),
-            icon: const Icon(AppIcons.send, size: AppIcons.sm),
-            label: const Text('Mời'),
-          ),
+          alreadyInvited
+              ? OutlinedButton.icon(
+                  // Disabled — chỉ hiển thị trạng thái "Đã mời".
+                  onPressed: null,
+                  icon: Icon(
+                    AppIcons.check,
+                    size: AppIcons.sm,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  label: const Text('Đã mời'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.onSurfaceVariant,
+                    side: BorderSide(color: colors.outlineVariant),
+                  ),
+                )
+              : OutlinedButton.icon(
+                  onPressed: () => onInvite?.call(friend),
+                  icon: const Icon(AppIcons.send, size: AppIcons.sm),
+                  label: const Text('Mời'),
+                ),
       ],
     );
   }

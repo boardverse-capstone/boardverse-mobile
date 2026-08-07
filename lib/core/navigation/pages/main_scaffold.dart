@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/home/presentation/pages/home_overview_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../lobby_join_signal.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
@@ -38,9 +39,10 @@ class _MainScaffoldState extends State<MainScaffold> {
     _currentIndex = widget.initialTabIndex ?? _defaultInitialIndex;
     _navigationCubit = NavigationCubit();
     // Listen yêu cầu "chuyển sang Lobby screen cho game X" từ
-    // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm"). Đây là cầu nối
-    // nghiệp vụ: Discovery → Lobby screen.
+    // BoardGameDetailPage (khi user bấm "Chơi cùng nhóm").
     LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
+    // Listen yêu cầu "navigate đến LobbyPage" sau khi accept invite.
+    LobbyJoinSignal.instance.addListener(_handleLobbyJoin);
   }
 
   void _handleLobbySuggestion() {
@@ -50,9 +52,26 @@ class _MainScaffoldState extends State<MainScaffold> {
     _onTabTapped(NavTab.discovery.tabIndex);
   }
 
+  /// Navigate to LobbyPage after invite accept.
+  void _handleLobbyJoin() {
+    final lobbyId = LobbyJoinSignal.instance.pendingLobbyId;
+    if (lobbyId == null) return;
+
+    LobbyJoinSignal.instance.consume();
+
+    // Pop current route (invites page) then push lobby page.
+    Navigator.of(context)
+        .popUntil((route) => route.isFirst);
+    Navigator.of(context).pushNamed(
+      '/lobby/page',
+      arguments: {'lobbyId': lobbyId},
+    );
+  }
+
   @override
   void dispose() {
     LobbySuggestionSignal.instance.removeListener(_handleLobbySuggestion);
+    LobbyJoinSignal.instance.removeListener(_handleLobbyJoin);
     _navigationCubit.close();
     super.dispose();
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:boardverse_mobile/core/di/injection.dart';
+import '../../../features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
 import '../../../features/lobby_management/presentation/pages/lobby_hub_page.dart';
 import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../features/matchmaking_discovery/presentation/pages/search_page.dart';
@@ -92,7 +94,10 @@ class _DiscoveryTabState extends State<DiscoveryTab>
         controller: _tabController,
         children: [
           const _DiscoveryGameTab(),
-          const LobbyHubPage(),
+          BlocProvider<LobbyInviteCubit>(
+            create: (_) => getIt<LobbyInviteCubit>(),
+            child: const LobbyHubPage(),
+          ),
         ],
       ),
     );

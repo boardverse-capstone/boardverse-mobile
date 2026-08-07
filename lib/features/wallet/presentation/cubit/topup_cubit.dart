@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/utils/uuid_generator.dart';
 import '../../domain/repositories/wallet_repository.dart';
 import 'topup_state.dart';
 
@@ -51,8 +52,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     }
 
     // Generate idempotency key
-    final idempotencyKey =
-        'topup-${DateTime.now().millisecondsSinceEpoch}-${_generateRandomString(8)}';
+    final idempotencyKey = generateIdempotencyKey();
 
     final result = await repository.createTopUp(
       amountVnd: amountVnd,
@@ -118,8 +118,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     }
 
     emit(const TopUpCreating());
-    final idempotencyKey =
-        'topup-${DateTime.now().millisecondsSinceEpoch}-${_generateRandomString(8)}';
+    final idempotencyKey = generateIdempotencyKey();
     final result = await repository.updateTopUp(
       topUpId: _currentTopUpId!,
       amountVnd: newAmountVnd,
@@ -254,13 +253,6 @@ class TopUpCubit extends Cubit<TopUpState> {
         // Otherwise → do nothing, stay in current state
       },
     );
-  }
-
-  String _generateRandomString(int length) {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final random = DateTime.now().microsecondsSinceEpoch;
-    return List.generate(length, (index) => chars[random % chars.length])
-        .join();
   }
 
   @override

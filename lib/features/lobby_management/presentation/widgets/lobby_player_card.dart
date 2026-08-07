@@ -287,9 +287,15 @@ class LobbyPlayerGrid extends StatelessWidget {
           itemBuilder: (context, index) {
             if (index < players.length) {
               final player = players[index];
+              // So sánh cả `id` (mock cũ) và `userId` (response mới) để
+              // highlight đúng người đang đăng nhập.
+              final isCurrentUser =
+                  currentUserId != null &&
+                  (player.userId == currentUserId ||
+                      player.id == currentUserId);
               return LobbyPlayerCard(
                 player: player,
-                isCurrentUser: player.id == currentUserId,
+                isCurrentUser: isCurrentUser,
                 onTap: onPlayerTap == null
                     ? null
                     : () => onPlayerTap?.call(player),
@@ -372,6 +378,321 @@ class _EmptySlotCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Banner hỗ trợ chỉ dẫn hiển thị khi lobby đã đầy (currentPlayers == maxPlayers).
+///
+/// Theo nghiệp vụ BoardVerse (BR §17.5, lobby.md):
+/// - Sau khi lobby chuyển sang `Full` → member & host **đều phải bấm "Sẵn
+///   sàng" (POST /lobbies/{id}/ready)**.
+/// - Khi tất cả member ready → lobby chuyển sang `InProgress` (POS check-in).
+///
+/// UX: khi slot cuối cùng vừa được lấp, player chưa biết phải làm gì tiếp.
+/// Banner này:
+/// - Hiển thị progress ready: "X/Y đã sẵn sàng".
+/// - Cho phép current user toggle Ready/Unready.
+/// - Cập nhật real-time khi member khác bấm (qua SignalR + cubit).
+class LobbyFullGuidanceBanner extends StatefulWidget {
+  /// Lobby hiện tại.
+  final LobbyEntity lobby;
+
+  /// ID của current user — dùng tìm `isReady` của chính họ trong `lobby.players`.
+  final String currentUserId;
+
+  /// Bấm để toggle ready (host + member đều dùng).
+  final Future<void> Function(bool isReady)? onToggleReady;
+
+  /// Optional callback mở bottom sheet chi tiết lobby.
+  final VoidCallback? onSecondaryAction;
+
+  const LobbyFullGuidanceBanner({
+    super.key,
+    required this.lobby,
+    required this.currentUserId,
+    this.onToggleReady,
+    this.onSecondaryAction,
+  });
+
+  @override
+  State<LobbyFullGuidanceBanner> createState() =>
+      _LobbyFullGuidanceBannerState();
+}
+
+class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
+  bool _isToggling = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final isFull = widget.lobby.currentPlayers >= widget.lobby.maxPlayers;
+    if (!isFull) return const SizedBox.shrink();
+
+    // Không show nếu lobby đã kết thúc → tránh gây nhiễu.
+    final endedStatuses = {
+      LobbyStatus.closed,
+      LobbyStatus.timeoutFailed,
+      LobbyStatus.hostCancelled,
+      LobbyStatus.rejectedByCafe,
+      LobbyStatus.expiredByCafe,
+    };
+    if (endedStatuses.contains(widget.lobby.status)) {
+      return const SizedBox.shrink();
+    }
+
+    // Tính số người đã Ready.
+    final readyCount =
+        widget.lobby.players.where((p) => p.isReady).length;
+    final totalMembers = widget.lobby.players.length;
+
+    // Current user có phải member + ready chưa?
+    // Lấy player trùng userId; nếu không tìm thấy (chưa load xong) coi như
+    // chưa ready.
+    LobbyPlayer? currentPlayer;
+    for (final p in widget.lobby.players) {
+      if (p.userId == widget.currentUserId || p.id == widget.currentUserId) {
+        currentPlayer = p;
+        break;
+      }
+    }
+    final isCurrentUserMember = currentPlayer != null;
+    final isCurrentUserReady = currentPlayer?.isReady ?? false;
+    final isCurrentUserHost = currentPlayer?.isHost ?? false;
+
+    // Trạng thái lobby đặc biệt: inProgress / pendingCafeApproval → copy khác.
+    final showReadySection = widget.lobby.status == LobbyStatus.full ||
+        widget.lobby.status == LobbyStatus.inProgress;
+
+    return Semantics(
+      container: true,
+      label: 'Phòng đã đầy. ${showReadySection ? "Sẵn sàng: $readyCount/$totalMembers" : "Đang chờ quán duyệt."}',
+      child: Container(
+        margin: const EdgeInsets.only(top: AppSpacing.md),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colors.primaryContainer.withValues(alpha: 0.55),
+              colors.tertiaryContainer.withValues(alpha: 0.35),
+            ],
+          ),
+          borderRadius: AppRadius.radiusLgAll,
+          border: Border.all(
+            color: colors.primary.withValues(alpha: 0.25),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ─────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: colors.primary,
+                    borderRadius: AppRadius.radiusSmAll,
+                  ),
+                  child: Icon(
+                    AppIcons.users,
+                    size: AppIcons.sm,
+                    color: colors.onPrimary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Phòng đã đầy • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // ── Body copy theo trạng thái ───────────────────────────
+            if (widget.lobby.status == LobbyStatus.inProgress)
+              _bodyInProgress(theme, colors)
+            else if (showReadySection)
+              _bodyReadySection(
+                theme: theme,
+                colors: colors,
+                readyCount: readyCount,
+                totalMembers: totalMembers,
+                isCurrentUserReady: isCurrentUserReady,
+                isCurrentUserHost: isCurrentUserHost,
+              )
+            else
+              _bodyFallback(theme, colors),
+
+            // ── Action buttons ──────────────────────────────────────
+            const SizedBox(height: AppSpacing.md),
+            if (showReadySection && isCurrentUserMember) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _isToggling
+                          ? null
+                          : () => _handleToggleReady(isCurrentUserReady),
+                      icon: _isToggling
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(
+                              isCurrentUserReady
+                                  ? AppIcons.check
+                                  : AppIcons.clock,
+                              size: 16,
+                            ),
+                      label: Text(
+                        isCurrentUserReady
+                            ? 'Đã sẵn sàng ✓ (bấm để hủy)'
+                            : 'Bấm Sẵn sàng',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: isCurrentUserReady
+                            ? colors.tertiary
+                            : colors.primary,
+                        foregroundColor: isCurrentUserReady
+                            ? colors.onTertiary
+                            : colors.onPrimary,
+                      ),
+                    ),
+                  ),
+                  if (widget.onSecondaryAction != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    OutlinedButton(
+                      onPressed: widget.onSecondaryAction,
+                      child: const Text('Chi tiết'),
+                    ),
+                  ],
+                ],
+              ),
+            ] else if (widget.onSecondaryAction != null) ...[
+              OutlinedButton.icon(
+                onPressed: widget.onSecondaryAction,
+                icon: const Icon(AppIcons.info, size: 16),
+                label: const Text('Xem chi tiết'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleToggleReady(bool wasReady) async {
+    if (widget.onToggleReady == null) return;
+    setState(() => _isToggling = true);
+    try {
+      await widget.onToggleReady!(!wasReady);
+    } finally {
+      if (mounted) setState(() => _isToggling = false);
+    }
+  }
+
+  Widget _bodyReadySection({
+    required ThemeData theme,
+    required ColorScheme colors,
+    required int readyCount,
+    required int totalMembers,
+    required bool isCurrentUserReady,
+    required bool isCurrentUserHost,
+  }) {
+    final allReady = readyCount >= totalMembers && totalMembers > 0;
+    final nextStep = allReady
+        ? 'Tất cả đã sẵn sàng! Đợi đến ngày chơi — bấm "Đã tới quán" để check-in.'
+        : isCurrentUserReady
+            ? 'Đang đợi các thành viên khác bấm Sẵn sàng. Khi cả nhóm ready, '
+                'lobby sẽ chuyển sang "Đang chơi" (InProgress).'
+            : 'Mỗi thành viên${isCurrentUserHost ? " (bao gồm host)" : ""} '
+                'bấm "Sẵn sàng" để xác nhận đã chuẩn bị xong. Khi tất cả ready, '
+                'lobby sẽ chuyển sang "Đang chơi".';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Progress chip
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: allReady
+                ? colors.tertiaryContainer
+                : colors.surfaceContainerHighest.withValues(alpha: 0.6),
+            borderRadius: AppRadius.radiusSmAll,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                allReady ? AppIcons.check : AppIcons.clock,
+                size: 14,
+                color: allReady
+                    ? colors.onTertiaryContainer
+                    : colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              Text(
+                'Sẵn sàng: $readyCount/$totalMembers',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: allReady
+                      ? colors.onTertiaryContainer
+                      : colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          nextStep,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _bodyInProgress(ThemeData theme, ColorScheme colors) {
+    return Text(
+      'Lobby đã chuyển sang "Đang chơi". Đến quán đúng giờ và bấm "Đã tới '
+      'quán" để nhận mã QR check-in. Đừng quên đánh giá Karma sau khi chơi '
+      'xong!',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colors.onSurfaceVariant,
+        height: 1.4,
+      ),
+    );
+  }
+
+  Widget _bodyFallback(ThemeData theme, ColorScheme colors) {
+    return Text(
+      'Phòng đã đầy. Theo dõi để cập nhật tiếp theo từ chủ phòng.',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colors.onSurfaceVariant,
+        height: 1.4,
       ),
     );
   }

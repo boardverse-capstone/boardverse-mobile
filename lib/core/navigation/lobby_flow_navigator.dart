@@ -71,6 +71,26 @@ class LobbyFlowNavigator {
       MaterialPageRoute<T>(builder: (_) => page),
     );
   }
+
+  /// Push một page mới và **xoá toàn bộ route trước đó trừ root** (MainScaffold).
+  ///
+  /// Dùng sau khi hoàn tất flow đặt cọc / tạo lobby: stack lúc này gồm
+  /// [MainScaffold, LobbyHubPage, LobbyCafeSelectionPage, LobbyConfigPage,
+  /// LobbyQuotePage, ...]. Push `LobbyPage` đồng thời clear tất cả route
+  /// trung gian → khi user bấm "Rời phòng" sẽ pop về thẳng MainScaffold
+  /// thay vì rơi lại vào `LobbyConfigPage` (tab "Đặt cọc" cũ).
+  ///
+  /// Sau khi push, stack chỉ còn: [MainScaffold, LobbyPage].
+  static Future<T?> pushAndKeepRootOnly<T>(
+    BuildContext context,
+    Widget page,
+  ) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    return navigator.pushAndRemoveUntil<T>(
+      MaterialPageRoute<T>(builder: (_) => page),
+      (route) => route.isFirst,
+    );
+  }
 }
 
 /// Wrapper widget giúp page con không bao giờ bị rỗng khi back.

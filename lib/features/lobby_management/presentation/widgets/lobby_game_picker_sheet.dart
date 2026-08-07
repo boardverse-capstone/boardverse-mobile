@@ -30,7 +30,7 @@ class LobbyGamePickerSheet extends StatelessWidget {
                 height: 4,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: AppRadius.radiusXxsAll,
                 ),
               ),
             ),
@@ -76,7 +76,7 @@ class _GameListTile extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           color: theme.colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.radiusSmAll,
         ),
         child: Center(
           child: Text(

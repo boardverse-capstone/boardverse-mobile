@@ -36,10 +36,17 @@ class LobbyInviteEntity extends Equatable {
   /// ID của lobby được mời tham gia.
   final String lobbyId;
 
+  /// Tên lobby (server trả về trong DTO mới).
+  final String? lobbyName;
+
   /// ID của người gửi lời mời.
   final String inviterId;
 
-  /// Tên người gửi lời mời.
+  /// Username người gửi (server DTO `inviterUsername`).
+  final String? inviterUsername;
+
+  /// Tên hiển thị người gửi — alias cũ tương thích với DTO cũ
+  /// (`inviter.name` hoặc fallback `inviterUsername`).
   final String inviterName;
 
   /// Avatar URL của người gửi lời mời.
@@ -47,6 +54,9 @@ class LobbyInviteEntity extends Equatable {
 
   /// ID của người được mời.
   final String inviteeId;
+
+  /// Username người được mời (server DTO `inviteeUsername`).
+  final String? inviteeUsername;
 
   /// Lời nhắn kèm theo (nếu có).
   final String? message;
@@ -59,6 +69,10 @@ class LobbyInviteEntity extends Equatable {
 
   /// Thời điểm lời mời hết hạn (24h sau khi gửi).
   final DateTime expiresAt;
+
+  /// Thời điểm invitee accept/decline (server DTO `respondedAt`).
+  /// Null nếu chưa phản hồi.
+  final DateTime? respondedAt;
 
   /// Tên game của lobby.
   final String gameName;
@@ -75,14 +89,18 @@ class LobbyInviteEntity extends Equatable {
   const LobbyInviteEntity({
     required this.inviteId,
     required this.lobbyId,
+    this.lobbyName,
     required this.inviterId,
+    this.inviterUsername,
     required this.inviterName,
     required this.inviterAvatar,
     required this.inviteeId,
+    this.inviteeUsername,
     this.message,
     required this.status,
     required this.createdAt,
     required this.expiresAt,
+    this.respondedAt,
     required this.gameName,
     required this.cafeName,
     required this.currentMembers,
@@ -93,6 +111,12 @@ class LobbyInviteEntity extends Equatable {
   bool get isActive =>
       status == LobbyInviteStatus.pending &&
       DateTime.now().isBefore(expiresAt);
+
+  /// Lời mời đã ở trạng thái terminal → có thể resend.
+  bool get canResend =>
+      status == LobbyInviteStatus.declined ||
+      status == LobbyInviteStatus.expired ||
+      status == LobbyInviteStatus.cancelled;
 
   /// Khoảng thời gian còn lại trước khi hết hạn.
   Duration get remainingTime => expiresAt.difference(DateTime.now());
@@ -107,14 +131,18 @@ class LobbyInviteEntity extends Equatable {
   List<Object?> get props => [
     inviteId,
     lobbyId,
+    lobbyName,
     inviterId,
+    inviterUsername,
     inviterName,
     inviterAvatar,
     inviteeId,
+    inviteeUsername,
     message,
     status,
     createdAt,
     expiresAt,
+    respondedAt,
     gameName,
     cafeName,
     currentMembers,

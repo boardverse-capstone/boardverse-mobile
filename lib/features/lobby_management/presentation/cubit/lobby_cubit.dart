@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse_mobile/core/error/failures.dart';
@@ -43,9 +44,16 @@ class LobbyCubit extends Cubit<LobbyState> {
       'gameName': lobby.gameName,
       'cafeId': lobby.cafeId,
       'cafeName': lobby.cafeName,
+      'hostId': lobby.hostId,
+      'hostName': lobby.hostName,
+      'status': lobby.status.name,
+      'scheduledTime': lobby.scheduledTime.toIso8601String(),
       'timeoutAt': lobby.timeoutAt.toIso8601String(),
+      'expiresAt': lobby.timeoutAt.toIso8601String(),
+      'createdAt': lobby.createdAt.toIso8601String(),
       'currentPlayers': lobby.currentPlayers,
       'maxPlayers': lobby.maxPlayers,
+      'minPlayers': lobby.minPlayers,
       'isPublic': lobby.isPublic,
       'inviteCode': lobby.inviteCode,
       'minimumKarma': lobby.minimumKarma,
@@ -92,6 +100,10 @@ class LobbyCubit extends Cubit<LobbyState> {
         _startCountdown(lobby.timeoutAt);
         _watchLobbyRealtime(lobby.id);
         _watchLobbyEvents(lobby.id);
+        // Lưu persistence ngay khi join — để nếu response `/lobbies/{id}`
+        // không trả `hostName`/`cafeName`, các lần load sau vẫn có data
+        // cached (vd: reload, restoreActiveLobby, initLobbyState merge).
+        _persistLobby(lobby);
         emit(LobbyCreated(lobby: lobby));
         return Right<Failure, LobbyEntity?>(lobby);
       },
@@ -120,6 +132,12 @@ class LobbyCubit extends Cubit<LobbyState> {
   Future<void> initLobbyState(String lobbyId, String currentUserId) async {
     emit(const LobbyLoading());
 
+    // Load cached lobby trước (nếu có) — dùng làm fallback khi response
+    // backend mới (`/lobbies/{id}`) không trả `hostName`, `cafeName`,
+    // `inviteCode` (chỉ trả id). UI cần tên hiển thị nên merge 2 nguồn.
+    await _persistenceService.loadCachedDetails();
+    final cachedLobby = _persistenceService.getCachedLobbyEntity();
+
     // Dùng `GET /api/v1/lobbies/{lobbyId}` (chi tiết) làm nguồn chính —
     // endpoint này trả về lobby **bất kể status** (kể cả `Closed`,
     // `TimeoutFailed`, `HostCancelled`). Nhờ đó player có thể mở
@@ -142,37 +160,65 @@ class LobbyCubit extends Cubit<LobbyState> {
           return;
         }
 
-        if (lobby.status.isTerminal) {
+        // Merge field bị thiếu từ cached lobby (response `/lobbies/{id}`
+        // mới không trả `hostName`, `cafeName`, `inviteCode`).
+        final mergedLobby = _mergeWithCached(lobby, cachedLobby);
+
+        if (mergedLobby.status.isTerminal) {
           // Lobby đã kết thúc — KHÔNG start realtime (server không còn
           // push event cho lobby này). Chỉ emit ended state + persist
           // để UI có thể show action bar (giải tán / tạo lại / xem chi tiết).
           await _persistenceService.saveLobbyDetails({
-            'id': lobby.id,
-            'gameId': lobby.gameId,
-            'gameName': lobby.gameName,
-            'cafeId': lobby.cafeId,
-            'cafeName': lobby.cafeName,
-            'hostId': lobby.hostId,
-            'hostName': lobby.hostName,
-            'status': lobby.status.name,
-            'scheduledTime': lobby.scheduledTime.toIso8601String(),
-            'expiresAt': lobby.timeoutAt.toIso8601String(),
-            'createdAt': lobby.createdAt.toIso8601String(),
+            'id': mergedLobby.id,
+            'gameId': mergedLobby.gameId,
+            'gameName': mergedLobby.gameName,
+            'cafeId': mergedLobby.cafeId,
+            'cafeName': mergedLobby.cafeName,
+            'hostId': mergedLobby.hostId,
+            'hostName': mergedLobby.hostName,
+            'status': mergedLobby.status.name,
+            'scheduledTime': mergedLobby.scheduledTime.toIso8601String(),
+            'expiresAt': mergedLobby.timeoutAt.toIso8601String(),
+            'createdAt': mergedLobby.createdAt.toIso8601String(),
+            'currentPlayers': mergedLobby.currentPlayers,
+            'maxPlayers': mergedLobby.maxPlayers,
+            'minPlayers': mergedLobby.minPlayers,
+            'isPublic': mergedLobby.isPublic,
+            'inviteCode': mergedLobby.inviteCode,
           });
-          if (!isClosed) emit(LobbyEnded(lobby: lobby));
+          if (!isClosed) emit(LobbyEnded(lobby: mergedLobby));
           return;
         }
 
         // Lobby còn active — sync realtime + persistence như cũ.
-        _startCountdown(lobby.timeoutAt);
-        _watchLobbyRealtime(lobby.id);
-        _watchLobbyEvents(lobby.id);
-        _persistLobby(lobby);
+        _startCountdown(mergedLobby.timeoutAt);
+        _watchLobbyRealtime(mergedLobby.id);
+        _watchLobbyEvents(mergedLobby.id);
+        _persistLobby(mergedLobby);
 
         if (!isClosed) {
-          emit(LobbyCreated(lobby: lobby));
+          emit(LobbyCreated(lobby: mergedLobby));
         }
       },
+    );
+  }
+
+  /// Merge field bị thiếu từ cached lobby. Response backend mới
+  /// (`/lobbies/{id}`) chỉ trả id chứ không trả `hostName`, `cafeName`,
+  /// `inviteCode` — fill in từ cache để UI render đúng tên.
+  LobbyEntity _mergeWithCached(
+    LobbyEntity fresh,
+    LobbyEntity? cached,
+  ) {
+    if (cached == null) return fresh;
+    return fresh.copyWith(
+      hostName: fresh.hostName.isEmpty ? cached.hostName : fresh.hostName,
+      cafeName: fresh.cafeName.isEmpty ? cached.cafeName : fresh.cafeName,
+      inviteCode: fresh.inviteCode ?? cached.inviteCode,
+      gameName: fresh.gameName.isEmpty ? cached.gameName : fresh.gameName,
+      // scheduledTime fallback nếu response trả null/invalid (rare).
+      scheduledTime: fresh.scheduledTime,
+      timeoutAt: fresh.timeoutAt,
     );
   }
 
@@ -194,13 +240,27 @@ class LobbyCubit extends Cubit<LobbyState> {
 
   // ─── Invite Friend ─────────────────────────────────────────────────────
 
-  Future<void> inviteFriend(String lobbyId, String friendId) async {
+  /// Gửi lời mời tham gia lobby tới 1 friend.
+  ///
+  /// Trả về [Either<Failure, void>] để caller (UI) tự xử lý:
+  /// - Success → show snackbar "Đã gửi lời mời".
+  /// - Failure → show snackbar với message lỗi từ backend.
+  ///
+  /// QUAN TRỌNG: method này KHÔNG emit [LobbyFailure] — invite là action
+  /// phụ, không được phá lobby UI hiện tại. Trước đây emit LobbyFailure
+  /// khiến BlocConsumer trong LobbyPage render _LobbyFailureScaffold,
+  /// lobby content biến mất → user cảm giác "bị văng khỏi phòng".
+  Future<Either<Failure, void>> inviteFriend(
+    String lobbyId,
+    String friendId,
+  ) async {
     final result = await _repository.inviteFriend(lobbyId, friendId);
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (_) {},
-    );
+    if (isClosed) {
+      return const Left<Failure, void>(
+        ServerFailure(message: 'Lobby cubit đã đóng'),
+      );
+    }
+    return result;
   }
 
   // ─── Host-only: close / lock / openKarmaWindow ───────────────────────
@@ -401,7 +461,23 @@ class LobbyCubit extends Cubit<LobbyState> {
             _onLobbyUpdate(lobby);
           },
           onError: (error) {
-            emit(LobbyFailure(message: error.toString()));
+            // Realtime stream errors KHÔNG được phá lobby UI.
+            //
+            // Trước đây emit `LobbyFailure` ở đây khiến BlocConsumer của
+            // LobbyPage render `_LobbyFailureScaffold` → toàn bộ lobby
+            // content bị thay bằng màn hình lỗi, user cảm giác "bị văng
+            // khỏi phòng". Nguyên nhân phổ biến:
+            //   - SignalR hub bị đóng bởi server khi lobby chuyển state.
+            //   - Token hết hạn trong phiên realtime dài.
+            //   - Một polling async nội bộ throw.
+            //
+            // Hành vi đúng: log + im lặng. Nếu realtime thực sự hỏng,
+            // cubit vẫn giữ state LobbyCreated/UpdatedRealtime hiện tại
+            // để user tiếp tục thao tác (mời bạn, đọc thông tin...). Khi
+            // user reload/refresh thủ công mới reset.
+            debugPrint(
+              '[LobbyCubit] watchLobbyRealtime stream error (ignored): $error',
+            );
           },
         );
   }
@@ -418,6 +494,9 @@ class LobbyCubit extends Cubit<LobbyState> {
           onError: (error) {
             // Event stream errors không crash UI — chỉ ghi log.
             // Realtime state update sẽ tới qua watchLobbyRealtime.
+            debugPrint(
+              '[LobbyCubit] watchLobbyEvents stream error (ignored): $error',
+            );
           },
         );
   }

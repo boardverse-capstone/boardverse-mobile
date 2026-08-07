@@ -1,35 +1,42 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/navigation/lobby_flow_navigator.dart';
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../lobby_management/presentation/pages/lobby_quote_page.dart';
 import '../../../reservation/domain/entities/entities.dart';
 import '../../../reservation/presentation/cubit/reservation_cubit.dart';
-import '../cubit/matchmaking_cubit.dart';
-import '../cubit/matchmaking_state.dart';
-import 'lobby_cafe_selection_page.dart';
+import '../../../reservation/presentation/cubit/reservation_state.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
+import '../../domain/entities/cafe_entity.dart';
+import '../cubit/matchmaking_cubit.dart';
+import '../cubit/matchmaking_state.dart';
+import '../widgets/lobby_config/confirm_lobby_dialog.dart';
+import '../widgets/lobby_config/lobby_config_tab_bar.dart';
+import '../widgets/lobby_config/tab_cau_hinh.dart';
+import '../widgets/lobby_config/tab_dat_coc.dart';
+import '../widgets/lobby_config/tab_quan_va_game.dart';
+import '../widgets/lobby_config/tab_thoi_gian.dart';
+import 'lobby_cafe_selection_page.dart';
 
-/// Trang cấu hình lobby — thiết kế lại mobile-first theo BR-NEW-15:
+/// Trang cấu hình lobby — thiết kế lại với TabBarView:
 ///
-/// - TimeSlot chips thay vì time picker (morning/afternoon/evening/night)
-/// - Optional preferredStartTime bên trong slot đã chọn
-/// - Segmented button cho số người thay vì slider
-/// - Nâng cao (Karma, bán kính) ẩn trong expandable section
-/// - Sticky summary card ở bottom hiển thị buffer warning
-/// - Stepper đơn giản ở header
+/// 4 tabs:
+/// 1. Quán & Game - Chọn/chỉnh sửa quán và game
+/// 2. Thời gian - Chọn ngày (7 chips + lịch) và phiên (3 slots)
+/// 3. Cấu hình - Số người, chế độ, nâng cao
+/// 4. Đặt cọc - Preview cọc, xác nhận cuối cùng
 class LobbyConfigPage extends StatefulWidget {
   final String gameId;
   final String gameName;
   final String cafeId;
   final String cafeName;
+  final CafeEntity? cafeEntity;
   final MatchmakingCubit matchmakingCubit;
-
-  /// Optional: truyền vào khi cần back-về cafe selection (đổi quán).
   final BoardGameEntity? gameEntity;
 
   const LobbyConfigPage({
@@ -38,6 +45,7 @@ class LobbyConfigPage extends StatefulWidget {
     required this.gameName,
     required this.cafeId,
     required this.cafeName,
+    this.cafeEntity,
     required this.matchmakingCubit,
     this.gameEntity,
   });
@@ -46,7 +54,11 @@ class LobbyConfigPage extends StatefulWidget {
   State<LobbyConfigPage> createState() => _LobbyConfigPageState();
 }
 
-class _LobbyConfigPageState extends State<LobbyConfigPage> {
+class _LobbyConfigPageState extends State<LobbyConfigPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  // State
   late DateTime _selectedDate;
   TimeSlot _selectedTimeSlot = TimeSlot.morning;
   TimeOfDay? _preferredStartTime;
@@ -58,10 +70,13 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
   double _searchRadiusKm = 5.0;
   double _minimumKarma = 0.0;
 
-  /// Lead-time mặc định 20 phút (theo BR-LOBBY-01)
+  // Quote preview - cache local từ cubit stream
+  ReservationQuoteEntity? _quotePreview;
+  String? _quoteError;
+  bool _isQuoteLoading = false;
+
   final Duration _leadTime = const Duration(minutes: 20);
 
-  /// Tính buffer (phút) từ now đến recruitmentDeadline
   int get _bufferMinutes {
     final now = DateTime.now();
     final scheduledTime = _getScheduledDateTime();
@@ -69,26 +84,32 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     return deadline.difference(now).inMinutes;
   }
 
-  /// Check xem buffer có warning không (60-120 phút)
-  bool get _hasBufferWarning => _bufferMinutes >= 60 && _bufferMinutes < 120;
+  bool get _isScheduledInPast => _bufferMinutes < 0;
+  bool get _hasBufferWarning => !_isScheduledInPast && _bufferMinutes >= 60 && _bufferMinutes < 120;
+  bool get _isBufferTooShort => !_isScheduledInPast && _bufferMinutes < 60;
 
-  /// Check xem buffer có đủ không (< 60 phút → từ chối)
-  bool get _isBufferTooShort => _bufferMinutes < 60;
-
-  /// Check xem có thể tạo lobby không
-  bool get _canCreateLobby => !_isBufferTooShort;
+  // Chỉ 3 slots: morning, afternoon, evening (không có night)
+  static const _availableSlots = [TimeSlot.morning, TimeSlot.afternoon, TimeSlot.evening];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
-    // Set preferredStartTime mặc định là giờ bắt đầu của slot
     _preferredStartTime = _getSlotStartTime(TimeSlot.morning);
     widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
+    // Load quote ngay khi mở trang để đảm bảo có data khi vào tab 4
+    _loadQuotePreview();
   }
 
-  /// Lấy thời gian bắt đầu mặc định của 1 slot
+  @override
+  void dispose() {
+    _quoteSubscription?.cancel();
+    _tabController.dispose();
+    super.dispose();
+  }
+
   TimeOfDay _getSlotStartTime(TimeSlot slot) {
     switch (slot) {
       case TimeSlot.morning:
@@ -102,7 +123,6 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     }
   }
 
-  /// Lấy thời gian kết thúc của 1 slot
   TimeOfDay _getSlotEndTime(TimeSlot slot) {
     switch (slot) {
       case TimeSlot.morning:
@@ -116,7 +136,6 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     }
   }
 
-  /// Tính scheduledDateTime từ date + timeSlot
   DateTime _getScheduledDateTime() {
     final startTime = _getSlotStartTime(_selectedTimeSlot);
     return DateTime(
@@ -134,7 +153,15 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     return '$weekday, ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
   }
 
+  String _formatTimeOfDay(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
   String _formatBuffer(int minutes) {
+    // Trường hợp ngày đã chọn nằm trong quá khứ
+    if (minutes < 0) {
+      return 'Ngày đã chọn nằm trong quá khứ';
+    }
     if (minutes >= 60) {
       final hours = minutes ~/ 60;
       final mins = minutes % 60;
@@ -144,7 +171,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     return '${minutes}p';
   }
 
-  Future<void> _selectDate(BuildContext context) async {
+  void _onDateSelected(DateTime date) {
+    setState(() => _selectedDate = date);
+  }
+
+  Future<void> _openDatePicker(BuildContext context) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final picked = await showDatePicker(
@@ -161,20 +192,25 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     }
   }
 
-  void _onTimeSlotChanged(TimeSlot? slot) {
-    if (slot == null) return;
+  void _onTimeSlotChanged(TimeSlot slot) {
     setState(() {
       _selectedTimeSlot = slot;
-      // Reset preferredStartTime về giờ bắt đầu của slot mới
       _preferredStartTime = _getSlotStartTime(slot);
     });
+  }
+
+  TimeSlot _detectTimeSlotFromTime(TimeOfDay time) {
+    final hour = time.hour + time.minute / 60;
+    if (hour >= 9 && hour < 13) return TimeSlot.morning;
+    if (hour >= 13 && hour < 18) return TimeSlot.afternoon;
+    if (hour >= 18 && hour < 23) return TimeSlot.evening;
+    return TimeSlot.night;
   }
 
   Future<void> _selectPreferredTime(BuildContext context) async {
     final startTime = _getSlotStartTime(_selectedTimeSlot);
     final endTime = _getSlotEndTime(_selectedTimeSlot);
 
-    // Giới hạn time picker trong khoảng của slot
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _preferredStartTime ?? startTime,
@@ -190,31 +226,23 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     );
 
     if (picked != null && mounted) {
-      // Validate giờ nằm trong slot
       final pickedHour = picked.hour + picked.minute / 60;
       final startHour = startTime.hour + startTime.minute / 60;
       final endHour = endTime.hour == 24 ? 24.0 : endTime.hour + endTime.minute / 60;
 
-      if (pickedHour >= startHour && pickedHour < endHour) {
-        setState(() => _preferredStartTime = picked);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Giờ phải nằm trong khung ${_getSlotLabel(_selectedTimeSlot)} '
-                '(${_formatTimeOfDay(startTime)} - ${_formatTimeOfDay(endTime)})',
-              ),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      }
-    }
-  }
+      final isWithinCurrentSlot = pickedHour >= startHour && pickedHour < endHour;
+      final detectedSlot = _detectTimeSlotFromTime(picked);
 
-  String _formatTimeOfDay(TimeOfDay time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      setState(() {
+        if (isWithinCurrentSlot) {
+          _preferredStartTime = picked;
+        } else {
+          // User picked time outside current slot - auto-select correct slot
+          _selectedTimeSlot = detectedSlot;
+          _preferredStartTime = picked;
+        }
+      });
+    }
   }
 
   String _getSlotLabel(TimeSlot slot) {
@@ -282,18 +310,101 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
     );
   }
 
-  Future<void> _createLobby() async {
-    if (_isCreatingLobby || !_canCreateLobby) return;
+  void _goToTab(int tabIndex) {
+    _tabController.animateTo(tabIndex);
+  }
 
-    if (widget.cafeId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Vui lòng chọn quán cafe trước khi tạo phòng.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-      return;
+  // Lắng nghe trực tiếp ReservationCubit stream để cập nhật _quotePreview
+  StreamSubscription<ReservationState>? _quoteSubscription;
+
+  Future<void> _loadQuotePreview() async {
+    final reservationCubit = GetIt.instance<ReservationCubit>();
+
+    // Helper: chỉ setState khi widget đã mounted VÀ không đang trong build phase.
+    // Nếu đang build (frame đầu tiên), defer ra post-frame để tránh crash.
+    void safeSetState(VoidCallback fn) {
+      if (!mounted) return;
+      final phase = WidgetsBinding.instance.schedulerPhase;
+      final isBuilding = phase == SchedulerPhase.transientCallbacks ||
+          phase == SchedulerPhase.midFrameMicrotasks ||
+          phase == SchedulerPhase.persistentCallbacks;
+      if (isBuilding) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(fn);
+        });
+      } else {
+        setState(fn);
+      }
     }
+
+    // Set loading state
+    safeSetState(() {
+      _quoteError = null;
+      _quotePreview = null;
+      _isQuoteLoading = true;
+    });
+
+    // Subscribe trước khi trigger createQuote để không miss event
+    await _quoteSubscription?.cancel();
+    _quoteSubscription = reservationCubit.stream.listen((state) {
+      debugPrint('[LobbyConfig] ReservationState changed: ${state.runtimeType}');
+      if (state is ReservationQuoteLoaded) {
+        safeSetState(() {
+          _quotePreview = state.quote;
+          _isQuoteLoading = false;
+        });
+      } else if (state is ReservationInsufficientBalance) {
+        safeSetState(() {
+          _quotePreview = state.quote;
+          _isQuoteLoading = false;
+        });
+      } else if (state is ReservationQuoteError) {
+        safeSetState(() {
+          _quoteError = state.message;
+          _isQuoteLoading = false;
+        });
+      }
+    });
+
+    reservationCubit.reset();
+    reservationCubit.createQuote(
+      cafeId: widget.cafeId,
+      gameId: widget.gameId,
+      playDate: _selectedDate,
+      timeSlot: _selectedTimeSlot,
+      preferredStartTime: _preferredStartTime != null
+          ? '${_preferredStartTime!.hour.toString().padLeft(2, '0')}:'
+              '${_preferredStartTime!.minute.toString().padLeft(2, '0')}:00'
+          : null,
+      minPlayers: 2,
+      maxPlayers: _maxPlayers,
+      isPrivate: !_isPublic,
+    );
+  }
+
+  Future<void> _confirmAndCreateLobby() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => LobbyConfigConfirmDialog(
+        cafeName: widget.cafeName,
+        gameName: widget.gameName,
+        selectedDate: _selectedDate,
+        selectedTimeSlot: _selectedTimeSlot,
+        preferredStartTime: _preferredStartTime,
+        maxPlayers: _maxPlayers,
+        isPublic: _isPublic,
+        minimumKarma: _minimumKarma,
+        searchRadiusKm: _searchRadiusKm,
+        quotePreview: _quotePreview ?? GetIt.instance<ReservationCubit>().currentQuote,
+        formatDate: _formatDate,
+        formatTime: _formatTimeOfDay,
+        getSlotLabel: _getSlotLabel,
+        formatBuffer: _formatBuffer,
+        bufferMinutes: _bufferMinutes,
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
 
     setState(() => _isCreatingLobby = true);
 
@@ -338,1237 +449,111 @@ class _LobbyConfigPageState extends State<LobbyConfigPage> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        body: BlocBuilder<MatchmakingCubit, MatchmakingState>(
-            builder: (context, state) {
-            final BoardGameDetailEntity? gameDetail = state is MatchmakingGameDetail
-                ? state.game
-                : null;
-            final maxPlayers = gameDetail?.maxPlayers ?? widget.gameEntity?.maxPlayers ?? 6;
-            final minPlayers = gameDetail?.minPlayers ?? widget.gameEntity?.minPlayers ?? 2;
-
-            return Column(
-              children: [
-                // Progress indicator
-                _ProgressStepper(
-                  currentStep: 2,
-                  steps: const ['Chọn quán', 'Cấu hình', 'Đặt cọc'],
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: AppSpacing.paddingAllMd,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ========== HEADER: Quán + Game ==========
-                        _CompactHeaderCard(
-                          cafeName: widget.cafeName,
-                          gameName: widget.gameName,
-                          gameDetail: gameDetail,
-                          onChangeCafe: _changeCafe,
-                        ),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ========== SECTION 1: Ngày & Phiên ==========
-                        _SectionTitle(
-                          title: 'Khi nào?',
-                          subtitle: 'Chọn ngày và phiên chơi',
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-
-                        // Date selector
-                        _DateSelector(
-                          selectedDate: _selectedDate,
-                          onTap: () => _selectDate(context),
-                          formatDate: _formatDate,
-                        ),
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // TimeSlot chips
-                        _TimeSlotSelector(
-                          selectedSlot: _selectedTimeSlot,
-                          onChanged: _onTimeSlotChanged,
-                          getSlotLabel: _getSlotLabel,
-                          getSlotShortLabel: _getSlotShortLabel,
-                          getSlotIcon: _getSlotIcon,
-                          getSlotColor: _getSlotColor,
-                        ),
-
-                        const SizedBox(height: AppSpacing.sm),
-
-                        // Preferred start time (optional)
-                        _PreferredTimeSelector(
-                          preferredTime: _preferredStartTime,
-                          slot: _selectedTimeSlot,
-                          onTap: () => _selectPreferredTime(context),
-                          getSlotStartTime: _getSlotStartTime,
-                          getSlotEndTime: _getSlotEndTime,
-                          formatTime: _formatTimeOfDay,
-                        ),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ========== SECTION 2: Số người ==========
-                        _SectionTitle(
-                          title: ' Bao nhiêu người?',
-                          subtitle: 'Bao gồm bạn (host)',
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-
-                        _PlayerCountSelector(
-                          selectedCount: _maxPlayers,
-                          minPlayers: minPlayers,
-                          maxPlayers: maxPlayers,
-                          onChanged: (v) => setState(() => _maxPlayers = v),
-                        ),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ========== SECTION 3: Chế độ ==========
-                        _SectionTitle(
-                          title: 'Chế độ phòng',
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-
-                        _VisibilityToggle(
-                          isPublic: _isPublic,
-                          onChanged: (v) => setState(() => _isPublic = v),
-                        ),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ========== ADVANCED (Expandable) ==========
-                        _AdvancedSection(
-                          showAdvanced: _showAdvanced,
-                          onToggle: () => setState(() => _showAdvanced = !_showAdvanced),
-                          minimumKarma: _minimumKarma,
-                          onKarmaChanged: (v) => setState(() => _minimumKarma = v),
-                          searchRadiusKm: _searchRadiusKm,
-                          onRadiusChanged: (v) => setState(() => _searchRadiusKm = v),
-                        ),
-
-                        const SizedBox(height: AppSpacing.xxl),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ========== STICKY BOTTOM ==========
-                _StickyBottomSummary(
-                  bufferMinutes: _bufferMinutes,
-                  hasBufferWarning: _hasBufferWarning,
-                  isBufferTooShort: _isBufferTooShort,
-                  isCreatingLobby: _isCreatingLobby,
-                  canCreate: _canCreateLobby,
-                  onCreateLobby: _createLobby,
-                  formatBuffer: _formatBuffer,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Progress stepper ở header
-class _ProgressStepper extends StatelessWidget {
-  final int currentStep;
-  final List<String> steps;
-
-  const _ProgressStepper({
-    required this.currentStep,
-    required this.steps,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < steps.length; i++) ...[
-            _StepDot(
-              index: i + 1,
-              label: steps[i],
-              isActive: i + 1 == currentStep,
-              isCompleted: i + 1 < currentStep,
-            ),
-            if (i < steps.length - 1)
-              Expanded(
-                child: Container(
-                  height: 2,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                  color: i + 1 < currentStep
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outlineVariant,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StepDot extends StatelessWidget {
-  final int index;
-  final String label;
-  final bool isActive;
-  final bool isCompleted;
-
-  const _StepDot({
-    required this.index,
-    required this.label,
-    required this.isActive,
-    required this.isCompleted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: isCompleted
-                ? theme.colorScheme.primary
-                : isActive
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surfaceContainerHighest,
-            shape: BoxShape.circle,
-            border: isActive
-                ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : null,
-          ),
-          child: Center(
-            child: isCompleted
-                ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)
-                : Text(
-                    '$index',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isActive
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: isActive
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Compact header card cho quán + game
-class _CompactHeaderCard extends StatelessWidget {
-  final String cafeName;
-  final String gameName;
-  final BoardGameDetailEntity? gameDetail;
-  final VoidCallback onChangeCafe;
-
-  const _CompactHeaderCard({
-    required this.cafeName,
-    required this.gameName,
-    required this.gameDetail,
-    required this.onChangeCafe,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: AppSpacing.paddingAllMd,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primaryContainer,
-            theme.colorScheme.primaryContainer.withValues(alpha: 0.7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: AppRadius.radiusMdAll,
-      ),
-      child: Row(
-        children: [
-          // Game icon
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: AppRadius.radiusSmAll,
-            ),
-            child: gameDetail?.thumbnailUrl != null && gameDetail!.thumbnailUrl.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: AppRadius.radiusSmAll,
-                    child: Image.network(
-                      gameDetail!.thumbnailUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.extension,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  )
-                : Icon(
-                    Icons.extension,
-                    color: theme.colorScheme.primary,
-                    size: 32,
-                  ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  gameName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.local_cafe,
-                      size: 14,
-                      color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        cafeName,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (gameDetail != null) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface.withValues(alpha: 0.5),
-                      borderRadius: AppRadius.radiusXsAll,
-                    ),
-                    child: Text(
-                      '${gameDetail!.minPlayers}-${gameDetail!.maxPlayers} người',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Change button
-          TextButton(
-            onPressed: onChangeCafe,
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
-            ),
-            child: const Text('Đổi'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Section title với subtitle
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-
-  const _SectionTitle({
-    required this.title,
-    this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if (subtitle != null)
-          Text(
-            subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Date selector dạng horizontal chips
-class _DateSelector extends StatelessWidget {
-  final DateTime selectedDate;
-  final VoidCallback onTap;
-  final String Function(DateTime) formatDate;
-
-  const _DateSelector({
-    required this.selectedDate,
-    required this.onTap,
-    required this.formatDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    // Tạo list ngày: hôm nay + 6 ngày tới
-    final dates = List.generate(7, (i) => today.add(Duration(days: i)));
-
-    return SizedBox(
-      height: 80,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: dates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, index) {
-          final date = dates[index];
-          final isSelected = date.year == selectedDate.year &&
-              date.month == selectedDate.month &&
-              date.day == selectedDate.day;
-          final isToday = date == today;
-
-          return GestureDetector(
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 72,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.surfaceContainerHigh,
-                borderRadius: AppRadius.radiusMdAll,
-                border: isSelected
-                    ? null
-                    : Border.all(color: theme.colorScheme.outlineVariant),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (isToday)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      margin: const EdgeInsets.only(bottom: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? theme.colorScheme.onPrimary.withValues(alpha: 0.2)
-                            : theme.colorScheme.primaryContainer,
-                        borderRadius: AppRadius.radiusXsAll,
-                      ),
-                      child: Text(
-                        'HÔM NAY',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? theme.colorScheme.onPrimary
-                              : theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  Text(
-                    '${date.day}',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? theme.colorScheme.onPrimary
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    _getWeekdayShort(date.weekday),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isSelected
-                          ? theme.colorScheme.onPrimary.withValues(alpha: 0.8)
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  String _getWeekdayShort(int weekday) {
-    const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    return days[weekday % 7];
-  }
-}
-
-/// TimeSlot selector dạng chips
-class _TimeSlotSelector extends StatelessWidget {
-  final TimeSlot selectedSlot;
-  final ValueChanged<TimeSlot?> onChanged;
-  final String Function(TimeSlot) getSlotLabel;
-  final String Function(TimeSlot) getSlotShortLabel;
-  final IconData Function(TimeSlot) getSlotIcon;
-  final Color Function(TimeSlot, ColorScheme) getSlotColor;
-
-  const _TimeSlotSelector({
-    required this.selectedSlot,
-    required this.onChanged,
-    required this.getSlotLabel,
-    required this.getSlotShortLabel,
-    required this.getSlotIcon,
-    required this.getSlotColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: TimeSlot.values.map((slot) {
-        return _TimeSlotChip(
-          slot: slot,
-          isSelected: slot == selectedSlot,
-          onTap: () => onChanged(slot),
-          getLabel: getSlotShortLabel,
-          getIcon: getSlotIcon,
-          getColor: getSlotColor,
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _TimeSlotChip extends StatelessWidget {
-  final TimeSlot slot;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final String Function(TimeSlot) getLabel;
-  final IconData Function(TimeSlot) getIcon;
-  final Color Function(TimeSlot, ColorScheme) getColor;
-
-  const _TimeSlotChip({
-    required this.slot,
-    required this.isSelected,
-    required this.onTap,
-    required this.getLabel,
-    required this.getIcon,
-    required this.getColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = getColor(slot, theme.colorScheme);
-    final icon = getIcon(slot);
-    final label = getLabel(slot);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.15) : theme.colorScheme.surfaceContainerHigh,
-          borderRadius: AppRadius.radiusFullAll,
-          border: Border.all(
-            color: isSelected ? color : theme.colorScheme.outlineVariant,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        body: Column(
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isSelected ? color : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? color : theme.colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+            // Tab bar
+            LobbyConfigTabBar(controller: _tabController),
 
-/// Preferred start time selector (optional)
-class _PreferredTimeSelector extends StatelessWidget {
-  final TimeOfDay? preferredTime;
-  final TimeSlot slot;
-  final VoidCallback onTap;
-  final TimeOfDay Function(TimeSlot) getSlotStartTime;
-  final TimeOfDay Function(TimeSlot) getSlotEndTime;
-  final String Function(TimeOfDay) formatTime;
-
-  const _PreferredTimeSelector({
-    required this.preferredTime,
-    required this.slot,
-    required this.onTap,
-    required this.getSlotStartTime,
-    required this.getSlotEndTime,
-    required this.formatTime,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final startTime = getSlotStartTime(slot);
-    final endTime = getSlotEndTime(slot);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: AppSpacing.paddingAllSm,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
-          borderRadius: AppRadius.radiusSmAll,
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.schedule,
-              size: 20,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: AppSpacing.sm),
+            // Tab content
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Giờ dự kiến bắt đầu',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    preferredTime != null
-                        ? formatTime(preferredTime!)
-                        : 'Chọn giờ (tuỳ chọn)',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: preferredTime != null
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs,
-              ),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.radiusXsAll,
-              ),
-              child: Text(
-                '${formatTime(startTime)} - ${formatTime(endTime)}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+              child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
+                builder: (context, state) {
+                  final BoardGameDetailEntity? gameDetail =
+                      state is MatchmakingGameDetail ? state.game : null;
+                  final maxPlayers = gameDetail?.maxPlayers ??
+                      widget.gameEntity?.maxPlayers ?? 6;
+                  final minPlayers = gameDetail?.minPlayers ??
+                      widget.gameEntity?.minPlayers ?? 2;
 
-/// Player count selector dạng segmented buttons
-class _PlayerCountSelector extends StatelessWidget {
-  final int selectedCount;
-  final int minPlayers;
-  final int maxPlayers;
-  final ValueChanged<int> onChanged;
-
-  const _PlayerCountSelector({
-    required this.selectedCount,
-    required this.minPlayers,
-    required this.maxPlayers,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Tạo list số người có thể chọn
-    final counts = List.generate(
-      maxPlayers - minPlayers + 1,
-      (i) => minPlayers + i,
-    );
-
-    return Container(
-      padding: AppSpacing.paddingAllMd,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: AppRadius.radiusMdAll,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.people,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Tổng số người chơi',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: AppRadius.radiusFullAll,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$selectedCount',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onPrimaryContainer,
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Tab 1: Quán & Game
+                      LobbyConfigTabQuanVaGame(
+                        cafeName: widget.cafeName,
+                        cafeEntity: widget.cafeEntity,
+                        gameName: widget.gameName,
+                        gameEntity: widget.gameEntity,
+                        gameDetail: gameDetail,
+                        onChangeCafe: _changeCafe,
+                        onNext: () => _goToTab(1),
                       ),
-                    ),
-                    Text(
-                      ' người',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
+
+                      // Tab 2: Thời gian
+                      LobbyConfigTabThoiGian(
+                        selectedDate: _selectedDate,
+                        selectedTimeSlot: _selectedTimeSlot,
+                        preferredStartTime: _preferredStartTime,
+                        availableSlots: _availableSlots,
+                        onDateSelected: _onDateSelected,
+                        onOpenDatePicker: () => _openDatePicker(context),
+                        onTimeSlotChanged: _onTimeSlotChanged,
+                        onPreferredTimeTap: () => _selectPreferredTime(context),
+                        formatDate: _formatDate,
+                        formatTime: _formatTimeOfDay,
+                        getSlotStartTime: _getSlotStartTime,
+                        getSlotEndTime: _getSlotEndTime,
+                        getSlotLabel: _getSlotLabel,
+                        getSlotShortLabel: _getSlotShortLabel,
+                        getSlotIcon: _getSlotIcon,
+                        getSlotColor: _getSlotColor,
+                        bufferMinutes: _bufferMinutes,
+                        isScheduledInPast: _isScheduledInPast,
+                        isBufferTooShort: _isBufferTooShort,
+                        formatBuffer: _formatBuffer,
+                        onNext: () => _goToTab(2),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: counts.map((count) {
-              final isSelected = count == selectedCount;
-              return GestureDetector(
-                onTap: () => onChanged(count),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.surface,
-                    borderRadius: AppRadius.radiusSmAll,
-                    border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outlineVariant,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$count',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? theme.colorScheme.onPrimary
-                            : theme.colorScheme.onSurface,
+
+                      // Tab 3: Cấu hình
+                      LobbyConfigTabCauHinh(
+                        maxPlayers: maxPlayers,
+                        minPlayers: minPlayers,
+                        selectedMaxPlayers: _maxPlayers,
+                        isPublic: _isPublic,
+                        showAdvanced: _showAdvanced,
+                        minimumKarma: _minimumKarma,
+                        searchRadiusKm: _searchRadiusKm,
+                        onMaxPlayersChanged: (v) => setState(() => _maxPlayers = v),
+                        onPublicChanged: (v) => setState(() => _isPublic = v),
+                        onToggleAdvanced: () => setState(() => _showAdvanced = !_showAdvanced),
+                        onKarmaChanged: (v) => setState(() => _minimumKarma = v),
+                        onRadiusChanged: (v) => setState(() => _searchRadiusKm = v),
+                        onNext: () {
+                          _loadQuotePreview();
+                          _goToTab(3);
+                        },
                       ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Bao gồm bạn (host). Cần tối thiểu $minPlayers người.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-/// Visibility toggle (Public/Private)
-class _VisibilityToggle extends StatelessWidget {
-  final bool isPublic;
-  final ValueChanged<bool> onChanged;
-
-  const _VisibilityToggle({
-    required this.isPublic,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: AppRadius.radiusMdAll,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: isPublic
-                      ? theme.colorScheme.primaryContainer
-                      : Colors.transparent,
-                  borderRadius: AppRadius.radiusMdAll,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.public,
-                      size: 20,
-                      color: isPublic
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Công khai',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: isPublic ? FontWeight.bold : FontWeight.normal,
-                        color: isPublic
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface,
+                      // Tab 4: Đặt cọc
+                      LobbyConfigTabDatCoc(
+                        cafeName: widget.cafeName,
+                        gameName: widget.gameName,
+                        selectedDate: _selectedDate,
+                        selectedTimeSlot: _selectedTimeSlot,
+                        preferredStartTime: _preferredStartTime,
+                        maxPlayers: _maxPlayers,
+                        isPublic: _isPublic,
+                        minimumKarma: _minimumKarma,
+                        quotePreview: _quotePreview,
+                        quoteError: _quoteError,
+                        isQuoteLoading: _isQuoteLoading,
+                        isCreatingLobby: _isCreatingLobby,
+                        bufferMinutes: _bufferMinutes,
+                        isBufferTooShort: _isBufferTooShort,
+                        hasBufferWarning: _hasBufferWarning,
+                        formatDate: _formatDate,
+                        formatTime: _formatTimeOfDay,
+                        formatBuffer: _formatBuffer,
+                        getSlotLabel: _getSlotLabel,
+                        getSlotShortLabel: _getSlotShortLabel,
+                        getSlotIcon: _getSlotIcon,
+                        onConfirm: _confirmAndCreateLobby,
+                        onRefreshQuote: _loadQuotePreview,
+                        onLoadQuote: _loadQuotePreview,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: !isPublic
-                      ? theme.colorScheme.primaryContainer
-                      : Colors.transparent,
-                  borderRadius: AppRadius.radiusMdAll,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.lock,
-                      size: 20,
-                      color: !isPublic
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Riêng tư',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: !isPublic ? FontWeight.bold : FontWeight.normal,
-                        color: !isPublic
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Expandable advanced section (Karma, bán kính)
-class _AdvancedSection extends StatelessWidget {
-  final bool showAdvanced;
-  final VoidCallback onToggle;
-  final double minimumKarma;
-  final ValueChanged<double> onKarmaChanged;
-  final double searchRadiusKm;
-  final ValueChanged<double> onRadiusChanged;
-
-  const _AdvancedSection({
-    required this.showAdvanced,
-    required this.onToggle,
-    required this.minimumKarma,
-    required this.onKarmaChanged,
-    required this.searchRadiusKm,
-    required this.onRadiusChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Toggle button
-        GestureDetector(
-          onTap: onToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: AppRadius.radiusFullAll,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  showAdvanced ? Icons.settings : Icons.settings_outlined,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  showAdvanced ? 'Ẩn nâng cao' : 'Tuỳ chọn nâng cao',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Icon(
-                  showAdvanced ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Advanced options
-        if (showAdvanced) ...[
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            padding: AppSpacing.paddingAllMd,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHigh,
-              borderRadius: AppRadius.radiusMdAll,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Karma slider
-                _CompactSlider(
-                  icon: Icons.star,
-                  label: 'Karma tối thiểu',
-                  valueLabel: '${minimumKarma.toInt()} điểm',
-                  value: minimumKarma,
-                  min: 0,
-                  max: 100,
-                  divisions: 20,
-                  onChanged: onKarmaChanged,
-                ),
-                const Divider(height: AppSpacing.lg),
-
-                // Search radius slider
-                _CompactSlider(
-                  icon: Icons.radar,
-                  label: 'Bán kính tìm kiếm',
-                  valueLabel: '${searchRadiusKm.toStringAsFixed(1)} km',
-                  value: searchRadiusKm,
-                  min: 1,
-                  max: 30,
-                  divisions: 29,
-                  onChanged: onRadiusChanged,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _CompactSlider extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String valueLabel;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  const _CompactSlider({
-    required this.icon,
-    required this.label,
-    required this.valueLabel,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
-            Text(
-              valueLabel,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-/// Sticky bottom summary với buffer warning
-class _StickyBottomSummary extends StatelessWidget {
-  final int bufferMinutes;
-  final bool hasBufferWarning;
-  final bool isBufferTooShort;
-  final bool isCreatingLobby;
-  final bool canCreate;
-  final VoidCallback onCreateLobby;
-  final String Function(int) formatBuffer;
-
-  const _StickyBottomSummary({
-    required this.bufferMinutes,
-    required this.hasBufferWarning,
-    required this.isBufferTooShort,
-    required this.isCreatingLobby,
-    required this.canCreate,
-    required this.onCreateLobby,
-    required this.formatBuffer,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    Color warningColor;
-    String warningText;
-    IconData warningIcon;
-
-    if (isBufferTooShort) {
-      warningColor = colorScheme.error;
-      warningText = 'Không thể tạo: Buffer quá ngắn (< 60 phút)';
-      warningIcon = Icons.error;
-    } else if (hasBufferWarning) {
-      warningColor = Colors.orange;
-      warningText = 'Buffer chỉ ${formatBuffer(bufferMinutes)} - khuyến nghị chọn ngày xa hơn';
-      warningIcon = Icons.warning;
-    } else {
-      warningColor = Colors.green;
-      warningText = 'Còn ${formatBuffer(bufferMinutes)} để tuyển người';
-      warningIcon = Icons.check_circle;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Buffer warning
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: warningColor.withValues(alpha: 0.1),
-                borderRadius: AppRadius.radiusSmAll,
-                border: Border.all(color: warningColor.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(warningIcon, size: 18, color: warningColor),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      warningText,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: warningColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.md),
-
-            // Create button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: canCreate && !isCreatingLobby ? onCreateLobby : null,
-                icon: isCreatingLobby
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check),
-                label: Text(
-                  isCreatingLobby
-                      ? 'Đang tạo...'
-                      : isBufferTooShort
-                          ? 'Không thể tạo'
-                          : 'Xem chi tiết cọc',
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  disabledBackgroundColor: colorScheme.surfaceContainerHighest,
-                ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

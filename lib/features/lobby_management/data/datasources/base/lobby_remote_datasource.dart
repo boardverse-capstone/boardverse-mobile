@@ -4,6 +4,7 @@ import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
+import '../../../domain/entities/lobby_invitable_friend.dart';
 import '../../../domain/entities/lobby_share_info.dart';
 import '../../../domain/entities/lobby_summary.dart';
 import '../../../domain/entities/lobby_chat_message.dart';
@@ -189,6 +190,37 @@ abstract class LobbyRemoteDatasource {
   /// POST /api/v1/lobbies/{lobbyId}/invites
   /// Gửi lời mời tham gia lobby.
   Future<Either<Failure, void>> sendLobbyInvite(String lobbyId, String inviteeId, String? message);
+
+  /// GET /api/v1/lobbies/{lobbyId}/invites
+  /// Lấy lịch sử invite của lobby (Pending/Accepted/Declined/Expired/Cancelled).
+  /// [status] optional filter. [limit] 1-200, default 100.
+  /// Backend trả về `LobbyInviteResponseDto[]` sắp xếp theo CreatedAt desc.
+  Future<Either<Failure, List<LobbyInviteEntity>>> getLobbyInvites({
+    required String lobbyId,
+    LobbyInviteStatus? status,
+    int limit = 100,
+  });
+
+  /// POST /api/v1/lobbies/invites/{inviteId}/resend
+  /// Gửi lại invite đã ở terminal state (Declined/Expired/Cancelled).
+  /// Trả về invite mới (Pending) với ExpiresAt mới = now + 24h.
+  Future<Either<Failure, LobbyInviteEntity>> resendInvite(String inviteId);
+
+  /// GET /api/v1/lobbies/{lobbyId}/invitable-friends
+  /// Lấy danh sách bạn bè kèm trạng thái invite (đã server-side tính).
+  /// [search] case-insensitive contains username.
+  /// [onlineOnly] chỉ Online/RecentlyActive.
+  /// [minKarma] lọc bạn dưới ngưỡng.
+  /// [statusFilter] danh sách [LobbyInviteFriendStatus] sẽ join thành
+  /// comma-separated string (vd: `Invitable,InvitePending`).
+  Future<Either<Failure, List<LobbyInvitableFriend>>> getInvitableFriends({
+    required String lobbyId,
+    String? search,
+    bool onlineOnly = false,
+    int? minKarma,
+    List<LobbyInviteFriendStatus> statusFilter = const [],
+    int limit = 100,
+  });
 
   // ─── Match Results Methods ─────────────────────────────────────────────────
 

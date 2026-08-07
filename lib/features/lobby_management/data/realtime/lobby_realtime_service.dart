@@ -294,9 +294,13 @@ class LobbyMemberPayload {
 
 /// Abstraction cho SignalR / mock realtime client.
 ///
-/// Implementations:
-/// - `MockLobbyRealtimeService` (giả lập bằng Timer, dùng dev/mock mode)
-/// - `RealLobbyRealtimeService` (signalr_netcore, dùng khi backend sẵn sàng)
+/// Implementations (hiện tại):
+/// - `MockLobbyRealtimeService` (no-op — dùng cho dev khi backend chưa
+///   expose endpoint SignalR `/hubs/lobby/negotiate`)
+/// - `RealLobbyRealtimeService` (signalr_netcore) — file đã bị xóa vì
+///   backend dev chưa expose hub. Khi backend sẵn sàng, restore file và
+///   đổi DI trong `injection.dart` từ `MockLobbyRealtimeService` sang
+///   `RealLobbyRealtimeService`.
 abstract class LobbyRealtimeService {
   /// Phát mọi event nhận được từ server (đã lọc theo group nếu có).
   /// Repository sẽ subscribe stream này và dispatch tới Cubit.

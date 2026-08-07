@@ -8,6 +8,7 @@ import '../../../../core/theme/theme.dart';
 import '../../../reservation/domain/entities/entities.dart';
 import '../../../reservation/presentation/cubit/reservation_cubit.dart';
 import '../../../reservation/presentation/cubit/reservation_state.dart';
+import '../../domain/entities/lobby_entity.dart';
 import '../cubit/lobby_cubit.dart';
 import 'lobby_page.dart';
 import 'lobby_pending_cafe_approval_page.dart';
@@ -87,16 +88,21 @@ class _LobbyQuotePageState extends State<LobbyQuotePage> {
   ///
   /// `LobbyPage.initState` sẽ gọi `initLobbyState(lobbyId)` để fetch
   /// full chi tiết từ server (bỏ qua join — host đã là member).
+  ///
+  /// **Navigation**: dùng `pushAndKeepRootOnly` thay vì `pushReplacement`
+  /// để clear hết stack trung gian (`LobbyConfigPage`, `LobbyQuotePage`,
+  /// `LobbyCafeSelectionPage`, `LobbyHubPage`...). Stack sau khi push chỉ
+  /// còn `[MainScaffold, LobbyPage]` → user bấm "Rời phòng" sẽ về thẳng
+  /// MainScaffold, không rơi lại vào tab "Đặt cọc" của `LobbyConfigPage`
+  /// cũ (UI stale, không phản ánh lobby mới đã tạo).
   void _openCreatedLobby(ReservationConfirmResult result) {
-    final nav = Navigator.of(context, rootNavigator: true);
     final lobbyCubit = context.read<LobbyCubit>();
 
-    nav.pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => LobbyPage(
-          lobbyId: result.lobbyId,
-          lobbyCubit: lobbyCubit,
-        ),
+    LobbyFlowNavigator.pushAndKeepRootOnly<LobbyEntity>(
+      context,
+      LobbyPage(
+        lobbyId: result.lobbyId,
+        lobbyCubit: lobbyCubit,
       ),
     );
   }
@@ -122,12 +128,16 @@ class _LobbyQuotePageState extends State<LobbyQuotePage> {
             _openCreatedLobby(state.result);
           }
           if (state is ReservationPendingCafeApproval) {
-            Navigator.of(context, rootNavigator: true).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => LobbyPendingCafeApprovalPage(
-                  reservationId: state.reservationId,
-                  cafeApprovalDeadline: state.cafeApprovalDeadline,
-                ),
+            // Clear stack trung gian (config/quote/cafe/hub) → stack chỉ
+            // còn [MainScaffold, LobbyPendingCafeApprovalPage]. Khi user
+            // bấm back từ pending page, về thẳng MainScaffold.
+            LobbyFlowNavigator.pushAndKeepRootOnly(
+              context,
+              LobbyPendingCafeApprovalPage(
+                reservationId: state.reservationId,
+                cafeId: state.cafeId,
+                cafeName: state.cafeName,
+                cafeApprovalDeadline: state.cafeApprovalDeadline,
               ),
             );
           }
@@ -136,7 +146,7 @@ class _LobbyQuotePageState extends State<LobbyQuotePage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Đã huỷ phiên đặt cọc. Hoàn ${state.result.refundBvc} BVC.',
+                  'Đã hủy phiên đặt cọc. Hoàn ${state.result.refundBvc} BVC.',
                 ),
               ),
             );

@@ -4,14 +4,18 @@ import '../../domain/entities/lobby_invite_entity.dart';
 class LobbyInviteModel {
   final String inviteId;
   final String lobbyId;
+  final String? lobbyName;
   final String inviterId;
+  final String? inviterUsername;
   final String inviterName;
   final String inviterAvatar;
   final String inviteeId;
+  final String? inviteeUsername;
   final String? message;
   final LobbyInviteStatus status;
   final DateTime createdAt;
   final DateTime expiresAt;
+  final DateTime? respondedAt;
   final String gameName;
   final String cafeName;
   final int currentMembers;
@@ -20,14 +24,18 @@ class LobbyInviteModel {
   const LobbyInviteModel({
     required this.inviteId,
     required this.lobbyId,
+    this.lobbyName,
     required this.inviterId,
+    this.inviterUsername,
     required this.inviterName,
     required this.inviterAvatar,
     required this.inviteeId,
+    this.inviteeUsername,
     this.message,
     required this.status,
     required this.createdAt,
     required this.expiresAt,
+    this.respondedAt,
     required this.gameName,
     required this.cafeName,
     required this.currentMembers,
@@ -41,35 +49,73 @@ class LobbyInviteModel {
       return DateTime.parse(v.toString());
     }
 
+    // Server DTO mới (LobbyInviteResponseDto) trả về các field dạng
+    // PascalCase + có sẵn `inviterUsername` / `inviteeUsername` /
+    // `respondedAt`. Fallback về cấu trúc cũ (nested `inviter` object)
+    // để tương thích ngược nếu backend chưa rollout.
+    final rawInviterName = (json['inviter']?['username'] ??
+            json['inviterUsername'] ??
+            json['inviterName'] ??
+            'Người dùng')
+        .toString();
+    final rawInviterId = (json['inviter']?['userId'] ??
+            json['inviterId'] ??
+            '')
+        .toString();
+    final rawInviterAvatar = (json['inviter']?['avatarUrl'] ??
+            json['inviterAvatar'] ??
+            '')
+        .toString();
+
     return LobbyInviteModel(
       inviteId: (json['inviteId'] ?? json['id'] ?? '').toString(),
       lobbyId: (json['lobbyId'] ?? '').toString(),
-      inviterId: (json['inviter']?['userId'] ?? json['inviterId'] ?? '').toString(),
-      inviterName: (json['inviter']?['username'] ?? json['inviterName'] ?? 'Người dùng').toString(),
-      inviterAvatar: (json['inviter']?['avatarUrl'] ?? json['inviterAvatar'] ?? '').toString(),
-      inviteeId: (json['invitee']?['userId'] ?? json['inviteeId'] ?? '').toString(),
+      lobbyName: json['lobbyName']?.toString(),
+      inviterId: rawInviterId,
+      inviterUsername: json['inviterUsername']?.toString(),
+      inviterName: rawInviterName,
+      inviterAvatar: rawInviterAvatar,
+      inviteeId: (json['invitee']?['userId'] ??
+              json['inviteeId'] ??
+              '')
+          .toString(),
+      inviteeUsername: json['inviteeUsername']?.toString(),
       message: json['message'] as String?,
       status: LobbyInviteStatus.fromString(json['status'] as String?),
       createdAt: parseDate(json['createdAt'] ?? json['sentAt']),
       expiresAt: parseDate(json['expiresAt']),
-      gameName: (json['lobby']?['gameName'] ?? json['gameName'] ?? 'Board Game').toString(),
-      cafeName: (json['lobby']?['cafeName'] ?? json['cafeName'] ?? 'Quán').toString(),
-      currentMembers: (json['lobby']?['currentMembers'] ?? json['currentPlayers'] ?? 1) as int,
-      maxMembers: (json['lobby']?['maxMembers'] ?? json['maxPlayers'] ?? 4) as int,
+      respondedAt: json['respondedAt'] != null
+          ? parseDate(json['respondedAt'])
+          : null,
+      gameName: (json['lobby']?['gameName'] ??
+              json['gameName'] ??
+              'Board Game')
+          .toString(),
+      cafeName:
+          (json['lobby']?['cafeName'] ?? json['cafeName'] ?? 'Quán').toString(),
+      currentMembers:
+          (json['lobby']?['currentMembers'] ?? json['currentPlayers'] ?? 1)
+              as int,
+      maxMembers:
+          (json['lobby']?['maxMembers'] ?? json['maxPlayers'] ?? 4) as int,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'inviteId': inviteId,
     'lobbyId': lobbyId,
+    'lobbyName': lobbyName,
     'inviterId': inviterId,
+    'inviterUsername': inviterUsername,
     'inviterName': inviterName,
     'inviterAvatar': inviterAvatar,
     'inviteeId': inviteeId,
+    'inviteeUsername': inviteeUsername,
     'message': message,
     'status': status.name,
     'createdAt': createdAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
+    'respondedAt': respondedAt?.toIso8601String(),
     'gameName': gameName,
     'cafeName': cafeName,
     'currentMembers': currentMembers,
@@ -79,14 +125,18 @@ class LobbyInviteModel {
   LobbyInviteEntity toEntity() => LobbyInviteEntity(
     inviteId: inviteId,
     lobbyId: lobbyId,
+    lobbyName: lobbyName,
     inviterId: inviterId,
+    inviterUsername: inviterUsername,
     inviterName: inviterName,
     inviterAvatar: inviterAvatar,
     inviteeId: inviteeId,
+    inviteeUsername: inviteeUsername,
     message: message,
     status: status,
     createdAt: createdAt,
     expiresAt: expiresAt,
+    respondedAt: respondedAt,
     gameName: gameName,
     cafeName: cafeName,
     currentMembers: currentMembers,

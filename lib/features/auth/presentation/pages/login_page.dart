@@ -1,5 +1,4 @@
 import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/navigation/pages/main_scaffold.dart';
+import '../../../../core/widgets/app_toast_card.dart';
 import '../../../../core/widgets/game_loading_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -99,7 +99,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       autoDismiss: true,
       snackbarDuration: const Duration(seconds: 3),
       position: DelightSnackbarPosition.top,
-      builder: (context) => ToastCard(
+      builder: (context) => AppToastCard(
         leading: Icon(
           isError ? Icons.error_outline : Icons.check_circle_outlined,
           color: isError

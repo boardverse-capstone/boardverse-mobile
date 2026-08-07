@@ -1,22 +1,32 @@
 import 'package:equatable/equatable.dart';
 
-/// Vòng đời của phòng chờ trực tuyến — đồng bộ với `state.md`.
+/// Vòng đời của phòng chờ trực tuyến — đồng bộ với BR §17.5 và `state.md`.
 ///
-/// - [open]          : đang tuyển người (BR-08 timer đang chạy).
-/// - [full]          : đủ người, chờ auto-create booking (Luồng A).
-/// - [inProgress]    : cả nhóm đã check-in tại quán (Task 4).
-/// - [ratingOpen]    : sau thanh toán POS, đang đánh giá Karma (Task 5).
-/// - [closed]        : phiên kết thúc, rating cross được phép (Task 5).
-/// - [timeoutFailed] : BR-08 — Lead-time trôi qua mà chưa đạt [minPlayers].
-/// - [hostCancelled] : Host主动 hủy khi còn [open].
+/// - [pendingActivation]    : atomic transaction đang xử lý (chưa publish).
+/// - [pendingCafeApproval]  : lobby public > 2 ngày, chờ cafe duyệt (BR-NEW-11).
+/// - [open]                 : đang tuyển người, recruitmentDeadline chưa tới.
+/// - [viable]               : đã đạt minPlayers, vẫn có thể nhận thêm đến max.
+/// - [full]                 : đạt maxPlayers, ngừng nhận.
+/// - [inProgress]           : cả nhóm đã check-in tại quán (Task 4).
+/// - [ratingOpen]           : sau thanh toán POS, đang đánh giá Karma (Task 5).
+/// - [closed]               : phiên kết thúc, rating cross được phép (Task 5).
+/// - [timeoutFailed]        : BR-08 — Lead-time trôi qua mà chưa đạt [minPlayers].
+/// - [hostCancelled]        : Host主动 hủy khi còn [open].
+/// - [rejectedByCafe]       : cafe từ chối duyệt (BR-NEW-11).
+/// - [expiredByCafe]        : cafe không duyệt trong 24h (BR-NEW-11).
 enum LobbyStatus {
+  pendingActivation,
+  pendingCafeApproval,
   open,
+  viable,
   full,
   inProgress,
   ratingOpen,
   closed,
   timeoutFailed,
   hostCancelled,
+  rejectedByCafe,
+  expiredByCafe,
 }
 
 extension LobbyStatusX on LobbyStatus {
@@ -26,8 +36,13 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.closed:
       case LobbyStatus.timeoutFailed:
       case LobbyStatus.hostCancelled:
+      case LobbyStatus.rejectedByCafe:
+      case LobbyStatus.expiredByCafe:
         return true;
+      case LobbyStatus.pendingActivation:
+      case LobbyStatus.pendingCafeApproval:
       case LobbyStatus.open:
+      case LobbyStatus.viable:
       case LobbyStatus.full:
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
@@ -43,9 +58,12 @@ extension LobbyStatusX on LobbyStatus {
   /// / `Closed`:
   /// - InProgress/RatingOpen: phiên chơi đang diễn ra.
   /// - Closed: lobby đã đóng rồi, không cần gọi lại.
+  /// - PendingActivation/PendingCafeApproval: chưa publish, backend không
+  ///   cho phép dissolve.
   bool get canDissolve {
     switch (this) {
       case LobbyStatus.open:
+      case LobbyStatus.viable:
       case LobbyStatus.full:
       case LobbyStatus.timeoutFailed:
       case LobbyStatus.hostCancelled:
@@ -53,6 +71,10 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.closed:
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
+      case LobbyStatus.pendingActivation:
+      case LobbyStatus.pendingCafeApproval:
+      case LobbyStatus.rejectedByCafe:
+      case LobbyStatus.expiredByCafe:
         return false;
     }
   }
@@ -62,6 +84,23 @@ extension LobbyStatusX on LobbyStatus {
 
   /// Lobby host đã chủ động huỷ.
   bool get isHostCancelled => this == LobbyStatus.hostCancelled;
+
+  /// Lobby đã đủ điều kiện để host đến quán check-in. Áp dụng khi:
+  /// - Viable  (đủ minPlayers, còn slot) → có thể đến quán
+  /// - Full    (đủ maxPlayers, đóng tuyển) → sẵn sàng đến quán
+  /// - InProgress (đã check-in, đang chơi)
+  bool get canCheckIn =>
+      this == LobbyStatus.viable ||
+      this == LobbyStatus.full ||
+      this == LobbyStatus.inProgress;
+
+  /// Lobby đang chờ cafe duyệt (BR-NEW-11) — host phải đợi.
+  bool get isPendingCafeApproval => this == LobbyStatus.pendingCafeApproval;
+
+  /// Lobby đang chờ tuyển người (open) hoặc đã đạt minPlayers mà vẫn
+  /// có thể nhận thêm (viable) — vẫn show countdown tới recruitmentDeadline.
+  bool get isRecruiting =>
+      this == LobbyStatus.open || this == LobbyStatus.viable;
 }
 
 class LobbyEntity extends Equatable {
@@ -116,6 +155,23 @@ class LobbyEntity extends Equatable {
   /// gọi `/discoverable` hoặc `/search` có tính toán distance.
   final double? distanceKm;
 
+  /// Server-side timestamp khi lobby chuyển sang terminal state (closed,
+  /// cancelled, timeout). Optional — chỉ có khi status terminal.
+  final DateTime? closedAt;
+
+  /// Lý do đóng phòng do server cung cấp (vd: "Host đã rời phòng và không
+  /// còn thành viên nào."). Optional — chỉ có khi status terminal.
+  final String? closedReason;
+
+  /// Thời gian tối thiểu (phút) trước `scheduledTime` mà lobby phải đủ
+  /// người (BR-08). Optional — backend trả về cho `/lobbies/{id}`.
+  final int? cancellationLeadTimeMinutes;
+
+  /// Timestamp khi lobby chính thức chuyển sang `inProgress` (POS xác nhận
+  /// đã check-in toàn bộ thành viên). UI dùng để hiển thị banner "Đang
+  /// chơi" + đếm ngược thời gian đã chơi.
+  final DateTime? playStartedAt;
+
   const LobbyEntity({
     required this.id,
     required this.gameId,
@@ -141,6 +197,10 @@ class LobbyEntity extends Equatable {
     this.minimumKarma = 0,
     this.searchRadiusKm = 5,
     this.distanceKm,
+    this.closedAt,
+    this.closedReason,
+    this.cancellationLeadTimeMinutes,
+    this.playStartedAt,
   });
 
   int get slotsRemaining => maxPlayers - currentPlayers;
@@ -176,6 +236,10 @@ class LobbyEntity extends Equatable {
     double? searchRadiusKm,
     Object? gameImageUrl = _sentinel,
     Object? distanceKm = _sentinel,
+    Object? closedAt = _sentinel,
+    Object? closedReason = _sentinel,
+    Object? cancellationLeadTimeMinutes = _sentinel,
+    Object? playStartedAt = _sentinel,
   }) {
     return LobbyEntity(
       id: id ?? this.id,
@@ -214,6 +278,19 @@ class LobbyEntity extends Equatable {
       distanceKm: identical(distanceKm, _sentinel)
           ? this.distanceKm
           : distanceKm as double?,
+      closedAt: identical(closedAt, _sentinel)
+          ? this.closedAt
+          : closedAt as DateTime?,
+      closedReason: identical(closedReason, _sentinel)
+          ? this.closedReason
+          : closedReason as String?,
+      cancellationLeadTimeMinutes:
+          identical(cancellationLeadTimeMinutes, _sentinel)
+              ? this.cancellationLeadTimeMinutes
+              : cancellationLeadTimeMinutes as int?,
+      playStartedAt: identical(playStartedAt, _sentinel)
+          ? this.playStartedAt
+          : playStartedAt as DateTime?,
     );
   }
 
@@ -243,6 +320,10 @@ class LobbyEntity extends Equatable {
     minimumKarma,
     searchRadiusKm,
     distanceKm,
+    closedAt,
+    closedReason,
+    cancellationLeadTimeMinutes,
+    playStartedAt,
   ];
 }
 

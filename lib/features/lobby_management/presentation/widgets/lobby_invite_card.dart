@@ -10,6 +10,10 @@ class LobbyInviteCard extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
   final VoidCallback? onCancel;
+
+  /// Callback cho action "Gửi lại" (chỉ dành cho terminal state invites).
+  final VoidCallback? onResend;
+
   final bool isLoading;
 
   const LobbyInviteCard({
@@ -19,6 +23,7 @@ class LobbyInviteCard extends StatelessWidget {
     this.onAccept,
     this.onDecline,
     this.onCancel,
+    this.onResend,
     this.isLoading = false,
   });
 
@@ -116,7 +121,7 @@ class LobbyInviteCard extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.format_quote, size: 16, color: colors.primary),
+                          Icon(Icons.format_quote, size: AppIcons.md, color: colors.primary),
                           const SizedBox(width: AppSpacing.xs),
                           Expanded(
                             child: Text(
@@ -209,7 +214,7 @@ class LobbyInviteCard extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, size: 20, color: AppColors.warning),
+                            Icon(AppIcons.warning, size: AppIcons.md, color: AppColors.warning),
                             const SizedBox(width: AppSpacing.xs),
                             Expanded(
                               child: Text(
@@ -223,6 +228,29 @@ class LobbyInviteCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                  ] else if (!isInvitee && invite.canResend) ...[
+                    // Resend cho inviter khi invite đã ở terminal state.
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: isLoading ? null : onResend,
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(AppIcons.refresh, size: 18),
+                        label: const Text('Gửi lại lời mời'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.radiusMdAll,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -325,7 +353,7 @@ class _ExpiryChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.timer_outlined, size: 12, color: color),
+          Icon(AppIcons.timer, size: AppIcons.xs, color: color),
           const SizedBox(width: 4),
           Text(
             'Còn ${_format(remaining)}',

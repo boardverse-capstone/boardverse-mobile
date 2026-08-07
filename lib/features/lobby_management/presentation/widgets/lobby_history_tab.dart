@@ -190,6 +190,15 @@ class _HistoryLobbyCard extends StatelessWidget {
       case LobbyStatus.timeoutFailed:
       case LobbyStatus.hostCancelled:
         return theme.colorScheme.error;
+      // Các state mới (BR-NEW-11) — fallback theo semantic.
+      case LobbyStatus.pendingActivation:
+      case LobbyStatus.pendingCafeApproval:
+        return AppColors.warning;
+      case LobbyStatus.viable:
+        return AppColors.success;
+      case LobbyStatus.rejectedByCafe:
+      case LobbyStatus.expiredByCafe:
+        return theme.colorScheme.error;
     }
   }
 
@@ -208,7 +217,18 @@ class _HistoryLobbyCard extends StatelessWidget {
       case LobbyStatus.timeoutFailed:
         return 'Hết hạn';
       case LobbyStatus.hostCancelled:
-        return 'Đã huỷ';
+        return 'Đã hủy';
+      // Các state mới (BR-NEW-11).
+      case LobbyStatus.pendingActivation:
+        return 'Đang kích hoạt';
+      case LobbyStatus.pendingCafeApproval:
+        return 'Chờ quán duyệt';
+      case LobbyStatus.viable:
+        return 'Đủ người tối thiểu';
+      case LobbyStatus.rejectedByCafe:
+        return 'Quán từ chối';
+      case LobbyStatus.expiredByCafe:
+        return 'Hết hạn duyệt';
     }
   }
 

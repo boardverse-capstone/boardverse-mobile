@@ -8,20 +8,36 @@ import '../cubit/lobby_search_cubit.dart';
 import '../cubit/lobby_state.dart';
 
 /// Modern lobby explore tab với gradient cards và elevated design.
+///
+/// Phân biệt 2 luồng tap theo quyền của user với lobby:
+/// - **Lobby của mình** (`lobby.hostId == currentUserId`): tap → mở
+///   [LobbyPage] trực tiếp qua `onOpenOwned` (KHÔNG gọi `/join`, không
+///   qua preview popup confirm). Server không cho phép user join lại
+///   lobby do mình host (`409 — đã là thành viên`) nên flow `/join` là
+///   thừa + gây UX kém.
+/// - **Lobby của người khác**: tap → preview popup confirm (`onPreview`)
+///   hoặc bấm nút "Vào" (`onJoin`) để gọi `/join`.
 class LobbyExploreTab extends StatelessWidget {
   final LobbySearchCubit searchCubit;
   final DateFormat timeFormatter;
   final void Function(LobbyEntity) onPreview;
+  final void Function(LobbyEntity) onOpenOwned;
   final void Function(String, String?) onJoin;
   final VoidCallback onCreateLobby;
+
+  /// ID user hiện tại — dùng để phát hiện lobby do chính mình host.
+  /// Truyền `null` nếu chưa resolve được (treat as "no owned lobby").
+  final String? currentUserId;
 
   const LobbyExploreTab({
     super.key,
     required this.searchCubit,
     required this.timeFormatter,
     required this.onPreview,
+    required this.onOpenOwned,
     required this.onJoin,
     required this.onCreateLobby,
+    this.currentUserId,
   });
 
   @override
@@ -43,7 +59,9 @@ class LobbyExploreTab extends StatelessWidget {
           return _LobbyList(
             lobbies: state.entities,
             timeFormatter: timeFormatter,
+            currentUserId: currentUserId,
             onPreview: onPreview,
+            onOpenOwned: onOpenOwned,
             onJoin: onJoin,
             onRefresh: () => searchCubit.loadDiscoverable(limit: 50),
           );
@@ -108,7 +126,7 @@ class _ErrorView extends StatelessWidget {
                 color: colors.errorContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.error_outline, size: 48, color: colors.onErrorContainer),
+              child: Icon(AppIcons.error, size: AppIcons.xxl, color: colors.onErrorContainer),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -157,7 +175,7 @@ class _EmptyExploreView extends StatelessWidget {
                 ),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.meeting_room_outlined, size: 64, color: colors.primary.withValues(alpha: 0.6)),
+              child: Icon(AppIcons.boardGame, size: AppIcons.massive, color: colors.primary.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -174,7 +192,7 @@ class _EmptyExploreView extends StatelessWidget {
             _GradientRetryButton(
               onTap: onCreateLobby,
               label: 'Tạo phòng',
-              icon: Icons.add,
+              icon: AppIcons.addSimple,
             ),
           ],
         ),
@@ -186,7 +204,9 @@ class _EmptyExploreView extends StatelessWidget {
 class _LobbyList extends StatelessWidget {
   final List<LobbyEntity> lobbies;
   final DateFormat timeFormatter;
+  final String? currentUserId;
   final void Function(LobbyEntity) onPreview;
+  final void Function(LobbyEntity) onOpenOwned;
   final void Function(String, String?) onJoin;
   final Future<void> Function() onRefresh;
 
@@ -194,8 +214,10 @@ class _LobbyList extends StatelessWidget {
     required this.lobbies,
     required this.timeFormatter,
     required this.onPreview,
+    required this.onOpenOwned,
     required this.onJoin,
     required this.onRefresh,
+    this.currentUserId,
   });
 
   @override
@@ -225,7 +247,7 @@ class _LobbyList extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.groups, size: 16, color: Colors.white),
+                        Icon(AppIcons.users, size: AppIcons.sm, color: Colors.white),
                         const SizedBox(width: 6),
                         Text(
                           '${lobbies.length} phòng đang hoạt động',
@@ -243,12 +265,16 @@ class _LobbyList extends StatelessWidget {
             );
           }
           final lobby = lobbies[index - 1];
+          final isMine = currentUserId != null &&
+              currentUserId!.isNotEmpty &&
+              lobby.hostId == currentUserId;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: _LobbyExploreCard(
               lobby: lobby,
               timeFormatter: timeFormatter,
-              onTap: () => onPreview(lobby),
+              isMine: isMine,
+              onTap: () => isMine ? onOpenOwned(lobby) : onPreview(lobby),
               onJoin: () => onJoin(lobby.id, lobby.inviteCode),
             ),
           );
@@ -259,9 +285,18 @@ class _LobbyList extends StatelessWidget {
 }
 
 /// Modern lobby card với gradient game thumbnail và elevated design.
+///
+/// Khi [isMine] = true (lobby do chính user hiện tại host):
+/// - Border đổi sang màu primary, độ dày 1.5px (nổi bật).
+/// - Header thêm badge "Phòng của bạn".
+/// - Button đổi từ "Vào" gradient primary → "Mở" outlined primary.
+/// - Tap card → mở LobbyPage trực tiếp (không qua preview).
+///
+/// Khi [isMine] = false: giữ nguyên UI cũ + button "Vào" / "Đầy".
 class _LobbyExploreCard extends StatelessWidget {
   final LobbyEntity lobby;
   final DateFormat timeFormatter;
+  final bool isMine;
   final VoidCallback onTap;
   final VoidCallback onJoin;
 
@@ -270,6 +305,7 @@ class _LobbyExploreCard extends StatelessWidget {
     required this.timeFormatter,
     required this.onTap,
     required this.onJoin,
+    this.isMine = false,
   });
 
   @override
@@ -283,7 +319,14 @@ class _LobbyExploreCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+        // Border màu primary + đậm hơn khi là lobby của mình — đánh dấu
+        // visual rõ ràng để user dễ phân biệt với lobby của người khác.
+        border: Border.all(
+          color: isMine
+              ? colors.primary.withValues(alpha: 0.55)
+              : colors.outlineVariant.withValues(alpha: 0.5),
+          width: isMine ? 1.5 : 1,
+        ),
         boxShadow: AppElevation.shadowMd,
       ),
       child: Material(
@@ -316,19 +359,30 @@ class _LobbyExploreCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            lobby.gameName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  lobby.gameName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              // Badge "Phòng của bạn" — chỉ khi isMine.
+                              if (isMine) ...[
+                                const SizedBox(width: AppSpacing.xs),
+                                _OwnedBadge(),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Icon(Icons.store_outlined, size: 14, color: Colors.white.withValues(alpha: 0.8)),
+                              Icon(AppIcons.cafe, size: AppIcons.sm, color: Colors.white.withValues(alpha: 0.8)),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
@@ -360,13 +414,13 @@ class _LobbyExploreCard extends StatelessWidget {
                       child: Row(
                         children: [
                           _InfoChip(
-                            icon: Icons.access_time,
+                            icon: AppIcons.schedule,
                             label: timeFormatter.format(lobby.scheduledTime),
                             color: colors.primary,
                           ),
                           const SizedBox(width: AppSpacing.xs),
                           _InfoChip(
-                            icon: Icons.person_outline,
+                            icon: AppIcons.user,
                             label: lobby.hostName,
                             color: colors.onSurfaceVariant,
                           ),
@@ -374,13 +428,15 @@ class _LobbyExploreCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    // Join button
+                    // Join button — khác UI giữa lobby của mình vs người khác.
                     SizedBox(
-                      width: 88,
-                      child: _JoinButton(
-                        isFull: isFull,
-                        onTap: isFull ? null : onJoin,
-                      ),
+                      width: 96,
+                      child: isMine
+                          ? _OpenOwnedButton(onTap: onTap)
+                          : _JoinButton(
+                              isFull: isFull,
+                              onTap: isFull ? null : onJoin,
+                            ),
                     ),
                   ],
                 ),
@@ -388,6 +444,38 @@ class _LobbyExploreCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Badge "Phòng của bạn" — hiển thị trên header card khi user là host.
+/// Dùng white-on-primary vì header có gradient primary (đảm bảo tương phản).
+class _OwnedBadge extends StatelessWidget {
+  const _OwnedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppRadius.radiusXsAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+            Icon(AppIcons.warning, size: 10, color: AppColors.warning),
+          const SizedBox(width: 2),
+          const Text(
+            'Của bạn',
+            style: TextStyle(
+              color: Color(0xFF6B4A00),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -483,7 +571,7 @@ class _CapacityBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isFull) Icon(Icons.person, size: 12, color: textColor),
+          if (!isFull) Icon(AppIcons.users, size: AppIcons.sm, color: textColor),
           if (!isFull) const SizedBox(width: 4),
           Text(
             capacity,
@@ -570,7 +658,7 @@ class _JoinButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  isFull ? Icons.block : Icons.login,
+                  isFull ? Icons.block : AppIcons.login,
                   size: 16,
                   color: isFull ? colors.onSurfaceVariant : Colors.white,
                 ),
@@ -591,6 +679,57 @@ class _JoinButton extends StatelessWidget {
   }
 }
 
+/// Button "Mở" cho lobby do chính user hiện tại host.
+///
+/// Khác với `_JoinButton` (gradient đặc):
+/// - Background trong suốt, border 1.5px primary — nhấn "neutral" hơn,
+///   tránh gây hiểu nhầm là action đăng ký/join.
+/// - Icon mở khoá (`lock_open`) + label "Mở" — semantic rõ ràng là
+///   "mở lobby đã tạo để xem chi tiết", khác với "Vào" (= join).
+class _OpenOwnedButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _OpenOwnedButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: 0.35),
+        border: Border.all(color: colors.primary, width: 1.5),
+        borderRadius: AppRadius.radiusMdAll,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.radiusMdAll,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.radiusMdAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_open, size: 16, color: colors.primary),
+                const SizedBox(width: 4),
+                Text(
+                  'Mở',
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Gradient retry/create button.
 class _GradientRetryButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -600,7 +739,7 @@ class _GradientRetryButton extends StatelessWidget {
   const _GradientRetryButton({
     required this.onTap,
     this.label = 'Thử lại',
-    this.icon = Icons.refresh,
+    this.icon = AppIcons.refresh,
   });
 
   @override

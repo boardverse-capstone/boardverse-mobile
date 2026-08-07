@@ -6,672 +6,6 @@
     "version": "v1"
   },
   "paths": {
-    "/api/cafes/{cafeId}/sessions/{sessionId}": {
-      "get": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Kiểm tra phiên chơi hiện tại. [Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Chi tiết phiên chơi."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/checkout": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Thanh toán toàn bộ phiên chơi sau kiểm kê linh kiện. [Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Kết quả kiểm kê linh kiện.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Phiên chuyển UNPAID/PAID và trả hóa đơn tóm tắt."
-          },
-          "400": {
-            "description": "Thiếu kiểm kê hoặc dữ liệu không hợp lệ."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/guest-slots": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Thêm khách vô danh vào phiên chơi. [Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Thông tin hiển thị của khách vô danh.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Đã thêm khách vô danh."
-          },
-          "400": {
-            "description": "Thiếu thông tin hiển thị."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/partial-checkout": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Thanh toán một phần cho nhóm về sớm. [Role: Manager, CafeStaff]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Danh sách thành viên thanh toán sớm.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Phiên chuyển sang CHECKING; chờ kiểm kê linh kiện."
-          },
-          "400": {
-            "description": "Thiếu danh sách thành viên."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sourceSessionId}/merge": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Ghép thành viên vào phiên chơi của nhóm mới. [Role: Manager, CafeStaff]\r\nException 4: A3 nhảy từ nhóm A sang nhóm B.",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sourceSessionId",
-            "in": "path",
-            "description": "Mã phiên chơi nguồn (nhóm cũ).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Mã thành viên và mã phiên đích.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergeSessionRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergeSessionRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergeSessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Đã ghép thành viên vào nhóm mới."
-          },
-          "400": {
-            "description": "Thành viên không ở trạng thái SUSPENDED_MUTATION."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi hoặc thành viên."
-          },
-          "409": {
-            "description": "Phiên đích không hoạt động."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/pay": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Thanh toán hóa đơn tổng của phiên chơi. [Role: Manager, CafeStaff]\r\nBR-15: TotalAmount = Subtotal + PenaltyAmount - DepositAppliedAmount\r\nBR-09: Deposit chỉ cấn trừ DUY NHẤT 1 LẦN vào hóa đơn tổng",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Thông tin thanh toán: phí phạt linh kiện.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaySessionRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaySessionRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaySessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Thanh toán thành công; phiên chuyển PAID."
-          },
-          "400": {
-            "description": "Phiên không ở trạng thái UNPAID hoặc có lỗi dữ liệu."
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không đủ quyền vận hành quán."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên chơi."
-          },
-          "409": {
-            "description": "Phiên không ở trạng thái UNPAID."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/games": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Gán thêm game vào phiên chơi. [Role: Manager, CafeStaff]\r\nException 6: Nhóm tự ý lấy thêm game.",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Barcode game.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachGameRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachGameRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachGameRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Đã gán game vào phiên."
-          },
-          "400": {
-            "description": "Game đã được gán."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không đủ quyền."
-          },
-          "404": {
-            "description": "Không tìm thấy game."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/members/add": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Thêm thành viên đến muộn vào phiên. [Role: Manager, CafeStaff]\r\nException 8: Thêm 2 người bạn đến muộn vào nhóm đang chơi.",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Danh sách userId thành viên.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddLateMemberRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddLateMemberRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddLateMemberRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Đã thêm thành viên."
-          },
-          "400": {
-            "description": "Phiên không hoạt động."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không đủ quyền."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/{sessionId}/inventory-loss": {
-      "post": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Ghi nhận hao hụt linh kiện trước phiên. [Role: Manager, CafeStaff]\r\nException 7: Nhân viên ca chiều phát hiện game thiếu từ ca sáng.",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã quán.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sessionId",
-            "in": "path",
-            "description": "Mã phiên chơi.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Thông tin hao hụt.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Đã ghi nhận hao hụt."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không đủ quyền."
-          },
-          "404": {
-            "description": "Không tìm thấy phiên."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
-    "/api/cafes/{cafeId}/sessions/alternative-cafes": {
-      "get": {
-        "tags": [
-          "ActiveSession"
-        ],
-        "summary": "Gợi ý quán thay thế khi hết chỗ. [Role: Player]\r\nException 1: Phòng đầy nhưng quán hết chỗ.",
-        "parameters": [
-          {
-            "name": "gameTemplateId",
-            "in": "query",
-            "description": "Mã game.",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "memberCount",
-            "in": "query",
-            "description": "Số người.",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "scheduledTime",
-            "in": "query",
-            "description": "Giờ hẹn.",
-            "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
-          },
-          {
-            "name": "cafeId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Danh sách quán gợi ý."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "500": {
-            "description": "Lỗi hệ thống."
-          }
-        }
-      }
-    },
     "/api/v1/admin/wallet": {
       "get": {
         "tags": [
@@ -1675,6 +1009,9 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "No Content"
+          },
           "200": {
             "description": "Linh kiện đã xóa."
           },
@@ -3112,6 +2449,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "404": {
             "description": "Không tìm thấy booking.",
             "content": {
@@ -3393,6 +2738,22 @@
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
               }
             }
           },
@@ -4137,7 +3498,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Xóa nhân viên khỏi quán thành công; tự động hạ role Player nếu không còn quán nào."
           },
           "401": {
@@ -4989,7 +4350,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Xóa mềm mục kho thành công."
           },
           "401": {
@@ -5235,7 +4596,7 @@
         "tags": [
           "CafePos"
         ],
-        "summary": "Lấy sơ đồ bàn realtime cho Web POS. [Role: Manager — chủ quán; CafeStaff — đã gắn quán.]",
+        "summary": "Lấy sơ đồ bàn realtime cho Web POS. [Role: Manager — chủ quán; CafeStaff — đã gắn quán.]\r\nGAP-21 Fix: Thêm query param includeOnlyAvailable.",
         "parameters": [
           {
             "name": "cafeId",
@@ -5245,6 +4606,15 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "includeOnlyAvailable",
+            "in": "query",
+            "description": "Mặc định true — chỉ trả bàn Available. false = trả tất cả bàn (kể cả InUse/Reserved) để POS monitor.",
+            "schema": {
+              "type": "boolean",
+              "default": true
             }
           }
         ],
@@ -5539,6 +4909,53 @@
         }
       }
     },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Lấy chi tiết một phiên chơi theo mã định danh. [Role: Manager, CafeStaff]\r\nGAP 1 Fix: API mới để frontend lấy chi tiết 1 session cụ thể.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi cần lấy chi tiết.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết phiên chơi."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không đủ quyền vận hành quán."
+          },
+          "404": {
+            "description": "Quán hoặc phiên chơi không tồn tại."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/cafes/{cafeId}/pos/bookings/{bookingCode}": {
       "get": {
         "tags": [
@@ -5766,7 +5183,7 @@
         "tags": [
           "CafePos"
         ],
-        "summary": "Lấy bảng kiểm kê linh kiện số hóa của một game trong phiên. [Role: Manager, CafeStaff]\r\nBR-12: Bắt buộc kiểm kê trước khi in hóa đơn.",
+        "summary": "Lấy bảng kiểm kê linh kiện số hóa của một game trong phiên. [Role: Manager, CafeStaff]\r\nBR-12: Bắt buộc kiểm kê trước khi in hóa đơn. Response chỉ chứa mô tả linh kiện\r\n(ExpectedQuantity), chưa có số liệu thực tế — gọi POST để verify và lấy ActualQuantity + PenaltyFee.",
         "parameters": [
           {
             "name": "cafeId",
@@ -5813,7 +5230,7 @@
         "tags": [
           "CafePos"
         ],
-        "summary": "Xác nhận kiểm kê linh kiện và tính phí phạt nếu thiếu. [Role: Manager, CafeStaff]\r\nBR-12: Mở khóa in hóa đơn khi kiểm kê xong.",
+        "summary": "Xác nhận kiểm kê linh kiện và tính phí phạt nếu thiếu. [Role: Manager, CafeStaff]\r\nBR-12: Mở khóa in hóa đơn khi kiểm kê xong. Response là ComponentCheckResultDto\r\n(khác với GET) — chứa ActualQuantity + PenaltyFee từng linh kiện, tổng TotalPenaltyAmount\r\nvà trạng thái CheckStatus (Verified | MissingComponents).",
         "parameters": [
           {
             "name": "cafeId",
@@ -5864,6 +5281,111 @@
           },
           "409": {
             "description": "Đã kiểm kê rồi."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/component-check/reset": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Reset lại checklist linh kiện để kiểm tra lại. [Role: Manager, CafeStaff]\r\nGAP-25 Fix: Cho phép staff reset checklist nếu đã kiểm tra sai.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionGameId",
+            "in": "query",
+            "description": "Mã session game cần reset checklist.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reset thành công, trả lại checklist."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy session game."
+          },
+          "409": {
+            "description": "Phiên không ở trạng thái CHECKING."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/resume": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Khôi phục phiên từ CHECKING về ACTIVE. [Role: Manager, CafeStaff]\r\nGAP-1 Fix: Cho phép staff hủy bỏ thao tác \"Trả game\" nếu bấm nhầm.\r\nChỉ hoạt động khi chưa có thành viên nào được thanh toán (chưa có member FINISHED).",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi cần khôi phục.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Khôi phục thành công, phiên quay về ACTIVE."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên chơi."
+          },
+          "409": {
+            "description": "Không thể khôi phục (đã có member được thanh toán hoặc phiên không ở CHECKING)."
           },
           "500": {
             "description": "Lỗi hệ thống."
@@ -5937,6 +5459,713 @@
           },
           "500": {
             "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/games": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Gán thêm game vào phiên chơi. [Role: Manager, CafeStaff]\r\nException 6: Nhóm tự ý lấy thêm game mà không báo nhân viên.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Barcode game cần gán.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachGameRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachGameRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachGameRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã gán game vào phiên."
+          },
+          "400": {
+            "description": "Game đã được gán."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy game."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/guest-slots": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thêm khách vô danh vào phiên chơi. [Role: Manager, CafeStaff]\r\nException 10: Khách không có ứng dụng hoặc điện thoại hết pin.\r\nBR-13: Guest slot không chịu trách nhiệm tài sản độc lập.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin hiển thị của khách vô danh.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGuestSlotRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã thêm khách vô danh."
+          },
+          "400": {
+            "description": "Phiên đã kết thúc."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/members/add": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thêm thành viên đến muộn vào phiên. [Role: Manager, CafeStaff]\r\nException 8: Thêm 2 người bạn đến muộn vào nhóm đang chơi.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Danh sách userId thành viên đến muộn.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddLateMemberRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddLateMemberRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddLateMemberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã thêm thành viên."
+          },
+          "400": {
+            "description": "Phiên không hoạt động."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/inventory-loss": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Ghi nhận hao hụt linh kiện trước phiên. [Role: Manager, CafeStaff]\r\nException 7: Nhân viên ca chiều phát hiện game thiếu từ ca sáng.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin hao hụt.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordInventoryLossRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã ghi nhận hao hụt."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/checkout": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thanh toán toàn bộ phiên chơi sau kiểm kê linh kiện. [Role: Manager, CafeStaff]\r\nBR-12: Chỉ gọi được khi session ở trạng thái CHECKING và đã kiểm kê đủ.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Kết quả kiểm kê linh kiện.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Phiên chuyển UNPAID/PAID và trả hóa đơn tóm tắt."
+          },
+          "400": {
+            "description": "Thiếu kiểm kê hoặc dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "409": {
+            "description": "Phiên không ở trạng thái CHECKING."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/pay": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thanh toán hóa đơn tổng của phiên chơi. [Role: Manager, CafeStaff]\r\nBR-15: TotalAmount = Subtotal + PenaltyAmount - DepositAppliedAmount\r\nBR-09: Deposit chỉ cấn trừ DUY NHẤT 1 LẦN vào hóa đơn tổng",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin thanh toán: phí phạt linh kiện.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySessionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySessionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thanh toán thành công; phiên chuyển PAID."
+          },
+          "400": {
+            "description": "Phiên không ở trạng thái UNPAID hoặc có lỗi dữ liệu."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "409": {
+            "description": "Phiên không ở trạng thái UNPAID."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/partial-checkout": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thanh toán một phần cho nhóm về sớm. [Role: Manager, CafeStaff]\r\nBR-12: Khóa in hóa đơn đến khi kiểm kê xong.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Danh sách thành viên thanh toán sớm.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialCheckoutRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Phiên chuyển sang CHECKING; chờ kiểm kê linh kiện."
+          },
+          "400": {
+            "description": "Thiếu danh sách thành viên."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sourceSessionId}/merge": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Ghép thành viên vào phiên chơi của nhóm mới. [Role: Manager, CafeStaff]\r\nException 4: A3 nhảy từ nhóm A sang nhóm B.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sourceSessionId",
+            "in": "path",
+            "description": "Mã phiên chơi nguồn (nhóm cũ).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Mã thành viên và mã phiên đích.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeSessionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeSessionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã ghép thành viên vào nhóm mới."
+          },
+          "400": {
+            "description": "Thành viên không ở trạng thái SUSPENDED_MUTATION."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "409": {
+            "description": "Phiên đích không hoạt động."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/v1/cafes/{cafeId}/schedule-overrides": {
+      "get": {
+        "tags": [
+          "CafeSchedule"
+        ],
+        "summary": "Lấy toàn bộ lịch (4 slot) của cafe, kèm override nếu có. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lấy lịch cafe thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải chủ cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy cafe."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CafeSchedule"
+        ],
+        "summary": "Tạo hoặc cập nhật override cho 1 slot. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "TimeSlot, StartTime, EndTime, IsClosed, EffectiveFrom/To.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertCafeScheduleOverrideRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertCafeScheduleOverrideRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertCafeScheduleOverrideRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật override thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (vd: StartTime == EndTime khi mở slot)."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải chủ cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy cafe."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/cafes/{cafeId}/schedule-overrides/{timeSlot}": {
+      "delete": {
+        "tags": [
+          "CafeSchedule"
+        ],
+        "summary": "Xóa override cho 1 slot → cafe quay về dùng lịch mặc định. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "timeSlot",
+            "in": "path",
+            "description": "Slot cần xóa override (morning/afternoon/evening/night).",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TimeSlot"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Xóa override thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải chủ cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy cafe hoặc override."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -6270,20 +6499,91 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Đã hủy lời mời."
           },
           "401": {
-            "description": "Thiếu token."
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Không phải người gửi."
+            "description": "Không phải người gửi.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Không tìm thấy lời mời."
+            "description": "Không tìm thấy lời mời.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Lời mời không còn ở trạng thái Pending."
+            "description": "Lời mời không còn ở trạng thái Pending.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       },
@@ -6339,17 +6639,71 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Đã xóa quan hệ bạn bè."
           },
           "401": {
-            "description": "Thiếu token."
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Không có quyền xóa."
+            "description": "Không có quyền xóa.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Không tìm thấy."
+            "description": "Không tìm thấy.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
@@ -6405,17 +6759,71 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Đã bỏ chặn."
           },
           "401": {
-            "description": "Thiếu token."
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Bạn không phải người đã chặn."
+            "description": "Bạn không phải người đã chặn.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Không có quan hệ chặn."
+            "description": "Không có quan hệ chặn.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
@@ -7879,6 +8287,156 @@
             "description": "Người được mời đã là thành viên / đã có pending invite / lobby đã đóng."
           }
         }
+      },
+      "get": {
+        "tags": [
+          "LobbyInvite"
+        ],
+        "summary": "Lấy lịch sử invite của lobby (Pending/Accepted/Declined/Expired/Cancelled).\r\n[Role: Player — chỉ thành viên active của lobby]",
+        "parameters": [
+          {
+            "name": "lobbyId",
+            "in": "path",
+            "description": "Mã phòng chờ.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter optional: Pending / Accepted / Declined / Expired / Cancelled.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Giới hạn kết quả (1-200, mặc định 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách invite của lobby (sắp xếp theo CreatedAt desc).",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Status filter không hợp lệ.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải thành viên lobby.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy lobby.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
       }
     },
     "/api/v1/lobbies/invites/{inviteId}/accept": {
@@ -7962,8 +8520,20 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Đã hủy lời mời."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải inviter."
+          },
+          "404": {
+            "description": "Không tìm thấy lời mời."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -8079,6 +8649,309 @@
           },
           "409": {
             "description": "Đã là thành viên / lobby đầy / lobby đã đóng."
+          }
+        }
+      }
+    },
+    "/api/v1/lobbies/invites/{inviteId}/resend": {
+      "post": {
+        "tags": [
+          "LobbyInvite"
+        ],
+        "summary": "Gửi lại 1 invite đã ở trạng thái terminal (Declined / Expired / Cancelled).\r\nTạo record mới (Pending), reset ExpiresAt = now + 24h.\r\n[Role: Player — chỉ inviter cũ hoặc host lobby]",
+        "parameters": [
+          {
+            "name": "inviteId",
+            "in": "path",
+            "description": "Mã invite cần gửi lại.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Đã gửi lại lời mời (trả về invite mới).",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LobbyInviteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải inviter cũ / host.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy invite / lobby.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invite đã Accepted / đã có Pending mới / lobby đã đóng / invitee đã là member / vi phạm rate limit.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/lobbies/{lobbyId}/invitable-friends": {
+      "get": {
+        "tags": [
+          "LobbyInvite"
+        ],
+        "summary": "Lấy danh sách bạn bè (Friendship.Accepted) của current user kèm trạng thái\r\nmời vào lobby để render UI danh sách mời (nút \"Mời\" / \"Đã gửi\" / \"Đã trong phòng\" / v.v.).\r\n[Role: Player — chỉ thành viên active của lobby]",
+        "parameters": [
+          {
+            "name": "lobbyId",
+            "in": "path",
+            "description": "Mã phòng chờ.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Từ khóa tìm username (case-insensitive contains).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "onlineOnly",
+            "in": "query",
+            "description": "Chỉ lấy friend đang Online / RecentlyActive.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "minKarma",
+            "in": "query",
+            "description": "Karma tối thiểu (lọc bạn dưới ngưỡng).",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter theo nhiều status (comma-separated, vd: `Invitable,InvitePending`).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Giới hạn kết quả (1-200, mặc định 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách bạn bè kèm trạng thái invite.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInvitableFriendDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInvitableFriendDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LobbyInvitableFriendDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Status filter không hợp lệ.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải thành viên lobby.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy lobby.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -8606,13 +9479,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Xóa thành công.",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
+          "204": {
+            "description": "Xóa thành công."
           },
           "401": {
             "description": "Thiếu token.",
@@ -8945,7 +9813,7 @@
         "tags": [
           "Payment"
         ],
-        "summary": "Staff xác nhận thanh toán thủ công khi cả SePay và VietQR đều không khả dụng.\r\nUse case: Khách thanh toán tiền mặt trực tiếp cho POS; hoặc SePay + VietQR đều timeout.\r\nBR-18: Xử lý sự cố vận hành — phiếu thu tiền mặt thay vì QR.\r\n[Role: Manager — chủ quán; CafeStaff — đã gắn quán.]",
+        "summary": "Staff xác nhận thanh toán thủ công khi cả SePay và VietQR đều không khả dụng.\r\nUse case: Khách thanh toán tiền mặt trực tiếp cho POS; hoặc SePay + VietQR đều timeout.\r\nBR-18: Xử lý sự cố vận hành — phiếu thu tiền mặt thay vì QR.\r\nChỉ hỗ trợ SESSION (M6). Deposit có endpoint SePay riêng — staff không thể tự ý confirm DEPOSIT.\r\n[Role: Manager — chủ quán; CafeStaff — đã gắn quán; Admin bypass ownership.]",
         "requestBody": {
           "description": "Thông tin thanh toán thủ công.",
           "content": {
@@ -8971,7 +9839,7 @@
             "description": "Xác nhận thành công."
           },
           "400": {
-            "description": "Thông tin không hợp lệ / session không ở UNPAID."
+            "description": "Thông tin không hợp lệ / session không ở UNPAID / amount mismatch."
           },
           "401": {
             "description": "Thiếu token."
@@ -9159,7 +10027,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Xóa thành công."
           },
           "401": {
@@ -9224,7 +10092,7 @@
             "description": "Trả quote gồm số BVC cần hold, balance hiện tại, missing amount, buffer, expiresAt."
           },
           "400": {
-            "description": "Request không hợp lệ (playDate ngoài [today, +7], minPlayers < 2, timeSlot không đúng, preferredStartTime không nằm trong timeSlot window)."
+            "description": "Request không hợp lệ (playDate ngoài [today, +7], minPlayers < 1, maxPlayers < 1, timeSlot không đúng, preferredStartTime không nằm trong timeSlot window)."
           },
           "401": {
             "description": "Thiếu token."
@@ -12132,7 +13000,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": "Vô hiệu hóa người dùng thành công."
           },
           "404": {
@@ -12486,6 +13354,9 @@
         ],
         "summary": "Vô hiệu hóa hồ sơ của người dùng đang đăng nhập. [Role: Player, Manager, CafeStaff, Admin — yêu cầu đăng nhập.]",
         "responses": {
+          "204": {
+            "description": "No Content"
+          },
           "200": {
             "description": "Xóa hoặc vô hiệu hóa hồ sơ thành công (idempotent nếu chưa có hồ sơ)."
           },
@@ -12673,6 +13544,9 @@
         ],
         "summary": "Xóa vị trí đã lưu trên profile (không xóa lịch sử audit). [Role: Player, Manager, CafeStaff, Admin]",
         "responses": {
+          "204": {
+            "description": "Đã xóa vị trí hiện tại."
+          },
           "200": {
             "description": "Vị trí trên profile đã được xóa."
           },
@@ -12875,7 +13749,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Tạo đơn top-up thành công, trả về URL thanh toán.",
             "content": {
               "application/json": {
@@ -13179,7 +14053,7 @@
         "properties": {
           "displayName": {
             "maxLength": 100,
-            "minLength": 1,
+            "minLength": 2,
             "type": "string"
           }
         },
@@ -14519,6 +15393,18 @@
           "barcode": {
             "minLength": 1,
             "type": "string"
+          },
+          "idempotencyKey": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "nonce": {
+            "maxLength": 64,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -14549,22 +15435,31 @@
         },
         "additionalProperties": false
       },
-      "ComponentCheckResultDto": {
-        "required": [
-          "actualQuantity",
-          "componentId"
-        ],
+      "ComponentCheckResultItemDto": {
         "type": "object",
         "properties": {
           "componentId": {
             "type": "string",
             "format": "uuid"
           },
-          "actualQuantity": {
-            "maximum": 2147483647,
-            "minimum": 0,
+          "componentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "componentKind": {
+            "$ref": "#/components/schemas/BoardGameComponentKind"
+          },
+          "expectedQuantity": {
             "type": "integer",
             "format": "int32"
+          },
+          "actualQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "penaltyFee": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -15035,7 +15930,8 @@
             "maximum": 0,
             "minimum": -100,
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "pairingMode": {
             "$ref": "#/components/schemas/TournamentPairingMode"
@@ -15259,6 +16155,146 @@
             "maxLength": 4000,
             "minLength": 10,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LobbyInvitableFriendDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "karmaPoints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gamerTier": {
+            "type": "string",
+            "nullable": true
+          },
+          "activityStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastActiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "friendsSince": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "inviteStatus": {
+            "$ref": "#/components/schemas/LobbyInviteFriendStatus"
+          },
+          "latestInviteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "latestInviteStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "isInLobby": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "hasPendingInvite": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "isBlocked": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LobbyInviteFriendStatus": {
+        "enum": [
+          "Invitable",
+          "InvitePending",
+          "InviteAccepted",
+          "InviteNotPending",
+          "AlreadyMember",
+          "BlockedByThem",
+          "BlockedByMe",
+          "LobbyClosed"
+        ],
+        "type": "string"
+      },
+      "LobbyInviteResponseDto": {
+        "type": "object",
+        "properties": {
+          "inviteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lobbyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lobbyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "inviterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inviterUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "inviteeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inviteeUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "respondedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15988,13 +17024,13 @@
           },
           "maxPlayers": {
             "maximum": 30,
-            "minimum": 2,
+            "minimum": 1,
             "type": "integer",
             "format": "int32"
           },
           "minPlayers": {
             "maximum": 30,
-            "minimum": 2,
+            "minimum": 1,
             "type": "integer",
             "format": "int32"
           },
@@ -16045,13 +17081,13 @@
           },
           "maxPlayers": {
             "maximum": 30,
-            "minimum": 2,
+            "minimum": 1,
             "type": "integer",
             "format": "int32"
           },
           "minPlayers": {
             "maximum": 30,
-            "minimum": 2,
+            "minimum": 1,
             "type": "integer",
             "format": "int32"
           },
@@ -16559,7 +17595,7 @@
           "results": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ComponentCheckResultDto"
+              "$ref": "#/components/schemas/ComponentCheckResultItemDto"
             },
             "nullable": true
           }
@@ -17073,13 +18109,15 @@
             "maximum": 1440,
             "minimum": 1,
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "depositPercentage": {
             "maximum": 0.5,
             "minimum": 0,
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -17373,6 +18411,38 @@
         },
         "additionalProperties": false
       },
+      "UpsertCafeScheduleOverrideRequestDto": {
+        "type": "object",
+        "properties": {
+          "timeSlot": {
+            "$ref": "#/components/schemas/TimeSlot"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "endTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpsertFriendNoteDto": {
         "required": [
           "alias"
@@ -17502,6 +18572,10 @@
     {
       "name": "Cafe Booking",
       "description": "Controller cho các API booking dành cho Player mobile (booking-payment-gaps.md #1, #2).\r\nRead-only: liệt kê bàn trống + khảo sát capacity quán trong khung giờ cụ thể."
+    },
+    {
+      "name": "CafeSchedule",
+      "description": "Quản lý lịch cafe (override slot time / đóng slot).\r\nBR-NEW-15: 4 time slot cố định, cafe override start/end hoặc IsClosed."
     },
     {
       "name": "DebugSePay",

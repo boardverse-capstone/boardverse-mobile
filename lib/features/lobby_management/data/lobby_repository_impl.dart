@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:boardverse_mobile/core/cache/cacheable_repository.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import '../domain/entities/lobby_entity.dart';
+import '../domain/entities/lobby_invite_entity.dart';
+import '../domain/entities/lobby_invitable_friend.dart';
+import '../domain/entities/lobby_share_info.dart';
 import '../domain/entities/lobby_summary.dart';
 import '../domain/entities/lobby_chat_message.dart';
 import '../domain/repositories/lobby_repository.dart';
@@ -28,6 +32,11 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
 
   final LobbyRemoteDatasource _remote;
   final LobbyRealtimeService _realtime;
+
+  // Guard: `_realtime.connect()` chỉ chạy 1 lần đầu tiên trong vòng đời
+  // repository. Tránh spam log khi watchLobbyRealtime() / watchLobbyEvents()
+  // được subscribe nhiều lần (vd: user vào lobby → init → cancel → vào lại).
+  bool _realtimeSetupStarted = false;
 
   // ─── Read ────────────────────────────────────────────────────────────
 
@@ -52,6 +61,76 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
     String friendId,
   ) =>
       _remote.inviteFriend(lobbyId, friendId);
+
+  // ─── Lobby Invites & Share Code ───────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> sendLobbyInvite({
+    required String lobbyId,
+    required String inviteeId,
+    String? message,
+  }) =>
+      _remote.sendLobbyInvite(lobbyId, inviteeId, message);
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getLobbyInvites({
+    required String lobbyId,
+    LobbyInviteStatus? status,
+    int limit = 100,
+  }) =>
+      _remote.getLobbyInvites(lobbyId: lobbyId, status: status, limit: limit);
+
+  @override
+  Future<Either<Failure, LobbyInviteEntity>> resendInvite(String inviteId) =>
+      _remote.resendInvite(inviteId);
+
+  @override
+  Future<Either<Failure, List<LobbyInvitableFriend>>> getInvitableFriends({
+    required String lobbyId,
+    String? search,
+    bool onlineOnly = false,
+    int? minKarma,
+    List<LobbyInviteFriendStatus> statusFilter = const [],
+    int limit = 100,
+  }) =>
+      _remote.getInvitableFriends(
+        lobbyId: lobbyId,
+        search: search,
+        onlineOnly: onlineOnly,
+        minKarma: minKarma,
+        statusFilter: statusFilter,
+        limit: limit,
+      );
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getPendingLobbyInvites() =>
+      _remote.getPendingInvites();
+
+  @override
+  Future<Either<Failure, List<LobbyInviteEntity>>> getAllLobbyInvites({
+    LobbyInviteStatus? status,
+  }) =>
+      _remote.getAllInvites(status);
+
+  @override
+  Future<Either<Failure, LobbyEntity>> acceptLobbyInvite(String inviteId) =>
+      _remote.acceptInvite(inviteId);
+
+  @override
+  Future<Either<Failure, void>> declineLobbyInvite(String inviteId) =>
+      _remote.declineInvite(inviteId);
+
+  @override
+  Future<Either<Failure, void>> cancelLobbyInvite(String inviteId) =>
+      _remote.cancelInvite(inviteId);
+
+  @override
+  Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(String lobbyId) =>
+      _remote.getShareInfo(lobbyId);
+
+  @override
+  Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode) =>
+      _remote.joinLobbyByCode(shareCode);
 
   @override
   Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() =>
@@ -82,13 +161,7 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
 
   @override
   Stream<LobbyEntity> watchLobbyRealtime(String lobbyId) {
-    // 1. Đảm bảo hub đã connect.
-    unawaited(_realtime.connect());
-
-    // 2. Subscribe group của lobby.
-    unawaited(_realtime.joinLobby(lobbyId));
-
-    // 3. Forward event đã lọc `lobbyId` ra Stream<LobbyEntity>.
+    _setupRealtime(lobbyId);
     return _realtime.events
         .where((event) => _eventMatchesLobby(event, lobbyId))
         .asyncMap((_) async {
@@ -104,10 +177,26 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
 
   @override
   Stream<LobbyRealtimeEvent> watchLobbyEvents(String lobbyId) {
-    unawaited(_realtime.connect());
-    unawaited(_realtime.joinLobby(lobbyId));
+    _setupRealtime(lobbyId);
     return _realtime.events
         .where((event) => _eventMatchesLobby(event, lobbyId));
+  }
+
+  /// Idempotent realtime handshake. Connect + joinLobby chỉ chạy 1 lần
+  /// đầu tiên — các lần subscribe sau bỏ qua. Nếu setup fail (hiện không
+  /// thể vì `MockLobbyRealtimeService` no-op, nhưng vẫn defensive) thì
+  /// log 1 lần + vẫn trả stream rỗng để caller không crash.
+  void _setupRealtime(String lobbyId) {
+    if (_realtimeSetupStarted) return;
+    _realtimeSetupStarted = true;
+    () async {
+      try {
+        await _realtime.connect();
+        await _realtime.joinLobby(lobbyId);
+      } on Object catch (e) {
+        debugPrint('[LobbyRepo] realtime setup failed: $e');
+      }
+    }();
   }
 
   bool _eventMatchesLobby(LobbyRealtimeEvent event, String lobbyId) {

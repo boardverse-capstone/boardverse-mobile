@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../core/utils/uuid_generator.dart';
 import '../../../wallet/domain/repositories/wallet_repository.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/reservation_repository.dart';
@@ -53,18 +54,17 @@ class ReservationCubit extends Cubit<ReservationState> {
     });
   }
 
-  String _stableUuidV4(String seed) {
-    // Dùng UUID v5 (deterministic từ SHA-1 của fingerprint) thay vì v4 để
-    // cùng input luôn cho ra cùng key. Backend sẽ idempotent theo key này.
-    // uuid package không expose v5 mặc định, nên thay bằng một hash ổn định.
+  String _stableKey(String seed) {
+    // Deterministic key chỉ dùng cho cancel — để retry cancel không tạo
+    // record mới trên server.
     final bytes = utf8.encode(seed);
     final hex = _hex(bytes);
-    return '${hex.substring(0, 8)}-'
-        '${hex.substring(8, 12)}-'
-        '4${hex.substring(13, 16)}-'
-        '${(0x8 | (int.parse(hex.substring(16, 17), radix: 16) & 0x3)).toRadixString(16)}'
-        '${hex.substring(17, 20)}-'
-        '${hex.substring(20, 32)}';
+    return '${hex.substring(0, 8)}'
+        '-${hex.substring(8, 12)}'
+        '-4${hex.substring(13, 16)}'
+        '-${(0x8 | (int.parse(hex.substring(16, 17), radix: 16) & 0x3)).toRadixString(16)}'
+        '${hex.substring(17, 20)}'
+        '-${hex.substring(20, 32)}';
   }
 
   String _hex(List<int> bytes) {
@@ -102,8 +102,26 @@ class ReservationCubit extends Cubit<ReservationState> {
       maxPlayers: maxPlayers,
       isPrivate: isPrivate,
     );
+
+    // Phát hiện user mở flow tạo lobby MỚI so với lần trước:
+    //   - Input thay đổi (cafeId khác, ngày khác, v.v.) → flow mới chắc chắn.
+    //   - Input giống hệt nhưng đã từng có confirm thành công trước đó
+    //     (state là ReservationConfirmed / ReservationPendingCafeApproval /
+    //      ReservationCancelled) → user đang "tạo lại" sau khi lobby cũ
+    //     bị giải tán → cũng phải đổi nonce để tránh đụng idempotency key
+    //     cũ trong DB (lobby cũ đã dissolve → backend sẽ throw 500).
+    final inputChanged = fingerprint != _lastInputsFingerprint;
+    final previousTerminalConfirm = state is ReservationConfirmed ||
+        state is ReservationPendingCafeApproval ||
+        state is ReservationCancelled;
+    if (inputChanged || previousTerminalConfirm) {
+      // Reset confirm key cache để lần confirm kế sẽ sinh key mới.
+      // KHÔNG reset _quoteIdempotencyKey vì quote an toàn để cache.
+      _confirmIdempotencyKey = null;
+    }
+
     _lastInputsFingerprint = fingerprint;
-    _quoteIdempotencyKey = _stableUuidV4('quote|$fingerprint');
+    _quoteIdempotencyKey = generateIdempotencyKey();
 
     final result = await repository.createQuote(
       cafeId: cafeId,
@@ -126,7 +144,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       (quote) async {
         _currentQuote = quote;
         _confirmIdempotencyKey =
-            _stableUuidV4('confirm|$_quoteIdempotencyKey');
+        _confirmIdempotencyKey = generateIdempotencyKey();
 
         if (!quote.hasEnoughBalance) {
           emit(ReservationInsufficientBalance(
@@ -165,8 +183,13 @@ class ReservationCubit extends Cubit<ReservationState> {
 
     emit(const ReservationConfirming());
 
-    _confirmIdempotencyKey ??=
-        _stableUuidV4('confirm|${_quoteIdempotencyKey ?? DateTime.now().toIso8601String()}');
+    // Sinh confirm key MỚI cho mỗi "attempt" để:
+    //   - Trong cùng 1 session (user vừa bấm Confirm → bị lỗi mạng → bấm
+    //     lại): cùng nonce → cùng key → server dedupe, an toàn.
+    //   - Khi user "tạo lại" lobby (giải tán lobby cũ rồi bấm Confirm lại):
+    //     nonce mới → key mới → tránh đụng Reservation.IdempotencyKey cũ
+    //     đã gắn với lobby đã bị dissolve.
+    _confirmIdempotencyKey ??= generateIdempotencyKey();
 
     final result = await repository.confirmReservation(
       cafeId: quote.cafeId,
@@ -195,9 +218,12 @@ class ReservationCubit extends Cubit<ReservationState> {
       },
       (confirmResult) async {
         if (confirmResult.requiresCafeApproval) {
+          final quote = _currentQuote;
           emit(ReservationPendingCafeApproval(
             reservationId: confirmResult.reservationId,
             lobbyId: confirmResult.lobbyId,
+            cafeId: quote?.cafeId,
+            cafeName: quote?.cafeName,
             cafeApprovalDeadline: confirmResult.cafeApprovalDeadline,
           ));
         } else {
@@ -215,7 +241,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     emit(const ReservationCancelling());
 
     final idempotencyKey =
-        _stableUuidV4('cancel|$reservationId|${reason ?? ''}');
+        _stableKey('cancel|$reservationId|${reason ?? ''}');
 
     final result = await repository.cancelReservation(
       reservationId: reservationId,

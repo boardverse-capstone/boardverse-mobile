@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/navigation/lobby_flow_navigator.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/utils/current_user_resolver.dart';
 import '../../../matchmaking_discovery/domain/entities/board_game_entity.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../../matchmaking_discovery/presentation/cubit/matchmaking_state.dart';
@@ -21,6 +23,7 @@ import '../cubit/my_lobbies_cubit.dart';
 import '../widgets/lobby_game_filter_bar.dart';
 import '../widgets/lobby_explore_tab.dart';
 import '../widgets/lobby_history_tab.dart';
+import '../widgets/lobby_hub_actions.dart';
 import 'lobby_page.dart';
 import 'lobby_preview_page.dart';
 
@@ -51,6 +54,16 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   double _radiusKm = 15.0;
   double _minKarma = 0.0;
 
+  /// ID user hiện tại — resolve từ JWT trong secure storage qua
+  /// `CurrentUserResolver`. Dùng để so sánh với `lobby.hostId` trong
+  /// `_LobbyList` → phân biệt lobby do mình tạo (UI khác + tap → mở
+  /// thẳng LobbyPage) với lobby của người khác (UI cũ + preview/join).
+  ///
+  /// `null` = chưa resolve xong (khi đó coi như không có lobby nào là
+  /// của mình, UI render bình thường). Async resolve trong initState,
+  /// setState khi có kết quả.
+  String? _currentUserId;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -65,6 +78,17 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     _matchmakingCubit = context.read<MatchmakingCubit>();
     _myLobbiesCubit = context.read<MyLobbiesCubit>();
     _realtime = GetIt.instance<LobbyRealtimeService>();
+
+    // Resolve currentUserId từ JWT — không block UI; nếu resolve
+    // xong sau khi list đã render thì setState sẽ rebuild với
+    // `currentUserId` đúng → list card tự phân biệt lobby của mình.
+    _resolveCurrentUserId();
+  }
+
+  Future<void> _resolveCurrentUserId() async {
+    final id = await sl<CurrentUserResolver>().resolveUserId();
+    if (!mounted) return;
+    setState(() => _currentUserId = id);
   }
 
   void _onTabChanged() {
@@ -122,6 +146,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
           style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         actions: [
+          const LobbyHubActions(),
           if (_tabController.index == 0)
             IconButton(
               tooltip: _showGameFilter ? 'Ẩn bộ lọc' : 'Bộ lọc game',
@@ -165,8 +190,10 @@ class _LobbyHubPageState extends State<LobbyHubPage>
                   searchCubit: _searchCubit,
                   timeFormatter: _timeFormatter,
                   onPreview: _openPreview,
+                  onOpenOwned: _openOwnedLobby,
                   onJoin: _joinAndOpen,
                   onCreateLobby: _openCreateLobby,
+                  currentUserId: _currentUserId,
                 ),
                 LobbyHistoryTab(
                   myLobbiesCubit: _myLobbiesCubit,
@@ -244,6 +271,14 @@ class _LobbyHubPageState extends State<LobbyHubPage>
         builder: (_) => LobbyPage(lobbyId: lobby.id, lobbyCubit: _lobbyCubit),
       ),
     );
+  }
+
+  /// Mở LobbyPage cho lobby do chính user hiện tại host (được tap từ
+  /// tab Explore). Tương đương `_openMyLobby` (đã dùng cho tab Lịch sử)
+  /// nhưng tách riêng để rõ semantic: tap từ Explore → không qua preview
+  /// popup, mở LobbyPage thẳng.
+  Future<void> _openOwnedLobby(LobbyEntity lobby) async {
+    await _openMyLobby(lobby);
   }
 
   Future<void> _joinAndOpen(String lobbyId, String? inviteCode) async {

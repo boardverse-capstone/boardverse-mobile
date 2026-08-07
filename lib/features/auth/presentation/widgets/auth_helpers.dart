@@ -1,5 +1,4 @@
 import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/widgets/app_toast_card.dart';
 
 /// Toast helper cho auth pages.
 class AuthToast {
@@ -19,7 +19,7 @@ class AuthToast {
       autoDismiss: true,
       snackbarDuration: const Duration(seconds: 3),
       position: DelightSnackbarPosition.top,
-      builder: (ctx) => ToastCard(
+      builder: (ctx) => AppToastCard(
         leading: Icon(
           isError ? Icons.error_outline : Icons.check_circle_outlined,
           color: isError ? AppColors.error : AppColors.success,

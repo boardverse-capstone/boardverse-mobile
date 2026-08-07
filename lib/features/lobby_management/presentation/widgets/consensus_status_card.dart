@@ -27,7 +27,7 @@ class ConsensusStatusCard extends StatelessWidget {
     return Card(
       elevation: AppElevation.elevationSm,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        borderRadius: AppRadius.radiusLgAll,
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),

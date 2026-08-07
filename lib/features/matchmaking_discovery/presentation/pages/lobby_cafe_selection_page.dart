@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
@@ -10,6 +8,13 @@ import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
+import '../widgets/cafe_selection/cafe_selection_empty_state.dart';
+import '../widgets/cafe_selection/cafe_selection_error_retry_view.dart';
+import '../widgets/cafe_selection/cafe_selection_location_banner.dart';
+import '../widgets/cafe_selection/location_pick.dart';
+import '../widgets/cafe_selection/location_picker_dialog.dart';
+import '../widgets/cafe_selection/selectable_cafe_card.dart';
+import '../widgets/lobby_cafe_selection/lobby_cafe_selection_shimmer.dart';
 import 'lobby_config_page.dart';
 
 /// Màn chọn quán cafe cho flow "Tạo lobby theo quán đã biết".
@@ -112,9 +117,9 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
   Future<void> _promptUpdateLocation() async {
     if (_isUpdatingLocation) return;
 
-    final picked = await showDialog<_LocationPick>(
+    final picked = await showDialog<LocationPick>(
       context: context,
-      builder: (_) => const _LocationPickerDialog(),
+      builder: (_) => const LocationPickerDialog(),
     );
     if (picked == null || !mounted) return;
 
@@ -223,6 +228,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
           gameName: widget.game.name,
           cafeId: cafe.id,
           cafeName: cafe.name,
+          cafeEntity: cafe,
           matchmakingCubit: widget.matchmakingCubit,
           gameEntity: widget.game,
         ),
@@ -298,7 +304,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
               curr is MatchmakingFailure,
           builder: (context, state) {
             if (state is MatchmakingLoading || state is MatchmakingInitial) {
-              return const Center(child: CircularProgressIndicator());
+              return const LobbyCafeSelectionShimmer();
             }
 
             if (state is MatchmakingNearbyCafesLoaded) {
@@ -310,7 +316,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   children: [
                     if (!_hasUpdatedLocation)
-                      _LocationBanner(
+                      CafeSelectionLocationBanner(
                         hasManualLocation:
                             _manualLatitude != null && _manualLongitude != null,
                         isUpdating: _isUpdatingLocation,
@@ -327,7 +333,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                         },
                       ),
                     if (cafes.isEmpty)
-                      _EmptyState(
+                      CafeSelectionEmptyState(
                         message: state.emptyResultMessage ??
                             'Chưa có quán nào có game này trong bán kính tìm kiếm.',
                       )
@@ -354,7 +360,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                             AppSpacing.sm,
                             AppSpacing.xs,
                           ),
-                          child: _SelectableCafeCard(
+                          child: SelectableCafeCard(
                             cafe: cafe,
                             onTap: () => _openConfigWithCafe(cafe),
                           ),
@@ -381,7 +387,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
             }
 
             if (state is MatchmakingFailure) {
-              return _ErrorRetryView(
+              return CafeSelectionErrorRetryView(
                 message: state.message,
                 onRetry: _refresh,
                 onUpdateLocation: _promptUpdateLocation,
@@ -392,407 +398,6 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _SelectableCafeCard extends StatelessWidget {
-  final CafeEntity cafe;
-  final VoidCallback onTap;
-
-  const _SelectableCafeCard({required this.cafe, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final distanceLabel = cafe.distanceMeters < 1000
-        ? '${cafe.distanceMeters.toStringAsFixed(0)} m'
-        : '${(cafe.distanceMeters / 1000).toStringAsFixed(1)} km';
-
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSmAll),
-      child: InkWell(
-        borderRadius: AppRadius.radiusSmAll,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm + 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.local_cafe,
-                color: theme.colorScheme.primary,
-                size: AppSpacing.xl + AppSpacing.xs,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cafe.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (cafe.address.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        cafe.address,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xxs,
-                      children: [
-                        _Chip(
-                          icon: Icons.location_on,
-                          label: distanceLabel,
-                        ),
-                        if (cafe.isWaitingForGame &&
-                            cafe.estimatedWaitMinutes != null)
-                          _Chip(
-                            icon: Icons.hourglass_bottom,
-                            label:
-                                'Chờ game ~${cafe.estimatedWaitMinutes} phút',
-                            color: AppColors.warning.withValues(alpha: 0.12),
-                            textColor: AppColors.warningDark,
-                          ),
-                        if (cafe.totalTableCount > 0)
-                          _Chip(
-                            icon: Icons.table_restaurant,
-                            label:
-                                '${cafe.availableTableCount}/${cafe.totalTableCount} bàn',
-                          ),
-                        if (cafe.rating > 0)
-                          _Chip(
-                            icon: Icons.star,
-                            label: cafe.rating.toStringAsFixed(1),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.outline,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final Color? textColor;
-
-  const _Chip({
-    required this.icon,
-    required this.label,
-    this.color,
-    this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bg = color ?? theme.colorScheme.surfaceContainerHighest;
-    final fg = textColor ?? theme.colorScheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: AppRadius.radiusXsAll,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: AppSpacing.sm, color: fg),
-          const SizedBox(width: AppSpacing.xxs),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LocationBanner extends StatelessWidget {
-  final bool hasManualLocation;
-  final bool isUpdating;
-  final VoidCallback onRefreshLocation;
-  final VoidCallback onClearManualLocation;
-
-  const _LocationBanner({
-    required this.hasManualLocation,
-    required this.isUpdating,
-    required this.onRefreshLocation,
-    required this.onClearManualLocation,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.xs,
-        AppSpacing.md,
-        0,
-      ),
-      padding: AppSpacing.paddingAllSm,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppSpacing.sm - 2),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            hasManualLocation ? Icons.edit_location_alt : Icons.my_location,
-            color: theme.colorScheme.primary,
-            size: AppSpacing.lg,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              hasManualLocation
-                  ? 'Đang dùng vị trí đã chọn thủ công.'
-                  : 'Đang tìm quán quanh vị trí đã lưu của bạn.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-          if (hasManualLocation)
-            TextButton(
-              onPressed: isUpdating ? null : onClearManualLocation,
-              child: const Text('Dùng vị trí đã lưu'),
-            ),
-          const SizedBox(width: AppSpacing.xxs),
-          FilledButton.tonal(
-            onPressed: isUpdating ? null : onRefreshLocation,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs - 2,
-              ),
-              visualDensity: VisualDensity.compact,
-              textStyle: theme.textTheme.labelMedium,
-            ),
-            child: isUpdating
-                ? const SizedBox(
-                    width: AppSpacing.sm + 2,
-                    height: AppSpacing.sm + 2,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Cập nhật'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String message;
-  const _EmptyState({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xxl,
-        AppSpacing.xl,
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Icon(
-            Icons.store_mall_directory_outlined,
-            size: AppSpacing.huge + AppSpacing.xs,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorRetryView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  final Future<void> Function() onUpdateLocation;
-  const _ErrorRetryView({
-    required this.message,
-    required this.onRetry,
-    required this.onUpdateLocation,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: AppSpacing.paddingAllXl,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off,
-              size: AppSpacing.huge + AppSpacing.xs,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            TextButton.icon(
-              onPressed: () => onUpdateLocation(),
-              icon: const Icon(Icons.my_location),
-              label: const Text('Cập nhật vị trí'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Kết quả trả về từ [_LocationPickerDialog].
-class _LocationPick {
-  final String label;
-  final double latitude;
-  final double longitude;
-
-  const _LocationPick({
-    required this.label,
-    required this.latitude,
-    required this.longitude,
-  });
-}
-
-/// Dialog cho phép user chọn vị trí đại diện (theo thành phố) để ghi lên
-/// profile. Dùng khi thiết bị không có GPS hoặc app chưa tích hợp
-/// `geolocator` — user chọn thành phố → lưu lat/lng tương ứng lên server.
-///
-/// Các tọa độ dưới đây là trung tâm thành phố lớn tại Việt Nam, đủ để
-/// backend `/api/cafes/nearby/me` trả về quán trong bán kính 15 km mặc định.
-class _LocationPickerDialog extends StatefulWidget {
-  const _LocationPickerDialog();
-
-  @override
-  State<_LocationPickerDialog> createState() => _LocationPickerDialogState();
-}
-
-class _LocationPickerDialogState extends State<_LocationPickerDialog> {
-  /// Danh sách thành phố preset. Cập nhật/thêm nếu mở rộng khu vực.
-  static const _presets = <_LocationPick>[
-    _LocationPick(label: 'TP. Hồ Chí Minh', latitude: 10.7769, longitude: 106.7009),
-    _LocationPick(label: 'Hà Nội', latitude: 21.0285, longitude: 105.8542),
-    _LocationPick(label: 'Đà Nẵng', latitude: 16.0544, longitude: 108.2022),
-    _LocationPick(label: 'Hải Phòng', latitude: 20.8449, longitude: 106.6881),
-    _LocationPick(label: 'Cần Thơ', latitude: 10.0452, longitude: 105.7469),
-    _LocationPick(label: 'Nha Trang', latitude: 12.2388, longitude: 109.1967),
-    _LocationPick(label: 'Vũng Tàu', latitude: 10.3460, longitude: 107.0843),
-  ];
-
-  _LocationPick? _selected = _presets.first;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AlertDialog(
-      title: const Text('Cập nhật vị trí của bạn'),
-      content: SizedBox(
-        width: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Chọn khu vực để hệ thống tìm quán cafe xung quanh bạn.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<_LocationPick>(
-              initialValue: _selected,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Khu vực',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final p in _presets)
-                  DropdownMenuItem<_LocationPick>(
-                    value: p,
-                    child: Text(p.label),
-                  ),
-              ],
-              onChanged: (v) => setState(() => _selected = v),
-            ),
-            const SizedBox(height: 8),
-            if (_selected != null)
-              Text(
-                'Lat ${_selected!.latitude.toStringAsFixed(4)}, '
-                'Lng ${_selected!.longitude.toStringAsFixed(4)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Huỷ'),
-        ),
-        FilledButton(
-          onPressed: _selected == null
-              ? null
-              : () => Navigator.of(context).pop(_selected),
-          child: const Text('Lưu'),
-        ),
-      ],
     );
   }
 }
