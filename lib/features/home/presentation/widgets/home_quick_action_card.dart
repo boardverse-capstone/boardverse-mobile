@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
-/// Quick action card with press animation (scale 0.96).
+/// Neo-brutalism quick action card với bold border + hard shadow + press scale.
 class HomeQuickActionCard extends StatefulWidget {
   final IconData icon;
   final String label;
@@ -31,10 +31,10 @@ class _HomeQuickActionCardState extends State<HomeQuickActionCard>
   void initState() {
     super.initState();
     _pressCtrl = AnimationController(
-      duration: const Duration(milliseconds: 140),
+      duration: const Duration(milliseconds: 80),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
     );
   }
@@ -51,7 +51,7 @@ class _HomeQuickActionCardState extends State<HomeQuickActionCard>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedBuilder(
       animation: _scaleAnimation,
       builder: (context, child) {
@@ -65,34 +65,54 @@ class _HomeQuickActionCardState extends State<HomeQuickActionCard>
         onTapUp: _onTapUp,
         onTapCancel: _onTapCancel,
         onTap: widget.onTap,
-        child: Material(
-          color: widget.color.withValues(alpha: 0.12),
-          borderRadius: AppRadius.radiusMdAll,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.md,
-              horizontal: AppSpacing.xs,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: widget.color,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
             ),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.radiusMdAll,
-              border: Border.all(color: widget.color.withValues(alpha: 0.25)),
-            ),
-            child: Column(
-              children: [
-                Icon(widget.icon, size: 32, color: widget.color),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  widget.label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: widget.color,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.white.withValues(alpha: 0.5),
+                    width: 2,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+                child: Icon(widget.icon, size: 22, color: AppColors.white),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.white,
+                  fontSize: 12,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),

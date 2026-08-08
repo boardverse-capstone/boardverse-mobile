@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Danh sách skeleton cho trang danh sách game — dùng shimmer để thay thế
-/// `CircularProgressIndicator` trơn, cho cảm giác app phản hồi nhanh hơn.
+/// Danh sách skeleton cho trang danh sách game — Neo-brutalism style.
 class GameSkeletonList extends StatelessWidget {
   final int itemCount;
 
@@ -13,36 +13,58 @@ class GameSkeletonList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final highlight = isDark
+        ? AppColors.surfaceElevatedDark
+        : AppColors.surface;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return Shimmer.fromColors(
-      baseColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      highlightColor: Theme.of(context).colorScheme.surface,
+      baseColor: base,
+      highlightColor: highlight,
+      period: const Duration(milliseconds: 1400),
       child: ListView.builder(
         padding: AppSpacing.paddingAllMd,
         itemCount: itemCount,
-        itemBuilder: (context, index) => const _GameSkeletonCard(),
+        itemBuilder: (context, index) => _GameSkeletonCard(
+          borderColor: borderColor,
+        ),
       ),
     );
   }
 }
 
 class _GameSkeletonCard extends StatelessWidget {
-  const _GameSkeletonCard();
+  const _GameSkeletonCard({required this.borderColor});
+
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: AppRadius.radiusMdAll,
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: borderColor,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
             aspectRatio: 4 / 3,
-            child: Container(color: theme.colorScheme.surfaceContainerHighest),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14),
+                ),
+              ),
+            ),
           ),
           Padding(
             padding: AppSpacing.paddingAllSm,
@@ -52,7 +74,10 @@ class _GameSkeletonCard extends StatelessWidget {
                 Container(
                   height: AppSpacing.md,
                   width: double.infinity,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Row(
@@ -60,14 +85,20 @@ class _GameSkeletonCard extends StatelessWidget {
                     Expanded(
                       child: Container(
                         height: AppSpacing.sm,
-                        color: theme.colorScheme.surfaceContainerHighest,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Container(
                         height: AppSpacing.sm,
-                        color: theme.colorScheme.surfaceContainerHighest,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
                   ],
@@ -77,8 +108,8 @@ class _GameSkeletonCard extends StatelessWidget {
                   height: AppSpacing.md,
                   width: AppSpacing.xxxl * 2,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.radiusFullAll,
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppSpacing.huge),
                   ),
                 ),
               ],
@@ -90,22 +121,37 @@ class _GameSkeletonCard extends StatelessWidget {
   }
 }
 
-/// Skeleton cho trang chi tiết game — header ảnh + vài dòng text giả lập.
+/// Skeleton cho trang chi tiết game — Neo-brutalism style.
 class GameDetailSkeleton extends StatelessWidget {
   const GameDetailSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final highlight = isDark
+        ? AppColors.surfaceElevatedDark
+        : AppColors.surface;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return Shimmer.fromColors(
-      baseColor: theme.colorScheme.surfaceContainerHighest,
-      highlightColor: theme.colorScheme.surface,
+      baseColor: base,
+      highlightColor: highlight,
+      period: const Duration(milliseconds: 1400),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           Container(
             height: AppSpacing.huge * 3,
-            color: theme.colorScheme.surfaceContainerHighest,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              border: Border(
+                bottom: BorderSide(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+              ),
+            ),
           ),
           Padding(
             padding: AppSpacing.paddingAllMd,
@@ -115,28 +161,43 @@ class GameDetailSkeleton extends StatelessWidget {
                 Container(
                   height: AppSpacing.lg,
                   width: AppSpacing.xxxl * 3,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Container(
                   height: AppSpacing.md,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Container(
                   height: AppSpacing.md,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Container(
                   height: AppSpacing.md,
                   width: AppSpacing.xxxl * 4,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Container(
                   height: AppSpacing.xxxl,
-                  color: theme.colorScheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ],
             ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../domain/entities/cafe_detail_entity.dart';
 
-/// Pricing card hiển thị giá và tiền cọc của quán.
+/// Neo-brutalism Pricing card hiển thị giá và tiền cọc của quán.
 class PricingCard extends StatelessWidget {
   final CafeDetailEntity cafe;
 
@@ -13,23 +14,36 @@ class PricingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: theme.colorScheme.primaryContainer),
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.25),
+        ),
       ),
       child: Column(
         children: [
-          // Price row
           Row(
             children: [
-              Icon(
-                Icons.sell_outlined,
-                size: 24,
-                color: theme.colorScheme.primary,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.sell_outlined,
+                  size: 22,
+                  color: AppColors.white,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -37,16 +51,21 @@ class PricingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Giá thuê',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.outline,
+                      'GIÁ THUÊ',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       cafe.priceDisplay,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
@@ -55,42 +74,62 @@ class PricingCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
+                  vertical: AppSpacing.xxs,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer,
-                  borderRadius: AppRadius.radiusSmAll,
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: NeoBrutalismTheme.borderWidth,
+                  ),
                 ),
                 child: Text(
                   _billingModelLabel(cafe.billingModel),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSecondaryContainer,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.black,
+                    fontSize: 11,
                   ),
                 ),
               ),
             ],
           ),
           if (cafe.depositPercentage != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(),
-            const SizedBox(height: AppSpacing.sm),
-            // Deposit row
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              height: 2,
+              color: AppColors.primary.withValues(alpha: 0.2),
+            ),
+            const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                Icon(
-                  Icons.payments_outlined,
-                  size: 20,
-                  color: theme.colorScheme.secondary,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.payments_outlined,
+                    size: 18,
+                    color: AppColors.secondary,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text('Tiền cọc', style: theme.textTheme.bodyMedium),
+                  child: Text(
+                    'Tiền cọc',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
                 Text(
                   cafe.depositDisplay,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.secondary,
                   ),
                 ),
               ],

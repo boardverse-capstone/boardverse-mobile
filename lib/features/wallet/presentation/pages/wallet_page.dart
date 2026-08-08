@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shimmer.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/wallet_repository.dart';
 import '../cubit/topup_cubit.dart';
@@ -15,9 +15,7 @@ import '../widgets/balance_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'topup_page.dart';
 
-/// Màn hình ví BVC - hiển thị số dư và lịch sử giao dịch
-///
-/// Đường dẫn: /wallet
+/// Neo-brutalism Màn hình ví BVC.
 class WalletPage extends StatelessWidget {
   const WalletPage({super.key});
 
@@ -62,9 +60,7 @@ class _WalletPageContentState extends State<_WalletPageContent> {
     );
 
     result.fold(
-      (failure) {
-        // Handle error silently or show snackbar
-      },
+      (failure) {},
       (transactions) {
         setState(() {
           if (_currentPage == 1) {
@@ -100,7 +96,6 @@ class _WalletPageContentState extends State<_WalletPageContent> {
           child: TopUpPage(
             initialAmountVnd: amountBvc * 1000,
             onSuccess: () {
-              // Refresh wallet after successful top-up
               context.read<WalletCubit>().refresh();
               _refreshTransactions();
             },
@@ -120,40 +115,70 @@ class _WalletPageContentState extends State<_WalletPageContent> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.background;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Ví BVC'),
+        backgroundColor: bgColor,
+        elevation: 0,
+        title: const Text(
+          'VÍ BVC',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<WalletCubit>().refresh();
-              _refreshTransactions();
-            },
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.black,
+                width: 2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.black,
+                  blurRadius: 0,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.black, size: 20),
+              onPressed: () {
+                context.read<WalletCubit>().refresh();
+                _refreshTransactions();
+              },
+            ),
           ),
         ],
       ),
       body: BlocConsumer<WalletCubit, WalletState>(
         listener: (context, state) {
           if (state is WalletLoaded) {
-            // Refresh transactions when wallet is refreshed
             _refreshTransactions();
           }
         },
         builder: (context, state) {
           return RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: () async {
               context.read<WalletCubit>().refresh();
               await _refreshTransactions();
             },
             child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // Balance Card
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     child: _buildBalanceSection(context, state),
                   ),
                 ),
@@ -161,7 +186,7 @@ class _WalletPageContentState extends State<_WalletPageContent> {
                 // Transaction History Header
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
                       vertical: AppSpacing.sm,
                     ),
@@ -169,16 +194,34 @@ class _WalletPageContentState extends State<_WalletPageContent> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Lịch sử giao dịch',
+                          'LỊCH SỬ GIAO DỊCH',
                           style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            // Navigate to full transaction history
-                          },
-                          child: const Text('Xem tất cả'),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xxs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.secondary,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Text(
+                            'XEM TẤT CẢ',
+                            style: TextStyle(
+                              color: AppColors.secondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -199,13 +242,41 @@ class _WalletPageContentState extends State<_WalletPageContent> {
                             transaction: _transactions[index],
                           );
                         } else if (_hasMore) {
-                          // Load more indicator
                           return Padding(
-                            padding: EdgeInsets.all(AppSpacing.md),
-                            child: Center(
-                              child: TextButton(
-                                onPressed: _loadMore,
-                                child: const Text('Tải thêm'),
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: NeoBrutalismTheme.borderWidth,
+                                ),
+                                boxShadow: NeoBrutalismTheme.lightShadow(
+                                  shadowColor:
+                                      AppColors.black.withValues(alpha: 0.05),
+                                ),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: _loadMore,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: AppSpacing.sm,
+                                    ),
+                                    child: Text(
+                                      'TẢI THÊM',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           );
@@ -216,21 +287,42 @@ class _WalletPageContentState extends State<_WalletPageContent> {
                     ),
                   ),
 
-                // Bottom padding
-                SliverToBoxAdapter(
-                  child: SizedBox(height: AppSpacing.xl),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 80),
                 ),
               ],
             ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToTopUp(100), // Default 100 BVC
-        icon: const Icon(Icons.add),
-        label: const Text('Nạp BVC'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppColors.black, width: 3),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.black,
+              blurRadius: 0,
+              offset: Offset(4, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          heroTag: 'wallet_topup_fab',
+          onPressed: () => _navigateToTopUp(100),
+          icon: const Icon(Icons.add, color: AppColors.white),
+          label: const Text(
+            'NẠP BVC',
+            style: TextStyle(
+              color: AppColors.white,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
       ),
     );
   }
@@ -246,32 +338,57 @@ class _WalletPageContentState extends State<_WalletPageContent> {
 
     if (state is WalletError) {
       return Container(
-        padding: EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           color: AppColors.error.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.error, width: 2),
+          boxShadow: NeoBrutalismTheme.lightShadow(
+            shadowColor: AppColors.error.withValues(alpha: 0.3),
+          ),
         ),
         child: Column(
           children: [
-            Icon(
-              Icons.error_outline,
-              color: AppColors.error,
-              size: 48,
-            ),
-            SizedBox(height: AppSpacing.md),
+            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+            const SizedBox(height: AppSpacing.md),
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: const TextStyle(
                 color: AppColors.error,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(height: AppSpacing.md),
-            ElevatedButton(
-              onPressed: () {
-                context.read<WalletCubit>().refresh();
-              },
-              child: const Text('Thử lại'),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.black, width: 2),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    context.read<WalletCubit>().refresh();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      'THỬ LẠI',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -284,7 +401,6 @@ class _WalletPageContentState extends State<_WalletPageContent> {
     } else if (state is WalletInsufficientBalance) {
       wallet = state.wallet;
     } else {
-      // Initial or unknown state - show placeholder
       wallet = const WalletEntity(
         userId: '',
         availableBalance: 0,
@@ -303,26 +419,36 @@ class _WalletPageContentState extends State<_WalletPageContent> {
 
   Widget _buildEmptyTransactions(TextTheme textTheme) {
     return Padding(
-      padding: EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 64,
-            color: AppColors.textSecondary.withValues(alpha: 0.5),
-          ),
-          SizedBox(height: AppSpacing.md),
-          Text(
-            'Chưa có giao dịch nào',
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary, width: 2),
+            ),
+            child: const Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: AppColors.primary,
             ),
           ),
-          SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'CHƯA CÓ GIAO DỊCH NÀO',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Nạp BVC để bắt đầu sử dụng',
-            style: textTheme.bodySmall?.copyWith(
+            style: TextStyle(
               color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

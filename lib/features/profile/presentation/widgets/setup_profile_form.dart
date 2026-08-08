@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Form nhập hồ sơ lần đầu khi [ProfileEntity.hasProfile] = false.
-///
-/// Đã được pre-fill từ trước ở [HomePage] nên widget này chỉ thuần UI.
+/// Neo-brutalism Form nhập hồ sơ lần đầu khi [ProfileEntity.hasProfile] = false.
 class SetupProfileForm extends StatelessWidget {
   const SetupProfileForm({
     super.key,
@@ -31,7 +30,9 @@ class SetupProfileForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor =
+        isDark ? AppColors.borderDark : AppColors.border;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -40,20 +41,17 @@ class SetupProfileForm extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _IntroBanner(),
+            const _IntroBanner(),
             const SizedBox(height: AppSpacing.xl),
 
             // Bio
-            TextFormField(
+            _NeoTextField(
               controller: bioController,
+              label: 'Mô tả cá nhân (Bio)',
+              helperText: 'Giới thiệu về bản thân bạn',
+              icon: Icons.description_outlined,
               maxLines: 3,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Mô tả cá nhân (Bio)',
-                prefixIcon: Icon(Icons.description_outlined),
-                helperText: 'Giới thiệu về bản thân bạn',
-                helperMaxLines: 2,
-              ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Vui lòng nhập mô tả cá nhân';
@@ -71,13 +69,11 @@ class SetupProfileForm extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: _NeoTextField(
                     controller: firstNameController,
+                    label: 'Tên',
+                    icon: AppIcons.user,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên',
-                      prefixIcon: Icon(AppIcons.user),
-                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Vui lòng nhập tên';
@@ -88,13 +84,11 @@ class SetupProfileForm extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: TextFormField(
+                  child: _NeoTextField(
                     controller: lastNameController,
+                    label: 'Họ',
+                    icon: AppIcons.user,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Họ',
-                      prefixIcon: Icon(AppIcons.user),
-                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Vui lòng nhập họ';
@@ -108,15 +102,13 @@ class SetupProfileForm extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
 
             // DOB
-            TextFormField(
+            _NeoTextField(
               controller: dobController,
+              label: 'Ngày sinh',
+              icon: AppIcons.schedule,
+              suffixIcon: AppIcons.booking,
               readOnly: true,
               onTap: onPickDate,
-              decoration: const InputDecoration(
-                labelText: 'Ngày sinh',
-                prefixIcon: Icon(AppIcons.schedule),
-                suffixIcon: Icon(AppIcons.booking),
-              ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Vui lòng chọn ngày sinh';
@@ -127,31 +119,144 @@ class SetupProfileForm extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
 
             // SĐT
-            TextFormField(
+            _NeoTextField(
               controller: phoneController,
+              label: 'Số điện thoại',
+              icon: AppIcons.phone,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Số điện thoại',
-                prefixIcon: Icon(AppIcons.phone),
-              ),
             ),
             const SizedBox(height: AppSpacing.xxl),
 
             SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onSubmit,
-                icon: const Icon(AppIcons.confirmBooking),
-                label: Text(
-                  'Tạo hồ sơ cá nhân',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: borderColor,
+                    width: NeoBrutalismTheme.borderWidthBold,
+                  ),
+                  boxShadow: NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: onSubmit,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            AppIcons.confirmBooking,
+                            color: AppColors.white,
+                          ),
+                          SizedBox(width: AppSpacing.sm),
+                          Text(
+                            'TẠO HỒ SƠ CÁ NHÂN',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism text field với bold border.
+class _NeoTextField extends StatelessWidget {
+  const _NeoTextField({
+    required this.controller,
+    required this.label,
+    this.helperText,
+    this.icon,
+    this.suffixIcon,
+    this.readOnly = false,
+    this.onTap,
+    this.maxLines = 1,
+    this.keyboardType,
+    this.textInputAction,
+    this.validator,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? helperText;
+  final IconData? icon;
+  final IconData? suffixIcon;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final int maxLines;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      validator: validator,
+      style: const TextStyle(fontWeight: FontWeight.w700),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        prefixIcon: icon != null ? Icon(icon) : null,
+        suffixIcon: suffixIcon != null ? Icon(suffixIcon) : null,
+        helperText: helperText,
+        helperMaxLines: 2,
+        filled: true,
+        fillColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: NeoBrutalismTheme.borderWidthBold,
+          ),
         ),
       ),
     );
@@ -164,22 +269,34 @@ class _IntroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+          color: AppColors.primary,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            AppIcons.user,
-            color: theme.colorScheme.primary,
-            size: AppIcons.xxl,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              AppIcons.user,
+              color: AppColors.white,
+              size: AppIcons.xxl,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -187,17 +304,21 @@ class _IntroBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hoàn tất hồ sơ',
+                  'HOÀN TẤT HỒ SƠ',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                    letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   'Để tiếp tục trải nghiệm hệ thống, vui lòng điền thông tin cá nhân của bạn.',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

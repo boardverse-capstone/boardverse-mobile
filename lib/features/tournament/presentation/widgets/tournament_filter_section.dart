@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
+/// Neo-brutalism TournamentFilterSection — Filter chips for tournament list.
 class TournamentFilterSection extends StatelessWidget {
   final int selectedFilter;
   final ValueChanged<int> onFilterChanged;
@@ -12,13 +15,6 @@ class TournamentFilterSection extends StatelessWidget {
     required this.onFilterChanged,
   });
 
-  /// Filter labels indexed by `selectedFilter`.
-  ///
-  /// Index 2 ("Sắp diễn ra") is intentionally omitted because the backend
-  /// does not expose `/tournaments/upcoming` to the player API. Returning an
-  /// empty list for that case would confuse users into thinking the UI is
-  /// broken. The list card UI still renders `upcoming` tournaments if the
-  /// backend ever exposes them via `/tournaments/open`.
   static const _filterLabels = <String>[
     'Tất cả',
     'Đang mở',
@@ -29,9 +25,11 @@ class TournamentFilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Container(
-      color: theme.colorScheme.surface,
+      color: isDark ? AppColors.backgroundDark : AppColors.background,
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.md,
@@ -41,10 +39,12 @@ class TournamentFilterSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Khám phá giải đấu',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+          const Text(
+            'KHÁM PHÁ GIẢI ĐẤU',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -55,32 +55,52 @@ class TournamentFilterSection extends StatelessWidget {
                 final isSelected = selectedFilter == index;
                 return Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.xs),
-                  child: ChoiceChip(
-                    label: Text(_filterLabels[index]),
-                    selected: isSelected,
-                    onSelected: (_) => onFilterChanged(index),
-                    showCheckmark: false,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                      vertical: AppSpacing.xxs,
-                    ),
-                    side: BorderSide(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outlineVariant,
-                    ),
-                    backgroundColor: theme.colorScheme.surface,
-                    selectedColor: theme.colorScheme.primaryContainer,
-                    labelStyle: theme.textTheme.labelMedium?.copyWith(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.chipRadius,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => onFilterChanged(index),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.xs + 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? AppColors.surfaceDark : AppColors.surface),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : borderColor,
+                            width: isSelected
+                                ? NeoBrutalismTheme.borderWidthBold
+                                : NeoBrutalismTheme.borderWidth,
+                          ),
+                          boxShadow: isSelected
+                              ? NeoBrutalismTheme.lightShadow(
+                                  shadowColor:
+                                      AppColors.primary.withValues(alpha: 0.4),
+                                )
+                              : NeoBrutalismTheme.lightShadow(
+                                  shadowColor:
+                                      AppColors.black.withValues(alpha: 0.04),
+                                ),
+                        ),
+                        child: Text(
+                          _filterLabels[index].toUpperCase(),
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.white
+                                : (isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimary),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 );

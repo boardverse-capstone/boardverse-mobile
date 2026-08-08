@@ -7,6 +7,8 @@ import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:boardverse_mobile/core/navigation/pages/leaderboard_page.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/core/widgets/app_toast_card.dart';
 import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
@@ -19,10 +21,10 @@ import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cu
 import 'package:boardverse_mobile/features/profile/presentation/widgets/edit_profile_sheet.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/error_state.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/loading_skeleton.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/location_card.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_header_card.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_stats_row.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/location_card_neo.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_header_card_neo.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_stats_row_neo.dart';
+import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card_neo.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
 import 'package:boardverse_mobile/features/settings/presentation/pages/system_settings_page.dart';
 import 'package:boardverse_mobile/features/wallet/presentation/pages/wallet_page.dart';
@@ -439,10 +441,19 @@ class _DashboardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? NeoBrutalismTheme.bgDark : NeoBrutalismTheme.bgLight,
       appBar: AppBar(
-        title: const Text('BoardVerse'),
+        backgroundColor: isDark ? NeoBrutalismTheme.bgDark : NeoBrutalismTheme.bgLight,
+        title: const Text(
+          'BOARDVERSE',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+          ),
+        ),
         centerTitle: true,
         forceMaterialTransparency: true,
       ),
@@ -454,54 +465,51 @@ class _DashboardShell extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ProfileHeaderCard(
+              ProfileHeaderCardNeo(
                 profile: profile,
                 onAvatarTap: onAvatarTap,
                 onEditPressed: onEditPressed,
               ),
               const SizedBox(height: AppSpacing.md),
-              ProfileStatsRow(profile: profile),
+              ProfileStatsRowNeoCompact(profile: profile),
               const SizedBox(height: AppSpacing.md),
-              LocationCard(
+              LocationCardNeo(
                 location: location,
                 onUpdateGpsPressed: onUpdateGpsPressed,
                 onDeletePressed: onDeleteLocation,
               ),
               const SizedBox(height: AppSpacing.md),
-              QuickActionsCard(
+              QuickActionsGridNeo(
                 actions: [
-                  QuickActionItem(
+                  QuickActionItemNeo(
                     icon: AppIcons.users,
                     title: 'Bạn bè',
                     onTap: onOpenFriends,
+                    accentColor: AppColors.secondary, // Xanh dương/Teal
                   ),
-                  QuickActionItem(
+                  QuickActionItemNeo(
                     icon: AppIcons.tournament,
                     title: 'Xếp hạng',
                     onTap: onOpenLeaderboard,
+                    accentColor: AppColors.accent, // Vàng
                   ),
-                  QuickActionItem(
+                  QuickActionItemNeo(
                     icon: AppIcons.money,
                     title: 'Ví BVC',
                     onTap: onOpenWallet,
+                    accentColor: AppColors.success, // Xanh lá
                   ),
-                  QuickActionItem(
+                  QuickActionItemNeo(
                     icon: AppIcons.settings,
                     title: 'Cài đặt',
                     onTap: onOpenSettings,
+                    accentColor: AppColors.primary, // Cam
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.xl),
-              OutlinedButton.icon(
+              _NeoBrutalismLogoutButton(
                 onPressed: () => _confirmLogout(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                  side: BorderSide(color: theme.colorScheme.error),
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
-                icon: const Icon(AppIcons.logout),
-                label: const Text('Đăng xuất'),
               ),
               const SizedBox(height: AppSpacing.xxl),
             ],
@@ -530,6 +538,107 @@ class _DashboardShell extends StatelessWidget {
             child: const Text('Đăng xuất'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism styled logout button
+/// - Light mode: white background, red border & text
+/// - Dark mode: dark background, white/red border & text
+class _NeoBrutalismLogoutButton extends StatefulWidget {
+  const _NeoBrutalismLogoutButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_NeoBrutalismLogoutButton> createState() => _NeoBrutalismLogoutButtonState();
+}
+
+class _NeoBrutalismLogoutButtonState extends State<_NeoBrutalismLogoutButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      duration: const Duration(milliseconds: 80),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) => _pressCtrl.forward();
+  void _onTapUp(TapUpDetails details) => _pressCtrl.reverse();
+  void _onTapCancel() => _pressCtrl.reverse();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: widget.onPressed,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Transform.translate(
+              offset: _pressCtrl.isAnimating
+                  ? const Offset(2, 2)
+                  : Offset.zero,
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          decoration: NeoBrutalismTheme.autoBox(
+            context,
+            backgroundColor: isDark
+                ? NeoBrutalismTheme.surfaceDark
+                : Colors.white,
+            borderColor: AppColors.error,
+            borderRadius: 14,
+            shadowColor: AppColors.error.withValues(alpha: 0.2),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                AppIcons.logout,
+                color: AppColors.error,
+                size: AppIcons.md,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'ĐĂNG XUẤT',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

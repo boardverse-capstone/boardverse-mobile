@@ -8,7 +8,7 @@ import '../lobby_join_signal.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
-import '../widgets/board_verse_nav_bar.dart';
+import '../widgets/board_verse_nav_bar_neo.dart';
 import '../widgets/lazy_indexed_stack.dart';
 import 'bookings_page.dart';
 import 'discovery_tab.dart';
@@ -173,7 +173,7 @@ class _MainScaffoldState extends State<MainScaffold> {
                   const ProfilePage(),
                 ],
               ),
-              bottomNavigationBar: BoardVerseNavBar(
+              bottomNavigationBar: BoardVerseNavBarNeo(
                 onTabSelected: _onTabTapped,
               ),
             ),

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_icons.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../domain/entities/entities.dart';
 import '../../cubit/cubit.dart';
 import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
-/// Tab "Tìm kiếm" — search box with 400ms debounce and real-time results.
+/// Neo-brutalism Tab "Tìm kiếm" — search box với debounce.
 class SearchUsersTab extends StatefulWidget {
   const SearchUsersTab({super.key});
 
@@ -72,7 +74,9 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return SafeArea(
       top: false,
       child: Column(
@@ -84,39 +88,51 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
               AppSpacing.md,
               AppSpacing.xs,
             ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm theo tên người dùng...',
-                prefixIcon: const Icon(AppIcons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(AppIcons.close),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-                  borderSide: BorderSide.none,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.black.withValues(alpha: 0.05),
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm theo tên người dùng...',
+                  prefixIcon: const Icon(AppIcons.search, color: AppColors.primary),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(AppIcons.close, color: AppColors.textSecondary),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
+                  ),
                 ),
               ),
             ),
           ),
-          Expanded(child: _buildBody(theme)),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
-  Widget _buildBody(ThemeData theme) {
+  Widget _buildBody() {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_errorMessage.isNotEmpty) {
       return ErrorRetryView(
@@ -174,7 +190,10 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
             addresseeId: user.odId,
           );
       messenger.showSnackBar(
-        SnackBar(content: Text('Đã gửi lời mời đến ${user.username}')),
+        SnackBar(
+          content: Text('Đã gửi lời mời đến ${user.username}'),
+          backgroundColor: AppColors.success,
+        ),
       );
       _performSearch(_searchController.text);
     } catch (e) {
@@ -184,7 +203,7 @@ class _SearchUsersTabState extends State<SearchUsersTab> {
         });
       }
       messenger.showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.error),
       );
     }
   }

@@ -1,72 +1,128 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/board_game_entity.dart';
 
-/// Hero header cho trang chi tiết board game.
-///
-/// Layout:
-///   - SliverAppBar: ảnh parallax + title tự động ở giữa khi scroll
-///   - Game name: bên dưới ảnh (khi expanded)
-///   - Category badge + Rating badge
-///   - Quick stats row: players | time
-class GameDetailHeader extends StatelessWidget {
+/// Neo-brutalism Hero header cho trang chi tiết board game.
+class GameDetailHeader extends StatefulWidget {
   final BoardGameEntity game;
 
   const GameDetailHeader({super.key, required this.game});
 
   @override
+  State<GameDetailHeader> createState() => _GameDetailHeaderState();
+}
+
+class _GameDetailHeaderState extends State<GameDetailHeader> {
+  bool _isBookmarked = false;
+
+  void _toggleBookmark() {
+    setState(() => _isBookmarked = !_isBookmarked);
+    HapticFeedback.mediumImpact();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return SliverMainAxisGroup(
       slivers: [
-        // ── SliverAppBar: ảnh parallax + title ở giữa khi scroll ───────────
+        // SliverAppBar với neo-brutalism back button
         SliverAppBar(
           expandedHeight: 240,
           pinned: true,
           stretch: true,
-          backgroundColor: theme.colorScheme.surface,
-          // Title tự động ở giữa khi scroll (Material 3 default)
+          backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
           title: Text(
-            game.name,
+            widget.game.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           titleTextStyle: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimary,
           ),
-          iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+          leading: Container(
+            margin: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.black,
+                width: 2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.black,
+                  blurRadius: 0,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back,
+                color: AppColors.black,
+                size: 18,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.bookmark_border),
-              onPressed: () {},
+            Container(
+              margin: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.black,
+                  width: 2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  color: AppColors.black,
+                  size: 18,
+                ),
+                onPressed: _toggleBookmark,
+              ),
             ),
           ],
           flexibleSpace: FlexibleSpaceBar(
-            // Title khi expanded = hiển thị bên dưới ảnh
             titlePadding: const EdgeInsetsDirectional.only(
               start: AppSpacing.md,
               end: AppSpacing.md,
-              bottom: AppSpacing.md + 40, // nhích xuống để tránh đè stats
+              bottom: AppSpacing.md + 40,
             ),
             title: Text(
-              game.name,
+              widget.game.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                color: AppColors.white,
                 shadows: [
                   Shadow(
-                    offset: const Offset(0, 1),
+                    offset: Offset(0, 1),
                     blurRadius: 4,
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: AppColors.black,
                   ),
                 ],
               ),
@@ -75,7 +131,7 @@ class GameDetailHeader extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 SafeNetworkImage(
-                  url: game.imageUrl,
+                  url: widget.game.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: theme.colorScheme.surfaceContainerHighest,
@@ -100,7 +156,7 @@ class GameDetailHeader extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          AppColors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -111,7 +167,7 @@ class GameDetailHeader extends StatelessWidget {
           ),
         ),
 
-        // ── Category + Rating + Stats bên dưới ảnh ───────────────────────
+        // Category + Rating + Stats
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -123,39 +179,52 @@ class GameDetailHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Category + Rating badges
                 Row(
                   children: [
-                    if (game.category.isNotEmpty) ...[
+                    if (widget.game.category.isNotEmpty) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm + 2,
                           vertical: AppSpacing.xs,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: AppRadius.radiusLgAll,
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: AppColors.black,
+                              blurRadius: 0,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
-                          game.category,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
+                          widget.game.category.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
                     ],
-                    if (game.rating > 0) _RatingBadge(rating: game.rating),
+                    if (widget.game.rating > 0)
+                      _RatingBadge(rating: widget.game.rating),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-
-                // Stats row
                 _QuickStatsRow(
-                  minPlayers: game.minPlayers,
-                  maxPlayers: game.maxPlayers,
-                  playTime: game.estimatedMinutes,
+                  minPlayers: widget.game.minPlayers,
+                  maxPlayers: widget.game.maxPlayers,
+                  playTime: widget.game.estimatedMinutes,
                 ),
               ],
             ),
@@ -166,7 +235,6 @@ class GameDetailHeader extends StatelessWidget {
   }
 }
 
-/// Badge rating với star.
 class _RatingBadge extends StatelessWidget {
   final double rating;
 
@@ -174,30 +242,41 @@ class _RatingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer,
-        borderRadius: AppRadius.radiusLgAll,
+        color: AppColors.warning,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.black,
+          width: 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.star_rounded,
             size: AppSpacing.md,
-            color: theme.colorScheme.tertiary,
+            color: AppColors.black,
           ),
           const SizedBox(width: AppSpacing.xxs),
           Text(
             rating.toStringAsFixed(1),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onTertiaryContainer,
-              fontWeight: FontWeight.w800,
+            style: const TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
             ),
           ),
         ],
@@ -206,7 +285,6 @@ class _RatingBadge extends StatelessWidget {
   }
 }
 
-/// Stats row: players | time — 2 columns đơn giản.
 class _QuickStatsRow extends StatelessWidget {
   final int minPlayers;
   final int maxPlayers;
@@ -221,6 +299,7 @@ class _QuickStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -228,8 +307,15 @@ class _QuickStatsRow extends StatelessWidget {
         horizontal: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: AppRadius.radiusMdAll,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -237,40 +323,54 @@ class _QuickStatsRow extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.people_rounded,
-                  size: AppSpacing.lg,
-                  color: theme.colorScheme.primary,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.people_rounded,
+                    size: AppSpacing.md,
+                    color: AppColors.primary,
+                  ),
                 ),
-                const SizedBox(width: AppSpacing.xs),
+                const SizedBox(width: AppSpacing.sm),
                 Text(
-                  '$minPlayers-$maxPlayers người',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  '$minPlayers-$maxPlayers',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            width: 1,
+            width: 2,
             height: 24,
-            color: theme.colorScheme.outlineVariant,
+            color: isDark ? AppColors.borderDark : AppColors.border,
           ),
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.schedule_rounded,
-                  size: AppSpacing.lg,
-                  color: theme.colorScheme.secondary,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.schedule_rounded,
+                    size: AppSpacing.md,
+                    color: AppColors.secondary,
+                  ),
                 ),
-                const SizedBox(width: AppSpacing.xs),
+                const SizedBox(width: AppSpacing.sm),
                 Text(
                   playTime > 0 ? '~$playTime phút' : '-',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],

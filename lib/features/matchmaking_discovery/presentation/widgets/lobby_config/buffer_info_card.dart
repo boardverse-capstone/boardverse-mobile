@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Card hiển thị buffer time (thời gian tuyển người) — màu theo trạng thái.
+/// Neo-brutalism Buffer info card.
 class LobbyConfigBufferInfoCard extends StatelessWidget {
   final int bufferMinutes;
   final bool isBufferTooShort;
@@ -20,35 +21,53 @@ class LobbyConfigBufferInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Ngày đã chọn nằm trong quá khứ
     if (bufferMinutes < 0) {
       return Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: AppSpacing.paddingAllMd,
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.1),
-          borderRadius: AppRadius.radiusMdAll,
-          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+          color: AppColors.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.error,
+            width: NeoBrutalismTheme.borderWidthBold,
+          ),
+          boxShadow: NeoBrutalismTheme.lightShadow(
+            shadowColor: AppColors.error.withValues(alpha: 0.3),
+          ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.event_busy, color: Colors.red, size: 24),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.event_busy,
+                color: AppColors.white,
+                size: 20,
+              ),
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Thời gian tuyển người',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    'THỜI GIAN TUYỂN NGƯỜI',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Ngày bạn chọn đã qua. Vui lòng chọn ngày khác.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w500,
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -59,34 +78,61 @@ class LobbyConfigBufferInfoCard extends StatelessWidget {
       );
     }
 
-    final color = isBufferTooShort ? Colors.red : bufferMinutes >= 120 ? Colors.green : Colors.orange;
-    final icon = isBufferTooShort ? Icons.error : bufferMinutes >= 120 ? Icons.check_circle : Icons.warning;
+    final color = isBufferTooShort
+        ? AppColors.error
+        : bufferMinutes >= 120
+            ? AppColors.success
+            : AppColors.warning;
+    final icon = isBufferTooShort
+        ? Icons.error
+        : bufferMinutes >= 120
+            ? Icons.check_circle
+            : Icons.warning;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: AppSpacing.paddingAllMd,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: color.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 24),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: AppColors.white,
+              size: 20,
+            ),
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Thời gian tuyển người',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  'THỜI GIAN TUYỂN NGƯỜI',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
                   ),
                 ),
                 Text(
                   formatBuffer(bufferMinutes),
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w900,
                     color: color,
                   ),
                 ),

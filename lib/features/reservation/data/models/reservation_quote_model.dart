@@ -28,6 +28,7 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
     required super.requiresCafeApproval,
     required super.expiresAt,
     required super.warnings,
+    super.riskLevel,
   });
 
   factory ReservationQuoteModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +67,9 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
               ?.map((e) => e as String)
               .toList() ??
           [],
+      riskLevel: data['riskLevel'] is String
+          ? RiskLevel.fromString(data['riskLevel'] as String)
+          : RiskLevel.low,
     );
   }
 }

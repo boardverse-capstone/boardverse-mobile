@@ -6,16 +6,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../cubit/topup_cubit.dart';
 import '../cubit/topup_state.dart';
 
-/// Màn hình nạp BVC
-///
-/// Cho phép user:
-/// - Chọn gói nạp có sẵn
-/// - Nhập số tiền tùy chỉnh (≥ 10.000 VND, bội số 1.000)
-/// - Xem QR code và mở SePay
-/// - Theo dõi trạng thái thanh toán
+/// Neo-brutalism Màn hình nạp BVC.
 class TopUpPage extends StatefulWidget {
   final int? initialAmountVnd;
   final VoidCallback? onSuccess;
@@ -32,7 +27,7 @@ class TopUpPage extends StatefulWidget {
 
 class _TopUpPageState extends State<TopUpPage> {
   final TextEditingController _customAmountController = TextEditingController();
-  int _selectedAmountVnd = 100000; // Default 100K VND
+  int _selectedAmountVnd = 100000;
 
   @override
   void initState() {
@@ -67,7 +62,7 @@ class _TopUpPageState extends State<TopUpPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Số tiền tối thiểu là 10.000 VND'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -77,7 +72,7 @@ class _TopUpPageState extends State<TopUpPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Số tiền phải chia hết cho 1.000'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -94,25 +89,34 @@ class _TopUpPageState extends State<TopUpPage> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.background;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Nạp BVC'),
+        backgroundColor: bgColor,
+        elevation: 0,
+        title: const Text(
+          'NẠP BVC',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
         centerTitle: true,
       ),
       body: BlocConsumer<TopUpCubit, TopUpState>(
         listenWhen: (previous, current) => previous.runtimeType != current.runtimeType,
         listener: (context, state) {
-          if (state is TopUpAwaitingPayment) {
-            // StaticExpiryDisplay widget tự tính remaining từ deadline khi build.
-            // KHÔNG có timer nên không rebuild liên tục.
-          } else if (state is TopUpSuccess) {
+          if (state is TopUpSuccess) {
             _showSuccessDialog(context, state);
           } else if (state is TopUpFailed) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.reason),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           } else if (state is TopUpExpired) {
@@ -120,28 +124,25 @@ class _TopUpPageState extends State<TopUpPage> {
           }
         },
         buildWhen: (previous, current) {
-          // LUÔN return false khi cùng type → Không bao giờ rebuild
-          // từ polling. StaticExpiryDisplay tự tính remaining từ deadline, không cần state change.
           if (previous.runtimeType != current.runtimeType) return true;
           return false;
         },
         builder: (context, state) {
           return SingleChildScrollView(
-            // Khóa lại scroll offset khi build lại để tránh nhảy về đầu.
             key: const PageStorageKey<String>('topup_scroll'),
-            padding: EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildPackageSection(context, state, textTheme),
-                SizedBox(height: AppSpacing.lg),
-                _buildCustomAmountSection(context, state, textTheme),
-                SizedBox(height: AppSpacing.xl),
-                _buildAmountSummary(context, state, textTheme),
-                SizedBox(height: AppSpacing.xl),
-                _buildActionButton(context, state),
+                _buildPackageSection(context, state, textTheme, borderColor),
+                const SizedBox(height: AppSpacing.lg),
+                _buildCustomAmountSection(context, state, textTheme, borderColor),
+                const SizedBox(height: AppSpacing.xl),
+                _buildAmountSummary(context, state, textTheme, borderColor),
+                const SizedBox(height: AppSpacing.xl),
+                _buildActionButton(context, state, borderColor),
                 if (state is TopUpAwaitingPayment) ...[
-                  SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.lg),
                   _buildPaymentInstructions(context, state, textTheme),
                 ],
               ],
@@ -152,25 +153,27 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  Widget _buildPackageSection(BuildContext context, TopUpState state, TextTheme textTheme) {
+  Widget _buildPackageSection(BuildContext context, TopUpState state, TextTheme textTheme, Color borderColor) {
     final packages = TopUpPackages.suggestedPackages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Chọn gói nạp',
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+        const Text(
+          'CHỌN GÓI NẠP',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+            fontSize: 14,
           ),
         ),
-        SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            childAspectRatio: 1.2,
+            childAspectRatio: 1.1,
             crossAxisSpacing: AppSpacing.sm,
             mainAxisSpacing: AppSpacing.sm,
           ),
@@ -183,48 +186,11 @@ class _TopUpPageState extends State<TopUpPage> {
                 state is TopUpCreating ||
                 state is TopUpCheckingStatus;
 
-            return InkWell(
-              onTap: isDisabled ? null : () => _selectAmount(pkg.amountVnd),
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-                  border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${pkg.amountBvc}',
-                      style: textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'BVC',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    SizedBox(height: AppSpacing.xs),
-                    Text(
-                      pkg.label,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            return _PackageTile(
+              pkg: pkg,
+              isSelected: isSelected,
+              isDisabled: isDisabled,
+              onTap: () => _selectAmount(pkg.amountVnd),
             );
           },
         ),
@@ -232,7 +198,7 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  Widget _buildCustomAmountSection(BuildContext context, TopUpState state, TextTheme textTheme) {
+  Widget _buildCustomAmountSection(BuildContext context, TopUpState state, TextTheme textTheme, Color borderColor) {
     final isDisabled = state is TopUpAwaitingPayment ||
         state is TopUpCreating ||
         state is TopUpCheckingStatus;
@@ -240,13 +206,15 @@ class _TopUpPageState extends State<TopUpPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Hoặc nhập số tiền khác',
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+        const Text(
+          'HOẶC NHẬP SỐ TIỀN KHÁC',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+            fontSize: 14,
           ),
         ),
-        SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _customAmountController,
           enabled: !isDisabled,
@@ -255,32 +223,58 @@ class _TopUpPageState extends State<TopUpPage> {
             FilteringTextInputFormatter.digitsOnly,
             _ThousandsSeparatorFormatter(),
           ],
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+          ),
           decoration: InputDecoration(
             hintText: 'Nhập số tiền (VND)',
-            prefixText: '',
             suffixText: 'VND',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-            ),
             filled: true,
-            fillColor: isDisabled ? AppColors.surface : Colors.white,
+            fillColor: AppColors.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: borderColor,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: borderColor,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: NeoBrutalismTheme.borderWidthBold,
+              ),
+            ),
           ),
           onChanged: (_) {
             setState(() {});
           },
         ),
-        SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           'Tối thiểu 10.000 VND, bội số của 1.000',
           style: textTheme.bodySmall?.copyWith(
             color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAmountSummary(BuildContext context, TopUpState state, TextTheme textTheme) {
+  Widget _buildAmountSummary(BuildContext context, TopUpState state, TextTheme textTheme, Color borderColor) {
     int amountVnd;
     if (_customAmountController.text.isNotEmpty) {
       amountVnd =
@@ -292,58 +286,78 @@ class _TopUpPageState extends State<TopUpPage> {
     final amountBvc = amountVnd ~/ 1000;
 
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Số tiền thanh toán',
-                style: textTheme.bodyMedium,
+              const Text(
+                'SỐ TIỀN THANH TOÁN',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                ),
               ),
               Text(
                 _formatVnd(amountVnd),
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
                 ),
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
+          Container(height: 2, color: AppColors.primary.withValues(alpha: 0.3)),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Bạn nhận được',
-                style: textTheme.bodyMedium,
+              const Text(
+                'BẠN NHẬN ĐƯỢC',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                ),
               ),
               Row(
                 children: [
                   Text(
                     '$amountBvc',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
                       color: AppColors.primary,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.xs),
-                  Text(
+                  const SizedBox(width: AppSpacing.xs),
+                  const Text(
                     'BVC',
-                    style: textTheme.bodyMedium?.copyWith(
+                    style: TextStyle(
                       color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -351,12 +365,14 @@ class _TopUpPageState extends State<TopUpPage> {
                 'Tỷ lệ quy đổi',
                 style: textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 '1 BVC = 1.000 VND',
                 style: textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -366,82 +382,88 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  Widget _buildActionButton(BuildContext context, TopUpState state) {
+  Widget _buildActionButton(BuildContext context, TopUpState state, Color borderColor) {
     if (state is TopUpAwaitingPayment) {
-      return _buildCountdownSection(context, state);
+      return _buildCountdownSection(context, state, borderColor);
     }
 
     if (state is TopUpCreating || state is TopUpCheckingStatus) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
-    return ElevatedButton(
-      onPressed: () => _startTopUp(context),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
-      child: const Text(
-        'Tiếp tục thanh toán',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _startTopUp(context),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Text(
+              'TIẾP TỤC THANH TOÁN',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCountdownSection(BuildContext context, TopUpAwaitingPayment state) {
+  Widget _buildCountdownSection(BuildContext context, TopUpAwaitingPayment state, Color borderColor) {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
-        _buildQrSection(context, state, textTheme),
-        SizedBox(height: AppSpacing.lg),
+        _buildQrSection(context, state, textTheme, borderColor),
+        const SizedBox(height: AppSpacing.lg),
         _buildPaymentInstructions(context, state, textTheme),
-        SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  _showCancelConfirmation(context);
-                },
-                icon: const Icon(Icons.close),
-                label: const Text('Hủy đơn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
+              child: _NeoOutlineButton(
+                label: 'HỦY ĐƠN',
+                icon: Icons.close,
+                color: AppColors.error,
+                borderColor: borderColor,
+                onTap: () => _showCancelConfirmation(context),
               ),
             ),
-            SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _showUpdateAmountDialog(context),
-                icon: const Icon(Icons.edit),
-                label: const Text('Đổi số tiền'),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
+              child: _NeoOutlineButton(
+                label: 'ĐỔI SỐ TIỀN',
+                icon: Icons.edit,
+                color: AppColors.textPrimary,
+                borderColor: borderColor,
+                onTap: () => _showUpdateAmountDialog(context),
               ),
             ),
-            SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
+              child: _NeoFilledButton(
+                label: 'MỞ SEPAY',
+                icon: Icons.open_in_new,
+                color: AppColors.primary,
+                borderColor: borderColor,
+                onTap: () {
                   context.read<TopUpCubit>().openPaymentUrl();
                 },
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Mở SePay'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
               ),
             ),
           ],
@@ -455,6 +477,9 @@ class _TopUpPageState extends State<TopUpPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        ),
         title: const Text('Đổi số tiền đơn top-up'),
         content: TextField(
           controller: controller,
@@ -493,56 +518,60 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  /// Hiển thị QR code trực tiếp trong app — user quét bằng app ngân hàng.
-  ///
-  /// Lý do không dùng countdown timer:
-  /// - Polling 5s tự check transaction history để biết success.
-  /// - User cần thấy QR ngay để quét thanh toán.
   Widget _buildQrSection(
-      BuildContext context, TopUpAwaitingPayment state, TextTheme textTheme) {
+      BuildContext context, TopUpAwaitingPayment state, TextTheme textTheme, Color borderColor) {
     final qrUrl = state.quote.qrUrl;
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.06),
+        ),
       ),
       child: Column(
         children: [
-          Text(
-            'Quét QR để thanh toán',
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+          const Text(
+            'QUÉT QR ĐỂ THANH TOÁN',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              fontSize: 13,
             ),
           ),
-          SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Số tiền: ${_formatVnd(state.quote.amountVnd)}',
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
             ),
           ),
           Text(
             'Mã đơn: ${state.quote.orderId}',
-            style: textTheme.bodySmall?.copyWith(
+            style: TextStyle(
               color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: AppSpacing.md),
-          // QR code — load ảnh từ qrUrl (backend SePay trả URL ảnh QR).
+          const SizedBox(height: AppSpacing.md),
           Container(
-            padding: EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-              border: Border.all(color: AppColors.border),
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.black, width: 2),
             ),
             child: qrUrl.isEmpty
-                ? SizedBox(
+                ? const SizedBox(
                     height: 220,
                     width: 220,
-                    child: const Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
                   )
                 : Image.network(
                     qrUrl,
@@ -556,6 +585,7 @@ class _TopUpPageState extends State<TopUpPage> {
                         width: 220,
                         child: Center(
                           child: CircularProgressIndicator(
+                            color: AppColors.primary,
                             value: loadingProgress.expectedTotalBytes != null
                                 ? loadingProgress.cumulativeBytesLoaded /
                                     loadingProgress.expectedTotalBytes!
@@ -569,11 +599,12 @@ class _TopUpPageState extends State<TopUpPage> {
                     },
                   ),
           ),
-          SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Mở app ngân hàng và quét QR này',
             style: textTheme.bodySmall?.copyWith(
               color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
@@ -582,14 +613,12 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  /// Fallback khi load ảnh QR từ network fail.
-  /// Dùng qr_flutter để render QR từ paymentUrl.
   Widget _buildFallbackQr(BuildContext context, dynamic quote) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -598,14 +627,17 @@ class _TopUpPageState extends State<TopUpPage> {
             data: quote.paymentUrl,
             version: QrVersions.auto,
             size: 220,
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             errorCorrectionLevel: QrErrorCorrectLevel.M,
           ),
-          SizedBox(height: AppSpacing.sm),
-          const Text(
+          const SizedBox(height: AppSpacing.sm),
+          Text(
             'Không thể tải ảnh QR. Dùng mã QR này.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -633,7 +665,6 @@ class _TopUpPageState extends State<TopUpPage> {
               Navigator.of(dialogContext).pop();
               context.read<TopUpCubit>().cancelCurrentTopUp(
                 onCancel: () {
-                  // Reset về initial để user có thể tạo đơn mới
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -644,7 +675,7 @@ class _TopUpPageState extends State<TopUpPage> {
                 },
               );
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Hủy thanh toán'),
           ),
         ],
@@ -655,41 +686,53 @@ class _TopUpPageState extends State<TopUpPage> {
   Widget _buildPaymentInstructions(
       BuildContext context, TopUpAwaitingPayment state, TextTheme textTheme) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.info.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.info, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.info.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: AppColors.info, size: 20),
-              SizedBox(width: AppSpacing.sm),
-              Text(
-                'Hướng dẫn thanh toán',
-                style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
                   color: AppColors.info,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.info_outline, color: AppColors.white, size: 16),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Text(
+                'HƯỚNG DẪN THANH TOÁN',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.info,
+                  letterSpacing: 0.8,
+                  fontSize: 13,
                 ),
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.md),
-          _buildInstructionStep('1', 'Quét mã QR bằng app SePay', textTheme),
-          _buildInstructionStep('2', 'Hoặc mở link thanh toán', textTheme),
-          _buildInstructionStep('3', 'Thanh toán đúng số tiền hiển thị', textTheme),
-          _buildInstructionStep('4', 'Đợi xác nhận và BVC sẽ được cộng vào ví', textTheme),
+          const SizedBox(height: AppSpacing.md),
+          _buildInstructionStep('1', 'Quét mã QR bằng app SePay'),
+          _buildInstructionStep('2', 'Hoặc mở link thanh toán'),
+          _buildInstructionStep('3', 'Thanh toán đúng số tiền hiển thị'),
+          _buildInstructionStep('4', 'Đợi xác nhận và BVC sẽ được cộng vào ví'),
         ],
       ),
     );
   }
 
-  Widget _buildInstructionStep(String number, String text, TextTheme textTheme) {
+  Widget _buildInstructionStep(String number, String text) {
     return Padding(
-      padding: EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -697,24 +740,29 @@ class _TopUpPageState extends State<TopUpPage> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.2),
+              color: AppColors.info,
               shape: BoxShape.circle,
+              border: Border.all(color: AppColors.black, width: 2),
             ),
             child: Center(
               child: Text(
                 number,
-                style: textTheme.labelSmall?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
                 ),
               ),
             ),
           ),
-          SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               text,
-              style: textTheme.bodySmall,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -723,7 +771,6 @@ class _TopUpPageState extends State<TopUpPage> {
   }
 
   void _showSuccessDialog(BuildContext context, TopUpSuccess state) {
-    final textTheme = Theme.of(context).textTheme;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -734,30 +781,38 @@ class _TopUpPageState extends State<TopUpPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 64,
-            ),
-            SizedBox(height: AppSpacing.md),
-            Text(
-              'Nạp BVC thành công!',
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.success, width: 3),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.success.withValues(alpha: 0.4),
+                ),
               ),
+              child: const Icon(Icons.check_circle, color: AppColors.success, size: 48),
             ),
-            SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'NẠP BVC THÀNH CÔNG!',
+              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               '${state.amountBvc} BVC đã được cộng vào ví',
-              style: textTheme.bodyMedium?.copyWith(
+              style: TextStyle(
                 color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               'Số dư mới: ${state.newBalance} BVC',
-              style: textTheme.bodySmall?.copyWith(
+              style: TextStyle(
                 color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
               ),
             ),
           ],
@@ -776,7 +831,6 @@ class _TopUpPageState extends State<TopUpPage> {
   }
 
   void _showExpiredDialog(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -786,23 +840,26 @@ class _TopUpPageState extends State<TopUpPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.access_time,
-              color: Colors.red,
-              size: 64,
-            ),
-            SizedBox(height: AppSpacing.md),
-            Text(
-              'Mã thanh toán đã hết hạn',
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.error, width: 3),
               ),
+              child: const Icon(Icons.access_time, color: AppColors.error, size: 48),
             ),
-            SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'MÃ THANH TOÁN ĐÃ HẾT HẠN',
+              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               'Vui lòng tạo mã mới để tiếp tục',
-              style: textTheme.bodyMedium?.copyWith(
+              style: TextStyle(
                 color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -840,6 +897,218 @@ class _TopUpPageState extends State<TopUpPage> {
       result.write(str[i]);
     }
     return '$result VNĐ';
+  }
+}
+
+/// Neo-brutalism outlined button.
+class _NeoOutlineButton extends StatelessWidget {
+  const _NeoOutlineButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.borderColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color borderColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button.
+class _NeoFilledButton extends StatelessWidget {
+  const _NeoFilledButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.borderColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color borderColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: color.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: AppColors.white, size: 16),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism package tile.
+class _PackageTile extends StatelessWidget {
+  const _PackageTile({
+    required this.pkg,
+    required this.isSelected,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final dynamic pkg;
+  final bool isSelected;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isSelected ? AppColors.primary : AppColors.border;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: isDisabled ? null : onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: isSelected ? 3 : 2),
+            boxShadow: isSelected
+                ? NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                  )
+                : NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.black.withValues(alpha: 0.04),
+                  ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${pkg.amountBvc}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  color: isSelected ? AppColors.white : AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                'BVC',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: isSelected
+                      ? AppColors.white.withValues(alpha: 0.85)
+                      : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.white.withValues(alpha: 0.25)
+                      : AppColors.accent.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  pkg.label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: isSelected
+                        ? AppColors.white
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

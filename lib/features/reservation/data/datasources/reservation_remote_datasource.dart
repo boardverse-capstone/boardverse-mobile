@@ -60,25 +60,29 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
     int pageSize = 20,
   }) async {
     try {
+      // Swagger query params are PascalCase (ASP.NET Core default binding).
+      // See `.agents/docs/swagger.json` line 10204–10260:
+      //   Statuses / PlayDate / CafeId / HostedByMe / JoinedByMe / Page / PageSize
+      // Sending lowercase would silently drop filters.
       final queryParams = <String, dynamic>{
-        'page': page,
-        'pageSize': pageSize,
+        'Page': page,
+        'PageSize': pageSize,
       };
 
       if (statuses != null && statuses.isNotEmpty) {
-        queryParams['statuses'] = statuses;
+        queryParams['Statuses'] = statuses;
       }
       if (playDate != null) {
-        queryParams['playDate'] = playDate.toIso8601String().split('T').first;
+        queryParams['PlayDate'] = playDate.toIso8601String().split('T').first;
       }
       if (cafeId != null) {
-        queryParams['cafeId'] = cafeId;
+        queryParams['CafeId'] = cafeId;
       }
       if (hostedByMe != null) {
-        queryParams['hostedByMe'] = hostedByMe;
+        queryParams['HostedByMe'] = hostedByMe;
       }
       if (joinedByMe != null) {
-        queryParams['joinedByMe'] = joinedByMe;
+        queryParams['JoinedByMe'] = joinedByMe;
       }
 
       final response = await dio.get(

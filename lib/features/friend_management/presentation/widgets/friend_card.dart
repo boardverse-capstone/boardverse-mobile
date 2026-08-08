@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import '../../domain/entities/entities.dart';
 import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';
 import 'shared/meta_row.dart';
 
-/// Row card displaying a single friend in the friends list.
-///
-/// Features:
-/// - Avatar 56x56 with gamer-tier border and activity dot
-/// - Username and status pill (online/offline/in lobby)
-/// - Karma + mutual friends meta row
-/// - Action button (Invite to lobby)
+/// Neo-brutalism Row card displaying a single friend in the friends list.
 class FriendCard extends StatelessWidget {
   const FriendCard({
     super.key,
@@ -35,7 +29,8 @@ class FriendCard extends StatelessWidget {
 
     return OutlinedCard(
       onTap: onTap,
-      radius: AppRadius.radiusLg,
+      radius: 14,
+      shadowColor: AppColors.black.withValues(alpha: 0.06),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.sm),
         child: Row(
@@ -56,7 +51,7 @@ class FriendCard extends StatelessWidget {
                   Text(
                     friend.username,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -90,7 +85,6 @@ class FriendCard extends StatelessWidget {
   }
 }
 
-/// Activity dot size constants
 class _ActivityDotSize {
   _ActivityDotSize._();
 
@@ -99,7 +93,6 @@ class _ActivityDotSize {
   static const double lobbyDotSize = 6.0;
 }
 
-/// Avatar section with tier border and activity status dot.
 class _AvatarSection extends StatelessWidget {
   const _AvatarSection({
     required this.username,
@@ -140,9 +133,16 @@ class _AvatarSection extends StatelessWidget {
                 color: activityColor,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: AppColors.white,
                   width: _ActivityDotSize.borderWidth,
                 ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(1, 1),
+                  ),
+                ],
               ),
             ),
           ),
@@ -152,7 +152,6 @@ class _AvatarSection extends StatelessWidget {
   }
 }
 
-/// Activity chip showing online/offline/in lobby status.
 class _ActivityChip extends StatelessWidget {
   const _ActivityChip({
     required this.label,
@@ -166,17 +165,23 @@ class _ActivityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (isInLobby) {
       return Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xxs,
+          horizontal: 8,
+          vertical: 3,
         ),
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.12),
-          borderRadius: AppRadius.radiusSmAll,
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.black, width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.black,
+              blurRadius: 0,
+              offset: Offset(2, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -184,17 +189,19 @@ class _ActivityChip extends StatelessWidget {
             Container(
               width: _ActivityDotSize.lobbyDotSize,
               height: _ActivityDotSize.lobbyDotSize,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: AppSpacing.xxs),
-            Text(
-              'Trong phòng',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 4),
+            const Text(
+              'TRONG PHÒNG',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
               ),
             ),
           ],
@@ -214,7 +221,11 @@ class _ActivityChip extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(color: color),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -224,7 +235,6 @@ class _ActivityChip extends StatelessWidget {
   }
 }
 
-/// Action button for inviting to lobby or joining.
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.isInLobby,
@@ -236,33 +246,49 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isInLobby) {
-      return SizedBox(
-        height: 36,
-        child: FilledButton.icon(
-          onPressed: onPressed,
-          icon: const Icon(Icons.meeting_room_outlined, size: AppIcons.sm),
-          label: const Text('Vào phòng', style: TextStyle(fontSize: 12)),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.radiusMdAll,
-            ),
-          ),
-        ),
-      );
-    }
+    final color = isInLobby ? AppColors.secondary : AppColors.primary;
+    final label = isInLobby ? 'VÀO PHÒNG' : 'MỜI';
+    final icon = isInLobby ? Icons.meeting_room_outlined : Icons.add_circle_outline;
 
     return SizedBox(
       height: 36,
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.add_circle_outline, size: AppIcons.sm),
-        label: const Text('Mời', style: TextStyle(fontSize: 12)),
-        style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.radiusMdAll,
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.black, width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.black,
+              blurRadius: 0,
+              offset: Offset(2, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: AppIcons.sm, color: AppColors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

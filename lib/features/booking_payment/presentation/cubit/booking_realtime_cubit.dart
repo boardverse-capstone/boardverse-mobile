@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../notification/data/realtime/fcm_service.dart';
 import '../../../notification/domain/realtime/fcm_push_event.dart';
 import '../../data/realtime/booking_realtime_service.dart';
+import '../../data/realtime/booking_realtime_service_factory.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/realtime/booking_realtime_events.dart';
 import '../../domain/repositories/booking_repository.dart';
@@ -20,10 +21,11 @@ import '../../domain/repositories/booking_repository.dart';
 /// no-show marked) — không spam widget build cho các raw SignalR events
 /// không liên quan.
 class BookingRealtimeCubit extends Cubit<BookingRealtimeState> {
-  final BookingRealtimeService signalR;
+  final BookingRealtimeServiceFactory signalRFactory;
   final FcmService fcm;
   final BookingRepository repository;
 
+  BookingRealtimeService? _signalR;
   StreamSubscription<BookingRealtimeEvent>? _signalRSub;
   StreamSubscription<FcmPushEvent>? _fcmSub;
   String? _bookingId;
@@ -31,7 +33,7 @@ class BookingRealtimeCubit extends Cubit<BookingRealtimeState> {
   String? _lobbyId;
 
   BookingRealtimeCubit({
-    required this.signalR,
+    required this.signalRFactory,
     required this.fcm,
     required this.repository,
   }) : super(const BookingRealtimeIdle());
@@ -40,36 +42,52 @@ class BookingRealtimeCubit extends Cubit<BookingRealtimeState> {
   Future<void> watchBooking(String bookingId) async {
     _bookingId = bookingId;
     await _connectIfNeeded();
-    await signalR.joinBookingGroup(bookingId);
+    await _signalR?.joinBookingGroup(bookingId);
   }
 
   /// Subscribe realtime cho 1 cafe (giá thay đổi).
   Future<void> watchCafe(String cafeId) async {
     _cafeId = cafeId;
     await _connectIfNeeded();
-    await signalR.joinCafeGroup(cafeId);
+    await _signalR?.joinCafeGroup(cafeId);
   }
 
   /// Subscribe realtime cho 1 lobby (auto-cancel events).
   Future<void> watchLobby(String lobbyId) async {
     _lobbyId = lobbyId;
     await _connectIfNeeded();
-    await signalR.joinLobby(lobbyId);
+    await _signalR?.joinLobby(lobbyId);
   }
 
+  /// Public readonly — UI/Caller có thể kiểm tra đã connect chưa.
+  bool get isSignalRConnected => _signalR?.isConnected ?? false;
+
   Future<void> _connectIfNeeded() async {
-    if (signalR.isConnected) return;
-    await signalR.connect();
-    _signalRSub ??= signalR.events.listen(_onSignalREvent);
+    _signalR ??= await signalRFactory.getOrCreate();
+    if (_signalR!.isConnected) return;
+    await _signalR!.connect();
+    _signalRSub ??= _signalR!.events.listen(_onSignalREvent);
     _fcmSub ??= fcm.pushEvents.listen(_onFcmEvent);
   }
 
   void _onSignalREvent(BookingRealtimeEvent event) {
     if (event is BookingCheckedInRealtimeEvent &&
         event.bookingId == _bookingId) {
+      // Emit raw event cho UI làm animation, đồng thời refresh booking.
+      emit(BookingCheckedInEvent(
+        bookingId: event.bookingId,
+        checkedInAt: event.checkedInAt,
+        checkedInByUserId: event.checkedInByUserId,
+      ));
       _refreshBooking();
     } else if (event is BookingCheckedOutRealtimeEvent &&
         event.bookingId == _bookingId) {
+      // Emit raw event cho UI auto-trigger RatingFormSheet.
+      emit(BookingCheckedOutEvent(
+        bookingId: event.bookingId,
+        activeSessionId: event.activeSessionId,
+        timestamp: event.timestamp,
+      ));
       _refreshBooking();
     } else if (event is BookingCancelledRealtimeEvent &&
         event.bookingId == _bookingId) {
@@ -112,17 +130,17 @@ class BookingRealtimeCubit extends Cubit<BookingRealtimeState> {
     final lid = _lobbyId;
     if (bid != null) {
       try {
-        await signalR.leaveBookingGroup(bid);
+        await _signalR?.leaveBookingGroup(bid);
       } catch (_) {}
     }
     if (cid != null) {
       try {
-        await signalR.leaveCafeGroup(cid);
+        await _signalR?.leaveCafeGroup(cid);
       } catch (_) {}
     }
     if (lid != null) {
       try {
-        await signalR.leaveLobby(lid);
+        await _signalR?.leaveLobby(lid);
       } catch (_) {}
     }
     await _signalRSub?.cancel();
@@ -148,6 +166,36 @@ class BookingRealtimeRefreshed extends BookingRealtimeState {
   const BookingRealtimeRefreshed(this.booking);
   @override
   List<Object?> get props => [booking];
+}
+
+/// State mới emit khi nhận `BookingCheckedOutRealtimeEvent` (vd: staff đóng
+/// session). UI sử dụng để auto-trigger `RatingFormSheet` / `NoShowVoteSheet`.
+class BookingCheckedOutEvent extends BookingRealtimeState {
+  final String bookingId;
+  final String? activeSessionId;
+  final DateTime timestamp;
+  const BookingCheckedOutEvent({
+    required this.bookingId,
+    this.activeSessionId,
+    required this.timestamp,
+  });
+  @override
+  List<Object?> get props => [bookingId, activeSessionId, timestamp];
+}
+
+/// State mới emit khi nhận `BookingCheckedInRealtimeEvent`. UI dùng để
+/// show animation "Đã check-in!" thay vì "Đưa QR cho staff".
+class BookingCheckedInEvent extends BookingRealtimeState {
+  final String bookingId;
+  final DateTime? checkedInAt;
+  final String? checkedInByUserId;
+  const BookingCheckedInEvent({
+    required this.bookingId,
+    this.checkedInAt,
+    this.checkedInByUserId,
+  });
+  @override
+  List<Object?> get props => [bookingId, checkedInAt, checkedInByUserId];
 }
 
 class CafePricingChanged extends BookingRealtimeState {

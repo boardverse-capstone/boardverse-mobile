@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/navigation/lobby_suggestion_signal.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
@@ -103,7 +104,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                     _buildGameDetailView(context, lastDetail),
                     Positioned.fill(
                       child: ColoredBox(
-                        color: AppColors.black.withValues(alpha: 0.3),
+                        color: AppColors.black.withValues(alpha: 0.4),
                         child: const Center(
                           child: SizedBox(
                             width: 48,
@@ -129,8 +130,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     );
   }
 
-  /// Xử lý kết quả từ `play-navigation` — điều hướng sang Lobby screen
-  /// (group) hoặc Solo Booking (đặt bàn trực tiếp).
   void _handlePlayNavigation(
     BuildContext context,
     MatchmakingPlayNavigationResolved state,
@@ -211,29 +210,35 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             margin: AppSpacing.paddingAllMd,
             padding: AppSpacing.paddingAllMd,
             decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.08),
-              borderRadius: AppRadius.radiusSmAll,
-              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              color: AppColors.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.error,
+                width: NeoBrutalismTheme.borderWidthBold,
+              ),
+              boxShadow: NeoBrutalismTheme.lightShadow(
+                shadowColor: AppColors.error.withValues(alpha: 0.3),
+              ),
             ),
             child: Column(
               children: [
-                Icon(
+                const Icon(
                   Icons.location_off,
                   size: AppSpacing.huge,
                   color: AppColors.error,
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Không có quán nào trong bán kính 15km',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w900,
                       ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   'Dưới đây là các game tương tự mà bạn có thể thích:',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -290,9 +295,10 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                 child: Padding(
                   padding: AppSpacing.paddingHorizontalMd,
                   child: Text(
-                    'Quán cafe gần bạn',
+                    'QUÁN CAFE GẦN BẠN',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                   ),
                 ),
@@ -355,7 +361,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     required bool isResolving,
     required bool supportsSolo,
   }) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Positioned(
       left: 0,
@@ -369,12 +375,18 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: isDark ? AppColors.surfaceDark : AppColors.surface,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
+            ),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              color: AppColors.black.withValues(alpha: 0.1),
+              blurRadius: 0,
+              offset: const Offset(0, -3),
             ),
           ],
         ),
@@ -384,16 +396,18 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             children: [
               if (supportsSolo) ...[
                 Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.person_rounded, size: 20),
-                    label: const Text('Một mình'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.radiusMdAll,
-                      ),
-                      side: BorderSide(color: theme.colorScheme.outlineVariant),
-                    ),
+                  child: _NeoCtaButton(
+                    label: 'MỘT MÌNH',
+                    icon: Icons.person_rounded,
+                    backgroundColor: isDark
+                        ? AppColors.surfaceElevatedDark
+                        : AppColors.surfaceVariant,
+                    textColor: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimary,
+                    borderColor: isDark
+                        ? AppColors.borderDark
+                        : AppColors.border,
                     onPressed: isResolving
                         ? null
                         : () => widget.matchmakingCubit.resolvePlayNavigation(
@@ -406,18 +420,16 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
               ],
               Expanded(
                 flex: 2,
-                child: FilledButton.icon(
-                  icon: Icon(
-                    supportsSolo ? Icons.groups_rounded : Icons.calendar_today_rounded,
-                    size: 20,
-                  ),
-                  label: Text(supportsSolo ? 'Tạo lobby' : 'Đặt bàn'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.radiusMdAll,
-                    ),
-                  ),
+                child: _NeoCtaButton(
+                  label: supportsSolo ? 'TẠO LOBBY' : 'ĐẶT BÀN',
+                  icon: supportsSolo
+                      ? Icons.groups_rounded
+                      : Icons.calendar_today_rounded,
+                  backgroundColor: AppColors.primary,
+                  textColor: AppColors.white,
+                  borderColor: AppColors.primary,
+                  shadowColor: AppColors.primary,
+                  isLoading: isResolving,
                   onPressed: isResolving
                       ? null
                       : () => widget.matchmakingCubit.resolvePlayNavigation(
@@ -454,24 +466,35 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           Container(
             padding: AppSpacing.paddingAllMd,
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.5),
-              borderRadius: AppRadius.radiusSmAll,
-              border: Border.all(color: theme.colorScheme.outlineVariant),
+              color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.brightness == Brightness.dark
+                    ? AppColors.borderDark
+                    : AppColors.border,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.location_off,
-                  color: theme.colorScheme.outline,
-                  size: AppSpacing.xl,
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.location_off,
+                    color: AppColors.error,
+                    size: AppSpacing.xl,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     message,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -530,6 +553,133 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             child: const Text('Tìm kiếm'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism CTA Button - dùng cho sticky bottom bar.
+class _NeoCtaButton extends StatefulWidget {
+  const _NeoCtaButton({
+    required this.label,
+    required this.icon,
+    required this.backgroundColor,
+    required this.textColor,
+    required this.borderColor,
+    this.shadowColor,
+    this.isLoading = false,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color backgroundColor;
+  final Color textColor;
+  final Color borderColor;
+  final Color? shadowColor;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_NeoCtaButton> createState() => _NeoCtaButtonState();
+}
+
+class _NeoCtaButtonState extends State<_NeoCtaButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      duration: const Duration(milliseconds: 80),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
+
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Transform.translate(
+            offset: isPressed ? const Offset(2, 2) : Offset.zero,
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTapDown: widget.onPressed == null
+            ? null
+            : (_) {
+                _pressCtrl.forward();
+                HapticFeedback.mediumImpact();
+              },
+        onTapUp: widget.onPressed == null
+            ? null
+            : (_) => _pressCtrl.reverse(),
+        onTapCancel: widget.onPressed == null
+            ? null
+            : () => _pressCtrl.reverse(),
+        onTap: widget.onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: widget.backgroundColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: widget.borderColor,
+              width: NeoBrutalismTheme.borderWidthBold,
+            ),
+            boxShadow: widget.onPressed == null
+                ? null
+                : NeoBrutalismTheme.lightShadow(
+                    shadowColor: (widget.shadowColor ?? widget.backgroundColor)
+                        .withValues(alpha: 0.5),
+                  ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.isLoading) ...[
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation(widget.textColor),
+                  ),
+                ),
+              ] else ...[
+                Icon(widget.icon, size: 20, color: widget.textColor),
+              ],
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

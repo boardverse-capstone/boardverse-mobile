@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Bottom FilledButton nằm dưới các tab của LobbyConfigPage.
-///
-/// Có debounce 500ms để chống double-tap — đảm bảo idempotency key
-/// mới được tạo cho mỗi lần bấm thực sự (tránh trùng key khi user bấm
-/// 2 lần nhanh trước khi state loading được set).
+/// Neo-brutalism Bottom button — confirm action.
 class LobbyConfigBottomButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -26,6 +25,7 @@ class LobbyConfigBottomButton extends StatefulWidget {
 
 class _LobbyConfigBottomButtonState extends State<LobbyConfigBottomButton> {
   bool _isDebouncing = false;
+  bool _isPressed = false;
 
   void _handlePress() {
     if (widget.onPressed == null || widget.isLoading || _isDebouncing) return;
@@ -33,7 +33,6 @@ class _LobbyConfigBottomButtonState extends State<LobbyConfigBottomButton> {
     _isDebouncing = true;
     widget.onPressed?.call();
 
-    // Reset debounce sau 500ms
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() => _isDebouncing = false);
@@ -43,37 +42,92 @@ class _LobbyConfigBottomButtonState extends State<LobbyConfigBottomButton> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled =
+        widget.onPressed != null && !widget.isLoading && !_isDebouncing;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: NeoBrutalismTheme.borderWidth,
           ),
-        ],
+        ),
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: widget.isLoading || _isDebouncing ? null : _handlePress,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+        child: GestureDetector(
+          onTapDown: (_) {
+            if (!enabled) return;
+            setState(() => _isPressed = true);
+            HapticFeedback.mediumImpact();
+          },
+          onTapUp: (_) {
+            if (!enabled) return;
+            setState(() => _isPressed = false);
+          },
+          onTapCancel: () {
+            if (!enabled) return;
+            setState(() => _isPressed = false);
+          },
+          onTap: enabled ? _handlePress : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 80),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? AppColors.primary
+                  : (isDark
+                      ? AppColors.surfaceElevatedDark
+                      : AppColors.surfaceVariant),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: enabled
+                    ? AppColors.primary
+                    : (isDark ? AppColors.borderDark : AppColors.border),
+                width: NeoBrutalismTheme.borderWidthBold,
+              ),
+              boxShadow: !enabled
+                  ? null
+                  : NeoBrutalismTheme.lightShadow(
+                      shadowColor:
+                          AppColors.primary.withValues(alpha: 0.5),
+                    ),
             ),
+            transform: _isPressed
+                ? (Matrix4.identity()..translateByDouble(2.0, 2.0, 0.0, 1.0))
+                : Matrix4.identity(),
             child: widget.isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ? const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.white,
+                        ),
+                      ),
+                    ),
                   )
-                : Text(widget.label),
+                : Center(
+                    child: Text(
+                      widget.label.toUpperCase(),
+                      style: TextStyle(
+                        color: enabled
+                            ? AppColors.white
+                            : (isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
           ),
         ),
       ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Tab bar widget dùng trong LobbyConfigPage (4 tabs).
+/// Neo-brutalism Tab bar widget dùng trong LobbyConfigPage.
 class LobbyConfigTabBar extends StatelessWidget {
   final TabController controller;
 
@@ -11,13 +13,17 @@ class LobbyConfigTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     const tabs = ['Quán & Game', 'Thời gian', 'Cấu hình', 'Đặt cọc'];
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
         border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+          bottom: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
         ),
       ),
       child: TabBar(
@@ -26,10 +32,14 @@ class LobbyConfigTabBar extends StatelessWidget {
         tabAlignment: TabAlignment.start,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         labelPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        labelColor: theme.colorScheme.primary,
-        unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-        indicatorColor: theme.colorScheme.primary,
-        indicatorWeight: 3,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: theme.colorScheme.outline,
+        indicatorColor: AppColors.primary,
+        indicatorWeight: 4,
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
         tabs: tabs.map((tab) => Tab(text: tab)).toList(),
       ),
     );

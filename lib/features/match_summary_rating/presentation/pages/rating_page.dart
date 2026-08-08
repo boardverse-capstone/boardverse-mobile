@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/di/injection.dart';
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/di/injection.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../../profile/presentation/pages/home_page.dart';
 import '../../domain/entities/rating_entity.dart';
@@ -15,6 +17,7 @@ import '../widgets/elo_result_display.dart';
 import '../widgets/voting_card.dart';
 import '../widgets/voting_result_dialog.dart';
 
+/// Neo-brutalism rating page.
 class RatingPage extends StatefulWidget {
   const RatingPage({super.key});
 
@@ -140,13 +143,14 @@ class _RatingPageState extends State<RatingPage> {
           ),
         ),
         _BottomActionBar(
-          child: FilledButton.icon(
+          child: _NeoFilledButton(
+            label: 'Tiếp tục',
+            icon: AppIcons.forward,
+            color: AppColors.primary,
             onPressed: () {
               _ratingCubit.submitKarmaRatings();
               setState(() => _currentStep = 1);
             },
-            icon: const Icon(AppIcons.forward),
-            label: const Text('Tiếp tục'),
           ),
         ),
       ],
@@ -154,7 +158,6 @@ class _RatingPageState extends State<RatingPage> {
   }
 
   Widget _buildMatchResultView(BuildContext context, MatchResultEntry state) {
-    final theme = Theme.of(context);
     return Column(
       children: [
         _StepProgress(
@@ -167,11 +170,22 @@ class _RatingPageState extends State<RatingPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: theme.colorScheme.primary),
+                  const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 4,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.md),
-                  Text(
+                  const Text(
                     'Đang chờ các thành viên khác xác nhận...',
-                    style: theme.textTheme.bodyMedium,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -181,15 +195,13 @@ class _RatingPageState extends State<RatingPage> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final theme = Theme.of(context);
                 final wide = constraints.maxWidth >= 720;
                 final choices = <Widget>[
                   _ResultChoiceCard(
                     icon: Icons.emoji_events_outlined,
                     label: 'Thắng',
                     description: 'Đội bạn thắng trận này',
-                    color: theme.colorScheme.tertiary,
-                    background: theme.colorScheme.tertiaryContainer,
+                    color: AppColors.warning,
                     onTap: () =>
                         _ratingCubit.submitMatchResult(MatchResult.win),
                   ),
@@ -197,8 +209,7 @@ class _RatingPageState extends State<RatingPage> {
                     icon: Icons.sentiment_dissatisfied_outlined,
                     label: 'Thua',
                     description: 'Đội bạn thua trận này',
-                    color: theme.colorScheme.error,
-                    background: theme.colorScheme.errorContainer,
+                    color: AppColors.error,
                     onTap: () =>
                         _ratingCubit.submitMatchResult(MatchResult.lose),
                   ),
@@ -206,8 +217,7 @@ class _RatingPageState extends State<RatingPage> {
                     icon: Icons.handshake_outlined,
                     label: 'Hòa',
                     description: 'Hai bên ngang tài ngang sức',
-                    color: theme.colorScheme.secondary,
-                    background: theme.colorScheme.secondaryContainer,
+                    color: AppColors.info,
                     onTap: () =>
                         _ratingCubit.submitMatchResult(MatchResult.draw),
                   ),
@@ -219,17 +229,21 @@ class _RatingPageState extends State<RatingPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        const Text(
                           'Kết quả trận đấu của bạn',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            color: AppColors.black,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text(
+                        const Text(
                           'Chọn kết quả phù hợp với trận đấu vừa chơi',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -257,8 +271,14 @@ class _RatingPageState extends State<RatingPage> {
                             _ratingCubit.skipMatchResult();
                             setState(() => _currentStep = 2);
                           },
-                          icon: const Icon(AppIcons.forward, size: AppIcons.sm),
-                          label: const Text('Bỏ qua (Game không xếp hạng)'),
+                          icon: const Icon(AppIcons.forward, size: 14),
+                          label: const Text(
+                            'Bỏ qua (Game không xếp hạng)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -319,16 +339,15 @@ class _RatingPageState extends State<RatingPage> {
       return _buildCompleteView(context);
     }
 
-    return const Center(child: CircularProgressIndicator());
+    return const Center(
+      child: CircularProgressIndicator(
+        color: AppColors.primary,
+        strokeWidth: 4,
+      ),
+    );
   }
 
   Widget _buildVotingPendingView(BuildContext context, VotingPending state) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final warningColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.warning
-        : AppColors.warning;
-
     return Column(
       children: [
         _StepProgress(
@@ -346,27 +365,40 @@ class _RatingPageState extends State<RatingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Warning banner
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: warningColor.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.radiusMdAll,
+                    color: AppColors.warning,
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: warningColor.withValues(alpha: 0.32),
+                      color: AppColors.border,
+                      width: 2.5,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.black.withValues(alpha: 0.4),
+                        blurRadius: 0,
+                        offset: const Offset(4, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.xs),
                         decoration: BoxDecoration(
-                          color: warningColor.withValues(alpha: 0.18),
-                          borderRadius: AppRadius.radiusXxsAll,
+                          color: AppColors.black,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.border,
+                            width: 2,
+                          ),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           AppIcons.warning,
-                          color: warningColor,
-                          size: AppIcons.md,
+                          color: AppColors.warning,
+                          size: 18,
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
@@ -374,18 +406,21 @@ class _RatingPageState extends State<RatingPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Có thành viên vắng mặt',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: warningColor,
-                                fontWeight: FontWeight.w800,
+                              style: TextStyle(
+                                color: AppColors.black,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.xxs),
+                            const SizedBox(height: 2),
                             Text(
                               '${state.candidates.length} người có thể bị đánh dấu no-show. Cần ${state.threshold} phiếu để xác nhận.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: warningColor,
+                              style: const TextStyle(
+                                color: AppColors.black,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -395,72 +430,33 @@ class _RatingPageState extends State<RatingPage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Text(
+                const Text(
                   'Bình chọn người vắng mặt',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    color: AppColors.black,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 ...state.candidates.map(
                   (candidate) => Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: Material(
-                      color: colors.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.cardRadius,
-                        side: BorderSide(color: colors.outlineVariant),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => _ratingCubit.startVoting(candidate),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: AppSpacing.xl,
-                                backgroundColor: colors.secondaryContainer,
-                                foregroundColor: colors.onSecondaryContainer,
-                                child: Text(
-                                  candidate.name.isEmpty
-                                      ? '?'
-                                      : candidate.name.characters.first
-                                            .toUpperCase(),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: colors.onSecondaryContainer,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Text(
-                                  candidate.name,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Icon(Icons.chevron_right, color: colors.outline),
-                            ],
-                          ),
-                        ),
-                      ),
+                    child: _NeoCandidateTile(
+                      candidate: candidate,
+                      onTap: () => _ratingCubit.startVoting(candidate),
                     ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      _ratingCubit.completeVoting();
-                      setState(() => _currentStep = 4);
-                    },
-                    icon: const Icon(AppIcons.forward, size: AppIcons.sm),
-                    label: const Text('Bỏ qua bình chọn'),
-                  ),
+                _NeoOutlineButton(
+                  label: 'Bỏ qua bình chọn',
+                  icon: AppIcons.forward,
+                  color: AppColors.info,
+                  onPressed: () {
+                    _ratingCubit.completeVoting();
+                    setState(() => _currentStep = 4);
+                  },
                 ),
               ],
             ),
@@ -483,17 +479,21 @@ class _RatingPageState extends State<RatingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Bình chọn',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                    color: AppColors.black,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(
+                const Text(
                   'Bạn có đồng ý rằng người này vắng mặt không?',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -540,12 +540,6 @@ class _RatingPageState extends State<RatingPage> {
   }
 
   Widget _buildCompleteView(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final successColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.success
-        : AppColors.success;
-
     _syncProfileToBackend();
 
     return Center(
@@ -557,20 +551,33 @@ class _RatingPageState extends State<RatingPage> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                color: successColor.withValues(alpha: 0.18),
+                color: AppColors.success,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.border,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.black.withValues(alpha: 0.4),
+                    blurRadius: 0,
+                    offset: const Offset(5, 5),
+                  ),
+                ],
               ),
-              child: Icon(
+              child: const Icon(
                 AppIcons.available,
-                size: AppIcons.massive,
-                color: successColor,
+                size: 64,
+                color: AppColors.white,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text(
+            const Text(
               'Cảm ơn bạn!',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+                color: AppColors.black,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -579,27 +586,24 @@ class _RatingPageState extends State<RatingPage> {
                   ? 'Đánh giá và bình chọn của bạn đã được gửi thành công.'
                   : 'Đánh giá của bạn đã được gửi thành công.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomePage()),
-                    (route) => route.isFirst,
-                  );
-                },
-                icon: const Icon(AppIcons.home),
-                label: const Text('Về trang chủ'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
-              ),
+            _NeoFilledButton(
+              label: 'Về trang chủ',
+              icon: AppIcons.home,
+              color: AppColors.primary,
+              onPressed: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                  (route) => route.isFirst,
+                );
+              },
             ),
           ],
         ),
@@ -629,19 +633,24 @@ class _StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        boxShadow: AppElevation.shadowXxs,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 2.5,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.3),
+            blurRadius: 0,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -666,17 +675,19 @@ class _StepProgress extends StatelessWidget {
                     if (index < stepMeta.length - 1)
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          padding: const EdgeInsets.only(top: 18),
                           child: Container(
                             height: 3,
                             margin: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xs,
                             ),
                             decoration: BoxDecoration(
-                              borderRadius: AppRadius.radiusFullAll,
+                              borderRadius: BorderRadius.circular(2),
                               color: isCompleted
-                                  ? colors.primary
-                                  : colors.outlineVariant,
+                                  ? AppColors.primary
+                                  : (isDark
+                                      ? AppColors.borderDark
+                                      : AppColors.border),
                             ),
                           ),
                         ),
@@ -709,10 +720,7 @@ class _StepNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final isHighlighted = isCompleted || isActive;
-
     final node = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -722,24 +730,32 @@ class _StepNode extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isHighlighted
-                ? colors.primary
-                : colors.surfaceContainerHighest,
+            color:
+                isHighlighted ? AppColors.primary : AppColors.textTertiary,
             border: Border.all(
-              color: isHighlighted ? colors.primary : colors.outlineVariant,
+              color: AppColors.border,
+              width: 2,
             ),
+            boxShadow: isHighlighted
+                ? [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.4),
+                      blurRadius: 0,
+                      offset: const Offset(2, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: isCompleted
-                ? const Icon(
-                    AppIcons.check,
-                    color: Colors.white,
-                    size: AppIcons.md,
-                  )
+                ? const Icon(AppIcons.check,
+                    color: AppColors.white, size: 18)
                 : Icon(
                     meta.icon,
-                    size: AppIcons.md,
-                    color: isActive ? Colors.white : colors.onSurfaceVariant,
+                    size: 18,
+                    color: isActive
+                        ? AppColors.white
+                        : AppColors.white.withValues(alpha: 0.7),
                   ),
           ),
         ),
@@ -749,9 +765,11 @@ class _StepNode extends StatelessWidget {
           child: Text(
             '${index + 1}. ${meta.label}',
             textAlign: TextAlign.center,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: isHighlighted ? colors.primary : colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+            style: TextStyle(
+              color: isHighlighted ? AppColors.primary : AppColors.textSecondary,
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+              letterSpacing: 0.3,
             ),
           ),
         ),
@@ -759,7 +777,7 @@ class _StepNode extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: node,
     );
   }
@@ -772,14 +790,27 @@ class _LoadingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: theme.colorScheme.primary),
+          const SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(
+              color: AppColors.primary,
+              strokeWidth: 4,
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
-          Text(label, style: theme.textTheme.bodyMedium),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -794,48 +825,73 @@ class _FailurePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: colors.errorContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                AppIcons.error,
-                size: AppIcons.massive,
-                color: colors.onErrorContainer,
-              ),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppColors.border,
+              width: 3,
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Đã có lỗi xảy ra',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(5, 5),
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 3,
+                  ),
+                ),
+                child: const Icon(
+                  AppIcons.error,
+                  size: 48,
+                  color: AppColors.white,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(AppIcons.refresh),
-              label: const Text('Thử lại'),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Đã có lỗi xảy ra',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: AppColors.black,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _NeoFilledButton(
+                label: 'Thử lại',
+                icon: AppIcons.refresh,
+                color: AppColors.primary,
+                onPressed: onRetry,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -849,7 +905,6 @@ class _BottomActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -860,8 +915,17 @@ class _BottomActionBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.only(top: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          boxShadow: AppElevation.shadowMd,
+          color: AppColors.surface,
+          border: Border(
+            top: BorderSide(color: AppColors.border, width: 2.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.3),
+              blurRadius: 0,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
         child: SizedBox(width: double.infinity, child: child),
       ),
@@ -874,7 +938,6 @@ class _ResultChoiceCard extends StatelessWidget {
   final String label;
   final String description;
   final Color color;
-  final Color background;
   final VoidCallback onTap;
 
   const _ResultChoiceCard({
@@ -882,50 +945,61 @@ class _ResultChoiceCard extends StatelessWidget {
     required this.label,
     required this.description,
     required this.color,
-    required this.background,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth > 160;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Material(
-            color: background,
-            shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.cardRadius,
-              side: BorderSide(color: color.withValues(alpha: 0.32)),
-            ),
-            clipBehavior: Clip.antiAlias,
+            color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              child: Padding(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.4),
+                      blurRadius: 0,
+                      offset: const Offset(4, 4),
+                    ),
+                  ],
+                ),
                 child: wide
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(icon, size: AppIcons.xl, color: color),
+                          Icon(icon, size: 28, color: AppColors.white),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
                             label,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: colors.onSurface,
-                              fontWeight: FontWeight.w800,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
                             ),
                           ),
                           const SizedBox(width: AppSpacing.sm),
                           Flexible(
                             child: Text(
                               description,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
+                              style: TextStyle(
+                                color: AppColors.white
+                                    .withValues(alpha: 0.85),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -934,21 +1008,25 @@ class _ResultChoiceCard extends StatelessWidget {
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(icon, size: AppIcons.xl, color: color),
+                          Icon(icon, size: 28, color: AppColors.white),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             label,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: colors.onSurface,
-                              fontWeight: FontWeight.w800,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             description,
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                            style: TextStyle(
+                              color: AppColors.white
+                                  .withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -958,6 +1036,205 @@ class _ResultChoiceCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Neo-brutalism candidate tile (used in voting pending view).
+class _NeoCandidateTile extends StatelessWidget {
+  final VotingCandidate candidate;
+  final VoidCallback onTap;
+
+  const _NeoCandidateTile({required this.candidate, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.border,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(4, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    candidate.name.isEmpty
+                        ? '?'
+                        : candidate.name.characters.first.toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  candidate.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.white,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button.
+class _NeoFilledButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoFilledButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: AppColors.white),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism outline button.
+class _NeoOutlineButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoOutlineButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color, width: 2.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

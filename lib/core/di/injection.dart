@@ -34,11 +34,6 @@ import '../../features/friend_management/data/friend_repository_impl.dart';
 import '../../features/friend_management/domain/repositories/friend_repository.dart';
 import '../../features/friend_management/presentation/cubit/friend_list_cubit.dart';
 import '../../features/friend_management/presentation/cubit/friend_profile_cubit.dart';
-import '../../features/match/data/datasources/base/match_result_remote_datasource.dart';
-import '../../features/match/data/datasources/remote/real_match_result_remote_datasource.dart';
-import '../../features/match/data/match_result_repository_impl.dart';
-import '../../features/match/domain/repositories/match_result_repository.dart';
-import '../../features/match/presentation/cubit/match_result_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
 import '../../features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
@@ -71,6 +66,25 @@ import '../../features/reservation/data/datasources/reservation_remote_datasourc
 import '../../features/reservation/data/reservation_repository_impl.dart';
 import '../../features/reservation/domain/repositories/reservation_repository.dart';
 import '../../features/reservation/presentation/cubit/reservation_cubit.dart';
+import '../../features/booking_payment/data/booking_persistence_service.dart';
+import '../../features/booking_payment/data/booking_repository_impl.dart';
+import '../../features/booking_payment/data/datasources/base/booking_rating_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/bookings_by_cafe_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/cafe_availability_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/cafe_table_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/base/session_status_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/remote/booking_rating_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/remote/booking_remote_datasource_impl.dart';
+import '../../features/booking_payment/data/datasources/remote/bookings_by_cafe_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/remote/cafe_availability_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/remote/cafe_table_remote_datasource.dart';
+import '../../features/booking_payment/data/datasources/remote/session_status_remote_datasource.dart';
+import '../../features/booking_payment/data/realtime/booking_realtime_service_factory.dart';
+import '../../features/booking_payment/domain/repositories/booking_repository.dart';
+import '../../features/booking_payment/presentation/cubit/booking_detail_actions_cubit.dart';
+import '../../features/booking_payment/presentation/cubit/booking_realtime_cubit.dart';
+import '../../features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import '../services/storage/theme_preferences_service.dart';
 import '../utils/current_user_resolver.dart';
 
@@ -214,19 +228,6 @@ void setupDependencies() {
     () => FriendProfileCubit(repository: sl<FriendRepository>()),
   );
 
-  // ─── Feature: Match (Elo consensus) ─────────────────────────────────
-  sl.registerLazySingleton<MatchResultRemoteDatasource>(
-    () => RealMatchResultRemoteDatasource(dio: sl<Dio>()),
-  );
-
-  sl.registerLazySingleton<MatchResultRepository>(
-    () => MatchResultRepositoryImpl(remote: sl<MatchResultRemoteDatasource>()),
-  );
-
-  sl.registerFactory<MatchResultCubit>(
-    () => MatchResultCubit(repository: sl<MatchResultRepository>()),
-  );
-
   // ─── Feature: Notification (FCM device tokens) ────────────────────
   // Gap #11 + lobby auto-cancel push (background events).
   sl.registerLazySingleton<NotificationRemoteDatasource>(
@@ -341,6 +342,65 @@ void setupDependencies() {
   /// Mỗi LobbyPage mount sẽ tạo 1 instance mới; tự dispose khi page pop.
   sl.registerFactory<LobbyReservationCubit>(
     () => LobbyReservationCubit(repository: sl<ReservationRepository>()),
+  );
+
+  // ─── Feature: Booking Payment (POS check-in + rating + session) ─────
+  // Backend API: /api/bookings, /api/payments/booking-deposit/*, ...
+  sl.registerLazySingleton<BookingRemoteDatasource>(
+    () => BookingRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<CafeTableRemoteDatasource>(
+    () => CafeTableRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<CafeAvailabilityRemoteDatasource>(
+    () => CafeAvailabilityRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<BookingRatingRemoteDatasource>(
+    () => BookingRatingRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<SessionStatusRemoteDatasource>(
+    () => SessionStatusRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<BookingsByCafeRemoteDatasource>(
+    () => BookingsByCafeRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<BookingPersistenceService>(
+    () => BookingPersistenceService(storage: sl<FlutterSecureStorage>()),
+  );
+
+  sl.registerLazySingleton<BookingRepository>(
+    () => BookingRepositoryImpl(
+      datasource: sl<BookingRemoteDatasource>(),
+      cafeTableDatasource: sl<CafeTableRemoteDatasource>(),
+      cafeAvailabilityDatasource: sl<CafeAvailabilityRemoteDatasource>(),
+      bookingRatingDatasource: sl<BookingRatingRemoteDatasource>(),
+      sessionStatusDatasource: sl<SessionStatusRemoteDatasource>(),
+      bookingsByCafeDatasource: sl<BookingsByCafeRemoteDatasource>(),
+      persistence: sl<BookingPersistenceService>(),
+    ),
+  );
+
+  // ─── Booking Realtime Service (SignalR /hubs/lobby, gap #7) ────────────
+  // Service này cần JWT — provider qua getter lazy để tránh đăng ký
+  // ngay khi app boot (trước khi user login).
+  sl.registerLazySingleton<BookingRealtimeServiceFactory>(
+    () => BookingRealtimeServiceFactory(),
+  );
+
+  // Cubits (factory — mỗi page mount tạo instance mới).
+  sl.registerFactory<BookingResultCubit>(
+    () => BookingResultCubit(repository: sl<BookingRepository>()),
+  );
+  sl.registerFactory<BookingDetailActionsCubit>(
+    () => BookingDetailActionsCubit(sl<BookingRepository>()),
+  );
+  sl.registerFactory<BookingRealtimeCubit>(
+    () => BookingRealtimeCubit(
+      signalRFactory: sl<BookingRealtimeServiceFactory>(),
+      fcm: sl<FcmService>(),
+      repository: sl<BookingRepository>(),
+    ),
   );
 
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────

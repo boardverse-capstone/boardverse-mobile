@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 
-/// Section title trong FilterBottomSheet — icon + label + optional trailing
-/// pill (e.g. số filter đã chọn).
+/// Neo-brutalism Section title trong FilterBottomSheet.
 class FilterSectionTitle extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -22,31 +21,55 @@ class FilterSectionTitle extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: AppSpacing.md, color: theme.colorScheme.primary),
-        const SizedBox(width: AppSpacing.xxs),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: theme.brightness == Brightness.dark
+                  ? AppColors.borderDark
+                  : AppColors.border,
+              width: 2,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: AppSpacing.md,
+            color: AppColors.white,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         Text(
-          label,
+          label.toUpperCase(),
           style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
           ),
         ),
         if (trailing != null) ...[
-          const SizedBox(width: AppSpacing.xs),
+          const SizedBox(width: AppSpacing.sm),
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xs,
-              vertical: 2,
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs,
             ),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: AppRadius.radiusFullAll,
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: theme.brightness == Brightness.dark
+                    ? AppColors.borderDark
+                    : AppColors.border,
+                width: 2,
+              ),
             ),
             child: Text(
               trailing!,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
+              style: const TextStyle(
+                color: AppColors.black,
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
               ),
             ),
           ),

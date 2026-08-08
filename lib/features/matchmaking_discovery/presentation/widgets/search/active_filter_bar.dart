@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../domain/entities/search_filter_entity.dart';
 
-/// Thanh chip filter đang active — dễ thấy và dễ xoá.
+/// Neo-brutalism Active filter chips - dễ thấy và dễ xoá.
 class ActiveFilterBar extends StatelessWidget {
   final String? selectedCategory;
   final int? minPlayers;
@@ -33,6 +35,57 @@ class ActiveFilterBar extends StatelessWidget {
     }
   }
 
+  Widget _neoFilterChip({
+    required String label,
+    required VoidCallback onRemove,
+    Color? accentColor,
+  }) {
+    final color = accentColor ?? AppColors.primary;
+    return Container(
+      margin: const EdgeInsets.only(right: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onRemove,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xxs),
+                Icon(
+                  Icons.close,
+                  size: 14,
+                  color: color,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -42,28 +95,21 @@ class ActiveFilterBar extends StatelessWidget {
         padding: AppSpacing.paddingHorizontalMd,
         children: [
           if (selectedCategory != null)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text(selectedCategory!),
-                onDeleted: onRemoveCategory,
-              ),
+            _neoFilterChip(
+              label: selectedCategory!,
+              onRemove: onRemoveCategory,
             ),
           if (minPlayers != null)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text('$minPlayers+ người'),
-                onDeleted: onRemovePlayerCount,
-              ),
+            _neoFilterChip(
+              label: '$minPlayers+ người',
+              onRemove: onRemovePlayerCount,
+              accentColor: AppColors.secondary,
             ),
           for (final range in selectedDurationRanges)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InputChip(
-                label: Text(_durationLabel(range)),
-                onDeleted: () => onRemoveDuration(range),
-              ),
+            _neoFilterChip(
+              label: _durationLabel(range),
+              onRemove: () => onRemoveDuration(range),
+              accentColor: AppColors.accent,
             ),
         ],
       ),

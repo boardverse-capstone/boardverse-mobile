@@ -1,32 +1,28 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
 
-/// Countdown tới `scheduledTime` (giờ chơi thực tế của lobby).
-///
-/// Khác `LobbyCountdownTimer` (đếm tới `timeoutAt` / recruitmentDeadline):
-/// - Widget này hiển thị ngày giờ chơi + đếm ngược lớn ("Còn 2 ngày 4 giờ
-///   15 phút") cho FE Phase A.
-/// - Khi `scheduledTime` đã trôi qua → hiển thị "Đã tới giờ chơi" với
-///   icon urgent.
-/// - Tự dừng timer khi expired.
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+
+/// Countdown widget tới một thời điểm `scheduledTime`. Neo-brutalism style
+/// với bold border + hard shadow.
 class ScheduledTimeCountdown extends StatefulWidget {
-  /// Thời điểm chơi thực tế (lobby.scheduledTime).
   final DateTime scheduledTime;
-
-  /// Optional label phụ dưới countdown (vd: "Giờ chơi").
-  final String? caption;
-
-  /// Optional callback khi countdown về 0.
-  final VoidCallback? onArrived;
+  final String title;
+  final String? subtitle;
+  final Color accentColor;
+  final VoidCallback? onElapsed;
+  final bool compact;
 
   const ScheduledTimeCountdown({
     super.key,
     required this.scheduledTime,
-    this.caption,
-    this.onArrived,
+    required this.title,
+    this.subtitle,
+    this.accentColor = AppColors.success,
+    this.onElapsed,
+    this.compact = false,
   });
 
   @override
@@ -34,126 +30,176 @@ class ScheduledTimeCountdown extends StatefulWidget {
 }
 
 class _ScheduledTimeCountdownState extends State<ScheduledTimeCountdown> {
-  Timer? _timer;
+  late Timer _timer;
+  Duration _remaining = Duration.zero;
+  bool _isPast = false;
+  bool _elapsedCallbackFired = false;
 
   @override
   void initState() {
     super.initState();
-    // Update mỗi phút — countdown theo ngày không cần chính xác tới giây.
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (!mounted) return;
-      setState(() {});
+    _update();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _update());
+  }
+
+  void _update() {
+    final now = DateTime.now();
+    final delta = widget.scheduledTime.difference(now);
+    if (!mounted) return;
+    setState(() {
+      _remaining = delta.isNegative ? Duration.zero : delta;
+      _isPast = delta.isNegative;
     });
+    if (delta.isNegative && !_elapsedCallbackFired) {
+      _elapsedCallbackFired = true;
+      widget.onElapsed?.call();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduledTimeCountdown old) {
+    super.didUpdateWidget(old);
+    if (old.scheduledTime != widget.scheduledTime) {
+      _elapsedCallbackFired = false;
+      _update();
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _timer.cancel();
     super.dispose();
   }
 
-  ({String countdown, bool isUrgent, bool isExpired}) _compute() {
-    final now = DateTime.now();
-    final diff = widget.scheduledTime.difference(now);
-
-    if (diff.isNegative || diff == Duration.zero) {
-      return (countdown: 'Đã tới giờ chơi', isUrgent: true, isExpired: true);
+  String get _formatted {
+    final h = _remaining.inHours;
+    final m = _remaining.inMinutes % 60;
+    final s = _remaining.inSeconds % 60;
+    if (h > 0) {
+      return '${h}h ${m.toString().padLeft(2, '0')}m';
     }
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
 
-    final days = diff.inDays;
-    final hours = diff.inHours % 24;
-    final minutes = diff.inMinutes % 60;
-
-    final parts = <String>[];
-    if (days > 0) parts.add('$days ngày');
-    if (hours > 0) parts.add('$hours giờ');
-    parts.add('$minutes phút');
-
-    // Urgent khi còn dưới 30 phút.
-    final urgent = diff.inMinutes < 30;
-
-    return (
-      countdown: 'Còn ${parts.join(' ')}',
-      isUrgent: urgent,
-      isExpired: false,
-    );
+  Color get _currentColor {
+    if (_isPast) return AppColors.textSecondary;
+    if (_remaining.inMinutes <= 30) return AppColors.warning;
+    if (_remaining.inHours <= 2) return AppColors.accent;
+    return widget.accentColor;
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    // DateFormat cần `initializeDateFormatting(<locale>)` được gọi trong
-    // `main()`. Tuy nhiên để safe (vd: hot-reload cache stale, hoặc gọi trước
-    // khi main xong trên web), wrap trong try-catch và fallback sang pattern
-    // không cần locale.
-    String dateLabel;
-    try {
-      dateLabel = DateFormat('EEE, dd/MM • HH:mm', 'vi')
-          .format(widget.scheduledTime.toLocal());
-    } catch (_) {
-      dateLabel =
-          DateFormat('EEE, dd/MM • HH:mm').format(widget.scheduledTime.toLocal());
-    }
-
-    final result = _compute();
-
-    final accent = result.isExpired
-        ? AppColors.success
-        : result.isUrgent
-            ? colors.error
-            : colors.primary;
-
-    return Semantics(
-      label:
-          '${widget.caption ?? "Giờ chơi"}: $dateLabel. ${result.countdown}.',
-      liveRegion: result.isUrgent,
-      child: Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = _currentColor;
+    if (widget.compact) {
+      return Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.10),
-          borderRadius: AppRadius.radiusLgAll,
-          border: Border.all(color: accent.withValues(alpha: 0.30)),
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 1.5,
+          ),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.clock, size: 20, color: accent),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.caption ?? 'Giờ chơi',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    dateLabel,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    result.countdown,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            Icon(Icons.timer_outlined,
+                color: _isPast ? AppColors.white : AppColors.black, size: 14),
+            const SizedBox(width: AppSpacing.xxs),
+            Text(
+              _isPast ? 'Đã tới giờ' : _formatted,
+              style: TextStyle(
+                color: _isPast ? AppColors.white : AppColors.black,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
               ),
             ),
           ],
         ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.black.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              _isPast ? Icons.alarm_off_rounded : Icons.alarm_rounded,
+              color: _isPast ? AppColors.white : AppColors.black,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: _isPast ? AppColors.white : AppColors.black,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _isPast ? 'Đã tới giờ chơi' : _formatted,
+                  style: TextStyle(
+                    color: _isPast ? AppColors.white : AppColors.black,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                    letterSpacing: -1,
+                  ),
+                ),
+                if (widget.subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.subtitle!,
+                    style: TextStyle(
+                      color: _isPast
+                          ? AppColors.white.withValues(alpha: 0.85)
+                          : AppColors.black.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

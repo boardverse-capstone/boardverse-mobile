@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_colors_dark.dart';
 
 /// Gradient background dùng chung cho các auth pages.
-///
-/// Hỗ trợ light/dark mode tự động.
+/// 
+/// Neo-brutalism style - vibrant gradients.
 class AuthGradientBackground extends StatelessWidget {
   const AuthGradientBackground({
     super.key,
@@ -37,16 +36,8 @@ class AuthGradientBackground extends StatelessWidget {
     );
   }
 
-  /// Login page gradient — Deep Orange → đen.
+  /// Login page gradient — Orange → đen.
   static List<Color> loginGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark) {
-      return const [
-        AppColorsDark.primary,
-        AppColorsDark.primaryDark,
-        AppColorsDark.background,
-      ];
-    }
     return const [
       AppColors.primary,
       AppColors.primaryDark,
@@ -54,16 +45,8 @@ class AuthGradientBackground extends StatelessWidget {
     ];
   }
 
-  /// Register page gradient — Teal → đen.
+  /// Register page gradient — Cyan → đen.
   static List<Color> registerGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark) {
-      return const [
-        AppColorsDark.secondary,
-        AppColorsDark.secondaryDark,
-        AppColorsDark.background,
-      ];
-    }
     return const [
       AppColors.secondary,
       AppColors.secondaryDark,
@@ -73,14 +56,6 @@ class AuthGradientBackground extends StatelessWidget {
 
   /// Verify email gradient — Amber/Orange.
   static List<Color> verifyGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark) {
-      return const [
-        AppColorsDark.accent,
-        AppColorsDark.accentDark,
-        AppColorsDark.primaryDark,
-      ];
-    }
     return const [
       AppColors.accent,
       AppColors.primary,

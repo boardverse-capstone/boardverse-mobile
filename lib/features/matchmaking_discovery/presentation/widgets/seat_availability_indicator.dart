@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
 
-/// Widget hiển thị trạng thái ghế của quán
-/// Tuân thủ BR-01: Seat-based management
+/// Neo-brutalism Widget hiển thị trạng thái ghế của quán.
 class SeatAvailabilityIndicator extends StatelessWidget {
   final CafeEntity? cafe;
   final SeatAvailabilityEntity? availability;
@@ -51,7 +50,7 @@ class SeatAvailabilityIndicator extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusLgAll,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -65,7 +64,10 @@ class SeatAvailabilityIndicator extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          Text('Đang kiểm tra...', style: theme.textTheme.bodySmall),
+          Text(
+            'Đang kiểm tra...',
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
     );
@@ -80,12 +82,15 @@ class SeatAvailabilityIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
+          vertical: AppSpacing.xxs,
         ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: AppRadius.radiusLgAll,
-          border: Border.all(color: color.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: color,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -96,7 +101,7 @@ class SeatAvailabilityIndicator extends StatelessWidget {
               label,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: color,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -114,9 +119,12 @@ class SeatAvailabilityIndicator extends StatelessWidget {
       child: Container(
         padding: AppSpacing.paddingAllSm,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: AppRadius.radiusSmAll,
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,20 +132,31 @@ class SeatAvailabilityIndicator extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: AppSpacing.md + 2, color: color),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: AppSpacing.md,
+                    color: AppColors.white,
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   label,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: color,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${availability!.availableSeats}/${availability!.totalSeats} ghế',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -177,23 +196,34 @@ class SeatAvailabilityIndicator extends StatelessWidget {
     );
   }
 
-  Widget _buildSeatRow(ThemeData theme, String label, int count, Color color) {
+  Widget _buildSeatRow(
+    ThemeData theme,
+    String label,
+    int count,
+    Color color,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         children: [
           Container(
-            width: AppSpacing.xs,
-            height: AppSpacing.xs,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          Text(label, style: theme.textTheme.bodySmall),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall,
+          ),
           const Spacer(),
           Text(
             '$count',
             style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],

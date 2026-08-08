@@ -1,24 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Thay thế cho `ToastCard` của package `delightful_toast` — đã có bug
-/// assertion trong Flutter Material 3 vì `Container` (với color +
-/// `BorderRadius.circular(15)` + boxShadow) wrap `ListTile` mà không có
-/// `Material` ancestor riêng cho ListTile. Stack trace:
-///
-///   ListTile background color or ink splashes may be invisible.
-///   The ListTile is wrapped in a DecoratedBox that has a background color.
-///
-/// Cấu trúc của widget này:
-///
-/// ```
-/// Container (chỉ giữ margin + boxShadow, không có color)
-///   └── Material (color + borderRadius)
-///         └── ListTile
-/// ```
-///
-/// `Material` được đặt ngay trước `ListTile` để `ListTile` có Material
-/// ancestor phù hợp cho ink splash + tileColor; `Container` ngoài cùng
-/// chỉ giữ shadow để giữ nguyên visual của `ToastCard` gốc.
+import '../theme/app_colors.dart';
+import '../theme/neo_brutalism_theme.dart';
+import '../theme/app_spacing.dart';
+
+/// Neo-brutalism Toast Card
+/// 
+/// Features:
+/// - Bold borders
+/// - Hard offset shadows
+/// - Rounded corners
 class AppToastCard extends StatelessWidget {
   final Widget title;
   final Widget? subtitle;
@@ -41,37 +32,114 @@ class AppToastCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor =
-        color ?? Theme.of(context).dialogTheme.backgroundColor ?? Colors.white;
-    final effectiveShadowColor =
-        shadowColor ?? Colors.black.withValues(alpha: 0.05);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final effectiveColor = color ?? (isDark ? AppColors.surfaceDark : AppColors.surface);
+    final effectiveShadowColor = shadowColor ?? Colors.black.withValues(alpha: 0.15);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
+        color: effectiveColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
         boxShadow: [
           BoxShadow(
-            blurRadius: 10,
-            spreadRadius: 3,
-            offset: Offset.zero,
             color: effectiveShadowColor,
+            blurRadius: 0,
+            offset: const Offset(3, 3),
           ),
         ],
       ),
       child: Material(
-        color: effectiveColor,
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.transparent,
         child: ListTile(
-          contentPadding: const EdgeInsets.all(7),
-          leading: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: leading,
-          ),
+          contentPadding: const EdgeInsets.all(AppSpacing.sm),
+          leading: leading != null
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  child: leading,
+                )
+              : null,
           trailing: trailing,
           subtitle: subtitle,
           title: title,
           onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+/// Success Toast variant
+class SuccessToastCard extends StatelessWidget {
+  const SuccessToastCard({
+    super.key,
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppToastCard(
+      leading: Container(
+        padding: const EdgeInsets.all(AppSpacing.xs),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.check_circle_outlined,
+          color: AppColors.success,
+          size: 24,
+        ),
+      ),
+      title: Text(
+        message,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.success,
+        ),
+      ),
+    );
+  }
+}
+
+/// Error Toast variant
+class ErrorToastCard extends StatelessWidget {
+  const ErrorToastCard({
+    super.key,
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppToastCard(
+      leading: Container(
+        padding: const EdgeInsets.all(AppSpacing.xs),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.error_outline,
+          color: AppColors.error,
+          size: 24,
+        ),
+      ),
+      title: Text(
+        message,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.error,
         ),
       ),
     );

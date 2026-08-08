@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../../core/widgets/safe_network_image.dart';
 import '../../../domain/entities/board_game_entity.dart';
-import 'animated_gradient_border.dart';
 
-/// Single hero card on the carousel — animated gradient border + parallax
-/// handled by parent (parallax is applied via Transform.scale in
-/// [HeroBannerCarousel]).
+/// Neo-brutalism Hero banner card.
 class HeroBannerCard extends StatefulWidget {
   final BoardGameEntity game;
   final String? badgeText;
@@ -35,9 +33,7 @@ class _HeroBannerCardState extends State<HeroBannerCard>
     super.initState();
     _pressCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 120),
-      lowerBound: 0,
-      upperBound: 1,
+      duration: const Duration(milliseconds: 100),
     );
   }
 
@@ -50,6 +46,9 @@ class _HeroBannerCardState extends State<HeroBannerCard>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
+
     return GestureDetector(
       onTapDown: (_) => _pressCtrl.forward(),
       onTapUp: (_) => _pressCtrl.reverse(),
@@ -58,18 +57,43 @@ class _HeroBannerCardState extends State<HeroBannerCard>
       child: AnimatedBuilder(
         animation: _pressCtrl,
         builder: (context, child) {
-          final scale = 1 - (_pressCtrl.value * 0.03);
-          return Transform.scale(scale: scale, child: child);
+          return Transform.scale(
+            scale: 1 - (_pressCtrl.value * 0.03),
+            child: Transform.translate(
+              offset: isPressed ? const Offset(3, 3) : Offset.zero,
+              child: child,
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           child: Stack(
             children: [
-              // Animated gradient border
-              AnimatedGradientBorder(
-                borderRadius: AppRadius.radiusLgAll,
+              // Hard shadow offset
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.black,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+
+              // Main container
+              Container(
+                margin: const EdgeInsets.only(right: 3, bottom: 3),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.surfaceDark
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: NeoBrutalismTheme.borderWidthBold,
+                  ),
+                ),
                 child: ClipRRect(
-                  borderRadius: AppRadius.radiusLgAll,
+                  borderRadius: BorderRadius.circular(18),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -86,7 +110,7 @@ class _HeroBannerCardState extends State<HeroBannerCard>
                           ),
                         ),
                       ),
-                      // Gradient overlay để text dễ đọc
+                      // Gradient overlay
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -94,9 +118,9 @@ class _HeroBannerCardState extends State<HeroBannerCard>
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              AppColors.black.withValues(alpha: 0.75),
+                              AppColors.black.withValues(alpha: 0.8),
                             ],
-                            stops: const [0.45, 1.0],
+                            stops: const [0.4, 1.0],
                           ),
                         ),
                       ),
@@ -115,19 +139,23 @@ class _HeroBannerCardState extends State<HeroBannerCard>
                                   bottom: AppSpacing.xs,
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.xs,
-                                  vertical: AppSpacing.xxs,
+                                  horizontal: AppSpacing.xs + 2,
+                                  vertical: AppSpacing.xxs + 1,
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppColors.accent,
-                                  borderRadius: AppRadius.radiusSmAll,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: AppColors.black,
+                                    width: 2,
+                                  ),
                                 ),
                                 child: Text(
-                                  widget.badgeText!,
+                                  widget.badgeText!.toUpperCase(),
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: AppColors.black,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1,
                                   ),
                                 ),
                               ),
@@ -136,13 +164,11 @@ class _HeroBannerCardState extends State<HeroBannerCard>
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.headlineSmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w900,
                                 shadows: [
                                   Shadow(
-                                    color: AppColors.black.withValues(
-                                      alpha: 0.5,
-                                    ),
+                                    color: AppColors.black.withValues(alpha: 0.6),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -159,34 +185,54 @@ class _HeroBannerCardState extends State<HeroBannerCard>
                                       vertical: AppSpacing.xxs,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.18,
-                                      ),
+                                      color: AppColors.white
+                                          .withValues(alpha: 0.25),
                                       borderRadius: AppRadius.radiusFullAll,
+                                      border: Border.all(
+                                        color: AppColors.white
+                                            .withValues(alpha: 0.4),
+                                        width: 1,
+                                      ),
                                     ),
                                     child: Text(
                                       widget.game.category,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color: AppColors.white,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: AppSpacing.xs),
                                 ],
-                                if (widget.game.rating > 0)
-                                  Icon(
-                                    Icons.star,
-                                    size: AppSpacing.md,
-                                    color: AppColors.warning,
-                                  ),
                                 if (widget.game.rating > 0) ...[
-                                  const SizedBox(width: AppSpacing.xxs),
-                                  Text(
-                                    widget.game.rating.toStringAsFixed(1),
-                                    style: theme.textTheme.labelMedium?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.xs,
+                                      vertical: AppSpacing.xxs,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.warning,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.star,
+                                          size: AppSpacing.sm,
+                                          color: AppColors.black,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          widget.game.rating.toStringAsFixed(1),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: AppColors.black,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/utils/tournament_utils.dart';
 
+/// Neo-brutalism Tournament detail info card.
 class TournamentDetailInfo extends StatelessWidget {
   final TournamentEntity tournament;
 
@@ -15,22 +19,30 @@ class TournamentDetailInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Thông tin giải đấu',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+        const Text(
+          'THÔNG TIN GIẢI ĐẤU',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+            fontSize: 14,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Container(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: AppRadius.radiusMdAll,
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: NeoBrutalismTheme.lightShadow(
+              shadowColor: AppColors.black.withValues(alpha: 0.06),
+            ),
           ),
           child: Column(
             children: [
@@ -59,12 +71,14 @@ class TournamentDetailInfo extends StatelessWidget {
                 icon: AppIcons.available,
                 label: 'Phí tham gia',
                 value: tournament.isFree ? 'Miễn phí' : '${TournamentUtils.formatVnd(tournament.registrationFee!)}đ',
+                emphasized: !tournament.isFree,
               ),
               if (tournament.hasPrizePool)
                 _InfoRow(
                   icon: AppIcons.level,
                   label: 'Tổng giải thưởng',
                   value: '${TournamentUtils.formatVnd(tournament.prizePool)}đ',
+                  emphasized: true,
                 ),
             ],
           ),
@@ -78,16 +92,20 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final bool emphasized;
 
   const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.emphasized = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accentColor = emphasized ? AppColors.primary : theme.colorScheme.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
@@ -95,13 +113,23 @@ class _InfoRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: AppIcons.sm, color: theme.colorScheme.primary),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accentColor, width: 1.5),
+            ),
+            child: Icon(icon, size: AppIcons.sm, color: accentColor),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              label.toUpperCase(),
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
               ),
             ),
           ),
@@ -111,7 +139,8 @@ class _InfoRow extends StatelessWidget {
               value,
               textAlign: TextAlign.end,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
+                color: emphasized ? accentColor : null,
               ),
             ),
           ),

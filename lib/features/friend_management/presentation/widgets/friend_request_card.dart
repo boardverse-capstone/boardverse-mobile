@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_icons.dart';
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
 import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';
 import 'shared/time_ago.dart';
 
-/// Card displaying a friend request in the inbox (received requests).
-///
-/// Features:
-/// - Header: tier avatar + name + time + unread dot
-/// - Message bubble (optional)
-/// - Mutual friends info (optional)
-/// - Actions: Decline / Accept buttons
+/// Neo-brutalism Card displaying a friend request in the inbox.
 class FriendRequestCard extends StatelessWidget {
   const FriendRequestCard({
     super.key,
@@ -40,15 +35,22 @@ class FriendRequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final tierColor = request.gamerTier?.color ?? theme.colorScheme.outline;
     final hasTier = request.gamerTier != null;
+    final borderColor = request.isRead
+        ? (isDark ? AppColors.borderDark : AppColors.border)
+        : AppColors.primary;
 
     return OutlinedCard(
-      borderColor: request.isRead
-          ? theme.colorScheme.outlineVariant.withValues(alpha: 0.5)
-          : theme.colorScheme.primary.withValues(alpha: 0.5),
-      borderWidth: request.isRead ? 1 : 2,
-      radius: AppRadius.radiusLg,
+      borderColor: borderColor,
+      borderWidth: request.isRead
+          ? NeoBrutalismTheme.borderWidth
+          : NeoBrutalismTheme.borderWidthBold,
+      radius: 14,
+      shadowColor: request.isRead
+          ? AppColors.black.withValues(alpha: 0.05)
+          : AppColors.primary.withValues(alpha: 0.3),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -134,10 +136,7 @@ class _Header extends StatelessWidget {
                     child: Text(
                       displayName,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                        color: displayName == 'Người dùng'
-                            ? theme.colorScheme.outline
-                            : null,
+                        fontWeight: isRead ? FontWeight.w700 : FontWeight.w900,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -148,9 +147,10 @@ class _Header extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE53935),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
                         shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.black, width: 1),
                       ),
                     ),
                   ],
@@ -167,30 +167,40 @@ class _Header extends StatelessWidget {
                   const SizedBox(width: 3),
                   Text(
                     formatTimeAgo(createdAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
                       color: theme.colorScheme.outline,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (karmaPoints != null && karmaPoints! > 0) ...[
                     const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      '·',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
+                    const Text('·',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w900,
+                        )),
                     const SizedBox(width: AppSpacing.xs),
-                    Icon(
-                      AppIcons.karma,
-                      size: 13,
-                      color: Colors.orange.shade400,
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.black, width: 1),
+                      ),
+                      child: const Icon(
+                        AppIcons.karma,
+                        size: 10,
+                        color: AppColors.black,
+                      ),
                     ),
                     const SizedBox(width: 2),
                     Text(
                       '$karmaPoints',
-                      style: theme.textTheme.labelSmall?.copyWith(
+                      style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -212,6 +222,7 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -219,22 +230,37 @@ class _MessageBubble extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        color: isDark ? AppColors.surfaceVariant : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
         border: Border(
           left: BorderSide(
-            color: theme.colorScheme.primary.withValues(alpha: 0.4),
-            width: 3,
+            color: AppColors.primary,
+            width: 4,
           ),
+          top: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          right: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          bottom: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
+          const Icon(
             Icons.format_quote_rounded,
             size: 16,
-            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            color: AppColors.primary,
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -242,6 +268,7 @@ class _MessageBubble extends StatelessWidget {
               message,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w700,
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
               ),
@@ -260,29 +287,32 @@ class _MutualFriendsChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        color: AppColors.secondary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.secondary, width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.people_alt_outlined,
             size: 14,
-            color: theme.colorScheme.outline,
+            color: AppColors.secondary,
           ),
           const SizedBox(width: 4),
           Text(
-            '$count bạn chung',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.outline,
+            '$count BẠN CHUNG',
+            style: const TextStyle(
+              color: AppColors.secondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -302,23 +332,48 @@ class _ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         Expanded(
           child: SizedBox(
             height: 44,
-            child: OutlinedButton.icon(
-              onPressed: onDecline,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('Từ chối'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-                side: BorderSide(
-                  color: theme.colorScheme.error.withValues(alpha: 0.4),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.error, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onDecline,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.close, size: 18, color: AppColors.error),
+                        SizedBox(width: 4),
+                        Text(
+                          'TỪ CHỐI',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -328,13 +383,43 @@ class _ActionButtons extends StatelessWidget {
         Expanded(
           child: SizedBox(
             height: 44,
-            child: FilledButton.icon(
-              onPressed: onAccept,
-              icon: const Icon(AppIcons.check, size: 18),
-              label: const Text('Chấp nhận'),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.success,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.black, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onAccept,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(AppIcons.check, size: 18, color: AppColors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'CHẤP NHẬN',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

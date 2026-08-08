@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Một dòng label/value trong quote preview.
+/// Neo-brutalism Quote row — label/value.
 class LobbyConfigQuoteRow extends StatelessWidget {
   final String label;
   final String value;
@@ -22,13 +22,14 @@ class LobbyConfigQuoteRow extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.outline,
             ),
           ),
           Text(
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/theme/app_icons.dart';
-import '../../../../core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
-import '../cubit/cubit.dart';
 
-/// Action panel for FriendProfilePage.
-///
-/// Changes based on `friendshipStatus` and permission flags from `FriendProfileEntity`.
+/// Neo-brutalism Action panel for FriendProfilePage.
 class FriendProfileActions extends StatelessWidget {
   const FriendProfileActions({
     super.key,
@@ -34,30 +32,24 @@ class FriendProfileActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     if (profile.hasBlockedMe) {
       return _Notice(
         icon: Icons.lock_outline,
-        color: theme.colorScheme.outline,
+        color: AppColors.error,
         text: 'Người chơi này hiện không nhận tương tác từ bạn.',
       );
     }
 
     if (profile.isBlockedByMe) {
-      return Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: isMutating ? null : onUnblock,
-              icon: const Icon(AppIcons.unlock),
-              label: const Text('Bỏ chặn'),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.tertiary,
-              ),
-            ),
-          ),
-        ],
+      return _NeoActionButton(
+        label: 'BỎ CHẶN',
+        icon: AppIcons.unlock,
+        color: AppColors.secondary,
+        borderColor: borderColor,
+        onPressed: isMutating ? null : onUnblock,
       );
     }
 
@@ -66,10 +58,12 @@ class FriendProfileActions extends StatelessWidget {
         return Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
+              child: _NeoActionButton(
+                label: 'MỜI VÀO PHÒNG',
+                icon: AppIcons.add,
+                color: AppColors.primary,
+                borderColor: borderColor,
                 onPressed: isMutating ? null : onInviteToLobby,
-                icon: const Icon(AppIcons.add),
-                label: const Text('Mời vào phòng'),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -82,36 +76,38 @@ class FriendProfileActions extends StatelessWidget {
       case FriendshipStatus.pendingSent:
         return const _Notice(
           icon: AppIcons.pending,
-          color: null,
+          color: AppColors.warning,
           text: 'Bạn đã gửi lời mời. Đang chờ phản hồi.',
         );
       case FriendshipStatus.pendingReceived:
         return const _Notice(
           icon: AppIcons.inbox,
-          color: null,
+          color: AppColors.primary,
           text: 'Người chơi này đã gửi lời mời cho bạn. Mở tab "Lời mời" để phản hồi.',
         );
       case FriendshipStatus.blocked:
         return const _Notice(
           icon: AppIcons.lock,
-          color: null,
+          color: AppColors.error,
           text: 'Bạn đã chặn người chơi này.',
         );
       case FriendshipStatus.none:
         if (!profile.canSendFriendRequest) {
           return const _Notice(
             icon: Icons.do_not_disturb_on_outlined,
-            color: null,
+            color: AppColors.textSecondary,
             text: 'Người chơi này hiện không nhận lời mời kết bạn.',
           );
         }
         return Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
+              child: _NeoActionButton(
+                label: 'KẾT BẠN',
+                icon: AppIcons.userAdd,
+                color: AppColors.primary,
+                borderColor: borderColor,
                 onPressed: isMutating ? null : onSendRequest,
-                icon: const Icon(AppIcons.userAdd),
-                label: const Text('Kết bạn'),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -137,7 +133,6 @@ class _OverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final items = <PopupMenuEntry<String>>[];
 
     if (onUnfriend != null) {
@@ -145,7 +140,6 @@ class _OverflowMenu extends StatelessWidget {
         value: 'unfriend',
         icon: AppIcons.userRemove,
         label: 'Hủy kết bạn',
-        isDestructive: true,
       ));
     }
     if (onBlock != null) {
@@ -153,7 +147,6 @@ class _OverflowMenu extends StatelessWidget {
         value: 'block',
         icon: AppIcons.lock,
         label: 'Chặn người chơi',
-        isDestructive: true,
       ));
     }
     if (onReport != null) {
@@ -161,19 +154,26 @@ class _OverflowMenu extends StatelessWidget {
         value: 'report',
         icon: AppIcons.flag,
         label: 'Báo cáo vi phạm',
-        isDestructive: true,
       ));
     }
 
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.black, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: PopupMenuButton<String>(
-        icon: Icon(
+        icon: const Icon(
           Icons.more_vert,
-          color: theme.colorScheme.onSurfaceVariant,
+          color: AppColors.black,
         ),
         onSelected: (value) {
           switch (value) {
@@ -194,16 +194,20 @@ class _OverflowMenu extends StatelessWidget {
     required String value,
     required IconData icon,
     required String label,
-    required bool isDestructive,
   }) {
-    final color = isDestructive ? Colors.red : null;
     return PopupMenuItem<String>(
       value: value,
       child: Row(
         children: [
-          Icon(icon, size: AppIcons.sm, color: color),
+          Icon(icon, size: AppIcons.sm, color: AppColors.error),
           const SizedBox(width: AppSpacing.sm),
-          Text(label, style: TextStyle(color: color)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.error,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -213,36 +217,52 @@ class _OverflowMenu extends StatelessWidget {
 class _Notice extends StatelessWidget {
   const _Notice({
     required this.icon,
-    this.color,
+    required this.color,
     required this.text,
   });
 
   final IconData icon;
-  final Color? color;
+  final Color color;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final effectiveColor = color ?? theme.colorScheme.outline;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        vertical: AppSpacing.sm + 2,
       ),
       decoration: BoxDecoration(
-        color: effectiveColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppSpacing.sm),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 2),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: color.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: effectiveColor, size: AppIcons.md),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.black, width: 1.5),
+            ),
+            child: Icon(icon, color: AppColors.white, size: AppIcons.md),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               text,
-              style: theme.textTheme.bodyMedium?.copyWith(color: effectiveColor),
+              style: TextStyle(
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -251,16 +271,59 @@ class _Notice extends StatelessWidget {
   }
 }
 
-/// Helper for listening to profile action messages and showing snackbars.
-void listenProfileActionMessage(BuildContext context, FriendProfileState state) {
-  if (state is FriendProfileLoaded && state.actionMessage != null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(state.actionMessage!),
-        duration: const Duration(seconds: 3),
+/// Neo-brutalism action button.
+class _NeoActionButton extends StatelessWidget {
+  const _NeoActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.borderColor,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color borderColor;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.black, width: 2),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: color.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: AppColors.white, size: 18),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
-    context.read<FriendProfileCubit>().clearActionMessage();
   }
 }

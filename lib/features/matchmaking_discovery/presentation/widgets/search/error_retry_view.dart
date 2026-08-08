@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Common "error with retry" empty state — used across search results,
-/// board game detail and cafe selection pages.
+/// Common "error with retry" empty state — Neo-brutalism style.
+/// Used across search results, board game detail and cafe selection pages.
 class ErrorRetryView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -17,28 +19,98 @@ class ErrorRetryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Center(
       child: Padding(
         padding: AppSpacing.paddingAllXl,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off,
-              size: AppSpacing.huge + AppSpacing.xs,
-              color: theme.colorScheme.error,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.error,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.error.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Icon(
+                Icons.cloud_off,
+                size: AppSpacing.huge,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Đã xảy ra lỗi',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondary,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
+            const SizedBox(height: AppSpacing.lg),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onRetry,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.refresh,
+                          color: AppColors.white,
+                          size: 18,
+                        ),
+                        SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'THỬ LẠI',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/tournament_entity.dart';
 import '../../domain/entities/tournament_status.dart';
 
-/// Tournament list card với press animation (scale 0.96).
+/// Neo-brutalism Tournament list card với press animation.
 class TournamentListCard extends StatefulWidget {
   final TournamentEntity tournament;
   final VoidCallback? onTap;
@@ -50,6 +53,8 @@ class _TournamentListCardState extends State<TournamentListCard>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
     final dateFmt = DateFormat('dd/MM/yyyy');
     final timeFmt = DateFormat('HH:mm');
     final statusColor = _statusColor(theme, widget.tournament.status);
@@ -67,13 +72,16 @@ class _TournamentListCardState extends State<TournamentListCard>
         onTapUp: _onTapUp,
         onTapCancel: _onTapCancel,
         onTap: widget.onTap,
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          elevation: AppElevation.elevationNone,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.cardRadius,
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+            boxShadow: NeoBrutalismTheme.lightShadow(
+              shadowColor: AppColors.black.withValues(alpha: 0.06),
+            ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
@@ -93,7 +101,7 @@ class _TournamentListCardState extends State<TournamentListCard>
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xxs),
@@ -112,6 +120,7 @@ class _TournamentListCardState extends State<TournamentListCard>
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -158,7 +167,9 @@ class _TournamentListCardState extends State<TournamentListCard>
                     Expanded(
                       child: Text(
                         '${widget.tournament.currentParticipants}/${widget.tournament.maxParticipants} người tham gia',
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     if (widget.tournament.requiresKarma) ...[
@@ -170,19 +181,30 @@ class _TournamentListCardState extends State<TournamentListCard>
                       const SizedBox(width: AppSpacing.xxs),
                       Text(
                         'Karma ≥ ${widget.tournament.minKarmaRequirement}',
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 ClipRRect(
-                  borderRadius: AppRadius.radiusFullAll,
-                  child: LinearProgressIndicator(
-                    value: widget.tournament.fillRatio,
-                    minHeight: AppSpacing.xs,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: AppColors.black,
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: LinearProgressIndicator(
+                      value: widget.tournament.fillRatio,
+                      minHeight: 8,
+                      backgroundColor: AppColors.surfaceVariant,
+                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                    ),
                   ),
                 ),
                 if (widget.tournament.hasPrizePool) ...[
@@ -190,28 +212,39 @@ class _TournamentListCardState extends State<TournamentListCard>
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
+                      vertical: AppSpacing.xs + 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.14),
-                      borderRadius: AppRadius.radiusSmAll,
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.black,
+                        width: NeoBrutalismTheme.borderWidth,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.black,
+                          blurRadius: 0,
+                          offset: Offset(2, 2),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           AppIcons.level,
                           size: AppIcons.sm,
-                          color: AppColors.accentDark,
+                          color: AppColors.black,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
-                          'Tổng giải thưởng: ${_formatVnd(widget.tournament.prizePool)}đ',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.brightness == Brightness.dark
-                                ? AppColors.accent
-                                : AppColors.accentDark,
-                            fontWeight: FontWeight.w700,
+                          'GIẢI THƯỞNG: ${_formatVnd(widget.tournament.prizePool)}đ',
+                          style: const TextStyle(
+                            color: AppColors.black,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
@@ -248,17 +281,22 @@ class _TournamentIcon extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.18),
-            color.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: AppRadius.radiusMdAll,
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.black, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
-      child: Icon(AppIcons.tournament, size: AppIcons.xl, color: color),
+      child: const Icon(
+        AppIcons.tournament,
+        size: AppIcons.xl,
+        color: AppColors.white,
+      ),
     );
   }
 }
@@ -275,24 +313,26 @@ class _StatusChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: AppSpacing.xxs,
+        horizontal: 6,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: AppRadius.tagRadius,
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.black, width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_statusIcon(status), size: AppIcons.xs, color: color),
-          const SizedBox(width: AppSpacing.xxs),
+          Icon(_statusIcon(status), size: 10, color: AppColors.white),
+          const SizedBox(width: 4),
           Text(
-            status.label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+            status.label.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -315,22 +355,21 @@ class _MetaItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = emphasized ? AppColors.primary : theme.colorScheme.onSurfaceVariant;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
           icon,
           size: AppIcons.sm,
-          color: emphasized
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
+          color: color,
         ),
         const SizedBox(width: AppSpacing.xxs),
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: emphasized ? theme.colorScheme.primary : null,
-            fontWeight: emphasized ? FontWeight.w700 : null,
+            color: color,
+            fontWeight: emphasized ? FontWeight.w900 : FontWeight.w700,
           ),
         ),
       ],
@@ -341,17 +380,17 @@ class _MetaItem extends StatelessWidget {
 Color _statusColor(ThemeData theme, TournamentStatus status) {
   switch (status) {
     case TournamentStatus.upcoming:
-      return theme.colorScheme.secondary;
+      return AppColors.secondary;
     case TournamentStatus.registrationOpen:
       return AppColors.success;
     case TournamentStatus.registrationClosed:
-      return theme.colorScheme.tertiary;
+      return AppColors.accent;
     case TournamentStatus.ongoing:
-      return theme.colorScheme.primary;
+      return AppColors.primary;
     case TournamentStatus.completed:
       return theme.colorScheme.onSurfaceVariant;
     case TournamentStatus.cancelled:
-      return theme.colorScheme.error;
+      return AppColors.error;
   }
 }
 

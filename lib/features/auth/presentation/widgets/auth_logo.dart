@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Logo widget với glow effect cho auth pages.
+/// Neo-brutalism Logo widget với bold style.
 class AuthLogo extends StatelessWidget {
   const AuthLogo({
     super.key,
@@ -28,27 +29,28 @@ class AuthLogo extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary,
-                AppColors.primaryLight,
-              ],
+              colors: AppColors.cardGradientOrange,
             ),
             borderRadius: BorderRadius.circular(size * 0.28),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.3),
+              width: 3,
+            ),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withValues(alpha: 0.4),
-                blurRadius: 30,
-                spreadRadius: 5,
+                blurRadius: 0,
+                offset: const Offset(4, 4),
               ),
             ],
           ),
           child: Icon(
             Icons.games_outlined,
             size: size * 0.48,
-            color: Colors.white,
+            color: AppColors.white,
           ),
         ),
         if (showAppName) ...[
@@ -56,8 +58,8 @@ class AuthLogo extends StatelessWidget {
           Text(
             'BoardVerse',
             style: theme.textTheme.headlineLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+              color: AppColors.white,
+              fontWeight: FontWeight.w900,
               letterSpacing: 1,
             ),
           ),
@@ -67,7 +69,7 @@ class AuthLogo extends StatelessWidget {
           Text(
             'Kết nối yêu board game',
             style: theme.textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.white.withValues(alpha: 0.8),
               letterSpacing: 0.5,
             ),
           ),
@@ -77,7 +79,7 @@ class AuthLogo extends StatelessWidget {
   }
 }
 
-/// Mini logo cho app bar.
+/// Neo-brutalism Mini logo cho app bar.
 class AuthLogoMini extends StatelessWidget {
   const AuthLogoMini({super.key});
 
@@ -91,23 +93,30 @@ class AuthLogoMini extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(AppSpacing.huge),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.3),
+          width: 2,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.games_outlined,
-            color: Colors.white,
+            color: AppColors.white,
             size: AppIcons.sm,
           ),
           const SizedBox(width: AppSpacing.xs),
           Text(
             'BoardVerse',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+              color: AppColors.white,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

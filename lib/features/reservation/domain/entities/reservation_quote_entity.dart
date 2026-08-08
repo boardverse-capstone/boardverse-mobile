@@ -31,6 +31,11 @@ class ReservationQuoteEntity extends Equatable {
   final DateTime expiresAt;
   final List<String> warnings;
 
+  /// Mức rủi ro của user kèm theo quote (BR-RISK-*).
+  /// Backend trả về để client hiển thị cảnh báo trước khi confirm.
+  /// Default `low` cho backward-compat với quote response cũ.
+  final RiskLevel riskLevel;
+
   const ReservationQuoteEntity({
     this.reservationId,
     required this.cafeId,
@@ -57,6 +62,7 @@ class ReservationQuoteEntity extends Equatable {
     required this.requiresCafeApproval,
     required this.expiresAt,
     required this.warnings,
+    this.riskLevel = RiskLevel.low,
   });
 
   /// Kiểm tra user có đủ số dư không
@@ -91,6 +97,7 @@ class ReservationQuoteEntity extends Equatable {
         isPrivate,
         requiresCafeApproval,
         expiresAt,
+        riskLevel,
       ];
 }
 

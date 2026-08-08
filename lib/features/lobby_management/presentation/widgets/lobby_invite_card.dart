@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/lobby_invite_entity.dart';
 
-/// Modern lobby invite card với gradient accent và elevated design.
+/// Modern lobby invite card với neo-brutalism style: bold borders, hard shadows,
+/// gradient header và styled action buttons.
 class LobbyInviteCard extends StatelessWidget {
   final LobbyInviteEntity invite;
   final bool isInvitee;
@@ -29,19 +32,27 @@ class LobbyInviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
-        boxShadow: AppElevation.shadowMd,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(5, 5),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: AppRadius.radiusLgAll,
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
@@ -50,30 +61,56 @@ class LobbyInviteCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [colors.primary, colors.primary.withAlpha(204)],
+                  colors: [AppColors.primary, AppColors.primaryLight],
                 ),
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundImage: invite.inviterAvatar.isNotEmpty
-                        ? NetworkImage(invite.inviterAvatar)
-                        : null,
-                    child: invite.inviterAvatar.isEmpty
-                        ? Text(
-                            invite.inviterName.isNotEmpty
-                                ? invite.inviterName[0].toUpperCase()
-                                : '?',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.white.withValues(alpha: 0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: invite.inviterAvatar.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              invite.inviterAvatar,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, e, st) => Center(
+                                child: Text(
+                                  invite.inviterName.isNotEmpty
+                                      ? invite.inviterName[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
                             ),
                           )
-                        : null,
+                        : Center(
+                            child: Text(
+                              invite.inviterName.isNotEmpty
+                                  ? invite.inviterName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
@@ -84,16 +121,19 @@ class LobbyInviteCard extends StatelessWidget {
                           isInvitee
                               ? '${invite.inviterName} mời bạn'
                               : 'Lời mời đã gửi',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.white,
+                            fontSize: 15,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           invite.gameName,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.85),
+                          style: TextStyle(
+                            color: AppColors.white.withValues(alpha: 0.85),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -115,20 +155,29 @@ class LobbyInviteCard extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
-                        borderRadius: AppRadius.radiusSmAll,
+                        color: AppColors.accentLight.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.accent,
+                          width: 2,
+                        ),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.format_quote, size: AppIcons.md, color: colors.primary),
+                          const Icon(Icons.format_quote,
+                              size: 18, color: AppColors.warning),
                           const SizedBox(width: AppSpacing.xs),
                           Expanded(
                             child: Text(
                               invite.message!,
-                              style: theme.textTheme.bodySmall?.copyWith(
+                              style: TextStyle(
                                 fontStyle: FontStyle.italic,
-                                color: colors.onSurfaceVariant,
+                                color: isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
                               ),
                             ),
                           ),
@@ -145,7 +194,8 @@ class LobbyInviteCard extends StatelessWidget {
                       const SizedBox(width: AppSpacing.sm),
                       _InfoChip(
                         icon: AppIcons.users,
-                        label: '${invite.currentMembers}/${invite.maxMembers}',
+                        label:
+                            '${invite.currentMembers}/${invite.maxMembers}',
                       ),
                       const Spacer(),
                       if (invite.status == LobbyInviteStatus.pending &&
@@ -155,31 +205,28 @@ class LobbyInviteCard extends StatelessWidget {
                   ),
 
                   // Action buttons
-                  if (invite.status == LobbyInviteStatus.pending && invite.isActive) ...[
+                  if (invite.status == LobbyInviteStatus.pending &&
+                      invite.isActive) ...[
                     const SizedBox(height: AppSpacing.md),
                     if (isInvitee && invite.hasSlots)
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton(
+                            child: _OutlineActionButton(
+                              label: 'Từ chối',
+                              icon: AppIcons.cancelBooking,
+                              color: AppColors.error,
                               onPressed: isLoading ? null : onDecline,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: AppRadius.radiusMdAll,
-                                ),
-                              ),
-                              child: isLoading
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Text('Từ chối'),
+                              isLoading: isLoading,
                             ),
                           ),
                           const SizedBox(width: AppSpacing.md),
                           Expanded(
                             flex: 2,
-                            child: _GradientButton(
+                            child: _FilledActionButton(
                               label: 'Tham gia',
                               icon: AppIcons.userAdd,
+                              color: AppColors.primary,
                               onPressed: isLoading ? null : onAccept,
                               isLoading: isLoading,
                             ),
@@ -189,18 +236,12 @@ class LobbyInviteCard extends StatelessWidget {
                     else if (!isInvitee)
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton(
+                        child: _OutlineActionButton(
+                          label: 'Hủy lời mời',
+                          icon: AppIcons.cancelBooking,
+                          color: AppColors.error,
                           onPressed: isLoading ? null : onCancel,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error,
-                            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.radiusMdAll,
-                            ),
-                          ),
-                          child: isLoading
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('Hủy lời mời'),
+                          isLoading: isLoading,
                         ),
                       )
                     else
@@ -208,20 +249,27 @@ class LobbyInviteCard extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: AppColors.warning.withValues(alpha: 0.1),
-                          borderRadius: AppRadius.radiusSmAll,
-                          border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                          color: AppColors.warning,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
                         ),
                         child: Row(
-                          children: [
-                            Icon(AppIcons.warning, size: AppIcons.md, color: AppColors.warning),
-                            const SizedBox(width: AppSpacing.xs),
+                          children: const [
+                            Icon(AppIcons.warning,
+                                size: 18, color: AppColors.black),
+                            SizedBox(width: AppSpacing.xs),
                             Expanded(
                               child: Text(
                                 'Phòng đã đầy',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.warning,
-                                  fontWeight: FontWeight.w600,
+                                style: TextStyle(
+                                  color: AppColors.black,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
@@ -229,26 +277,15 @@ class LobbyInviteCard extends StatelessWidget {
                         ),
                       ),
                   ] else if (!isInvitee && invite.canResend) ...[
-                    // Resend cho inviter khi invite đã ở terminal state.
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton.icon(
+                      child: _OutlineActionButton(
+                        label: 'Gửi lại lời mời',
+                        icon: AppIcons.refresh,
+                        color: AppColors.info,
                         onPressed: isLoading ? null : onResend,
-                        icon: isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(AppIcons.refresh, size: 18),
-                        label: const Text('Gửi lại lời mời'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.radiusMdAll,
-                          ),
-                        ),
+                        isLoading: isLoading,
                       ),
                     ),
                   ],
@@ -269,31 +306,58 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, label) = switch (status) {
-      LobbyInviteStatus.pending => (Colors.white.withValues(alpha: 0.25), 'Chờ'),
-      LobbyInviteStatus.accepted => (AppColors.success, 'Đã chấp nhận'),
-      LobbyInviteStatus.declined => (AppColors.error, 'Đã từ chối'),
-      LobbyInviteStatus.cancelled => (AppColors.error, 'Đã hủy'),
-      LobbyInviteStatus.expired => (AppColors.textSecondary, 'Hết hạn'),
+    final (color, fg, label) = switch (status) {
+      LobbyInviteStatus.pending => (
+        AppColors.white,
+        AppColors.primary,
+        'Chờ',
+      ),
+      LobbyInviteStatus.accepted => (
+        AppColors.success,
+        AppColors.white,
+        'Đã chấp nhận',
+      ),
+      LobbyInviteStatus.declined => (
+        AppColors.error,
+        AppColors.white,
+        'Đã từ chối',
+      ),
+      LobbyInviteStatus.cancelled => (
+        AppColors.error,
+        AppColors.white,
+        'Đã hủy',
+      ),
+      LobbyInviteStatus.expired => (
+        AppColors.textTertiary,
+        AppColors.white,
+        'Hết hạn',
+      ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
-        color: color == Colors.white.withValues(alpha: 0.25)
-            ? Colors.white.withValues(alpha: 0.2)
-            : color.withValues(alpha: 0.15),
-        borderRadius: AppRadius.radiusXxsAll,
-        border: color == Colors.white.withValues(alpha: 0.25)
-            ? Border.all(color: Colors.white.withValues(alpha: 0.3))
-            : null,
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.border,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.3),
+            blurRadius: 0,
+            offset: const Offset(2, 2),
+          ),
+        ],
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: color == Colors.white.withValues(alpha: 0.25) ? Colors.white : color,
+          color: fg,
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -308,23 +372,36 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusSmAll,
+        color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: colors.onSurfaceVariant),
+          Icon(icon,
+              size: 14,
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondary),
           const SizedBox(width: 4),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+            style: TextStyle(
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -339,25 +416,37 @@ class _ExpiryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUrgent = remaining.inHours < 1;
-    final color = isUrgent ? AppColors.warning : AppColors.textSecondary;
+    final color = isUrgent ? AppColors.warning : AppColors.info;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.radiusSmAll,
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(AppIcons.timer, size: AppIcons.xs, color: color),
+          Icon(
+            AppIcons.timer,
+            size: 12,
+            color: isUrgent ? AppColors.black : AppColors.white,
+          ),
           const SizedBox(width: 4),
           Text(
             'Còn ${_format(remaining)}',
-            style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: isUrgent ? AppColors.black : AppColors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
@@ -371,68 +460,135 @@ class _ExpiryChip extends StatelessWidget {
   }
 }
 
-/// Modern gradient primary button cho invite actions.
-class _GradientButton extends StatelessWidget {
+/// Neo-brutalism filled action button.
+class _FilledActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
+  final Color color;
   final VoidCallback? onPressed;
   final bool isLoading;
 
-  const _GradientButton({
+  const _FilledActionButton({
     required this.label,
     required this.icon,
+    required this.color,
     this.onPressed,
     this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [colors.primary, colors.primary.withAlpha(204)],
-        ),
-        borderRadius: AppRadius.radiusMdAll,
-        boxShadow: [
-          BoxShadow(
-            color: colors.primary.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadius.radiusMdAll,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: AppRadius.radiusMdAll,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                else ...[
-                  Icon(icon, size: 16, color: Colors.white),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.white,
+                  ),
+                )
+              else ...[
+                Icon(icon, size: 16, color: AppColors.white),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism outline action button.
+class _OutlineActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  const _OutlineActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color, width: 2.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoading)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              else ...[
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

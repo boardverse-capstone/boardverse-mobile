@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../reservation/domain/entities/entities.dart';
 import 'quote_row.dart';
 
-/// Quote preview card — render quote details + buffer warning.
+/// Neo-brutalism Quote preview card.
 class LobbyConfigQuotePreviewCard extends StatelessWidget {
   final ReservationQuoteEntity quote;
   final String Function(int) formatBuffer;
@@ -19,32 +20,50 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: AppSpacing.paddingAllMd,
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.payments, color: theme.colorScheme.primary),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.payments,
+                  color: AppColors.white,
+                  size: 18,
+                ),
+              ),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                'Chi tiết cọc',
+                'CHI TIẾT CỌC',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          const Divider(),
+          Container(height: 2, color: AppColors.primary.withValues(alpha: 0.2)),
           const SizedBox(height: AppSpacing.sm),
 
           LobbyConfigQuoteRow(
@@ -65,30 +84,34 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
           ),
 
           const SizedBox(height: AppSpacing.sm),
-          const Divider(),
+          Container(height: 2, color: AppColors.primary.withValues(alpha: 0.2)),
           const SizedBox(height: AppSpacing.sm),
 
-          // Final deposit - highlight
+          // Final deposit highlight
           Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: AppSpacing.paddingAllMd,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: AppRadius.radiusSmAll,
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Tổng cọc (final)',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                const Text(
+                  'TỔNG CỌC',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.white,
+                    fontSize: 13,
+                    letterSpacing: 1,
                   ),
                 ),
                 Text(
                   '${quote.finalDeposit} BVC',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.white,
+                    fontSize: 22,
                   ),
                 ),
               ],
@@ -99,39 +122,31 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
 
           // Buffer info
           Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
+            padding: AppSpacing.paddingAllSm,
             decoration: BoxDecoration(
-              color: quote.bufferWarningLevel == BufferWarningLevel.rejected
-                  ? Colors.red.withValues(alpha: 0.1)
-                  : quote.bufferWarningLevel == BufferWarningLevel.warning
-                      ? Colors.orange.withValues(alpha: 0.1)
-                      : Colors.green.withValues(alpha: 0.1),
-              borderRadius: AppRadius.radiusSmAll,
+              color: _getBufferColor(
+                quote.bufferWarningLevel,
+              ).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _getBufferColor(quote.bufferWarningLevel),
+                width: NeoBrutalismTheme.borderWidth,
+              ),
             ),
             child: Row(
               children: [
                 Icon(
-                  quote.bufferWarningLevel == BufferWarningLevel.rejected
-                      ? Icons.error
-                      : quote.bufferWarningLevel == BufferWarningLevel.warning
-                          ? Icons.warning
-                          : Icons.check_circle,
-                  color: quote.bufferWarningLevel == BufferWarningLevel.rejected
-                      ? Colors.red
-                      : quote.bufferWarningLevel == BufferWarningLevel.warning
-                          ? Colors.orange
-                          : Colors.green,
+                  _getBufferIcon(quote.bufferWarningLevel),
+                  color: _getBufferColor(quote.bufferWarningLevel),
                   size: 18,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   'Buffer: ${formatBuffer(quote.bufferMinutes)} để tuyển người',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: quote.bufferWarningLevel == BufferWarningLevel.rejected
-                        ? Colors.red
-                        : quote.bufferWarningLevel == BufferWarningLevel.warning
-                            ? Colors.orange
-                            : Colors.green,
+                  style: TextStyle(
+                    color: _getBufferColor(quote.bufferWarningLevel),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
                   ),
                 ),
               ],
@@ -140,5 +155,27 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _getBufferColor(BufferWarningLevel level) {
+    switch (level) {
+      case BufferWarningLevel.rejected:
+        return AppColors.error;
+      case BufferWarningLevel.warning:
+        return AppColors.warning;
+      case BufferWarningLevel.none:
+        return AppColors.success;
+    }
+  }
+
+  IconData _getBufferIcon(BufferWarningLevel level) {
+    switch (level) {
+      case BufferWarningLevel.rejected:
+        return Icons.error;
+      case BufferWarningLevel.warning:
+        return Icons.warning;
+      case BufferWarningLevel.none:
+        return Icons.check_circle;
+    }
   }
 }

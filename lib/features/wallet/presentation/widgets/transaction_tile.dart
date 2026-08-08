@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../domain/entities/entities.dart';
 
-/// Widget hiển thị một giao dịch trong lịch sử.
+/// Neo-brutalism Widget hiển thị một giao dịch trong lịch sử.
 class TransactionTile extends StatelessWidget {
   final TransactionEntity transaction;
   final VoidCallback? onTap;
@@ -20,63 +19,95 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPositive = transaction.amount > 0;
     final amountColor = isPositive ? AppColors.success : AppColors.error;
     final amountPrefix = isPositive ? '+' : '';
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        child: Row(
-          children: [
-            _buildIcon(transaction.type),
-            SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _getTransactionTitle(transaction.type),
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    _formatDate(transaction.createdAt),
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+    return Material(
+      color: isDark ? AppColors.surfaceDark : AppColors.surface,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isDark
+                    ? AppColors.borderDark
+                    : AppColors.border,
+                width: 1.5,
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$amountPrefix${transaction.amount} BVC',
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: amountColor,
-                  ),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              _buildIcon(transaction.type),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getTransactionTitle(transaction.type),
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      _formatDate(transaction.createdAt),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                if (transaction.relatedPaymentRef != null) ...[
-                  SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    _formatVnd(transaction.amountVnd),
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: amountColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: amountColor, width: 1.5),
+                    ),
+                    child: Text(
+                      '$amountPrefix${transaction.amount} BVC',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: amountColor,
+                      ),
                     ),
                   ),
+                  if (transaction.relatedPaymentRef != null) ...[
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      _formatVnd(transaction.amountVnd),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -117,10 +148,18 @@ class TransactionTile extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.radiusSmAll,
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.black, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
-      child: Icon(icon, color: color, size: AppIcons.md),
+      child: Icon(icon, color: AppColors.white, size: AppIcons.md),
     );
   }
 

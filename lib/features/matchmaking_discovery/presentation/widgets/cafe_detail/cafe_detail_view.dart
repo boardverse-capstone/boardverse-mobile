@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../../core/widgets/safe_network_image.dart';
 import '../../../domain/entities/board_game_entity.dart';
 import '../../../domain/entities/cafe_detail_entity.dart';
@@ -14,9 +16,7 @@ import 'pricing_card.dart';
 import 'se_pay_badge.dart';
 import 'tappable_info_row.dart';
 
-/// Body của [CafeDetailPage] — render Stack(SliverAppBar + Content + Sticky CTA).
-///
-/// Nhận sẵn [cafe] đã được load (parent chịu trách nhiệm xử lý loading/error).
+/// Body của [CafeDetailPage] — Neo-brutalism style.
 class CafeDetailView extends StatelessWidget {
   final CafeDetailEntity cafe;
   final BoardGameEntity? selectedGame;
@@ -32,17 +32,47 @@ class CafeDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Stack(
       children: [
         CustomScrollView(
           slivers: [
-            // ── AppBar with image ────────────────────────────────────────
+            // SliverAppBar với neo-brutalism back button
             SliverAppBar(
               expandedHeight: 220,
               pinned: true,
-              backgroundColor: theme.colorScheme.surface,
-              iconTheme: const IconThemeData(color: Colors.white),
+              backgroundColor:
+                  isDark ? AppColors.surfaceDark : AppColors.surface,
+              iconTheme: IconThemeData(
+                color: AppColors.white,
+              ),
+              leading: Container(
+                margin: const EdgeInsets.all(AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.black,
+                    width: 2,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AppColors.black,
+                      blurRadius: 0,
+                      offset: Offset(2, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: AppColors.black,
+                    size: 18,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,
@@ -60,7 +90,6 @@ class CafeDetailView extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Gradient overlay
                     Positioned(
                       left: 0,
                       right: 0,
@@ -73,7 +102,7 @@ class CafeDetailView extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.6),
+                              AppColors.black.withValues(alpha: 0.6),
                             ],
                           ),
                         ),
@@ -84,31 +113,31 @@ class CafeDetailView extends StatelessWidget {
               ),
             ),
 
-            // ── Cafe info ────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: AppSpacing.paddingAllMd,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Name
                     Text(
                       cafe.name,
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                         height: 1.2,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-
-                    // ── Pricing Card ────────────────────────────────────
                     PricingCard(cafe: cafe),
                     const SizedBox(height: AppSpacing.md),
-
-                    // ── Contact Info ────────────────────────────────────
-                    CafeSectionTitle(title: 'Liên hệ'),
+                    const CafeSectionTitle(
+                      title: 'Liên hệ',
+                      icon: Icons.contact_phone,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
-                    CafeInfoRow(icon: Icons.place_outlined, text: cafe.address),
+                    CafeInfoRow(
+                      icon: Icons.place_outlined,
+                      text: cafe.address,
+                    ),
                     if (cafe.phoneNumber != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       TappableInfoRow(
@@ -122,27 +151,46 @@ class CafeDetailView extends StatelessWidget {
                       TappableInfoRow(
                         icon: Icons.map_outlined,
                         text: 'Xem trên bản đồ',
-                        onTap: () => _openMap(cafe.latitude!, cafe.longitude!),
+                        onTap: () =>
+                            _openMap(cafe.latitude!, cafe.longitude!),
                       ),
                     ],
-
-                    // ── Description ───────────────────────────────────────
                     if (cafe.description != null &&
                         cafe.description!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.lg),
-                      CafeSectionTitle(title: 'Giới thiệu'),
+                      const CafeSectionTitle(
+                        title: 'Giới thiệu',
+                        icon: Icons.info_outline,
+                      ),
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        cafe.description!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
+                      Container(
+                        padding: AppSpacing.paddingAllMd,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.surfaceDark
+                              : AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: NeoBrutalismTheme.borderWidth,
+                          ),
+                        ),
+                        child: Text(
+                          cafe.description!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            height: 1.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
-
-                    // ── Additional Info ──────────────────────────────────
                     const SizedBox(height: AppSpacing.lg),
-                    CafeSectionTitle(title: 'Thông tin thêm'),
+                    const CafeSectionTitle(
+                      title: 'Thông tin thêm',
+                      icon: Icons.more_horiz,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     CafeInfoRow(
                       icon: Icons.calendar_today_outlined,
@@ -155,13 +203,10 @@ class CafeDetailView extends StatelessWidget {
                         text: 'Sức chứa: ${cafe.totalSeats} ghế',
                       ),
                     ],
-
-                    // ── SePay Badge ─────────────────────────────────────
                     if (cafe.hasSePayConfigured) ...[
                       const SizedBox(height: AppSpacing.md),
                       const SePayBadge(),
                     ],
-
                     const SizedBox(height: AppSpacing.huge + AppSpacing.lg),
                   ],
                 ),
@@ -170,7 +215,7 @@ class CafeDetailView extends StatelessWidget {
           ],
         ),
 
-        // ── Sticky bottom CTA ─────────────────────────────────────────
+        // Sticky bottom CTA
         if (selectedGame != null)
           Positioned(
             left: 0,
@@ -179,24 +224,23 @@ class CafeDetailView extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
-                AppSpacing.md,
+                AppSpacing.sm,
                 AppSpacing.md,
                 AppSpacing.md,
               ),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    theme.colorScheme.surface.withValues(alpha: 0.95),
-                    theme.colorScheme.surface,
-                  ],
+                color: isDark ? AppColors.surfaceDark : AppColors.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: NeoBrutalismTheme.borderWidth,
+                  ),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
+                    color: AppColors.black.withValues(alpha: 0.1),
+                    blurRadius: 0,
+                    offset: const Offset(0, -3),
                   ),
                 ],
               ),

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_state.dart';
 
-/// Hero header cho tab Tournament — chỉ hiển thị background gradient
-/// + icon trang trí + tiêu đề "Giải đấu" ngắn gọn. Các text thừa
-/// ("Cạnh tranh. Kết nối. Chiến thắng." / subtitle / metrics) đã bỏ
-/// để tránh dài dòng — title được render bởi SliverAppBar's
-/// FlexibleSpaceBar.title ở dưới overlay.
+/// Neo-brutalism Hero header cho tab Tournament — gradient background với
+/// pattern trang trí.
 class TournamentHero extends StatelessWidget {
   final TournamentListState state;
 
@@ -15,24 +14,28 @@ class TournamentHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final onPrimary = theme.colorScheme.onPrimary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            primary,
-            Color.lerp(primary, AppColors.primaryDark, 0.35) ?? primary,
+            AppColors.primary,
+            AppColors.secondary,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        border: Border(
+          bottom: BorderSide(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidthBold,
+          ),
+        ),
       ),
       child: Stack(
         children: [
-          // Background orb decoration
           Positioned(
             top: -44,
             right: -24,
@@ -41,18 +44,21 @@ class TournamentHero extends StatelessWidget {
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: onPrimary.withValues(alpha: 0.08),
+                color: AppColors.white.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.3),
+                  width: 3,
+                ),
               ),
             ),
           ),
-          // Background icon (decorative, không có label text)
           Positioned(
             top: 72,
             right: 32,
             child: Icon(
               AppIcons.tournament,
               size: AppIcons.xxl,
-              color: onPrimary.withValues(alpha: 0.18),
+              color: AppColors.white.withValues(alpha: 0.25),
             ),
           ),
         ],

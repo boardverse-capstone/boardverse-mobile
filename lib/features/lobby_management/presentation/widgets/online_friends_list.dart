@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 
 class OnlineFriendsList extends StatelessWidget {
@@ -15,11 +17,6 @@ class OnlineFriendsList extends StatelessWidget {
   final Set<String> invitedFriendIds;
 
   /// Cờ bật/tắt nút "Thêm" trên mỗi friend tile.
-  ///
-  /// Mặc định `false` — chỉ hiển thị khi caller chủ động bật (một số
-  /// màn hình dev/diagnostic cần nút này, ví dụ "giả lập thêm bạn vào phòng").
-  /// Trong lobby thực tế chỉ dùng nút "Mời", nên không truyền `onAdd` là
-  /// nút này tự ẩn.
   final bool showAddButton;
 
   const OnlineFriendsList({
@@ -35,8 +32,6 @@ class OnlineFriendsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Hiển thị TẤT CẢ bạn bè - không lọc online
-    // Invitation sẽ được gửi dù friend online hay offline
     if (friends.isEmpty) {
       return const _EmptyFriendsState();
     }
@@ -66,8 +61,6 @@ class _FriendTile extends StatelessWidget {
   final Function(FriendEntity)? onAdd;
   final Function(FriendEntity)? onViewProfile;
 
-  /// `true` nếu friend này đã được mời thành công trong session —
-  /// tile sẽ disable nút "Mời" và đổi thành "Đã mời" + icon check.
   final bool alreadyInvited;
 
   const _FriendTile({
@@ -80,14 +73,9 @@ class _FriendTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final onlineColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.online
-        : AppColors.online;
-    final warningColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.warning
-        : AppColors.warningDark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onlineColor = AppColors.online;
+    final warningColor = AppColors.warning;
     final canInteract = !friend.isInLobby;
     final hasAvatar = friend.avatarUrl.trim().isNotEmpty;
     final initial = friend.username.trim().isEmpty
@@ -95,16 +83,19 @@ class _FriendTile extends StatelessWidget {
         : friend.username.trim().characters.first.toUpperCase();
 
     return Material(
-      color: colors.surface,
+      color: isDark ? AppColors.surfaceDark : AppColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.radiusMdAll,
-        side: BorderSide(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onViewProfile == null ? null : () => onViewProfile?.call(friend),
         child: Padding(
-          padding: AppSpacing.listItemPadding,
+          padding: const EdgeInsets.all(AppSpacing.sm),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 360;
@@ -113,21 +104,44 @@ class _FriendTile extends StatelessWidget {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      CircleAvatar(
-                        radius: AppSpacing.xl,
-                        backgroundColor: colors.secondaryContainer,
-                        foregroundColor: colors.onSecondaryContainer,
-                        backgroundImage: hasAvatar
-                            ? NetworkImage(friend.avatarUrl)
-                            : null,
-                        onBackgroundImageError: hasAvatar ? (_, _) {} : null,
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
+                        ),
                         child: hasAvatar
-                            ? null
-                            : Text(
-                                initial,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colors.onSecondaryContainer,
-                                  fontWeight: FontWeight.w700,
+                            ? ClipOval(
+                                child: Image.network(
+                                  friend.avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, e, st) => Center(
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: AppColors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                       ),
@@ -135,12 +149,17 @@ class _FriendTile extends StatelessWidget {
                         right: -1,
                         bottom: -1,
                         child: Container(
-                          width: AppSpacing.md,
-                          height: AppSpacing.md,
+                          width: 14,
+                          height: 14,
                           decoration: BoxDecoration(
                             color: onlineColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: colors.surface, width: 2),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.surfaceDark
+                                  : AppColors.surface,
+                              width: 2,
+                            ),
                           ),
                         ),
                       ),
@@ -155,33 +174,42 @@ class _FriendTile extends StatelessWidget {
                           friend.username,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.xxs),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
                             Icon(
                               friend.isInLobby
                                   ? AppIcons.busy
                                   : AppIcons.available,
-                              size: AppIcons.sm,
+                              size: 14,
                               color: friend.isInLobby
                                   ? warningColor
                                   : onlineColor,
                             ),
-                            const SizedBox(width: AppSpacing.xxs),
+                            const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 _getStatusText(friend),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: TextStyle(
                                   color: friend.isInLobby
                                       ? warningColor
-                                      : (friend.isOnline ? onlineColor : colors.onSurfaceVariant),
-                                  fontWeight: FontWeight.w500,
+                                      : (friend.isOnline
+                                          ? onlineColor
+                                          : (isDark
+                                              ? AppColors.textSecondaryDark
+                                              : AppColors.textSecondary)),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
@@ -249,8 +277,6 @@ class _FriendActions extends StatelessWidget {
   final Function(FriendEntity)? onInvite;
   final Function(FriendEntity)? onAdd;
 
-  /// `true` nếu friend đã được mời thành công — đổi nút "Mời" thành
-  /// "Đã mời" + icon check + disable để tránh mời trùng.
   final bool alreadyInvited;
 
   const _FriendActions({
@@ -262,8 +288,7 @@ class _FriendActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Wrap(
       spacing: AppSpacing.xs,
@@ -271,33 +296,123 @@ class _FriendActions extends StatelessWidget {
       alignment: WrapAlignment.end,
       children: [
         if (onAdd != null)
-          FilledButton.tonalIcon(
+          _NeoMiniButton(
+            label: 'Thêm',
+            icon: AppIcons.addSimple,
+            color: AppColors.secondary,
             onPressed: () => onAdd?.call(friend),
-            icon: const Icon(AppIcons.addSimple, size: AppIcons.sm),
-            label: const Text('Thêm'),
           ),
         if (onInvite != null)
           alreadyInvited
-              ? OutlinedButton.icon(
-                  // Disabled — chỉ hiển thị trạng thái "Đã mời".
-                  onPressed: null,
-                  icon: Icon(
-                    AppIcons.check,
-                    size: AppIcons.sm,
-                    color: colors.onSurfaceVariant,
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xxs,
                   ),
-                  label: const Text('Đã mời'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.onSurfaceVariant,
-                    side: BorderSide(color: colors.outlineVariant),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.surfaceElevatedDark
+                        : AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.border,
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        AppIcons.check,
+                        size: 14,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đã mời',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 )
-              : OutlinedButton.icon(
+              : _NeoMiniButton(
+                  label: 'Mời',
+                  icon: AppIcons.send,
+                  color: AppColors.primary,
                   onPressed: () => onInvite?.call(friend),
-                  icon: const Icon(AppIcons.send, size: AppIcons.sm),
-                  label: const Text('Mời'),
                 ),
       ],
+    );
+  }
+}
+
+class _NeoMiniButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoMiniButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.border,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.3),
+                blurRadius: 0,
+                offset: const Offset(2, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: AppColors.white),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -307,8 +422,7 @@ class _EmptyFriendsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Center(
       child: Padding(
@@ -317,31 +431,50 @@ class _EmptyFriendsState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                color: colors.secondaryContainer,
+                color: AppColors.secondary,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.black.withValues(alpha: 0.4),
+                    blurRadius: 0,
+                    offset: const Offset(4, 4),
+                  ),
+                ],
               ),
-              child: Icon(
+              child: const Icon(
                 AppIcons.users,
-                size: AppIcons.xl,
-                color: colors.onSecondaryContainer,
+                size: 48,
+                color: AppColors.white,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Chưa có bạn bè',
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Hãy kết bạn với những người chơi khác để mời họ tham gia phòng.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
+              style: TextStyle(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
               ),
             ),
           ],

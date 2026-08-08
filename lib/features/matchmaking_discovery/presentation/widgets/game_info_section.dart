@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 
-/// Widget hiển thị thông tin chi tiết của board game.
-/// Không chứa category badge (đã có trong GameDetailHeader).
-///
-/// Sections:
-///   1. Description card
-///   2. Components card (nếu có)
+/// Neo-brutalism Widget hiển thị thông tin chi tiết của board game.
 class GameInfoSection extends StatelessWidget {
   final GameInfoData data;
   final List<ComponentData> components;
@@ -51,47 +47,124 @@ class GameInfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Description ────────────────────────────────────────────────
-          Text(
-            'Mô tả',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.primary,
+          // ── Description ──────────────────────────────────────────────────
+          Container(
+            padding: AppSpacing.paddingAllMd,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+              boxShadow: NeoBrutalismTheme.lightShadow(
+                shadowColor: AppColors.black.withValues(alpha: 0.06),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            data.description.isEmpty ? 'Đang cập nhật...' : data.description,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.description,
+                        color: AppColors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'MÔ TẢ',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  data.description.isEmpty
+                      ? 'Đang cập nhật...'
+                      : data.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.5,
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Components ─────────────────────────────────────────────────
+          // ── Components ───────────────────────────────────────────────────
           if (components.isNotEmpty) ...[
-            Text(
-              'Linh kiện trong hộp',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.inventory_2,
+                    color: AppColors.white,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'LINH KIỆN TRONG HỘP',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.border,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    '${components.length} món',
+                    style: const TextStyle(
+                      color: AppColors.black,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              '${components.length} món',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
             _ComponentsGrid(components: components),
           ],
         ],
@@ -100,7 +173,6 @@ class GameInfoSection extends StatelessWidget {
   }
 }
 
-/// Grid hiển thị components.
 class _ComponentsGrid extends StatelessWidget {
   final List<ComponentData> components;
 
@@ -108,6 +180,9 @@ class _ComponentsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -125,21 +200,34 @@ class _ComponentsGrid extends StatelessWidget {
             vertical: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: AppRadius.radiusXsAll,
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
+            ),
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.check_box_outlined,
-                size: AppSpacing.md,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: AppColors.white,
+                  size: 12,
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   components[index].name,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -151,8 +239,6 @@ class _ComponentsGrid extends StatelessWidget {
     );
   }
 }
-
-// ─── Data classes (public) ────────────────────────────────────────────
 
 class ComponentData {
   final String name;

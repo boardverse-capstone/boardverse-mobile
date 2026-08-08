@@ -79,6 +79,8 @@ Tìm kiếm và lọc board game (AC 1.1, 1.2).
 | `pageNumber` | Trang | 1 |
 | `pageSize` | Kích thước trang | 10 (max 100) |
 
+> **Mobile behavior — "Get All":** Nếu request **không truyền bất kỳ filter nào** (`search`, `category_ids`, `player_count`, `duration_range`), API tự động **bỏ qua phân trang** và trả về **toàn bộ** board game đang hoạt động. Response trả về `pageNumber=1`, `pageSize=<tổng số>`, `totalPages=1`, `hasPrevious=false`, `hasNext=false`. Ngay khi có ít nhất 1 filter, phân trang hoạt động bình thường với `pageSize=10`.
+
 ### Giá trị `duration_range`
 
 | Enum | Ý nghĩa | Điều kiện `playTime` |
@@ -351,17 +353,7 @@ curl.exe -X POST "http://localhost:5022/api/v1/board-games/66666666-6666-6666-66
 | Codenames | `77777777-7777-7777-7777-777777777777` | `codenames` |
 | Pandemic | `88888888-8888-8888-8888-888888888888` | `pandemic` |
 
-Thêm game từ catalog seed (Wingspan, Azul, …) có thể chưa có `categories`.
-
-### Nạp / cập nhật dữ liệu
-
-```powershell
-# Schema + seed board game (idempotent)
-dotnet run --project tools/ExecSql -- BoardVerse.Data/update-all-entities.sql
-
-# Hoặc seed dev đầy đủ (user, cafe, catalog)
-dotnet run --project tools/SeedDevData/SeedDevData.csproj
-```
+Thêm game từ catalog (Wingspan, Azul, …) có thể chưa có `categories` — bổ sung qua Admin API hoặc DB.
 
 ---
 

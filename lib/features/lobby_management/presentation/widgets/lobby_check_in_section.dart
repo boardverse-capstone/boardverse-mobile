@@ -2,14 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 import 'package:boardverse_mobile/core/utils/cafe_info_helper.dart';
+import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
 import 'package:boardverse_mobile/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
 import 'package:boardverse_mobile/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../../reservation/domain/entities/entities.dart' as res;
+import '../cubit/member_arrival_cubit.dart';
+import 'confirmation_status_banner.dart';
+import 'members_arrival_checklist.dart';
+import 'pre_checkin_actions.dart';
+import 'scheduled_time_countdown.dart';
 
 /// Section hiển thị QR check-in cho thành viên lobby khi đến quán.
 ///
@@ -18,6 +25,9 @@ import '../../../reservation/domain/entities/entities.dart' as res;
 /// "Đang chơi" khi lobby.status == inProgress (kèm countdown tới giờ kết thúc
 /// dự kiến). Tất cả hành động external app dùng `CafeInfoHelper` (Phase B
 /// đã tạo) để tránh duplicate logic.
+///
+/// Phase D (mở rộng): ConfirmationStatusBanner + ScheduledTimeCountdown
+/// + PreCheckinActions + MembersArrivalChecklist cho host view tổng hợp.
 class LobbyCheckInSection extends StatefulWidget {
   final res.ReservationEntity reservation;
 
@@ -38,6 +48,16 @@ class LobbyCheckInSection extends StatefulWidget {
   /// "đã chơi được X phút".
   final DateTime? playStartedAt;
 
+  /// UserId của player đang xem section này. Dùng cho self-report arrival.
+  final String currentUserId;
+
+  /// Map arrival status của từng player trong lobby (cho host view).
+  /// Key = userId, value = arrival status (unknown/enRoute/arrived/checkedIn).
+  final Map<String, MemberArrivalStatus>? arrivalByUserId;
+
+  /// Tổng số players hiện tại trong lobby (cho host checklist).
+  final List<LobbyPlayer>? lobbyPlayers;
+
   const LobbyCheckInSection({
     super.key,
     required this.reservation,
@@ -46,6 +66,9 @@ class LobbyCheckInSection extends StatefulWidget {
     this.isExpanded = false,
     this.lobbyStatus = res.LobbyStatus.viable,
     this.playStartedAt,
+    required this.currentUserId,
+    this.arrivalByUserId,
+    this.lobbyPlayers,
   });
 
   @override
@@ -58,10 +81,22 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
   bool _directionsLaunching = false;
   bool _callLaunching = false;
 
+  late final MemberArrivalCubit _arrivalCubit;
+
   @override
   void initState() {
     super.initState();
     _fetchCafe();
+    _arrivalCubit = MemberArrivalCubit(
+      reservationId: widget.reservation.id,
+      userId: widget.currentUserId,
+    );
+  }
+
+  @override
+  void dispose() {
+    _arrivalCubit.close();
+    super.dispose();
   }
 
   Future<void> _fetchCafe() async {
@@ -138,199 +173,321 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final reservation = widget.reservation;
     final code = reservation.lobbyShareCode ?? reservation.id;
 
     final isInProgress = widget.lobbyStatus == res.LobbyStatus.inProgress;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        0,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(
-          color: isInProgress
-              ? AppColors.primary.withValues(alpha: 0.50)
-              : AppColors.success.withValues(alpha: 0.40),
+    return BlocProvider<MemberArrivalCubit>.value(
+      value: _arrivalCubit,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (isInProgress ? AppColors.primary : AppColors.success)
-                .withValues(alpha: 0.10),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isInProgress
+                ? AppColors.primary
+                : AppColors.success,
+            width: 3,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // "Đang chơi" banner — Phase C
-          if (isInProgress)
-            _InProgressBanner(playStartedAt: widget.playStartedAt),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.4),
+              blurRadius: 0,
+              offset: const Offset(4, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // "Đang chơi" banner — Phase C
+            if (isInProgress)
+              _InProgressBanner(playStartedAt: widget.playStartedAt),
 
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
+            // Status banner (Phase D) — dựa trên reservation + lobby status.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                0,
+              ),
+              child: ConfirmationStatusBanner(
+                reservationStatus: reservation.status,
+                lobbyStatus: widget.lobbyStatus,
+                scheduledTime: reservation.scheduledTime,
+                currentPlayers: reservation.currentPlayers,
+                minPlayers: reservation.minPlayers,
+                maxPlayers: reservation.maxPlayers,
+                playersNeededToConfirm:
+                    reservation.minPlayers - reservation.currentPlayers,
+              ),
+            ),
+
+            // Countdown tới scheduledTime (Phase D).
+            if (reservation.status.isActive)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  0,
+                ),
+                child: ScheduledTimeCountdown(
+                  scheduledTime: reservation.scheduledTime,
+                  title: reservation.status == res.ReservationStatus.checkedIn
+                      ? 'Đã chơi được'
+                      : 'Đến quán trong',
+                  subtitle: reservation.cafeName,
+                  accentColor: AppColors.primary,
+                ),
+              ),
+
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          AppIcons.location,
+                          size: 20,
+                          color: AppColors.white,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.isHost
+                                  ? 'Bạn có thể đến quán để check-in'
+                                  : 'Đưa mã này cho nhân viên quán',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                color: isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Nhân viên quán sẽ quét QR hoặc nhập mã để xác nhận bạn đã đến.',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (widget.onExpand != null)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.surfaceElevatedDark
+                                : AppColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2,
+                            ),
+                          ),
+                          child: IconButton(
+                            tooltip: widget.isExpanded
+                                ? 'Thu nhỏ'
+                                : 'Phóng to',
+                            onPressed: widget.onExpand,
+                            icon: Icon(
+                              widget.isExpanded
+                                  ? Icons.fullscreen_exit
+                                  : Icons.fullscreen,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Pre-checkin actions row (Phase D).
+                  PreCheckinActions(
+                    onEnRoute: () => _arrivalCubit.markEnRoute(),
+                    onArrived: () => _arrivalCubit.markArrived(),
+                    onDirections: _openDirections,
+                    onCallCafe: _callCafe,
+                    shareCode: code,
+                    cafePhone: _cafe?.phoneNumber,
+                    cafeLatitude: _cafe?.latitude,
+                    cafeLongitude: _cafe?.longitude,
+                    // Host có thể không cần "Đang trên đường"
+                    showEnRoute: !widget.isHost,
+                    showArrived: !widget.isHost,
+                    showAlarm: true,
+                  ),
+
+                  // Self-report status pill.
+                  BlocBuilder<MemberArrivalCubit, MemberArrivalState>(
+                    builder: (context, state) {
+                      if (state is MemberArrivalEnRoute) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
+                          child: _ArrivalStatusChip(
+                            icon: Icons.directions_car_rounded,
+                            label: 'Đã báo đang trên đường',
+                            color: AppColors.warning,
+                          ),
+                        );
+                      }
+                      if (state is MemberArrivalArrived) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
+                          child: _ArrivalStatusChip(
+                            icon: Icons.location_on_rounded,
+                            label: 'Đã báo đang ở quán',
+                            color: AppColors.info,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // QR + code
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.15),
-                        borderRadius: AppRadius.radiusMdAll,
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.border,
+                          width: 3,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.black.withValues(alpha: 0.4),
+                            blurRadius: 0,
+                            offset: const Offset(4, 4),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        AppIcons.location,
-                        size: 18,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          QrImageView(
+                            data: reservation.id,
+                            version: QrVersions.auto,
+                            size: widget.isExpanded ? 240 : 160,
+                            backgroundColor: AppColors.white,
+                            errorCorrectionLevel: QrErrorCorrectLevel.M,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
                           Text(
-                            widget.isHost
-                                ? 'Bạn có thể đến quán để check-in'
-                                : 'Đưa mã này cho nhân viên quán',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
+                            'Mã đặt chỗ',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           Text(
-                            'Nhân viên quán sẽ quét QR hoặc nhập mã để xác nhận bạn đã đến.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                            code,
+                            style: const TextStyle(
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              letterSpacing: 1.2,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    if (widget.onExpand != null)
-                      IconButton(
-                        tooltip: widget.isExpanded ? 'Thu nhỏ' : 'Phóng to',
-                        onPressed: widget.onExpand,
-                        icon: Icon(
-                          widget.isExpanded
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // "Đến quán" row — Phase C
-                _ComeToCafeRow(
-                  cafe: _cafe,
-                  loading: _cafeLoading,
-                  onDirections: _openDirections,
-                  onCall: _callCafe,
-                  directionsLoading: _directionsLaunching,
-                  callLoading: _callLaunching,
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // QR + code
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: AppRadius.radiusMdAll,
-                      border: Border.all(color: colors.outlineVariant),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        QrImageView(
-                          data: reservation.id,
-                          version: QrVersions.auto,
-                          size: widget.isExpanded ? 240 : 160,
-                          backgroundColor: Colors.white,
-                          errorCorrectionLevel: QrErrorCorrectLevel.M,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Mã đặt chỗ',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          code,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
 
-                const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.md),
 
-                // Action row
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _copyCode(context),
-                        icon: Icon(AppIcons.copy, size: 16),
-                        label: const Text('Sao chép mã'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.sm,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.radiusMdAll,
-                          ),
+                  // Action row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoOutlineButton(
+                          label: 'Sao chép mã',
+                          icon: AppIcons.copy,
+                          onPressed: () => _copyCode(context),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => _showQrFullScreen(context, code),
-                        icon: Icon(AppIcons.qrScan, size: 16),
-                        label: const Text('Hiện QR'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.sm,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.radiusMdAll,
-                          ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _NeoFilledButton(
+                          label: 'Hiện QR',
+                          icon: AppIcons.qrScan,
+                          color: AppColors.success,
+                          onPressed: () => _showQrFullScreen(context, code),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // Members checklist cho host (Phase D)
+            if (widget.isHost &&
+                widget.lobbyPlayers != null &&
+                widget.lobbyPlayers!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                child: MembersArrivalChecklist(
+                  players: widget.lobbyPlayers!,
+                  arrivalByUserId:
+                      widget.arrivalByUserId ?? const <String, MemberArrivalStatus>{},
+                  isHostView: true,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -387,24 +544,19 @@ class _InProgressBannerState extends State<_InProgressBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
             AppColors.primary,
-            AppColors.primary.withValues(alpha: 0.85),
+            AppColors.primaryLight,
           ],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.radiusLg),
-          topRight: Radius.circular(AppRadius.radiusLg),
         ),
       ),
       child: Row(
@@ -413,17 +565,18 @@ class _InProgressBannerState extends State<_InProgressBanner> {
             width: 10,
             height: 10,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(
+          const Expanded(
             child: Text(
               'Đang chơi',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+              style: TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
               ),
             ),
           ),
@@ -434,23 +587,27 @@ class _InProgressBannerState extends State<_InProgressBanner> {
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.25),
-                borderRadius: AppRadius.radiusMdAll,
+                color: AppColors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.4),
+                  width: 2,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
                     Icons.timer_outlined,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 14,
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     _elapsed(),
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
@@ -465,85 +622,8 @@ class _InProgressBannerState extends State<_InProgressBanner> {
 }
 
 /// Row với 2 button "Mở chỉ đường" + "Gọi quán" — Phase C.
-class _ComeToCafeRow extends StatelessWidget {
-  final CafeDetailEntity? cafe;
-  final bool loading;
-  final VoidCallback onDirections;
-  final VoidCallback onCall;
-  final bool directionsLoading;
-  final bool callLoading;
-
-  const _ComeToCafeRow({
-    required this.cafe,
-    required this.loading,
-    required this.onDirections,
-    required this.onCall,
-    required this.directionsLoading,
-    required this.callLoading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final canDirections = !loading && cafe != null;
-    final canCall = !loading &&
-        cafe != null &&
-        (cafe?.phoneNumber?.isNotEmpty ?? false);
-
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: canDirections ? onDirections : null,
-            icon: directionsLoading
-                ? SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: colors.primary,
-                    ),
-                  )
-                : Icon(Icons.directions_outlined, size: 16),
-            label: const Text('Mở chỉ đường'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.radiusMdAll,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: canCall ? onCall : null,
-            icon: callLoading
-                ? SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: Colors.white,
-                    ),
-                  )
-                : Icon(Icons.phone_outlined, size: 16),
-            label: const Text('Gọi quán'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.radiusMdAll,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+/// Đã chuyển sang dùng `PreCheckinActions` (Phase D) — giữ xóa.
+/// [_ComeToCafeRow]: removed in Phase D — replaced by PreCheckinActions.
 
 class _QrFullScreen extends StatelessWidget {
   final String code;
@@ -602,6 +682,182 @@ class _QrFullScreen extends StatelessWidget {
                 const SizedBox(height: 32),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Chip nhỏ hiển thị self-report arrival state (vd: "Đã báo đang trên đường").
+class _ArrivalStatusChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _ArrivalStatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.black,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.3),
+            blurRadius: 0,
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.white, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button (used for primary actions).
+class _NeoFilledButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoFilledButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.border,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: AppColors.white),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism outline button (used for secondary actions).
+class _NeoOutlineButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _NeoOutlineButton({
+    required this.label,
+    required this.icon,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),

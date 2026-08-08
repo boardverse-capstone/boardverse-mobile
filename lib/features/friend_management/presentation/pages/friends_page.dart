@@ -2,22 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../cubit/cubit.dart';
 import 'tabs/friend_requests_tab.dart';
 import 'tabs/friends_list_tab.dart';
 import 'tabs/search_users_tab.dart';
 
-/// Main Friends page with 3 tabs:
-/// - Bạn bè (Friends) — [FriendsListTab]
-/// - Lời mời (Friend Requests) — [FriendRequestsTab]
-/// - Tìm kiếm (Search Users) — [SearchUsersTab]
-///
-/// Loading strategy (per-tab, lazy):
-/// - NOT call any API on mount — wait for user to switch to a tab
-/// - Tab "Bạn bè" → `loadFriends()`
-/// - Tab "Lời mời" → `loadReceivedRequests()`
-/// - Tab "Tìm kiếm" → on-demand via debounce, call `searchUsers(query)`
+/// Neo-brutalism Main Friends page with 3 tabs.
 class FriendsPage extends StatelessWidget {
   const FriendsPage({super.key});
 
@@ -41,8 +34,6 @@ class _FriendsScaffoldState extends State<_FriendsScaffold>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  /// Track which tabs have been loaded — avoid calling API multiple times
-  /// when user switches back and forth.
   final Set<int> _loadedTabs = <int>{};
 
   @override
@@ -82,20 +73,31 @@ class _FriendsScaffoldState extends State<_FriendsScaffold>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.background;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Bạn bè'),
-        centerTitle: true,
+        backgroundColor: bgColor,
         elevation: 0,
+        title: const Text(
+          'BẠN BÈ',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
+        centerTitle: true,
         scrolledUnderElevation: 0.5,
-        backgroundColor: theme.colorScheme.surface,
-        surfaceTintColor: theme.colorScheme.surface,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.xs,
+            ),
             child: BlocBuilder<FriendListCubit, FriendListData>(
               buildWhen: (prev, curr) =>
                   curr is FriendListLoaded &&
@@ -108,9 +110,15 @@ class _FriendsScaffoldState extends State<_FriendsScaffold>
                 final unreadCount = state.unreadRequestCount;
                 return Container(
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
+                    color: isDark ? AppColors.surfaceDark : AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: borderColor,
+                      width: NeoBrutalismTheme.borderWidth,
+                    ),
+                    boxShadow: NeoBrutalismTheme.lightShadow(
+                      shadowColor: AppColors.black.withValues(alpha: 0.05),
+                    ),
                   ),
                   padding: const EdgeInsets.all(4),
                   child: TabBar(
@@ -118,41 +126,47 @@ class _FriendsScaffoldState extends State<_FriendsScaffold>
                     onTap: (_) => FocusScope.of(context).unfocus(),
                     dividerColor: Colors.transparent,
                     indicator: BoxDecoration(
-                      color: theme.colorScheme.primary,
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
+                      border: Border.all(color: AppColors.black, width: 1.5),
+                      boxShadow: const [
                         BoxShadow(
-                          color: theme.colorScheme.primary
-                              .withValues(alpha: 0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+                          color: AppColors.black,
+                          blurRadius: 0,
+                          offset: Offset(2, 2),
                         ),
                       ],
                     ),
                     indicatorSize: TabBarIndicatorSize.tab,
-                    labelColor: theme.colorScheme.onPrimary,
-                    unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                    labelStyle: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    labelColor: AppColors.white,
+                    unselectedLabelColor: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
                     ),
-                    unselectedLabelStyle: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
                     ),
                     tabs: [
                       const _PillTab(
                         icon: Icons.people_outline,
-                        label: 'Bạn bè',
+                        label: 'BẠN BÈ',
                       ),
                       _PillTab(
                         icon: unreadCount > 0
                             ? Icons.mark_email_unread_outlined
                             : Icons.mail_outline,
-                        label: 'Lời mời',
+                        label: 'LỜI MỜI',
                         count: unreadCount,
                       ),
                       const _PillTab(
                         icon: Icons.search,
-                        label: 'Tìm kiếm',
+                        label: 'TÌM KIẾM',
                       ),
                     ],
                   ),
@@ -196,7 +210,7 @@ class _PillTab extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18),
+          Icon(icon, size: 16),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -226,15 +240,23 @@ class _RequestBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFE53935),
+        color: AppColors.error,
         borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.black, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(1, 1),
+          ),
+        ],
       ),
       child: Text(
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.white,
           fontSize: 10,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w900,
           height: 1,
         ),
         textAlign: TextAlign.center,

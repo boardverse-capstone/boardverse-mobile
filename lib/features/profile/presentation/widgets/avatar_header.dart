@@ -4,12 +4,10 @@ import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_colors_dark.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 
-/// Header gradient hiển thị avatar, tên người dùng, hạng tier và bio.
-///
-/// Sử dụng gradient [AppColors.cardGradientOrange] → [AppColors.cardGradientTeal]
-/// theo design system (tạo cảm giác năng động + ấm cúng).
+/// Neo-brutalism Header gradient hiển thị avatar, tên người dùng, hạng tier và bio.
 class AvatarHeader extends StatelessWidget {
   const AvatarHeader({
     super.key,
@@ -18,8 +16,6 @@ class AvatarHeader extends StatelessWidget {
   });
 
   final ProfileEntity profile;
-
-  /// Callback khi người dùng tap vào avatar (đổi ảnh đại diện).
   final VoidCallback onAvatarTap;
 
   String get _initials {
@@ -51,11 +47,12 @@ class AvatarHeader extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(
           bottom: Radius.circular(AppRadius.radiusHuge),
         ),
-        boxShadow: const [
+        // Neo-brutalism: hard shadow offset below the gradient
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
+            color: AppColors.black.withValues(alpha: 0.3),
+            blurRadius: 0,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -82,7 +79,14 @@ class AvatarHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.headlineSmall?.copyWith(
               color: AppColors.white,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w900,
+              shadows: const [
+                Shadow(
+                  color: AppColors.black,
+                  offset: Offset(0, 2),
+                  blurRadius: 6,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -91,17 +95,17 @@ class AvatarHeader extends StatelessWidget {
           Text(
             '@${profile.username}',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.white.withValues(alpha: 0.85),
+              color: AppColors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w600,
             ),
           ),
 
-          // Tier badge (chỉ hiện khi đã có hạng)
+          // Tier badge
           if (profile.gamerTier != null && profile.gamerTier!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            _TierBadge(label: 'Hạng: ${profile.gamerTier}'),
+            _TierBadge(label: 'HẠNG: ${profile.gamerTier!.toUpperCase()}'),
           ],
 
-          // Bio
           const SizedBox(height: AppSpacing.sm),
           _BioText(bio: profile.bio),
         ],
@@ -133,11 +137,23 @@ class _Avatar extends StatelessWidget {
         child: Stack(
           alignment: Alignment.bottomRight,
           children: [
+            // Outer ring với neo-brutalism border
             Container(
-              padding: const EdgeInsets.all(AppSpacing.xxs),
-              decoration: const BoxDecoration(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
                 color: AppColors.white,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.black,
+                  width: NeoBrutalismTheme.borderWidthBold,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(4, 4),
+                  ),
+                ],
               ),
               child: CircleAvatar(
                 radius: 48,
@@ -153,28 +169,39 @@ class _Avatar extends StatelessWidget {
                         initials,
                         style: const TextStyle(
                           fontSize: 40,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w900,
                           color: AppColors.primary,
                         ),
                       ),
               ),
             ),
-            // Edit indicator
+            // Edit indicator - neo-brutalism style
             Container(
-              padding: const EdgeInsets.all(AppSpacing.xxs),
-              decoration: const BoxDecoration(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
                 color: AppColors.white,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.black,
+                  width: 2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
               ),
               child: Container(
-                padding: const EdgeInsets.all(AppSpacing.xxs),
+                padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.camera_alt_outlined,
-                  size: 14,
+                  size: 12,
                   color: AppColors.white,
                 ),
               ),
@@ -198,20 +225,27 @@ class _TierBadge extends StatelessWidget {
         vertical: AppSpacing.xxs + 2,
       ),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.25),
+        color: AppColors.accent,
         borderRadius: BorderRadius.circular(AppRadius.radiusFull),
         border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.4),
-          width: 1,
+          color: AppColors.black,
+          width: NeoBrutalismTheme.borderWidth,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: Text(
         label,
         style: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: AppColors.white,
-          letterSpacing: 0.4,
+          fontWeight: FontWeight.w900,
+          color: AppColors.black,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -236,7 +270,8 @@ class _BioText extends StatelessWidget {
           fontSize: 13,
           height: 1.4,
           fontStyle: hasBio ? FontStyle.normal : FontStyle.italic,
-          color: AppColors.white.withValues(alpha: hasBio ? 0.95 : 0.7),
+          color: AppColors.white.withValues(alpha: hasBio ? 0.95 : 0.75),
+          fontWeight: hasBio ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
     );

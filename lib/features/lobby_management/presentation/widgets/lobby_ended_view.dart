@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
 
 /// View hiển thị khi lobby đã kết thúc (status = closed / timeoutFailed /
@@ -381,34 +384,90 @@ class LobbyEndedView extends StatelessWidget {
   }
 
   Future<bool> _confirmDissolve(BuildContext context) async {
-    final colors = Theme.of(context).colorScheme;
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
-        icon: Icon(
-          AppIcons.delete,
-          size: AppIcons.massive,
-          color: colors.error,
-        ),
-        title: const Text('Giải tán phòng chờ?'),
-        content: const Text(
-          'Phòng chờ sẽ bị xoá vĩnh viễn. Bạn không thể hoàn tác.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.error,
-              foregroundColor: colors.onError,
+        backgroundColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.border,
+              width: 3,
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Giải tán'),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(6, 6),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 3,
+                  ),
+                ),
+                child: const Icon(
+                  AppIcons.delete,
+                  size: 36,
+                  color: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Giải tán phòng chờ?',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: AppColors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Phòng chờ sẽ bị xoá vĩnh viễn. Bạn không thể hoàn tác.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NeoOutlineButton(
+                      label: 'Huỷ',
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _NeoFilledButton(
+                      label: 'Giải tán',
+                      color: AppColors.error,
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
     return result ?? false;
@@ -423,22 +482,22 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [info.color, info.color.withAlpha(204)],
+        color: info.color,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
         ),
-        borderRadius: AppRadius.radiusLgAll,
         boxShadow: [
           BoxShadow(
-            color: info.color.withAlpha(51),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(5, 5),
           ),
         ],
       ),
@@ -447,10 +506,14 @@ class _StatusBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: AppColors.white.withValues(alpha: 0.25),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.4),
+                width: 2,
+              ),
             ),
-            child: Icon(info.icon, color: Colors.white, size: 32),
+            child: Icon(info.icon, color: AppColors.white, size: 32),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -459,16 +522,19 @@ class _StatusBanner extends StatelessWidget {
               children: [
                 Text(
                   info.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   info.subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
+                  style: TextStyle(
+                    color: AppColors.white.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                   ),
                 ),
               ],
@@ -488,17 +554,25 @@ class EndedInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final timeFmt = DateFormat('HH:mm • dd/MM/yyyy');
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowSm,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -506,44 +580,38 @@ class EndedInfoCard extends StatelessWidget {
             icon: AppIcons.boardGame,
             label: 'Trò chơi',
             value: lobby.gameName,
-            theme: theme,
-            colors: colors,
+            isLast: false,
           ),
           InfoRow(
             icon: AppIcons.cafe,
             label: 'Quán',
             value: lobby.cafeName,
-            theme: theme,
-            colors: colors,
+            isLast: false,
           ),
           InfoRow(
             icon: AppIcons.schedule,
             label: 'Giờ hẹn',
             value: timeFmt.format(lobby.scheduledTime.toLocal()),
-            theme: theme,
-            colors: colors,
+            isLast: false,
           ),
           InfoRow(
             icon: AppIcons.users,
             label: 'Thành viên',
             value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
-            theme: theme,
-            colors: colors,
+            isLast: false,
           ),
           InfoRow(
             icon: AppIcons.user,
             label: 'Chủ phòng',
             value: lobby.hostName.isEmpty ? 'Chủ phòng' : lobby.hostName,
-            theme: theme,
-            colors: colors,
+            isLast: false,
           ),
           if (lobby.closedAt != null)
             InfoRow(
               icon: Icons.event_busy,
               label: 'Đã đóng lúc',
               value: timeFmt.format(lobby.closedAt!.toLocal()),
-              theme: theme,
-              colors: colors,
+              isLast: true,
             ),
         ],
       ),
@@ -556,40 +624,68 @@ class InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final ThemeData theme;
-  final ColorScheme colors;
+  final bool isLast;
 
   const InfoRow({
     super.key,
     required this.icon,
     required this.label,
     required this.value,
-    required this.theme,
-    required this.colors,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      decoration: isLast
+          ? null
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: 1,
+                ),
+              ),
+            ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: colors.primary),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(icon, size: 14, color: AppColors.white),
+          ),
           const SizedBox(width: AppSpacing.sm),
           SizedBox(
             width: 90,
             child: Text(
               label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
+              style: TextStyle(
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
               ),
             ),
           ),
@@ -620,38 +716,49 @@ class ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
-      color: colors.surface,
-      borderRadius: AppRadius.radiusMdAll,
+      color: isDark ? AppColors.surfaceDark : AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
-        borderRadius: AppRadius.radiusMdAll,
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            borderRadius: AppRadius.radiusMdAll,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isEnabled
-                  ? colors.outlineVariant
-                  : colors.outlineVariant.withValues(alpha: 0.5),
+                  ? iconColor
+                  : (isDark ? AppColors.borderDark : AppColors.border),
+              width: 2.5,
             ),
+            boxShadow: isEnabled
+                ? [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.4),
+                      blurRadius: 0,
+                      offset: const Offset(4, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: (isEnabled ? iconColor : colors.outline).withValues(
-                    alpha: 0.1,
+                  color: isEnabled ? iconColor : AppColors.textTertiary,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: 1.5,
                   ),
-                  borderRadius: AppRadius.radiusSmAll,
                 ),
                 child: Icon(
                   icon,
-                  color: isEnabled ? iconColor : colors.outline,
+                  color: AppColors.white,
                   size: 22,
                 ),
               ),
@@ -662,20 +769,27 @@ class ActionCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
                         color: isEnabled
-                            ? colors.onSurface
-                            : colors.onSurfaceVariant,
+                            ? (isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimary)
+                            : (isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isEnabled
-                            ? colors.onSurfaceVariant
-                            : colors.outline,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -683,7 +797,11 @@ class ActionCard extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: isEnabled ? colors.onSurfaceVariant : colors.outline,
+                color: isEnabled
+                    ? (isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary)
+                    : AppColors.textTertiary,
               ),
             ],
           ),
@@ -734,28 +852,38 @@ class _RefundBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.10),
-        borderRadius: AppRadius.radiusLgAll,
+        color: AppColors.success,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.success.withValues(alpha: 0.35),
+          color: AppColors.border,
+          width: 2.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.20),
-              borderRadius: AppRadius.radiusMdAll,
+              color: AppColors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.account_balance_wallet_outlined,
-              color: AppColors.success,
+              color: AppColors.white,
               size: 22,
             ),
           ),
@@ -765,24 +893,122 @@ class _RefundBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Hoàn BVC',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   _refundMessage(),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                  style: TextStyle(
+                    color: AppColors.white.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism outline button (used in dialogs).
+class _NeoOutlineButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _NeoOutlineButton({required this.label, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button (used in dialogs).
+class _NeoFilledButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoFilledButton({
+    required this.label,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.border,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 
-/// Small icon + label chip dùng trong [SelectableCafeCard].
+/// Neo-brutalism Small icon + label chip.
 class CafeChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -20,9 +20,8 @@ class CafeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bg = color ?? theme.colorScheme.surfaceContainerHighest;
-    final fg = textColor ?? theme.colorScheme.onSurfaceVariant;
+    final bg = color ?? AppColors.surfaceVariant;
+    final fg = textColor ?? AppColors.textPrimary;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,
@@ -30,7 +29,11 @@ class CafeChip extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: AppRadius.radiusXsAll,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: fg.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -39,9 +42,10 @@ class CafeChip extends StatelessWidget {
           const SizedBox(width: AppSpacing.xxs),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
+            style: TextStyle(
               color: fg,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
             ),
           ),
         ],

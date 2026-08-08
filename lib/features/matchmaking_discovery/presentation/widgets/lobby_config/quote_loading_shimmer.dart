@@ -1,119 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Shimmer placeholder cho quote preview.
-///
-/// Hiển thị khi đang chờ API `ReservationCubit.createQuote()` trả về,
-/// thay vì `CircularProgressIndicator` thô. Đảm bảo UI không bị "chớp"
-/// sang error/empty rồi mới load xong nội dung thật.
+/// Neo-brutalism Shimmer placeholder cho quote preview.
 class LobbyConfigQuoteShimmer extends StatelessWidget {
   const LobbyConfigQuoteShimmer({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final highlight = isDark
+        ? AppColors.surfaceElevatedDark
+        : AppColors.surface;
+    final borderColor =
+        isDark ? AppColors.borderDark : AppColors.border;
 
     return Shimmer.fromColors(
-      baseColor: theme.colorScheme.surfaceContainerHighest,
-      highlightColor: theme.colorScheme.surfaceContainerHigh,
+      baseColor: base,
+      highlightColor: highlight,
       period: const Duration(milliseconds: 1400),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header (icon + title) ────────────────────────────────
-          Container(
-            padding: AppSpacing.paddingAllMd,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.4),
-              borderRadius: AppRadius.radiusMdAll,
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Container(
+        padding: AppSpacing.paddingAllMd,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
               children: [
-                Row(
-                  children: [
-                    _shimmerBox(width: 24, height: 24),
-                    const SizedBox(width: AppSpacing.sm),
-                    _shimmerBox(width: 120, height: 18),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                const Divider(),
-                const SizedBox(height: AppSpacing.sm),
-
-                // 4 quote rows
-                for (int i = 0; i < 4; i++) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _shimmerBox(width: 100, height: 12),
-                        _shimmerBox(width: 60, height: 12),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: AppSpacing.sm),
-                const Divider(),
-                const SizedBox(height: AppSpacing.sm),
-
-                // Final deposit highlight
-                Container(
-                  padding: AppSpacing.paddingAllMd,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.radiusSmAll,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _shimmerBox(width: 110, height: 14),
-                      _shimmerBox(width: 80, height: 22),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // Buffer info box
-                Container(
-                  padding: AppSpacing.paddingAllSm,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.radiusSmAll,
-                  ),
-                  child: Row(
-                    children: [
-                      _shimmerBox(width: 18, height: 18),
-                      const SizedBox(width: AppSpacing.sm),
-                      _shimmerBox(width: 200, height: 12),
-                    ],
-                  ),
-                ),
+                _shimmerBox(width: 30, height: 30, borderRadius: 8),
+                const SizedBox(width: AppSpacing.sm),
+                _shimmerBox(width: 120, height: 18, borderRadius: 6),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.md),
+            _shimmerBox(width: double.infinity, height: 2, borderRadius: 1),
+            const SizedBox(height: AppSpacing.sm),
+
+            for (int i = 0; i < 4; i++) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _shimmerBox(width: 100, height: 12, borderRadius: 4),
+                    _shimmerBox(width: 60, height: 12, borderRadius: 4),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.sm),
+            _shimmerBox(width: double.infinity, height: 2, borderRadius: 1),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Final deposit highlight
+            Container(
+              padding: AppSpacing.paddingAllMd,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _shimmerBox(width: 110, height: 14, borderRadius: 6),
+                  _shimmerBox(width: 80, height: 22, borderRadius: 6),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+
+            // Buffer info box
+            Container(
+              padding: AppSpacing.paddingAllSm,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  _shimmerBox(width: 18, height: 18, borderRadius: 9),
+                  const SizedBox(width: AppSpacing.sm),
+                  _shimmerBox(width: 200, height: 12, borderRadius: 4),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _shimmerBox({required double width, required double height}) {
+  Widget _shimmerBox({
+    required double width,
+    required double height,
+    double borderRadius = 0,
+  }) {
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
   }

@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/app_elevation.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Bọc ngoài thống nhất cho mọi "card" trong profile:
-/// - 1px outlineVariant border
-/// - radius [AppRadius.radiusLg]
-/// - shadow nhẹ (sm) cho depth
-///
-/// Dùng [Material] thay vì [Container] để `InkWell` / `ListTile` bên trong có
-/// thể vẽ ink splashes trên surface của card.
+/// Neo-brutalism Bọc ngoài thống nhất cho mọi "card" trong profile.
 class SectionCard extends StatelessWidget {
   const SectionCard({
     super.key,
@@ -25,21 +19,32 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Material(
-      color: theme.colorScheme.surface,
+      color: isDark ? AppColors.surfaceDark : AppColors.surface,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-        borderRadius: AppRadius.radiusLgAll,
+        side: BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+        borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
-      elevation: AppElevation.elevationSm,
-      child: Padding(padding: padding, child: child),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: NeoBrutalismTheme.lightShadow(
+            shadowColor: AppColors.black.withValues(alpha: 0.06),
+          ),
+        ),
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }
 
-/// Tiêu đề section: icon + text, thường nằm trên đầu [SectionCard].
+/// Tiêu đề section — neo-brutalism icon badge + uppercase title.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -55,17 +60,43 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Row(
       children: [
-        Icon(icon, color: theme.colorScheme.primary, size: AppIcons.md),
-        const SizedBox(width: AppSpacing.xs),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.black,
+                blurRadius: 0,
+                offset: Offset(2, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.white,
+            size: AppIcons.md,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            title,
+            title.toUpperCase(),
             style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
+              letterSpacing: 0.5,
             ),
           ),
         ),

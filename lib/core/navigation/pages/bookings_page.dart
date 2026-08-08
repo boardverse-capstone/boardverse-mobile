@@ -2,19 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
-import '../../../../features/reservation/domain/entities/entities.dart';
-import '../../../../features/reservation/domain/repositories/reservation_repository.dart';
+import '../../../../features/lobby_management/domain/entities/lobby_entity.dart';
 import '../../../../features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
 import '../../../../features/lobby_management/presentation/cubit/my_lobbies_state.dart';
-import '../../../../features/lobby_management/domain/entities/lobby_entity.dart';
+import '../../../../features/reservation/presentation/pages/reservation_list_page.dart';
 
 /// Tab "Lịch đặt" — hiển thị lịch sử reservation + lobby của user.
 ///
-/// Sau khi flow SePay/booking-payment cũ bị xoá, tab này đổi sang dùng
-/// Reservation API (`/api/v1/reservations`) + `MyLobbiesCubit` để hiển thị
-/// tất cả phòng chờ mà user đã tạo/tham gia (bao gồm cả reservation).
+/// Phần reservation được tách sang feature `reservation` qua
+/// `ReservationListPage`; tab này chỉ chịu trách nhiệm render lobby list
+/// (vì lobby list UI thuộc `lobby_management`).
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
 
@@ -28,27 +26,13 @@ class BookingsPage extends StatefulWidget {
 }
 
 class _BookingsPageState extends State<BookingsPage> {
-  late final ReservationRepository _reservationRepo;
   late final MyLobbiesCubit _myLobbiesCubit;
-
-  late final Future<List<_ReservationRow>> _reservationsFuture;
 
   @override
   void initState() {
     super.initState();
-    _reservationRepo = sl<ReservationRepository>();
     _myLobbiesCubit = context.read<MyLobbiesCubit>();
-    _reservationsFuture = _loadReservations();
     _myLobbiesCubit.load(null);
-  }
-
-  Future<List<_ReservationRow>> _loadReservations() async {
-    final result = await _reservationRepo.getReservations(pageSize: 50);
-    return result.fold((_) => const <_ReservationRow>[], (page) {
-      return page.items
-          .map((r) => _ReservationRow(reservation: r))
-          .toList(growable: false);
-    });
   }
 
   @override
@@ -56,11 +40,7 @@ class _BookingsPageState extends State<BookingsPage> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
-          setState(() {
-            _reservationsFuture = _loadReservations();
-          });
           await _myLobbiesCubit.load(null);
-          await _reservationsFuture;
         },
         child: ListView(
           padding: const EdgeInsets.symmetric(
@@ -68,36 +48,8 @@ class _BookingsPageState extends State<BookingsPage> {
             vertical: AppSpacing.md,
           ),
           children: [
-            _SectionTitle(
-              icon: Icons.event_note,
-              title: 'Lịch đặt của tôi',
-              subtitle: 'Các đơn reservation đã tạo qua BVC',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            FutureBuilder<List<_ReservationRow>>(
-              future: _reservationsFuture,
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const _LoadingPlaceholder();
-                }
-                final rows = snap.data ?? const <_ReservationRow>[];
-                if (rows.isEmpty) {
-                  return const _EmptyPlaceholder(
-                    icon: Icons.event_busy,
-                    message: 'Bạn chưa tạo đơn reservation nào.',
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final r in rows)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: _ReservationCard(row: r),
-                      ),
-                  ],
-                );
-              },
-            ),
+            // Reservation list — UI thuộc feature reservation.
+            const ReservationListPage(),
             const SizedBox(height: AppSpacing.lg),
             _SectionTitle(
               icon: Icons.meeting_room,
@@ -112,12 +64,13 @@ class _BookingsPageState extends State<BookingsPage> {
                   return const _LoadingPlaceholder();
                 }
                 if (state is MyLobbiesFailure) {
-                  return _ErrorPlaceholder(message: state.message);
+                  return _ErrorBox(message: state.message);
                 }
                 if (state is MyLobbiesLoaded) {
-                  final lobbies = <LobbyEntity>[...state.joined, ...state.hosted];
+                  final lobbies =
+                      <LobbyEntity>[...state.joined, ...state.hosted];
                   if (lobbies.isEmpty) {
-                    return const _EmptyPlaceholder(
+                    return const _EmptyBox(
                       icon: Icons.meeting_room_outlined,
                       message: 'Bạn chưa tạo hoặc tham gia phòng chờ nào.',
                     );
@@ -143,12 +96,7 @@ class _BookingsPageState extends State<BookingsPage> {
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────
-
-class _ReservationRow {
-  final ReservationEntity reservation;
-  const _ReservationRow({required this.reservation});
-}
+// ─── Helpers (lobby list) ─────────────────────────────────────────────────
 
 class _SectionTitle extends StatelessWidget {
   final IconData icon;
@@ -203,78 +151,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _ReservationCard extends StatelessWidget {
-  final _ReservationRow row;
-  const _ReservationCard({required this.row});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final r = row.reservation;
-    final time = DateFormat('HH:mm • dd/MM').format(r.scheduledTime.toLocal());
-    final statusColor = _statusColor(colors, r.status);
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowSm,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  r.gameName,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.radiusFullAll,
-                ),
-                child: Text(
-                  r.status.displayName,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _InfoRow(icon: Icons.storefront, text: r.cafeName),
-          _InfoRow(icon: Icons.schedule, text: time),
-          _InfoRow(
-            icon: Icons.confirmation_number,
-            text: 'Cọc: ${r.finalDeposit} BVC',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _statusColor(ColorScheme colors, ReservationStatus status) {
-    if (status.isTerminal) return colors.error;
-    if (status.isActive) return colors.primary;
-    return AppColors.warning;
-  }
-}
-
 class _LobbyCard extends StatelessWidget {
   final LobbyEntity lobby;
   const _LobbyCard({required this.lobby});
@@ -283,7 +159,8 @@ class _LobbyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final time = DateFormat('HH:mm • dd/MM').format(lobby.scheduledTime.toLocal());
+    final time =
+        DateFormat('HH:mm • dd/MM').format(lobby.scheduledTime.toLocal());
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
@@ -356,10 +233,10 @@ class _LoadingPlaceholder extends StatelessWidget {
   }
 }
 
-class _EmptyPlaceholder extends StatelessWidget {
+class _EmptyBox extends StatelessWidget {
   final IconData icon;
   final String message;
-  const _EmptyPlaceholder({required this.icon, required this.message});
+  const _EmptyBox({required this.icon, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -391,9 +268,9 @@ class _EmptyPlaceholder extends StatelessWidget {
   }
 }
 
-class _ErrorPlaceholder extends StatelessWidget {
+class _ErrorBox extends StatelessWidget {
   final String message;
-  const _ErrorPlaceholder({required this.message});
+  const _ErrorBox({required this.message});
 
   @override
   Widget build(BuildContext context) {

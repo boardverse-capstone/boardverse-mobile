@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/rating_entity.dart';
 import '../cubit/rating_state.dart';
 
+/// Neo-brutalism player rating card.
 class PlayerRatingCard extends StatelessWidget {
   final RatingPlayer player;
   final List<KarmaTag> availableTags;
@@ -18,8 +21,7 @@ class PlayerRatingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasAvatar = player.avatarUrl.trim().isNotEmpty;
     final initial = player.name.trim().isEmpty
         ? '?'
@@ -28,31 +30,68 @@ class PlayerRatingCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.cardRadius,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowXs,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: AppSpacing.xl,
-                backgroundColor: colors.secondaryContainer,
-                foregroundColor: colors.onSecondaryContainer,
-                backgroundImage: hasAvatar
-                    ? NetworkImage(player.avatarUrl)
-                    : null,
-                onBackgroundImageError: hasAvatar ? (_, _) {} : null,
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.4),
+                      blurRadius: 0,
+                      offset: const Offset(2, 2),
+                    ),
+                  ],
+                ),
                 child: hasAvatar
-                    ? null
-                    : Text(
-                        initial,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colors.onSecondaryContainer,
-                          fontWeight: FontWeight.w800,
+                    ? ClipOval(
+                        child: Image.network(
+                          player.avatarUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, e, st) => Center(
+                            child: Text(
+                              initial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.white,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.white,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
               ),
@@ -65,15 +104,23 @@ class PlayerRatingCard extends StatelessWidget {
                       player.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
+                    const SizedBox(height: 2),
                     Text(
                       'Chọn nhiều thẻ để mô tả trải nghiệm của bạn.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -100,6 +147,7 @@ class PlayerRatingCard extends StatelessWidget {
   }
 }
 
+/// Neo-brutalism karma tag chip with bold border + hard shadow.
 class _KarmaTagChip extends StatelessWidget {
   final KarmaTag tag;
   final bool isSelected;
@@ -113,61 +161,70 @@ class _KarmaTagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final accent = tag.isPositive
-        ? theme.brightness == Brightness.dark
-              ? AppColorsDark.success
-              : AppColors.success
-        : theme.brightness == Brightness.dark
-        ? AppColorsDark.error
-        : AppColors.error;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = tag.isPositive ? AppColors.success : AppColors.error;
+    final bg = isSelected
+        ? accent
+        : (isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceVariant);
+    final fg = isSelected
+        ? AppColors.white
+        : (isDark
+            ? AppColors.textPrimaryDark
+            : AppColors.textPrimary);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: isSelected
-            ? accent.withValues(alpha: 0.16)
-            : colors.surfaceContainerHighest,
-        borderRadius: AppRadius.chipRadius,
-        border: Border.all(
-          color: isSelected ? accent : colors.outlineVariant,
-          width: isSelected ? 1.5 : 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: AppRadius.chipRadius,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? accent
+                  : (isDark ? AppColors.borderDark : AppColors.border),
+              width: isSelected ? 2.5 : 2,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _resolveIcon(tag.icon),
-                  size: AppIcons.sm,
-                  color: isSelected ? accent : colors.onSurfaceVariant,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.4),
+                      blurRadius: 0,
+                      offset: const Offset(2, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _resolveIcon(tag.icon),
+                size: 14,
+                color: fg,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                tag.name,
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  tag.name,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: isSelected ? accent : colors.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (isSelected) ...[
-                  const SizedBox(width: AppSpacing.xs),
-                  Icon(AppIcons.check, size: AppIcons.sm, color: accent),
-                ],
+              ),
+              if (isSelected) ...[
+                const SizedBox(width: 4),
+                const Icon(AppIcons.check, size: 14, color: AppColors.white),
               ],
-            ),
+            ],
           ),
         ),
       ),

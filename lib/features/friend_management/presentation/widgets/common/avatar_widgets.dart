@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/safe_network_image.dart';
 
-/// User avatar widget with initials fallback.
-///
-/// Displays network image if URL is valid, otherwise shows username initials.
+/// Neo-brutalism User avatar widget with initials fallback.
 class UserAvatar extends StatelessWidget {
   const UserAvatar({
     super.key,
@@ -53,34 +52,35 @@ class _InitialsFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       width: radius * 2,
       height: radius * 2,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            theme.colorScheme.primaryContainer,
-            theme.colorScheme.primaryContainer.withValues(alpha: 0.7),
+            AppColors.primary,
+            AppColors.primaryLight,
           ],
         ),
+        border: Border.all(color: AppColors.black, width: 2),
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.onPrimaryContainer,
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          color: AppColors.white,
+          fontSize: 16,
         ),
       ),
     );
   }
 }
 
-/// Avatar with colored border based on gamer tier.
+/// Neo-brutalism Avatar with colored border based on gamer tier.
 class TieredAvatar extends StatelessWidget {
   const TieredAvatar({
     super.key,
@@ -103,14 +103,15 @@ class TieredAvatar extends StatelessWidget {
       padding: EdgeInsets.all(borderWidth),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            borderColor,
-            borderColor.withValues(alpha: 0.6),
-          ],
-        ),
+        color: borderColor,
+        border: Border.all(color: AppColors.black, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: UserAvatar(
         username: username,

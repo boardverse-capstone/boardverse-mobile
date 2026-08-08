@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../domain/entities/entities.dart';
 import '../../cubit/cubit.dart';
 import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
-/// Tab "Lời mời" — displays received friend requests (inbox).
+/// Neo-brutalism Tab "Lời mời".
 class FriendRequestsTab extends StatelessWidget {
   const FriendRequestsTab({super.key});
 
@@ -16,7 +17,9 @@ class FriendRequestsTab extends StatelessWidget {
     return BlocBuilder<FriendListCubit, FriendListData>(
       builder: (context, state) {
         if (state is FriendListLoading || state is FriendListInitial) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
         }
         if (state is FriendListError) {
           return ErrorRetryView(
@@ -80,14 +83,20 @@ class FriendRequestsTab extends StatelessWidget {
   void _acceptRequest(BuildContext context, String requestId) {
     context.read<FriendListCubit>().acceptFriendRequest(requestId);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã chấp nhận lời mời')),
+      const SnackBar(
+        content: Text('Đã chấp nhận lời mời'),
+        backgroundColor: AppColors.success,
+      ),
     );
   }
 
   void _declineRequest(BuildContext context, String requestId) {
     context.read<FriendListCubit>().declineFriendRequest(requestId);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã từ chối lời mời')),
+      const SnackBar(
+        content: Text('Đã từ chối lời mời'),
+        backgroundColor: AppColors.textSecondary,
+      ),
     );
   }
 

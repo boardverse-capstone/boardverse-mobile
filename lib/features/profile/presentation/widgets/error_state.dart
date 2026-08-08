@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
 
-/// Trạng thái lỗi khi GET /userprofile thất bại. Có nút "Thử lại".
+/// Neo-brutalism Trạng thái lỗi khi GET /userprofile thất bại.
 class ProfileErrorState extends StatelessWidget {
   const ProfileErrorState({
     super.key,
@@ -18,6 +20,7 @@ class ProfileErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Center(
       child: Padding(
@@ -31,13 +34,20 @@ class ProfileErrorState extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
+                  color: AppColors.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.error,
+                    width: NeoBrutalismTheme.borderWidthBold,
+                  ),
+                  boxShadow: NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.error.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Icon(
                   AppIcons.busy,
                   size: AppIcons.xxl,
-                  color: theme.colorScheme.onErrorContainer,
+                  color: AppColors.error,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -45,8 +55,7 @@ class ProfileErrorState extends StatelessWidget {
                 'Tải dữ liệu thất bại',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -54,16 +63,58 @@ class ProfileErrorState extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondary,
+                  height: 1.5,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(AppIcons.refresh),
-                  label: const Text('Thử lại'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? AppColors.borderDark : AppColors.border,
+                      width: NeoBrutalismTheme.borderWidthBold,
+                    ),
+                    boxShadow: NeoBrutalismTheme.lightShadow(
+                      shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onRetry,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              AppIcons.refresh,
+                              color: AppColors.white,
+                            ),
+                            SizedBox(width: AppSpacing.sm),
+                            Text(
+                              'THỬ LẠI',
+                              style: TextStyle(
+                                color: AppColors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

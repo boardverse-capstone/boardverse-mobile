@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 
-/// Một dòng icon + "label: value" — dùng trong confirm dialog.
+/// Neo-brutalism Dialog row — icon + label + value.
 class LobbyConfigDialogRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -22,19 +23,31 @@ class LobbyConfigDialogRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 14,
+              color: AppColors.primary,
+            ),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Text(
             '$label: ',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.outline,
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
 
+/// Neo-brutalism Tournament status pill.
 class TournamentStatusPill extends StatelessWidget {
   final TournamentStatus status;
 
@@ -10,29 +13,37 @@ class TournamentStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = _statusColor(theme, status);
+    final color = _statusColor(status);
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: AppRadius.chipRadius,
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.black, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_statusIcon(status), size: AppIcons.sm, color: color),
+          Icon(_statusIcon(status), size: 12, color: AppColors.white),
           const SizedBox(width: AppSpacing.xs),
           Text(
-            status.label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+            status.label.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
             ),
           ),
         ],
@@ -40,20 +51,20 @@ class TournamentStatusPill extends StatelessWidget {
     );
   }
 
-  static Color _statusColor(ThemeData theme, TournamentStatus status) {
+  static Color _statusColor(TournamentStatus status) {
     switch (status) {
       case TournamentStatus.upcoming:
-        return theme.colorScheme.secondary;
+        return AppColors.secondary;
       case TournamentStatus.registrationOpen:
         return AppColors.success;
       case TournamentStatus.registrationClosed:
-        return theme.colorScheme.tertiary;
+        return AppColors.accent;
       case TournamentStatus.ongoing:
-        return theme.colorScheme.primary;
+        return AppColors.primary;
       case TournamentStatus.completed:
-        return theme.colorScheme.onSurfaceVariant;
+        return AppColors.textSecondary;
       case TournamentStatus.cancelled:
-        return theme.colorScheme.error;
+        return AppColors.error;
     }
   }
 

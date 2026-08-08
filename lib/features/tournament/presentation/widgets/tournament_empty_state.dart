@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
+/// Neo-brutalism Tournament empty state.
 class TournamentEmptyState extends StatelessWidget {
   final String title;
   final String message;
@@ -27,20 +30,25 @@ class TournamentEmptyState extends StatelessWidget {
               width: 112,
               height: 112,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
+                color: AppColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
+                border: Border.all(color: AppColors.primary, width: NeoBrutalismTheme.borderWidthBold),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Icon(
                 icon,
-                size: AppIcons.xxl,
-                color: theme.colorScheme.primary,
+                size: 48,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              title,
+              title.toUpperCase(),
               style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
               ),
               textAlign: TextAlign.center,
             ),
@@ -51,6 +59,7 @@ class TournamentEmptyState extends StatelessWidget {
                 message,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
                   height: 1.5,
                 ),
                 textAlign: TextAlign.center,

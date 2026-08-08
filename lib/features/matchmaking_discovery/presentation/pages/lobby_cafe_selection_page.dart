@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
@@ -17,22 +18,8 @@ import '../widgets/cafe_selection/selectable_cafe_card.dart';
 import '../widgets/lobby_cafe_selection/lobby_cafe_selection_shimmer.dart';
 import 'lobby_config_page.dart';
 
-/// Màn chọn quán cafe cho flow "Tạo lobby theo quán đã biết".
-///
-/// Player từng chơi ở quán cafe → muốn rủ bạn cùng chơi tại quán đó:
-///   1. Vào màn này, chọn game + quán đã chơi
-///   2. Đi tiếp [LobbyConfigPage] để chọn ngày/giờ + tạo phòng
-///
-/// API dùng:
-/// - Ưu tiên `GET /api/cafes/nearby/me?gameTemplateId=...` (lấy vị trí user
-///   đã lưu). Trước khi gọi cần `PUT /api/userprofile/me/location` (nếu user
-///   chưa có vị trí server sẽ trả 400 — banner "Cập nhật" cho phép chọn
-///   thành phố để ghi lat/lng lên profile).
-/// - Fallback `GET /api/cafes/nearby?latitude=&longitude=&gameTemplateId=...`
-///   dùng khi user chọn vị trí thủ công ngay tại page này.
+/// Neo-brutalism Lobby Cafe Selection Page.
 class LobbyCafeSelectionPage extends StatefulWidget {
-  /// Game đã được chọn trước đó (từ [BoardGameDetailPage] hoặc
-  /// [LobbyHubPage]). Page sẽ dùng `game.id` để gọi `/api/cafes/nearby`.
   final BoardGameEntity game;
   final MatchmakingCubit matchmakingCubit;
 
@@ -47,30 +34,15 @@ class LobbyCafeSelectionPage extends StatefulWidget {
 }
 
 class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
-  /// Cờ đánh dấu đã trigger lần đầu. Tránh gọi API trùng khi state
-  /// `MatchmakingNearbyCafesLoaded` tới sau khi page build.
   bool _hasInitialLoad = false;
-
-  /// Vị trí thủ công (được người dùng cập nhật qua LocationCard).
-  /// Nếu có, ưu tiên dùng vị trí thủ công để gọi `/api/cafes/nearby`.
   double? _manualLatitude;
   double? _manualLongitude;
-
-  /// Cờ đang gọi `PUT /api/userprofile/me/location`. Dùng để disable
-  /// nút "Cập nhật" trên banner và đảm bảo không gọi trùng.
   bool _isUpdatingLocation = false;
-
-  /// Cờ đánh dấu user đã cập nhật vị trí thành công **trong session này**.
-  /// Khi `true`, banner "Cập nhật vị trí" sẽ ẩn đi — user đã xử lý xong
-  /// nhu cầu thay đổi location. Empty state lúc này chỉ thông báo đơn
-  /// giản là khu vực hiện tại chưa có quán cafe.
   bool _hasUpdatedLocation = false;
 
   @override
   void initState() {
     super.initState();
-    // Nếu cubit đã ở state loaded cho đúng game, render ngay không cần gọi
-    // lại. Nếu chưa, kick một lần ở đây (sẽ được skip khi listener attach).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _hasInitialLoad) return;
       _initialLoad();
@@ -107,13 +79,6 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
     }
   }
 
-  /// Mở dialog cho phép user chọn thành phố / quận để cập nhật vị trí lên
-  /// server. Sau khi PUT thành công sẽ reload `/api/cafes/nearby/me`.
-  ///
-  /// Lý do cần dialog: backend `/api/cafes/nearby/me` yêu cầu server đã có
-  /// `LastKnownLatitude/Longitude` (PUT /api/userprofile/me/location) — nếu
-  /// chưa có sẽ trả 400. Nút "Cập nhật" trên banner hiện tại chỉ refresh
-  /// lại request cũ nên user "ấn mà không có gì xảy ra".
   Future<void> _promptUpdateLocation() async {
     if (_isUpdatingLocation) return;
 
@@ -125,7 +90,6 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
 
     setState(() => _isUpdatingLocation = true);
 
-    // Reset vị trí thủ công để lần refresh sau dùng `/nearby/me` (server).
     setState(() {
       _manualLatitude = null;
       _manualLongitude = null;
@@ -141,14 +105,11 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
       source: LocationSource.manual.index,
     );
 
-    // Chờ cubit emit kết quả rồi xử lý UI.
     await _waitForProfileResult(
       profileCubit,
       stateBefore: stateBefore,
       onSuccess: () {
         if (!mounted) return;
-        // Ẩn banner cập nhật location — user đã hoàn tất nhu cầu
-        // thay đổi vị trí trong session này.
         setState(() => _hasUpdatedLocation = true);
         messenger.showSnackBar(
           const SnackBar(
@@ -164,7 +125,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text('Không thể cập nhật vị trí: $msg'),
-            backgroundColor: Theme.of(context).colorScheme.error,
+            backgroundColor: AppColors.error,
           ),
         );
       },
@@ -173,9 +134,6 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
     if (mounted) setState(() => _isUpdatingLocation = false);
   }
 
-  /// Spin cho tới khi [cubit] chuyển sang `ProfileLocationLoaded` /
-  /// `ProfileFailure` (so với [stateBefore]). Có timeout 8s để không kẹt
-  /// vĩnh viễn nếu cubit phát sinh lỗi lạ.
   Future<void> _waitForProfileResult(
     ProfileCubit cubit, {
     required ProfileState stateBefore,
@@ -201,26 +159,14 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
 
-    // Timeout — giả định success vì ProfileCubit.updateLocation không emit
-    // loading state trước khi gọi. Vẫn refresh để user thấy kết quả mới.
     onSuccess();
   }
 
-  /// Nút "Cập nhật" trên banner: luôn mở dialog chọn vị trí thay vì chỉ
-  /// refresh (vì refresh không giải quyết được tình trạng server chưa có
-  /// lat/lng).
   Future<void> _onBannerUpdatePressed() async {
     await _promptUpdateLocation();
   }
 
   void _openConfigWithCafe(CafeEntity cafe) {
-    // Sau khi chọn cafe → route sang `LobbyConfigPage` (step cấu hình
-    // duy nhất trong luồng tạo lobby). Từ đây user bấm "Xác nhận" →
-    // `ReservationCubit.createQuote()` → `LobbyQuotePage` (đặt cọc)
-    // → lobby được tạo nguyên tử qua `confirmReservation()`.
-    //
-    // Trước đây có 2 nhánh (walk-in solo vs lobby creation) — giờ chỉ
-    // giữ 1 nhánh duy nhất để tránh duplicate UI như `LobbyCreateSetupPage`.
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => LobbyConfigPage(
@@ -239,13 +185,21 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return BlocProvider.value(
       value: widget.matchmakingCubit,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Chọn quán cafe'),
+          title: const Text(
+            'Chọn quán cafe',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
           centerTitle: false,
+          backgroundColor:
+              isDark ? AppColors.surfaceDark : AppColors.surface,
+          foregroundColor:
+              isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
           leading: IconButton(
             tooltip: 'Đóng',
             icon: const Icon(Icons.close),
@@ -262,19 +216,26 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.extension,
-                    size: AppSpacing.md + 2,
-                    color: theme.colorScheme.primary,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.extension,
+                      size: AppSpacing.md,
+                      color: AppColors.white,
+                    ),
                   ),
-                  const SizedBox(width: AppSpacing.xs - 2),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       widget.game.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -292,7 +253,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: theme.colorScheme.error,
+                  backgroundColor: AppColors.error,
                 ),
               );
             }
@@ -345,10 +306,29 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                           AppSpacing.md,
                           AppSpacing.xs,
                         ),
-                        child: Text(
-                          '${cafes.length} quán phù hợp',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xxs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2,
+                            ),
+                          ),
+                          child: Text(
+                            '${cafes.length} quán phù hợp',
+                            style: const TextStyle(
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -375,9 +355,10 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                           AppSpacing.xs,
                         ),
                         child: Text(
-                          'Gợi ý game khác cùng thể loại',
+                          'GỢI Ý GAME KHÁC',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),

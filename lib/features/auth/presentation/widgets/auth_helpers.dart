@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/core/widgets/app_toast_card.dart';
 
-/// Toast helper cho auth pages.
+/// Toast helper cho auth pages - Neo style.
 class AuthToast {
   static void show(
     BuildContext context,
@@ -34,56 +35,99 @@ class AuthToast {
   }
 }
 
-/// Back button cho auth app bar.
-class AuthBackButton extends StatelessWidget {
+/// Back button cho auth app bar - Neo style.
+class AuthBackButton extends StatefulWidget {
   const AuthBackButton({super.key, required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
+  State<AuthBackButton> createState() => _AuthBackButtonState();
+}
+
+class _AuthBackButtonState extends State<AuthBackButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      duration: const Duration(milliseconds: 80),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.sm),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: widget.onPressed,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          );
+        },
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
+            ),
+            boxShadow: NeoBrutalismTheme.lightShadow(
+              shadowColor: AppColors.primary.withValues(alpha: 0.4),
+            ),
+          ),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.white,
+            size: AppIcons.md,
+          ),
         ),
-      ),
-      icon: const Icon(
-        Icons.arrow_back,
-        color: Colors.white,
-        size: AppIcons.md,
       ),
     );
   }
 }
 
-/// Title + subtitle cho auth pages.
-///
-/// Mặc định dùng `Colors.white` để hiển thị trên gradient nền tối của
-/// `AuthGradientBackground`. Khi đặt bên trong `AuthFormCard` (nền
-/// `surface` — trắng ở light, tối ở dark), truyền
-/// `color: theme.colorScheme.onSurface` để chữ tự đổi màu theo theme.
+/// Title + subtitle cho auth pages - Neo style.
 class AuthTitle extends StatelessWidget {
   const AuthTitle({
     super.key,
     required this.title,
     this.subtitle,
-    this.color = Colors.white,
+    this.color = AppColors.white,
   });
 
   final String title;
   final String? subtitle;
-
-  /// Màu chữ title. Mặc định trắng (gradient). Truyền
-  /// `theme.colorScheme.onSurface` khi đặt trong `AuthFormCard`.
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtitleColor = color.withValues(alpha: 0.8);
+    final subtitleColor = color == AppColors.white
+        ? color.withValues(alpha: 0.8)
+        : (theme.brightness == Brightness.dark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondary);
 
     return Column(
       children: [
@@ -91,7 +135,8 @@ class AuthTitle extends StatelessWidget {
           title,
           style: theme.textTheme.headlineMedium?.copyWith(
             color: color,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
           ),
           textAlign: TextAlign.center,
         ),
@@ -99,7 +144,10 @@ class AuthTitle extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle!,
-            style: theme.textTheme.bodyMedium?.copyWith(color: subtitleColor),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: subtitleColor,
+              height: 1.4,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -108,10 +156,7 @@ class AuthTitle extends StatelessWidget {
   }
 }
 
-/// Link text button cho auth pages.
-///
-/// Dùng [Text.rich] để cho phép text + link xuống dòng tự nhiên khi form card
-/// hẹp, tránh RenderFlex overflow.
+/// Link text button cho auth pages - Neo style.
 class AuthLinkText extends StatelessWidget {
   const AuthLinkText({
     super.key,
@@ -126,6 +171,9 @@ class AuthLinkText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondary;
+
     return Align(
       alignment: Alignment.center,
       child: Text.rich(
@@ -133,15 +181,14 @@ class AuthLinkText extends StatelessWidget {
           children: [
             TextSpan(
               text: text,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: TextStyle(color: textColor),
             ),
             TextSpan(
               text: linkText,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
+                color: AppColors.primary,
                 fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
               ),
               recognizer: TapGestureRecognizer()..onTap = onTap,
             ),
@@ -152,3 +199,4 @@ class AuthLinkText extends StatelessWidget {
     );
   }
 }
+

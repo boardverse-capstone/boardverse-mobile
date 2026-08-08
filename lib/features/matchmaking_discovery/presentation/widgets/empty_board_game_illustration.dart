@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 
 /// Empty state illustration — board game pieces (dice + cards + token).
 /// Vẽ bằng CustomPainter, không phụ thuộc asset.
@@ -46,7 +47,7 @@ class _EmptyBoardGameIllustrationState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
@@ -56,7 +57,9 @@ class _EmptyBoardGameIllustrationState
             t: _ctrl.value,
             primary: widget.primaryColor ?? AppColors.primary,
             accent: widget.accentColor ?? AppColors.accent,
-            secondary: theme.colorScheme.surfaceContainerHighest,
+            secondary: isDark
+                ? AppColors.surfaceElevatedDark
+                : AppColors.surfaceVariant,
           ),
         );
       },
@@ -65,7 +68,7 @@ class _EmptyBoardGameIllustrationState
 }
 
 class _EmptyBoardGamePainter extends CustomPainter {
-  final double t; // 0..1, dùng để animate float nhẹ
+  final double t;
   final Color primary;
   final Color accent;
   final Color secondary;
@@ -84,10 +87,9 @@ class _EmptyBoardGamePainter extends CustomPainter {
     final center = Offset(w / 2, h / 2);
 
     // Background soft circle
-    final bgPaint = Paint()..color = primary.withValues(alpha: 0.08);
+    final bgPaint = Paint()..color = primary.withValues(alpha: 0.12);
     canvas.drawCircle(center, w * 0.45, bgPaint);
 
-    // Animated floating offset
     final floatOffset = math.sin(t * 2 * math.pi) * 4;
 
     // ─── 1. Game board (rectangle nghiêng) ở giữa ───
@@ -104,10 +106,14 @@ class _EmptyBoardGamePainter extends CustomPainter {
       boardRect,
       const Radius.circular(12),
     );
+
+    // Neo-brutalism: hard shadow, no blur
     final boardShadow = Paint()
-      ..color = primary.withValues(alpha: 0.2)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawRRect(boardRRect.shift(const Offset(0, 4)), boardShadow);
+      ..color = AppColors.black.withValues(alpha: 0.4);
+    canvas.drawRRect(
+      boardRRect.shift(const Offset(3, 3)),
+      boardShadow,
+    );
 
     final boardPaint = Paint()
       ..shader = LinearGradient(
@@ -117,8 +123,15 @@ class _EmptyBoardGamePainter extends CustomPainter {
       ).createShader(boardRect);
     canvas.drawRRect(boardRRect, boardPaint);
 
+    // Board border
+    final boardBorderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = AppColors.black.withValues(alpha: 0.3);
+    canvas.drawRRect(boardRRect, boardBorderPaint);
+
     // Grid dots trên board
-    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.5);
+    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.6);
     for (var row = 0; row < 3; row++) {
       for (var col = 0; col < 4; col++) {
         final x = boardRect.left +
@@ -127,11 +140,11 @@ class _EmptyBoardGamePainter extends CustomPainter {
         final y = boardRect.top +
             (boardRect.height / 3) * row +
             boardRect.height / 6;
-        canvas.drawCircle(Offset(x, y), 1.5, dotPaint);
+        canvas.drawCircle(Offset(x, y), 1.8, dotPaint);
       }
     }
 
-    // ─── 2. Token trên board (red circle, dice) ───
+    // ─── 2. Token trên board (white circles) ───
     final tokenPaint = Paint()..color = AppColors.white;
     canvas.drawCircle(
       Offset(boardRect.left + boardRect.width * 0.3,
@@ -158,21 +171,18 @@ class _EmptyBoardGamePainter extends CustomPainter {
       width: 32,
       height: 32,
     );
-    final dicePaint = Paint()..color = AppColors.white;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(diceRect, const Radius.circular(6)),
-      dicePaint,
-    );
-    final diceShadow = Paint()
-      ..color = AppColors.black.withValues(alpha: 0.12)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    // Hard shadow for dice
+    final diceShadow = Paint()..color = AppColors.black.withValues(alpha: 0.4);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        diceRect.shift(const Offset(0, 3)),
+        diceRect.shift(const Offset(2, 2)),
         const Radius.circular(6),
       ),
       diceShadow,
     );
+
+    final dicePaint = Paint()..color = AppColors.white;
     canvas.drawRRect(
       RRect.fromRectAndRadius(diceRect, const Radius.circular(6)),
       dicePaint,
@@ -198,16 +208,17 @@ class _EmptyBoardGamePainter extends CustomPainter {
       width: 28,
       height: 40,
     );
-    final cardShadow = Paint()
-      ..color = AppColors.black.withValues(alpha: 0.1)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    // Hard shadow for card
+    final cardShadow = Paint()..color = AppColors.black.withValues(alpha: 0.4);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        cardRect.shift(const Offset(0, 3)),
+        cardRect.shift(const Offset(2, 2)),
         const Radius.circular(4),
       ),
       cardShadow,
     );
+
     final cardPaint = Paint()..color = AppColors.white;
     canvas.drawRRect(
       RRect.fromRectAndRadius(cardRect, const Radius.circular(4)),
@@ -230,8 +241,8 @@ class _EmptyBoardGamePainter extends CustomPainter {
     ];
     for (var i = 0; i < sparklePositions.length; i++) {
       final opacity =
-          (math.sin(t * 2 * math.pi + i * 0.7) + 1) / 2; // 0..1
-      sparklePaint.color = accent.withValues(alpha: 0.3 + opacity * 0.7);
+          (math.sin(t * 2 * math.pi + i * 0.7) + 1) / 2;
+      sparklePaint.color = accent.withValues(alpha: 0.4 + opacity * 0.6);
       final pos = sparklePositions[i];
       // 4-pointed sparkle
       final path = Path()
@@ -252,7 +263,7 @@ class _EmptyBoardGamePainter extends CustomPainter {
   bool shouldRepaint(covariant _EmptyBoardGamePainter old) => old.t != t;
 }
 
-/// Empty state UI đầy đủ — illustration + title + subtitle + CTA.
+/// Empty state UI đầy đủ — Neo-brutalism style.
 class EmptyBoardGameState extends StatelessWidget {
   final String title;
   final String message;
@@ -283,7 +294,7 @@ class EmptyBoardGameState extends StatelessWidget {
             Text(
               title,
               style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
               textAlign: TextAlign.center,
             ),
@@ -298,14 +309,51 @@ class EmptyBoardGameState extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                onPressed: onAction,
-                icon: Icon(actionIcon ?? Icons.refresh),
-                label: Text(actionLabel!),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xl,
-                    vertical: AppSpacing.md,
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? AppColors.borderDark
+                        : AppColors.border,
+                    width: NeoBrutalismTheme.borderWidth,
+                  ),
+                  boxShadow: NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onAction,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            actionIcon ?? Icons.refresh,
+                            color: AppColors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            actionLabel!.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

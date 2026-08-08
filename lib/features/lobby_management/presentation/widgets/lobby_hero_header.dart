@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
 import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_countdown_timer.dart';
 
-/// Hero header cho LobbyPage — gradient card hiển thị cafe info, timer,
-/// stats và invite code.
+/// Hero header cho LobbyPage — gradient card với neo-brutalism border + hard shadow
+/// hiển thị cafe info, timer, stats và invite code.
 class LobbyHeroHeader extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
@@ -19,7 +22,7 @@ class LobbyHeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final capacityProgress = lobby.maxPlayers == 0
         ? 0.0
         : (lobby.currentPlayers / lobby.maxPlayers).clamp(0.0, 1.0);
@@ -35,14 +38,18 @@ class LobbyHeroHeader extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [colors.primary, colors.primary.withAlpha(204)],
+          colors: [AppColors.primary, AppColors.primaryLight],
         ),
-        borderRadius: AppRadius.radiusLgAll,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colors.primary.withAlpha(77),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(5, 5),
           ),
         ],
       ),
@@ -58,10 +65,15 @@ class LobbyHeroHeader extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: AppRadius.radiusMdAll,
+                    color: AppColors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
                   ),
-                  child: Icon(AppIcons.cafe, color: Colors.white, size: 24),
+                  child: const Icon(AppIcons.cafe,
+                      color: AppColors.white, size: 24),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -72,16 +84,19 @@ class LobbyHeroHeader extends StatelessWidget {
                         lobby.cafeName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.white,
+                          fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Giờ hẹn: ${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.8),
+                        style: TextStyle(
+                          color: AppColors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -139,7 +154,6 @@ class LobbyHeroHeader extends StatelessWidget {
               child: InviteCodePill(
                 code: lobby.inviteCode!,
                 onTap: onShareInviteCode,
-                theme: theme,
               ),
             ),
         ],
@@ -165,13 +179,16 @@ class HeroStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: AppRadius.radiusMdAll,
+          color: AppColors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.white.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +198,7 @@ class HeroStat extends StatelessWidget {
                 Icon(
                   icon,
                   size: 14,
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: AppColors.white.withValues(alpha: 0.85),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -189,9 +206,10 @@ class HeroStat extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w600,
+                    style: TextStyle(
+                      color: AppColors.white.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -200,20 +218,22 @@ class HeroStat extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               value,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.white,
+                fontSize: 14,
               ),
             ),
             if (progress != null) ...[
               const SizedBox(height: 6),
               ClipRRect(
-                borderRadius: AppRadius.radiusFullAll,
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 4,
-                  backgroundColor: Colors.white.withValues(alpha: 0.25),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  backgroundColor: AppColors.white.withValues(alpha: 0.25),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.white),
                 ),
               ),
             ],
@@ -224,36 +244,41 @@ class HeroStat extends StatelessWidget {
   }
 }
 
-/// Pill hiển thị mã mời với icon copy.
+/// Pill hiển thị mã mời với icon copy — neo-brutalism style.
 class InviteCodePill extends StatelessWidget {
   final String code;
   final VoidCallback onTap;
-  final ThemeData theme;
 
   const InviteCodePill({
     super.key,
     required this.code,
     required this.onTap,
-    required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.2),
-      borderRadius: AppRadius.radiusFullAll,
+      color: AppColors.white.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.radiusFullAll,
-        child: Padding(
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
           ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.5),
+              width: 2,
+            ),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(AppIcons.userAdd, size: 16, color: Colors.white),
+              const Icon(AppIcons.userAdd, size: 16, color: AppColors.white),
               const SizedBox(width: AppSpacing.sm),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,16 +286,18 @@ class InviteCodePill extends StatelessWidget {
                 children: [
                   Text(
                     'Mã mời',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w600,
+                    style: TextStyle(
+                      color: AppColors.white.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
                     ),
                   ),
                   Text(
                     code,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
                       letterSpacing: 1.5,
                     ),
                   ),
@@ -280,7 +307,7 @@ class InviteCodePill extends StatelessWidget {
               Icon(
                 AppIcons.copy,
                 size: 16,
-                color: Colors.white.withValues(alpha: 0.8),
+                color: AppColors.white.withValues(alpha: 0.85),
               ),
             ],
           ),

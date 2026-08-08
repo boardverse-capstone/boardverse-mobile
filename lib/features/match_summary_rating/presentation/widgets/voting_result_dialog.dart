@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../cubit/voting_state.dart';
 
-/// Dialog hiển thị kết quả voting.
+/// Neo-brutalism dialog hiển thị kết quả voting.
 class VotingResultDialog extends StatelessWidget {
   final List<VotingCandidate> noShowPlayers;
   final List<VotingCandidate> attendedPlayers;
@@ -35,170 +37,184 @@ class VotingResultDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final hasNoShow = noShowPlayers.isNotEmpty;
 
-    final errorColor = colors.error;
-    final successColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.success
-        : AppColors.success;
-    final warningColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.warning
-        : AppColors.warning;
-
-    final accentIconColor = hasNoShow ? warningColor : successColor;
-    final accentBgColor = hasNoShow
-        ? warningColor.withValues(alpha: 0.16)
-        : successColor.withValues(alpha: 0.16);
+    final accentIconColor =
+        hasNoShow ? AppColors.warning : AppColors.success;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.xl,
-      ),
-      child: ConstrainedBox(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSpacing.md),
+      child: Container(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: accentBgColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  hasNoShow ? AppIcons.warning : AppIcons.available,
-                  size: AppIcons.massive,
-                  color: accentIconColor,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                hasNoShow ? 'Kết quả bình chọn' : 'Không có người vắng mặt',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (hasNoShow) ...[
-                        _ResultSectionHeader(
-                          label: 'Người bị đánh dấu vắng mặt (No-show)',
-                          color: errorColor,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        ...noShowPlayers.map(
-                          (player) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.xs,
-                            ),
-                            child: _PlayerTile(
-                              candidate: player,
-                              color: errorColor.withValues(alpha: 0.12),
-                              icon: AppIcons.busy,
-                              iconColor: errorColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                      _ResultSectionHeader(
-                        label: 'Người có mặt',
-                        color: successColor,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      if (attendedPlayers.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(AppSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: colors.surfaceContainerHighest,
-                            borderRadius: AppRadius.radiusMdAll,
-                            border: Border.all(color: colors.outlineVariant),
-                          ),
-                          child: Text(
-                            'Không có dữ liệu',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      else
-                        ...attendedPlayers.map(
-                          (player) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.xs,
-                            ),
-                            child: _PlayerTile(
-                              candidate: player,
-                              color: successColor.withValues(alpha: 0.12),
-                              icon: AppIcons.available,
-                              iconColor: successColor,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: AppSpacing.md),
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: accentBgColor,
-                          borderRadius: AppRadius.radiusMdAll,
-                          border: Border.all(
-                            color: accentIconColor.withValues(alpha: 0.32),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              hasNoShow ? AppIcons.info : AppIcons.check,
-                              color: accentIconColor,
-                              size: AppIcons.md,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                hasNoShow
-                                    ? 'Điểm uy tín (Karma) của người vắng mặt sẽ bị giảm.'
-                                    : 'Tất cả thành viên đều có mặt. Cảm ơn!',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.border,
+            width: 3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.4),
+              blurRadius: 0,
+              offset: const Offset(6, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header badge
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: accentIconColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border, width: 3),
+                  ),
+                  child: Icon(
+                    hasNoShow ? AppIcons.warning : AppIcons.available,
+                    size: 32,
+                    color: AppColors.black,
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    onContinue();
-                  },
-                  icon: const Icon(AppIcons.forward),
-                  label: const Text('Tiếp tục'),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    hasNoShow
+                        ? 'Kết quả bình chọn'
+                        : 'Không có người vắng mặt',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasNoShow) ...[
+                      _ResultSectionHeader(
+                        label: 'Người bị đánh dấu vắng mặt (No-show)',
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      ...noShowPlayers.map(
+                        (player) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: _PlayerTile(
+                            candidate: player,
+                            bgColor: AppColors.error,
+                            icon: AppIcons.busy,
+                            iconColor: AppColors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
+                    _ResultSectionHeader(
+                      label: 'Người có mặt',
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    if (attendedPlayers.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.border,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Text(
+                          'Không có dữ liệu',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      )
+                    else
+                      ...attendedPlayers.map(
+                        (player) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: _PlayerTile(
+                            candidate: player,
+                            bgColor: AppColors.success,
+                            icon: AppIcons.available,
+                            iconColor: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.md),
+                    // Info banner
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: accentIconColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.border,
+                          width: 2.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            hasNoShow ? AppIcons.info : AppIcons.check,
+                            color: AppColors.black,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              hasNoShow
+                                  ? 'Điểm uy tín (Karma) của người vắng mặt sẽ bị giảm.'
+                                  : 'Tất cả thành viên đều có mặt. Cảm ơn!',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                                color: AppColors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _NeoFilledButton(
+              label: 'Tiếp tục',
+              icon: AppIcons.forward,
+              color: AppColors.primary,
+              onPressed: () {
+                Navigator.pop(context);
+                onContinue();
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -213,23 +229,27 @@ class _ResultSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         Container(
-          width: 6,
+          width: 8,
           height: 24,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: AppRadius.radiusFullAll,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.border, width: 1.5),
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w800,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
       ],
@@ -239,44 +259,59 @@ class _ResultSectionHeader extends StatelessWidget {
 
 class _PlayerTile extends StatelessWidget {
   final VotingCandidate candidate;
-  final Color color;
+  final Color bgColor;
   final IconData icon;
   final Color iconColor;
 
   const _PlayerTile({
     required this.candidate,
-    required this.color,
+    required this.bgColor,
     required this.icon,
     required this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: iconColor.withValues(alpha: 0.32)),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.border,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.3),
+            blurRadius: 0,
+            offset: const Offset(2, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: colors.surface,
-            foregroundColor: colors.onSurface,
-            child: Text(
-              candidate.name.isEmpty
-                  ? '?'
-                  : candidate.name.characters.first.toUpperCase(),
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border, width: 1.5),
+            ),
+            child: Center(
+              child: Text(
+                candidate.name.isEmpty
+                    ? '?'
+                    : candidate.name.characters.first.toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.black,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
@@ -286,32 +321,102 @@ class _PlayerTile extends StatelessWidget {
               candidate.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                color: AppColors.white,
               ),
             ),
           ),
           if (candidate.isHost)
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xs,
-                vertical: AppSpacing.xxs,
+                horizontal: 6,
+                vertical: 2,
               ),
               decoration: BoxDecoration(
-                color: colors.tertiary,
-                borderRadius: AppRadius.radiusXxsAll,
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.black, width: 1.5),
               ),
-              child: Text(
-                'Host',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onTertiary,
-                  fontWeight: FontWeight.w800,
+              child: const Text(
+                'HOST',
+                style: TextStyle(
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 9,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
-          const SizedBox(width: AppSpacing.xs),
-          Icon(icon, size: AppIcons.md, color: iconColor),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border, width: 1.5),
+            ),
+            child: Icon(icon, size: 14, color: iconColor),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button.
+class _NeoFilledButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoFilledButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: AppColors.white),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

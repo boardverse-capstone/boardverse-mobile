@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../domain/entities/entities.dart';
 import '../../cubit/cubit.dart';
 import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
-/// Tab "Bạn bè" — displays friends list (Accepted status) in a list view.
+/// Neo-brutalism Tab "Bạn bè".
 class FriendsListTab extends StatelessWidget {
   const FriendsListTab({super.key});
 
@@ -16,7 +17,9 @@ class FriendsListTab extends StatelessWidget {
     return BlocBuilder<FriendListCubit, FriendListData>(
       builder: (context, state) {
         if (state is FriendListLoading || state is FriendListInitial) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
         }
         if (state is FriendListError) {
           return ErrorRetryView(

@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../cubit/theme_cubit.dart';
 
-/// Trang Cài đặt hệ thống — cho phép người dùng chuyển đổi giữa các chế độ
-/// Sáng / Tối / Theo hệ thống. Được mở từ Profile → "Cài đặt hệ thống".
+/// Neo-brutalism Trang Cài đặt hệ thống.
 class SystemSettingsPage extends StatelessWidget {
   const SystemSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.background;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Cài đặt hệ thống'),
+        backgroundColor: bgColor,
+        elevation: 0,
+        title: const Text(
+          'CÀI ĐẶT HỆ THỐNG',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, state) {
@@ -29,7 +40,7 @@ class SystemSettingsPage extends StatelessWidget {
               vertical: AppSpacing.md,
             ),
             children: [
-              _SectionHeader(
+              const _SectionHeader(
                 icon: AppIcons.moon,
                 title: 'Giao diện',
                 subtitle: 'Chọn chế độ hiển thị cho ứng dụng',
@@ -64,7 +75,7 @@ class SystemSettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _InfoNote(theme: theme),
+              const _InfoNote(),
             ],
           );
         },
@@ -95,12 +106,20 @@ class _SectionHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.black, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.black,
+                  blurRadius: 0,
+                  offset: Offset(2, 2),
+                ),
+              ],
             ),
             child: Icon(
               icon,
-              color: theme.colorScheme.primary,
+              color: AppColors.white,
               size: AppIcons.md,
             ),
           ),
@@ -110,16 +129,20 @@ class _SectionHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  title.toUpperCase(),
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: theme.brightness == Brightness.dark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -138,18 +161,17 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
-    // Use Material (not Container) so ListTile's ink splashes can paint
-    // on top of the background. shape + borderRadius give us the same
-    // rounded border look as BoxDecoration.
-    return Material(
-      color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.06),
         ),
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -169,12 +191,12 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      thickness: 1,
-      indent: AppSpacing.md,
-      endIndent: AppSpacing.md,
-      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      height: 1.5,
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      color: (isDark ? AppColors.borderDark : AppColors.border)
+          .withValues(alpha: 0.6),
     );
   }
 }
@@ -199,66 +221,132 @@ class _ThemeOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final selected = value == groupValue;
+    final selectedColor = selected ? AppColors.primary : theme.colorScheme.onSurfaceVariant;
 
-    return ListTile(
-      onTap: onTap,
-      tileColor: selected
-          ? theme.colorScheme.primary.withValues(alpha: 0.08)
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.12)
           : Colors.transparent,
-      leading: Icon(
-        icon,
-        color: selected
-            ? theme.colorScheme.primary
-            : theme.colorScheme.onSurfaceVariant,
-      ),
-      title: Text(
-        title,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          color: selected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurface,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primary
+                      : (isDark
+                          ? AppColors.surfaceVariant
+                          : AppColors.surfaceVariant),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: selected ? AppColors.primary : AppColors.border,
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  color: selected ? AppColors.white : selectedColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                        color: selected ? AppColors.primary : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.brightness == Brightness.dark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.black, width: 2),
+                  ),
+                  child: const Icon(
+                    AppIcons.check,
+                    color: AppColors.white,
+                    size: 14,
+                  ),
+                )
+              else
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
+                ),
+            ],
+          ),
         ),
       ),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
-      trailing: selected
-          ? Icon(AppIcons.check, color: theme.colorScheme.primary)
-          : const Icon(AppIcons.forward, size: AppIcons.sm),
     );
   }
 }
 
 class _InfoNote extends StatelessWidget {
-  const _InfoNote({required this.theme});
-
-  final ThemeData theme;
+  const _InfoNote();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary, width: NeoBrutalismTheme.borderWidthBold),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            size: AppIcons.md,
-            color: theme.colorScheme.primary,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.info_outline,
+              color: AppColors.white,
+              size: 16,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               'Cài đặt sẽ được lưu lại cho những lần mở ứng dụng tiếp theo.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                height: 1.4,
               ),
             ),
           ),

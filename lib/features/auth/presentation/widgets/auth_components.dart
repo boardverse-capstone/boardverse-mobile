@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Card container cho auth forms.
-///
-/// Dùng `Theme.of(context).colorScheme.surface` thay vì `AppColors.white`
-/// cứng để tự động đổi khi dark mode.
+/// Neo-brutalism Form Card Container
 class AuthFormCard extends StatelessWidget {
   const AuthFormCard({
     super.key,
@@ -21,29 +18,27 @@ class AuthFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: padding ?? AppSpacing.paddingAllLg,
+      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.15),
+        ),
       ),
       child: child,
     );
   }
 }
 
-/// Email info badge cho verify page.
-///
-/// Hiển thị trên gradient nên dùng `Colors.white` cứng là hợp lý ở đây.
+/// Email info badge cho verify page - Neo style.
 class EmailInfoBadge extends StatelessWidget {
   const EmailInfoBadge({super.key, required this.email});
 
@@ -56,18 +51,19 @@ class EmailInfoBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: AppRadius.radiusMdAll,
+        color: AppColors.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 2,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.email_outlined,
-            color: Colors.white,
+            color: AppColors.primary,
             size: AppIcons.md,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -75,8 +71,8 @@ class EmailInfoBadge extends StatelessWidget {
             child: Text(
               email,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -87,7 +83,7 @@ class EmailInfoBadge extends StatelessWidget {
   }
 }
 
-/// Password strength indicator.
+/// Password strength indicator - Neo style.
 class PasswordStrengthIndicator extends StatelessWidget {
   const PasswordStrengthIndicator({super.key, required this.password});
 
@@ -118,21 +114,36 @@ class PasswordStrengthIndicator extends StatelessWidget {
       children: [
         Expanded(
           child: ClipRRect(
-            borderRadius: AppRadius.radiusFullAll,
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: strength / 5,
               backgroundColor: theme.colorScheme.outlineVariant,
-              valueColor: AlwaysStoppedAnimation<Color>(strengthColor),
-              minHeight: 4,
+              valueColor: AlwaysStoppedAnimation(strengthColor),
+              minHeight: 6,
             ),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          strengthText,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: strengthColor,
-            fontWeight: FontWeight.w600,
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: strengthColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: strengthColor.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            strengthText,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: strengthColor,
+            ),
           ),
         ),
       ],
@@ -140,7 +151,7 @@ class PasswordStrengthIndicator extends StatelessWidget {
   }
 }
 
-/// Terms checkbox.
+/// Terms checkbox - Neo style.
 class TermsCheckbox extends StatelessWidget {
   const TermsCheckbox({
     super.key,
@@ -154,24 +165,32 @@ class TermsCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 20,
-          height: 20,
-          child: Checkbox(
-            value: value,
-            onChanged: onChanged,
-            activeColor: theme.colorScheme.secondary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+        GestureDetector(
+          onTap: () => onChanged?.call(!value),
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: value ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: value ? AppColors.primary : (isDark ? AppColors.borderDark : AppColors.border),
+                width: 2,
+              ),
+              boxShadow: value
+                  ? NeoBrutalismTheme.lightShadow(
+                      shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                    )
+                  : null,
             ),
-            side: BorderSide(
-              color: theme.colorScheme.outline,
-              width: 1.5,
-            ),
+            child: value
+                ? const Icon(Icons.check, size: 16, color: AppColors.white)
+                : null,
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -179,28 +198,29 @@ class TermsCheckbox extends StatelessWidget {
           child: RichText(
             text: TextSpan(
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                height: 1.4,
               ),
-              children: const [
-                TextSpan(text: 'Tôi đồng ý với '),
+              children: [
+                const TextSpan(text: 'Tôi đồng ý với '),
                 TextSpan(
                   text: 'Điều khoản sử dụng',
                   style: TextStyle(
                     color: AppColors.secondary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     decoration: TextDecoration.underline,
                   ),
                 ),
-                TextSpan(text: ' và '),
+                const TextSpan(text: ' và '),
                 TextSpan(
                   text: 'Chính sách bảo mật',
                   style: TextStyle(
                     color: AppColors.secondary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     decoration: TextDecoration.underline,
                   ),
                 ),
-                TextSpan(text: ' của BoardVerse'),
+                const TextSpan(text: ' của BoardVerse'),
               ],
             ),
           ),

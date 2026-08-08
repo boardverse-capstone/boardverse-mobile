@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 
+/// Neo-brutalism Tournament action button — register/unregister.
 class TournamentActionButton extends StatelessWidget {
   final TournamentEntity tournament;
   final bool isRegistering;
@@ -22,35 +26,91 @@ class TournamentActionButton extends StatelessWidget {
     final canRegister = tournament.canRegister;
     final canWithdraw = tournament.canWithdraw;
     final hasAction = canRegister || canWithdraw;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     if (!hasAction) {
       return SizedBox(
         width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: null,
-          icon: const Icon(AppIcons.info),
-          label: const Text('Hiện chưa mở đăng ký'),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(AppIcons.info, color: AppColors.textSecondary),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'HIỆN CHƯA MỞ ĐĂNG KÝ',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final isWithdraw = tournament.isUserRegistered && canWithdraw;
-    final label = isWithdraw ? 'Rút lui khỏi giải' : 'Đăng ký tham gia';
+    final label = isWithdraw ? 'RÚT LUI KHỎI GIẢI' : 'ĐĂNG KÝ THAM GIA';
     final icon = isWithdraw ? AppIcons.close : AppIcons.userCheck;
     final onPressed = isWithdraw ? onUnregister : onRegister;
+    final color = isWithdraw ? AppColors.error : AppColors.primary;
 
     return SizedBox(
       width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: isRegistering ? null : onPressed,
-        icon: isRegistering
-            ? const SizedBox(
-                width: AppIcons.sm,
-                height: AppIcons.sm,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(icon),
-        label: Text(isRegistering ? 'Đang xử lý...' : label),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
+          boxShadow: NeoBrutalismTheme.lightShadow(
+            shadowColor: color.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: isRegistering ? null : onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isRegistering)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  else
+                    Icon(icon, color: AppColors.white),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    isRegistering ? 'ĐANG XỬ LÝ...' : label,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

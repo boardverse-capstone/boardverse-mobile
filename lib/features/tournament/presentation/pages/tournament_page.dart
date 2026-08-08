@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse_mobile/core/navigation/tournament_routes.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_cubit.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_state.dart';
@@ -62,17 +64,16 @@ class _TournamentPageContent extends StatefulWidget {
 }
 
 class _TournamentPageContentState extends State<_TournamentPageContent> {
-  /// Chiều cao hero — chỉ dùng cho gradient + icon trang trí
-  /// (đã bỏ hết text trong TournamentHero để UI gọn hơn).
   static const _heroHeight = 140.0;
   int _selectedFilter = 0;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       body: BlocBuilder<TournamentListCubit, TournamentListState>(
         builder: (context, state) {
           return NestedScrollView(
@@ -81,41 +82,56 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
                 automaticallyImplyLeading: false,
                 pinned: true,
                 expandedHeight: _heroHeight,
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 scrolledUnderElevation: 0,
                 actions: [
-                  PopupMenuButton<_TournamentMenuAction>(
-                    tooltip: 'Tùy chọn',
-                    icon: const Icon(Icons.more_vert_rounded),
-                    onSelected: (action) => _onMenuAction(context, action),
-                    itemBuilder: (popupContext) => const [
-                      PopupMenuItem(
-                        value: _TournamentMenuAction.myRegistrations,
-                        child: ListTile(
-                          leading: Icon(Icons.assignment_outlined),
-                          title: Text('Giải của tôi'),
-                          contentPadding: EdgeInsets.zero,
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.black, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.black,
+                          blurRadius: 0,
+                          offset: Offset(2, 2),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: _TournamentMenuAction.eloHistory,
-                        child: ListTile(
-                          leading: Icon(Icons.trending_up),
-                          title: Text('Lịch sử Elo'),
-                          contentPadding: EdgeInsets.zero,
+                      ],
+                    ),
+                    child: PopupMenuButton<_TournamentMenuAction>(
+                      tooltip: 'Tùy chọn',
+                      icon: const Icon(Icons.more_vert_rounded, color: AppColors.black),
+                      onSelected: (action) => _onMenuAction(context, action),
+                      itemBuilder: (popupContext) => const [
+                        PopupMenuItem(
+                          value: _TournamentMenuAction.myRegistrations,
+                          child: ListTile(
+                            leading: Icon(Icons.assignment_outlined),
+                            title: Text('Giải của tôi'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: _TournamentMenuAction.leaderboard,
-                        child: ListTile(
-                          leading: Icon(Icons.leaderboard_outlined),
-                          title: Text('Bảng xếp hạng'),
-                          contentPadding: EdgeInsets.zero,
+                        PopupMenuItem(
+                          value: _TournamentMenuAction.eloHistory,
+                          child: ListTile(
+                            leading: Icon(Icons.trending_up),
+                            title: Text('Lịch sử Elo'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
-                      ),
-                    ],
+                        PopupMenuItem(
+                          value: _TournamentMenuAction.leaderboard,
+                          child: ListTile(
+                            leading: Icon(Icons.leaderboard_outlined),
+                            title: Text('Bảng xếp hạng'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -123,11 +139,19 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
                     left: AppSpacing.md,
                     bottom: AppSpacing.md,
                   ),
-                  title: Text(
-                    'Giải đấu',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                      fontWeight: FontWeight.w700,
+                  title: const Text(
+                    'GIẢI ĐẤU',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      shadows: [
+                        Shadow(
+                          color: AppColors.black,
+                          offset: Offset(0, 2),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                   ),
                   background: TournamentHero(state: state),

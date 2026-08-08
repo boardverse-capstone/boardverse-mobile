@@ -194,6 +194,51 @@ extension ReservationStatusX on ReservationStatus {
       this == ReservationStatus.rejectedByCafe;
 }
 
+/// Mức rủi ro của user theo `riskScore` (BR-RISK-*).
+/// Backend trả về trong quote response (`riskLevel` field) để client
+/// hiển thị cảnh báo tiền cọc nhân hệ số cao.
+enum RiskLevel {
+  low,
+  medium,
+  high,
+  critical;
+
+  String get displayName {
+    switch (this) {
+      case RiskLevel.low:
+        return 'Bình thường';
+      case RiskLevel.medium:
+        return 'Trung bình';
+      case RiskLevel.high:
+        return 'Cao';
+      case RiskLevel.critical:
+        return 'Nghiêm trọng';
+    }
+  }
+
+  /// Hệ số nhân cọc tương ứng với mức rủi ro.
+  /// Khớp với `riskMultiplier` mapping BR-RISK-03 trong business rules.
+  double get suggestedMultiplier {
+    switch (this) {
+      case RiskLevel.low:
+        return 1.0;
+      case RiskLevel.medium:
+        return 1.25;
+      case RiskLevel.high:
+        return 1.5;
+      case RiskLevel.critical:
+        return 2.0;
+    }
+  }
+
+  static RiskLevel fromString(String value) {
+    return RiskLevel.values.firstWhere(
+      (e) => e.name.toLowerCase() == value.toLowerCase(),
+      orElse: () => RiskLevel.low,
+    );
+  }
+}
+
 /// Entity cho Reservation (BR §2, §6)
 class ReservationEntity extends Equatable {
   final String id;

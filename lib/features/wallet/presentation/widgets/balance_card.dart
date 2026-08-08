@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
 
-/// Widget hiển thị số dư ví BVC (BR §2.4)
-///
-/// Hiển thị:
-/// - availableBalance: Số BVC có thể dùng
-/// - heldBalance: Số BVC đang bị giữ
-/// - Tổng số dư
+/// Neo-brutalism Widget hiển thị số dư ví BVC.
 class BalanceCard extends StatelessWidget {
   final WalletEntity wallet;
   final bool showHeldBalance;
@@ -27,21 +22,25 @@ class BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Container(
-      padding: EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+          colors: [AppColors.primary, AppColors.primaryLight],
         ),
-        borderRadius: AppRadius.radiusXlAll,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+          // Hard neo-brutalism shadow offset
+          const BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(4, 4),
           ),
         ],
       ),
@@ -51,62 +50,81 @@ class BalanceCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Số dư BVC',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
+              const Text(
+                'SỐ DƯ BVC',
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1.5,
                 ),
               ),
-              _buildRiskBadge(textTheme),
+              _buildRiskBadge(),
             ],
           ),
-          SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.md),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '${wallet.availableBalance}',
                 style: textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 40,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w900,
+                  shadows: const [
+                    Shadow(
+                      color: AppColors.black,
+                      offset: Offset(0, 2),
+                      blurRadius: 6,
+                    ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xs, left: 4),
+              const Padding(
+                padding: EdgeInsets.only(bottom: AppSpacing.xs, left: 4),
                 child: Text(
                   'BVC',
-                  style: textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 1.5,
                   ),
                 ),
               ),
             ],
           ),
           if (showHeldBalance && wallet.heldBalance > 0) ...[
-            SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.sm),
             Container(
-              padding: EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.sm,
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: AppRadius.radiusSmAll,
+                color: AppColors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.5),
+                  width: 1.5,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.lock_outline,
                     size: AppIcons.xs,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: AppColors.white,
                   ),
-                  SizedBox(width: AppSpacing.xs),
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     '${wallet.heldBalance} BVC đang giữ',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -114,29 +132,58 @@ class BalanceCard extends StatelessWidget {
             ),
           ],
           if (onTopUpPressed != null) ...[
-            SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onTopUpPressed,
-                icon: Icon(Icons.add),
-                label: const Text('Nạp BVC'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primary,
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.radiusMdAll,
+            const SizedBox(height: AppSpacing.lg),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onTopUpPressed,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, color: AppColors.primary),
+                        SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'NẠP BVC',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
-          SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             '≈ ${_formatVnd(wallet.availableBalanceVnd)} VND',
-            style: textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.7),
+            style: TextStyle(
+              color: AppColors.white.withValues(alpha: 0.85),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -144,44 +191,79 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-  Widget _buildRiskBadge(TextTheme textTheme) {
-    Color badgeColor;
-    String label;
+  Widget _buildRiskBadge() {
+    Color badgeBg;
+    Color badgeTextColor;
 
     switch (wallet.riskLevel) {
       case RiskLevel.low:
-        badgeColor = AppColors.success;
-        label = 'Thấp';
+        badgeBg = AppColors.success;
+        badgeTextColor = AppColors.white;
       case RiskLevel.medium:
-        badgeColor = AppColors.warning;
-        label = 'Trung bình';
+        badgeBg = AppColors.warning;
+        badgeTextColor = AppColors.black;
       case RiskLevel.high:
-        badgeColor = AppColors.warning;
-        label = 'Cao';
+        badgeBg = AppColors.warning;
+        badgeTextColor = AppColors.black;
       case RiskLevel.critical:
-        badgeColor = AppColors.error;
-        label = 'Nguy hiểm';
+        badgeBg = AppColors.error;
+        badgeTextColor = AppColors.white;
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: AppSpacing.xxs + 2,
       ),
       decoration: BoxDecoration(
-        color: badgeColor.withValues(alpha: 0.2),
-        borderRadius: AppRadius.radiusSmAll,
-        border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+        color: badgeBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.black,
+          width: 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.shield_outlined, size: AppIcons.xs, color: badgeColor),
-          SizedBox(width: AppSpacing.xs),
-          Text(label, style: textTheme.labelSmall?.copyWith(color: badgeColor)),
+          Icon(
+            Icons.shield_outlined,
+            size: 12,
+            color: badgeTextColor,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            _riskLabel(wallet.riskLevel),
+            style: TextStyle(
+              color: badgeTextColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _riskLabel(RiskLevel level) {
+    switch (level) {
+      case RiskLevel.low:
+        return 'AN TOÀN';
+      case RiskLevel.medium:
+        return 'TRUNG BÌNH';
+      case RiskLevel.high:
+        return 'CAO';
+      case RiskLevel.critical:
+        return 'NGUY HIỂM';
+    }
   }
 
   String _formatVnd(int amount) {

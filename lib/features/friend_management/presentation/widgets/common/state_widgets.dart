@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_icons.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Empty state widget with icon, title and subtitle.
+/// Neo-brutalism Empty state widget with icon, title and subtitle.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -28,28 +30,26 @@ class EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    theme.colorScheme.primary.withValues(alpha: 0.12),
-                    theme.colorScheme.primary.withValues(alpha: 0.04),
-                  ],
-                ),
+                color: AppColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
+                border: Border.all(color: AppColors.primary, width: NeoBrutalismTheme.borderWidthBold),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Icon(
                 icon,
                 size: 48,
-                color: theme.colorScheme.primary,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              title,
+              title.toUpperCase(),
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -59,6 +59,7 @@ class EmptyState extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -68,7 +69,7 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Error state widget with retry button.
+/// Neo-brutalism Error state widget with retry button.
 class ErrorRetryView extends StatelessWidget {
   const ErrorRetryView({
     super.key,
@@ -81,7 +82,9 @@ class ErrorRetryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -91,26 +94,65 @@ class ErrorRetryView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                color: AppColors.error.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
+                border: Border.all(color: AppColors.error, width: NeoBrutalismTheme.borderWidthBold),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.error.withValues(alpha: 0.4),
+                ),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.error_outline,
                 size: 40,
-                color: theme.colorScheme.error,
+                color: AppColors.error,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(AppIcons.refresh),
-              label: const Text('Thử lại'),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidthBold),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onRetry,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.refresh, color: AppColors.white),
+                        SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'THỬ LẠI',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -119,7 +161,7 @@ class ErrorRetryView extends StatelessWidget {
   }
 }
 
-/// Section title with optional badge count.
+/// Neo-brutalism Section title with optional badge count.
 class SectionTitle extends StatelessWidget {
   const SectionTitle({super.key, required this.title, this.count});
 
@@ -133,10 +175,20 @@ class SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       child: Row(
         children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
           Text(
-            title,
+            title.toUpperCase(),
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
             ),
           ),
           if (count != null) ...[
@@ -144,14 +196,16 @@ class SectionTitle extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.black, width: 1.5),
               ),
               child: Text(
                 '$count',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.bold,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
                 ),
               ),
             ),

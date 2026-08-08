@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../cubit/voting_state.dart';
 
-/// Widget hiển thị một candidate để vote no-show.
+/// Neo-brutalism widget hiển thị một candidate để vote no-show.
 class VotingCard extends StatefulWidget {
   final VotingCandidate candidate;
   final int noShowVotes;
@@ -39,24 +41,28 @@ class _VotingCardState extends State<VotingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final progress = widget.totalVoters > 0
         ? (widget.noShowVotes + widget.notNoShowVotes) / widget.totalVoters
         : 0.0;
     final isUrgent = widget.remainingTime.inSeconds <= 10;
-    final urgentColor = colors.error;
-    final normalColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.info
-        : AppColors.info;
-    final timerColor = isUrgent ? urgentColor : normalColor;
+    final timerColor = isUrgent ? AppColors.error : AppColors.info;
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.cardRadius,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowXs,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
@@ -64,6 +70,7 @@ class _VotingCardState extends State<VotingCard> {
         children: [
           Row(
             children: [
+              // Avatar with optional host badge
               Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -71,18 +78,31 @@ class _VotingCardState extends State<VotingCard> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: colors.secondaryContainer,
+                      color: AppColors.secondary,
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color:
+                            isDark ? AppColors.borderDark : AppColors.border,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.black.withValues(alpha: 0.4),
+                          blurRadius: 0,
+                          offset: const Offset(2, 2),
+                        ),
+                      ],
                     ),
                     child: Center(
                       child: Text(
                         widget.candidate.name.isEmpty
                             ? '?'
                             : widget.candidate.name.characters.first
-                                  .toUpperCase(),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: colors.onSecondaryContainer,
-                          fontWeight: FontWeight.w800,
+                                .toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
                         ),
                       ),
                     ),
@@ -93,19 +113,31 @@ class _VotingCardState extends State<VotingCard> {
                       bottom: -4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
-                          vertical: AppSpacing.xxs,
+                          horizontal: 6,
+                          vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: colors.tertiary,
-                          borderRadius: AppRadius.radiusXxsAll,
-                          border: Border.all(color: colors.surface, width: 1.5),
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.black,
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.black.withValues(alpha: 0.3),
+                              blurRadius: 0,
+                              offset: const Offset(1, 1),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          'Host',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onTertiary,
-                            fontWeight: FontWeight.w800,
+                        child: const Text(
+                          'HOST',
+                          style: TextStyle(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 9,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
@@ -121,41 +153,63 @@ class _VotingCardState extends State<VotingCard> {
                       widget.candidate.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
+                    const SizedBox(height: 2),
                     Text(
                       'Người có thể vắng mặt',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
+              // Timer pill
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,
                   vertical: AppSpacing.xs,
                 ),
                 decoration: BoxDecoration(
-                  color: timerColor.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.radiusFullAll,
-                  border: Border.all(color: timerColor.withValues(alpha: 0.28)),
+                  color: timerColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.3),
+                      blurRadius: 0,
+                      offset: const Offset(2, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(AppIcons.clock, size: AppIcons.sm, color: timerColor),
-                    const SizedBox(width: AppSpacing.xxs),
+                    Icon(AppIcons.clock,
+                        size: 14, color: AppColors.white),
+                    const SizedBox(width: 4),
                     Text(
                       _formatDuration(widget.remainingTime),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: timerColor,
-                        fontWeight: FontWeight.w800,
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ],
@@ -166,38 +220,60 @@ class _VotingCardState extends State<VotingCard> {
 
           const SizedBox(height: AppSpacing.md),
 
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Progress
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Tiến độ bình chọn',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${widget.noShowVotes + widget.notNoShowVotes}/${widget.totalVoters} đã vote',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
+              Text(
+                'TIẾN ĐỘ BÌNH CHỌN',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                  letterSpacing: 0.8,
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondary,
+                ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              ClipRRect(
-                borderRadius: AppRadius.radiusFullAll,
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: colors.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  '${widget.noShowVotes + widget.notNoShowVotes}/${widget.totalVoters}',
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: isDark
+                  ? AppColors.borderDark
+                  : AppColors.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
+            ),
           ),
 
           const SizedBox(height: AppSpacing.md),
@@ -208,7 +284,7 @@ class _VotingCardState extends State<VotingCard> {
                 child: _VoteButton(
                   icon: AppIcons.busy,
                   label: 'Vắng mặt',
-                  color: colors.error,
+                  color: AppColors.error,
                   voteCount: widget.noShowVotes,
                   onTap: widget.onVoteNoShow,
                 ),
@@ -218,7 +294,7 @@ class _VotingCardState extends State<VotingCard> {
                 child: _VoteButton(
                   icon: AppIcons.available,
                   label: 'Có đến',
-                  color: colors.tertiary,
+                  color: AppColors.success,
                   voteCount: widget.notNoShowVotes,
                   onTap: widget.onVoteNotNoShow,
                 ),
@@ -227,7 +303,7 @@ class _VotingCardState extends State<VotingCard> {
               _VoteButton(
                 icon: Icons.skip_next,
                 label: 'Bỏ qua',
-                color: colors.onSurfaceVariant,
+                color: AppColors.textSecondary,
                 voteCount: null,
                 onTap: widget.onSkip,
                 isSmall: true,
@@ -240,6 +316,7 @@ class _VotingCardState extends State<VotingCard> {
   }
 }
 
+/// Neo-brutalism vote button.
 class _VoteButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -259,12 +336,10 @@ class _VoteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Material(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: AppRadius.radiusMdAll,
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: AppRadius.radiusMdAll,
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -272,42 +347,56 @@ class _VoteButton extends StatelessWidget {
             horizontal: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            borderRadius: AppRadius.radiusMdAll,
-            border: Border.all(color: color.withValues(alpha: 0.32)),
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: isSmall ? AppIcons.md : AppIcons.xl,
-                color: color,
+                size: isSmall ? 18 : 28,
+                color: AppColors.white,
               ),
-              const SizedBox(height: AppSpacing.xxs),
+              const SizedBox(height: 4),
               Text(
                 label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
                 ),
                 textAlign: TextAlign.center,
               ),
               if (voteCount != null) ...[
-                const SizedBox(height: AppSpacing.xxs),
+                const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
+                    horizontal: AppSpacing.sm,
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.18),
-                    borderRadius: AppRadius.radiusFullAll,
+                    color: AppColors.black,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: AppColors.white,
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
                     '$voteCount',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w800,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
                     ),
                   ),
                 ),

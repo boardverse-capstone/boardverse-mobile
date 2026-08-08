@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_radius.dart';
+import '../theme/neo_brutalism_theme.dart';
 import '../theme/app_spacing.dart';
 
-/// Shimmer primitives for loading placeholders.
+/// Neo-brutalism Shimmer primitives for loading placeholders.
 class ShimmerBase extends StatelessWidget {
   final double width;
   final double height;
@@ -23,9 +23,8 @@ class ShimmerBase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = isDark ? AppColors.surfaceDark : AppColors.white;
-    final highlight =
-        isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final base = isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final highlight = isDark ? AppColors.surfaceElevatedDark : AppColors.surface;
 
     return Container(
       width: width,
@@ -34,6 +33,10 @@ class ShimmerBase extends StatelessWidget {
       decoration: BoxDecoration(
         color: base,
         borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
       ),
       child: Shimmer.fromColors(
         baseColor: base,
@@ -50,35 +53,39 @@ class ShimmerBase extends StatelessWidget {
   }
 }
 
-/// Card-style skeleton matching tournament list items.
+/// Neo-brutalism Card skeleton for tournament list items.
 class TournamentCardSkeleton extends StatelessWidget {
   const TournamentCardSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusMdAll,
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        shadowColor: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: 16,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: ShimmerBase(
                   width: double.infinity,
                   height: 18,
-                  radius: 8,
+                  radius: 6,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
               ShimmerBase(
                 width: 64,
                 height: 18,
-                radius: 8,
+                radius: 6,
               ),
             ],
           ),
@@ -89,10 +96,10 @@ class TournamentCardSkeleton extends StatelessWidget {
             radius: 4,
           ),
           const SizedBox(height: AppSpacing.sm),
-          const Row(
+          Row(
             children: [
               ShimmerBase(width: 120, height: 12, radius: 4),
-              Spacer(),
+              const Spacer(),
               ShimmerBase(width: 48, height: 12, radius: 4),
             ],
           ),
@@ -123,36 +130,37 @@ class TournamentListSkeleton extends StatelessWidget {
   }
 }
 
-/// Row-style skeleton matching [LeaderboardPage] tiles.
+/// Row-style skeleton for leaderboard.
 class LeaderboardTileSkeleton extends StatelessWidget {
   const LeaderboardTileSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.1),
+        borderRadius: 12,
       ),
-      child: const Row(
+      child: Row(
         children: [
           ShimmerBase(width: 44, height: 44, radius: 22),
-          SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ShimmerBase(width: 160, height: 14, radius: 4),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 ShimmerBase(width: 100, height: 12, radius: 4),
               ],
             ),
           ),
-          SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.sm),
           ShimmerBase(width: 48, height: 22, radius: 8),
         ],
       ),
@@ -180,12 +188,14 @@ class LeaderboardListSkeleton extends StatelessWidget {
   }
 }
 
-/// Skeleton for [EloHistoryPage]'s hero section + chart + list.
+/// Skeleton for ELO history hero section.
 class EloHistorySkeleton extends StatelessWidget {
   const EloHistorySkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -194,18 +204,32 @@ class EloHistorySkeleton extends StatelessWidget {
         AppSpacing.xl,
       ),
       children: [
-        ShimmerBase(
-          width: double.infinity,
-          height: 96,
-          radius: AppRadius.radiusMd,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        const ShimmerBase(width: 120, height: 16, radius: 4),
-        const SizedBox(height: AppSpacing.sm),
-        ShimmerBase(
-          width: double.infinity,
-          height: 180,
-          radius: AppRadius.radiusMd,
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: NeoBrutalismTheme.autoBox(
+            context,
+            backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+            shadowColor: AppColors.primary.withValues(alpha: 0.15),
+            bold: true,
+            borderRadius: 20,
+          ),
+          child: Column(
+            children: [
+              ShimmerBase(
+                width: double.infinity,
+                height: 96,
+                radius: 12,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const ShimmerBase(width: 120, height: 16, radius: 4),
+              const SizedBox(height: AppSpacing.sm),
+              ShimmerBase(
+                width: double.infinity,
+                height: 180,
+                radius: 12,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.xl),
         const ShimmerBase(width: 140, height: 16, radius: 4),
@@ -225,25 +249,25 @@ class _EloHistoryItemSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: 12,
       ),
-      child: const Row(
+      child: Row(
         children: [
           ShimmerBase(width: 48, height: 48, radius: 8),
-          SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ShimmerBase(width: 200, height: 14, radius: 4),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 ShimmerBase(width: 160, height: 12, radius: 4),
               ],
             ),

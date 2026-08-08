@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Bubble hiển thị Min/Max value phía trên RangeSlider.
+/// Neo-brutalism Player bubble — số người Min/Max.
 class FilterPlayerBubble extends StatelessWidget {
   final String label;
   final int value;
@@ -16,24 +17,33 @@ class FilterPlayerBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: AppSpacing.xs + 2,
         horizontal: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: AppRadius.radiusSmAll,
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         children: [
           Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+              letterSpacing: 1,
             ),
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -43,18 +53,22 @@ class FilterPlayerBubble extends StatelessWidget {
             children: [
               Text(
                 '$value',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: theme.colorScheme.onPrimaryContainer,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.white,
+                  fontSize: 28,
+                  height: 1,
                 ),
               ),
               const SizedBox(width: AppSpacing.xxs),
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              const Padding(
+                padding: EdgeInsets.only(bottom: AppSpacing.xxs),
                 child: Text(
                   'người',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

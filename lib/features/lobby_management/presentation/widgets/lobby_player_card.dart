@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/lobby_entity.dart';
 
-/// Modern lobby player card với gradient accent, badge indicators, và
-/// press animation. Sử dụng board game style với glass-morphism hint.
+/// Modern lobby player card với neo-brutalism borders, badge indicators và
+/// press animation. Sử dụng bold border + hard shadow signature.
 class LobbyPlayerCard extends StatelessWidget {
   final LobbyPlayer player;
   final bool isCurrentUser;
@@ -19,17 +21,22 @@ class LobbyPlayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final successColor = theme.brightness == Brightness.dark
-        ? AppColorsDark.success
-        : AppColors.success;
-    final statusColor = player.isReady ? successColor : colors.outline;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final successColor = AppColors.success;
+    final statusColor = player.isReady ? successColor : AppColors.textTertiary;
     final statusLabel = player.isHost
         ? 'Chủ phòng'
         : player.isReady
             ? 'Sẵn sàng'
             : 'Đang chờ';
+
+    final cardColor = isCurrentUser
+        ? (isDark ? AppColors.primaryDark : AppColors.primaryLight)
+        : (isDark ? AppColors.surfaceDark : AppColors.surface);
+    final borderColor = isCurrentUser
+        ? AppColors.primary
+        : (isDark ? AppColors.borderDark : AppColors.border);
+    final textColor = isDark ? AppColors.white : AppColors.black;
 
     return Semantics(
       button: onTap != null,
@@ -41,32 +48,17 @@ class LobbyPlayerCard extends StatelessWidget {
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
-              gradient: isCurrentUser
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colors.primary.withValues(alpha: 0.15),
-                        colors.primary.withValues(alpha: 0.05),
-                      ],
-                    )
-                  : null,
-              color: isCurrentUser
-                  ? null
-                  : colors.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: AppRadius.radiusLgAll,
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isCurrentUser
-                    ? colors.primary.withValues(alpha: 0.6)
-                    : colors.outlineVariant.withValues(alpha: 0.5),
-                width: isCurrentUser ? 1.5 : 1,
+                color: borderColor,
+                width: isCurrentUser ? 3 : 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (isCurrentUser ? colors.primary : colors.primary)
-                      .withValues(alpha: isCurrentUser ? 0.08 : 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: AppColors.black.withValues(alpha: 0.4),
+                  blurRadius: 0,
+                  offset: const Offset(3, 3),
                 ),
               ],
             ),
@@ -84,50 +76,46 @@ class LobbyPlayerCard extends StatelessWidget {
                     _PlayerAvatar(player: player, isCurrentUser: isCurrentUser),
                     // Ready badge
                     Positioned(
-                      right: -AppSpacing.xxs,
-                      bottom: -AppSpacing.xxs,
+                      right: -4,
+                      bottom: -4,
                       child: Container(
                         width: 24,
                         height: 24,
                         decoration: BoxDecoration(
                           color: statusColor,
                           shape: BoxShape.circle,
-                          border: Border.all(color: colors.surface, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: statusColor.withValues(alpha: 0.4),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
                         ),
                         child: player.isReady
-                            ? const Icon(AppIcons.check, size: 12, color: Colors.white)
+                            ? const Icon(AppIcons.check,
+                                size: 12, color: AppColors.white)
                             : null,
                       ),
                     ),
                     // Host badge
                     if (player.isHost)
                       Positioned(
-                        left: -AppSpacing.xxs,
-                        top: -AppSpacing.xxs,
+                        left: -4,
+                        top: -4,
                         child: Container(
                           padding: const EdgeInsets.all(AppSpacing.xxs),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [colors.tertiary, colors.tertiary.withAlpha(204)],
-                            ),
+                            color: AppColors.accent,
                             shape: BoxShape.circle,
-                            border: Border.all(color: colors.surface, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.tertiary.withValues(alpha: 0.4),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2,
+                            ),
                           ),
-                          child: const Icon(AppIcons.starFilled, size: 12, color: Colors.white),
+                          child: const Icon(AppIcons.starFilled,
+                              size: 12, color: AppColors.black),
                         ),
                       ),
                   ],
@@ -139,9 +127,10 @@ class LobbyPlayerCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: isCurrentUser ? colors.primary : colors.onSurface,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                    fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -152,27 +141,28 @@ class LobbyPlayerCard extends StatelessWidget {
                     vertical: AppSpacing.xxs,
                   ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        (player.isHost ? colors.tertiary : statusColor).withValues(alpha: 0.15),
-                        (player.isHost ? colors.tertiary : statusColor).withValues(alpha: 0.05),
-                      ],
-                    ),
-                    borderRadius: AppRadius.radiusFullAll,
+                    color: player.isHost
+                        ? AppColors.accent
+                        : statusColor,
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: (player.isHost ? colors.tertiary : statusColor)
-                          .withValues(alpha: 0.3),
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.border,
+                      width: 1.5,
                     ),
                   ),
                   child: Text(
                     statusLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
                       color: player.isHost
-                          ? colors.tertiary
-                          : statusColor,
-                      fontWeight: FontWeight.w800,
+                          ? AppColors.black
+                          : AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
@@ -193,33 +183,30 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasAvatar = player.avatarUrl.trim().isNotEmpty;
     final initial = player.name.trim().isEmpty
         ? '?'
         : player.name.trim().characters.first.toUpperCase();
     final avatarColor = isCurrentUser
-        ? colors.primaryContainer
-        : colors.secondaryContainer;
+        ? AppColors.primary
+        : AppColors.secondary;
 
     return Container(
       width: 56,
       height: 56,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            avatarColor,
-            avatarColor.withAlpha(200),
-          ],
+        color: avatarColor,
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: avatarColor.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(2, 2),
           ),
         ],
       ),
@@ -231,10 +218,11 @@ class _PlayerAvatar extends StatelessWidget {
                 errorBuilder: (context, error, stackTrace) => Center(
                   child: Text(
                     initial,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: colors.onSecondaryContainer,
-                        ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.white,
+                      fontSize: 22,
+                    ),
                   ),
                 ),
               ),
@@ -242,10 +230,11 @@ class _PlayerAvatar extends StatelessWidget {
           : Center(
               child: Text(
                 initial,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: colors.onSecondaryContainer,
-                    ),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.white,
+                  fontSize: 22,
+                ),
               ),
             ),
     );
@@ -291,8 +280,8 @@ class LobbyPlayerGrid extends StatelessWidget {
               // highlight đúng người đang đăng nhập.
               final isCurrentUser =
                   currentUserId != null &&
-                  (player.userId == currentUserId ||
-                      player.id == currentUserId);
+                      (player.userId == currentUserId ||
+                          player.id == currentUserId);
               return LobbyPlayerCard(
                 player: player,
                 isCurrentUser: isCurrentUser,
@@ -309,32 +298,32 @@ class LobbyPlayerGrid extends StatelessWidget {
   }
 }
 
-/// Empty slot với gradient accent để thu hút attention.
+/// Empty slot với neo-brutalism style.
 class _EmptySlotCard extends StatelessWidget {
   const _EmptySlotCard();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Semantics(
       label: 'Vị trí đang trống',
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.surfaceContainerHighest.withValues(alpha: 0.3),
-              colors.surfaceContainerHighest.withValues(alpha: 0.1),
-            ],
-          ),
-          borderRadius: AppRadius.radiusLgAll,
+          color: isDark ? AppColors.surfaceDark : AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.4),
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 2,
             style: BorderStyle.solid,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.3),
+              blurRadius: 0,
+              offset: const Offset(3, 3),
+            ),
+          ],
         ),
         child: Center(
           child: Column(
@@ -343,36 +332,37 @@ class _EmptySlotCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colors.primary.withValues(alpha: 0.1),
-                      colors.primary.withValues(alpha: 0.05),
-                    ],
-                  ),
+                  color: AppColors.primary.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: colors.primary.withValues(alpha: 0.2),
+                    color: AppColors.primary,
+                    width: 2,
                   ),
                 ),
-                child: Icon(
+                child: const Icon(
                   AppIcons.userAdd,
-                  size: AppIcons.lg,
-                  color: colors.primary.withValues(alpha: 0.7),
+                  size: 22,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Đang trống',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w700,
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 'Mời bạn bè',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.primary.withValues(alpha: 0.6),
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
                 ),
               ),
             ],
@@ -426,8 +416,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final isFull = widget.lobby.currentPlayers >= widget.lobby.maxPlayers;
     if (!isFull) return const SizedBox.shrink();
@@ -450,8 +439,6 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
     final totalMembers = widget.lobby.players.length;
 
     // Current user có phải member + ready chưa?
-    // Lấy player trùng userId; nếu không tìm thấy (chưa load xong) coi như
-    // chưa ready.
     LobbyPlayer? currentPlayer;
     for (final p in widget.lobby.players) {
       if (p.userId == widget.currentUserId || p.id == widget.currentUserId) {
@@ -474,19 +461,19 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
         margin: const EdgeInsets.only(top: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.primaryContainer.withValues(alpha: 0.55),
-              colors.tertiaryContainer.withValues(alpha: 0.35),
-            ],
-          ),
-          borderRadius: AppRadius.radiusLgAll,
+          color: isDark ? AppColors.surfaceElevatedDark : AppColors.accentLight,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: colors.primary.withValues(alpha: 0.25),
-            width: 1,
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 3,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.4),
+              blurRadius: 0,
+              offset: const Offset(4, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,22 +484,31 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.xs),
                   decoration: BoxDecoration(
-                    color: colors.primary,
-                    borderRadius: AppRadius.radiusSmAll,
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.border,
+                      width: 2,
+                    ),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     AppIcons.users,
-                    size: AppIcons.sm,
-                    color: colors.onPrimary,
+                    size: 16,
+                    color: AppColors.white,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Phòng đã đầy • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.onSurface,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimary,
+                      fontSize: 15,
                     ),
                   ),
                 ),
@@ -522,18 +518,17 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
             // ── Body copy theo trạng thái ───────────────────────────
             if (widget.lobby.status == LobbyStatus.inProgress)
-              _bodyInProgress(theme, colors)
+              _bodyInProgress(isDark)
             else if (showReadySection)
               _bodyReadySection(
-                theme: theme,
-                colors: colors,
+                isDark: isDark,
                 readyCount: readyCount,
                 totalMembers: totalMembers,
                 isCurrentUserReady: isCurrentUserReady,
                 isCurrentUserHost: isCurrentUserHost,
               )
             else
-              _bodyFallback(theme, colors),
+              _bodyFallback(isDark),
 
             // ── Action buttons ──────────────────────────────────────
             const SizedBox(height: AppSpacing.md),
@@ -541,54 +536,154 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
               Row(
                 children: [
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _isToggling
-                          ? null
-                          : () => _handleToggleReady(isCurrentUserReady),
-                      icon: _isToggling
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Icon(
-                              isCurrentUserReady
-                                  ? AppIcons.check
-                                  : AppIcons.clock,
-                              size: 16,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isToggling
+                            ? null
+                            : () => _handleToggleReady(isCurrentUserReady),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isCurrentUserReady
+                                ? AppColors.accent
+                                : AppColors.primary,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2.5,
                             ),
-                      label: Text(
-                        isCurrentUserReady
-                            ? 'Đã sẵn sàng ✓ (bấm để hủy)'
-                            : 'Bấm Sẵn sàng',
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: isCurrentUserReady
-                            ? colors.tertiary
-                            : colors.primary,
-                        foregroundColor: isCurrentUserReady
-                            ? colors.onTertiary
-                            : colors.onPrimary,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.black.withValues(alpha: 0.4),
+                                blurRadius: 0,
+                                offset: const Offset(3, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_isToggling)
+                                const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.white,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  isCurrentUserReady
+                                      ? AppIcons.check
+                                      : AppIcons.clock,
+                                  size: 16,
+                                  color: isCurrentUserReady
+                                      ? AppColors.black
+                                      : AppColors.white,
+                                ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Text(
+                                isCurrentUserReady
+                                    ? 'Đã sẵn sàng ✓'
+                                    : 'Bấm Sẵn sàng',
+                                style: TextStyle(
+                                  color: isCurrentUserReady
+                                      ? AppColors.black
+                                      : AppColors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   if (widget.onSecondaryAction != null) ...[
                     const SizedBox(width: AppSpacing.sm),
-                    OutlinedButton(
-                      onPressed: widget.onSecondaryAction,
-                      child: const Text('Chi tiết'),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onSecondaryAction,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.surfaceDark
+                                : AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2.5,
+                            ),
+                          ),
+                          child: const Text(
+                            'Chi tiết',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ],
               ),
             ] else if (widget.onSecondaryAction != null) ...[
-              OutlinedButton.icon(
-                onPressed: widget.onSecondaryAction,
-                icon: const Icon(AppIcons.info, size: 16),
-                label: const Text('Xem chi tiết'),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onSecondaryAction,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.surfaceDark
+                          : AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.borderDark
+                            : AppColors.border,
+                        width: 2.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(AppIcons.info,
+                            size: 16, color: AppColors.info),
+                        const SizedBox(width: AppSpacing.xs),
+                        const Text(
+                          'Xem chi tiết',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ],
@@ -608,8 +703,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
   }
 
   Widget _bodyReadySection({
-    required ThemeData theme,
-    required ColorScheme colors,
+    required bool isDark,
     required int readyCount,
     required int totalMembers,
     required bool isCurrentUserReady,
@@ -635,10 +729,12 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
             vertical: AppSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: allReady
-                ? colors.tertiaryContainer
-                : colors.surfaceContainerHighest.withValues(alpha: 0.6),
-            borderRadius: AppRadius.radiusSmAll,
+            color: allReady ? AppColors.success : AppColors.accent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -646,18 +742,15 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
               Icon(
                 allReady ? AppIcons.check : AppIcons.clock,
                 size: 14,
-                color: allReady
-                    ? colors.onTertiaryContainer
-                    : colors.onSurfaceVariant,
+                color: allReady ? AppColors.white : AppColors.black,
               ),
               const SizedBox(width: AppSpacing.xxs),
               Text(
                 'Sẵn sàng: $readyCount/$totalMembers',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: allReady
-                      ? colors.onTertiaryContainer
-                      : colors.onSurfaceVariant,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: allReady ? AppColors.white : AppColors.black,
+                  fontSize: 12,
                 ),
               ),
             ],
@@ -666,33 +759,41 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
         const SizedBox(height: AppSpacing.sm),
         Text(
           nextStep,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colors.onSurfaceVariant,
+          style: TextStyle(
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimary,
+            fontSize: 13,
             height: 1.4,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
-  Widget _bodyInProgress(ThemeData theme, ColorScheme colors) {
+  Widget _bodyInProgress(bool isDark) {
     return Text(
       'Lobby đã chuyển sang "Đang chơi". Đến quán đúng giờ và bấm "Đã tới '
       'quán" để nhận mã QR check-in. Đừng quên đánh giá Karma sau khi chơi '
       'xong!',
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: colors.onSurfaceVariant,
+      style: TextStyle(
+        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+        fontSize: 13,
         height: 1.4,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
 
-  Widget _bodyFallback(ThemeData theme, ColorScheme colors) {
+  Widget _bodyFallback(bool isDark) {
     return Text(
       'Phòng đã đầy. Theo dõi để cập nhật tiếp theo từ chủ phòng.',
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: colors.onSurfaceVariant,
+      style: TextStyle(
+        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+        fontSize: 13,
         height: 1.4,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

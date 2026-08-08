@@ -11,6 +11,7 @@ import '../../domain/entities/rating_status_entity.dart';
 import '../../domain/entities/session_status_entity.dart';
 import '../../domain/enums/booking_status.dart';
 import '../cubit/booking_detail_actions_cubit.dart';
+import '../cubit/booking_realtime_cubit.dart';
 import '../cubit/booking_result_cubit.dart';
 import '../cubit/booking_result_state.dart';
 import '../widgets/booking_qr_card.dart';
@@ -173,6 +174,13 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       providers: [
         BlocProvider<BookingResultCubit>.value(value: _cubit),
         BlocProvider<BookingDetailActionsCubit>.value(value: _actionsCubit),
+        BlocProvider<BookingRealtimeCubit>(
+          create: (_) {
+            final cubit = getIt<BookingRealtimeCubit>();
+            cubit.watchBooking(widget.booking.id);
+            return cubit;
+          },
+        ),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -180,7 +188,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             listener: (context, state) {
               if (state is ResultCheckedIn) {
                 setState(() => _booking = state.booking);
-                // Trigger realtime session-status khi vừa vào CheckedIn.
                 _actionsCubit.startSessionPolling();
               } else if (state is ResultConfirmed) {
                 setState(() => _booking = state.booking);
@@ -197,6 +204,28 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               }
               if (state is RatingStatusLoaded) {
                 setState(() => _ratingStatus = state.status);
+              }
+            },
+          ),
+          // Auto-trigger RatingFormSheet khi nhận BookingCheckedOut event
+          // từ SignalR (staff đóng session POS).
+          BlocListener<BookingRealtimeCubit, BookingRealtimeState>(
+            listener: (context, state) async {
+              if (state is BookingCheckedOutEvent &&
+                  state.bookingId == widget.booking.id) {
+                if (!mounted) return;
+                // Refresh rating status + auto mở rating sheet.
+                await Future<void>.delayed(const Duration(milliseconds: 500));
+                if (!mounted) return;
+                _actionsCubit.refreshRatingStatus();
+                if (!mounted) return;
+                await _openRatingSheet();
+              } else if (state is BookingCheckedInEvent &&
+                  state.bookingId == widget.booking.id) {
+                if (!mounted) return;
+                _actionsCubit.startSessionPolling();
+                // Schedule NoShow vote reminder sau CheckedIn + 30 phút.
+                _scheduleNoShowVoteReminder();
               }
             },
           ),
@@ -615,5 +644,38 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     if (state is ResultCheckedIn) return state.booking;
     if (state is ResultCancelled) return state.booking;
     return null;
+  }
+
+  /// Schedule 1 timer 30 phút sau CheckedIn → show snackbar nhắc member
+  /// vote vắng mặt nếu vẫn ở trạng thái CheckedIn.
+  ///
+  /// Điều kiện BR-NEW-13:
+  /// - `CheckedIn + 30 phút` AND trước `scheduleEndTime + 24h`.
+  /// - Member có quyền vote bất kỳ ai vắng mặt.
+  void _scheduleNoShowVoteReminder() {
+    Future<void>.delayed(const Duration(minutes: 30), () async {
+      if (!mounted) return;
+      // Chỉ nhắc nếu vẫn CheckedIn + trước scheduleEndTime + 24h.
+      final scheduleEnd = _booking.scheduleEndTime;
+      if (DateTime.now().isAfter(scheduleEnd.add(const Duration(hours: 24)))) {
+        return;
+      }
+      if (_booking.status != BookingStatus.checkedIn) return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Đã qua 30 phút — bạn có thể vote vắng mặt cho thành viên '
+            'không có mặt tại quán.',
+          ),
+          action: SnackBarAction(
+            label: 'Vote',
+            onPressed: () => _openNoShowSheet(),
+          ),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
   }
 }

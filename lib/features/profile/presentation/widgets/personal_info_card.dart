@@ -7,12 +7,7 @@ import 'package:boardverse_mobile/features/profile/domain/entities/profile_entit
 import 'package:boardverse_mobile/features/profile/presentation/widgets/detail_row.dart';
 import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
 
-/// Thẻ "Thông tin tài khoản":
-/// - Hiển thị bio (nếu có) + các [DetailRow] (Karma, Họ tên, Ngày sinh, SĐT).
-/// - Header có nút edit mở bottom sheet.
-///
-/// Dùng [InfoEntry] pattern để DRY: duyệt qua 1 list entries, filter entries
-/// có value hợp lệ, render [DetailRow]. Tránh lặp `if (x != null) Padding(...)`.
+/// Neo-brutalism Thẻ "Thông tin tài khoản".
 class PersonalInfoCard extends StatelessWidget {
   const PersonalInfoCard({
     super.key,
@@ -26,6 +21,7 @@ class PersonalInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final entries = _buildEntries(profile);
 
     return SectionCard(
@@ -35,19 +31,43 @@ class PersonalInfoCard extends StatelessWidget {
           SectionHeader(
             icon: AppIcons.user,
             title: 'Thông tin tài khoản',
-            trailing: IconButton(
-              icon: const Icon(AppIcons.edit),
-              tooltip: 'Chỉnh sửa hồ sơ',
-              color: theme.colorScheme.primary,
-              onPressed: onEditPressed,
+            trailing: Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: 2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.black,
+                    blurRadius: 0,
+                    offset: Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  AppIcons.edit,
+                  color: AppColors.white,
+                  size: 18,
+                ),
+                tooltip: 'Chỉnh sửa hồ sơ',
+                onPressed: onEditPressed,
+              ),
             ),
           ),
-          Divider(
-            height: AppSpacing.lg,
-            color: theme.colorScheme.outlineVariant,
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            height: 2,
+            color: isDark
+                ? AppColors.borderDark.withValues(alpha: 0.5)
+                : AppColors.border.withValues(alpha: 0.4),
           ),
+          const SizedBox(height: AppSpacing.md),
           for (var i = 0; i < entries.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppSpacing.sm),
+            if (i > 0) const SizedBox(height: AppSpacing.md),
             DetailRow(
               icon: entries[i].icon,
               iconColor: entries[i].iconColor,
@@ -60,7 +80,7 @@ class PersonalInfoCard extends StatelessWidget {
     );
   }
 
-  /// Trả về list entries đã được filter — entry nào thiếu value sẽ bị bỏ.
+  /// Trả về list entries đã được filter.
   static List<InfoEntry> _buildEntries(ProfileEntity p) {
     final entries = <InfoEntry>[
       InfoEntry(

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../reservation/domain/entities/entities.dart';
 import 'dialog_row.dart';
 
-/// Dialog xác nhận tạo lobby — hiển thị thông tin + quote + buffer.
+/// Neo-brutalism Dialog xác nhận tạo lobby.
 class LobbyConfigConfirmDialog extends StatelessWidget {
   final String cafeName;
   final String gameName;
@@ -45,9 +46,22 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return AlertDialog(
-      title: const Text('Xác nhận tạo phòng'),
+      backgroundColor:
+          isDark ? AppColors.surfaceDark : AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+      ),
+      title: const Text(
+        'XÁC NHẬN TẠO PHÒNG',
+        style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -56,13 +70,22 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
             Text(
               'Kiểm tra thông tin trước khi đặt cọc:',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.outline,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
 
-            LobbyConfigDialogRow(icon: Icons.extension, label: 'Game', value: gameName),
-            LobbyConfigDialogRow(icon: Icons.local_cafe, label: 'Quán', value: cafeName),
+            LobbyConfigDialogRow(
+              icon: Icons.extension,
+              label: 'Game',
+              value: gameName,
+            ),
+            LobbyConfigDialogRow(
+              icon: Icons.local_cafe,
+              label: 'Quán',
+              value: cafeName,
+            ),
             LobbyConfigDialogRow(
               icon: Icons.calendar_today,
               label: 'Ngày',
@@ -95,35 +118,66 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
               const Divider(),
               const SizedBox(height: AppSpacing.sm),
               Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
+                padding: AppSpacing.paddingAllSm,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: AppRadius.radiusSmAll,
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Cọc cần trả:',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    const Text(
+                      'CỌC CẦN TRẢ:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.white,
+                        fontSize: 13,
+                        letterSpacing: 1,
                       ),
                     ),
                     Text(
                       '${quotePreview!.finalDeposit} BVC',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.white,
+                        fontSize: 18,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Buffer: ${formatBuffer(bufferMinutes)} để tuyển người',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.warning,
+                    width: NeoBrutalismTheme.borderWidth,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.hourglass_bottom,
+                      color: AppColors.warningDark,
+                      size: 14,
+                    ),
+                    const SizedBox(width: AppSpacing.xxs),
+                    Text(
+                      'Buffer: ${formatBuffer(bufferMinutes)} để tuyển người',
+                      style: const TextStyle(
+                        color: AppColors.warningDark,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -133,11 +187,51 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Quay lại chỉnh sửa'),
+          child: Text(
+            'QUAY LẠI',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.outline,
+            ),
+          ),
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Đặt cọc ngay'),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.black,
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.black,
+                blurRadius: 0,
+                offset: Offset(2, 2),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => Navigator.pop(context, true),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Text(
+                  'ĐẶT CỌC NGAY',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

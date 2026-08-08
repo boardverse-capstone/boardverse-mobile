@@ -6,6 +6,1818 @@
     "version": "v1"
   },
   "paths": {
+    "/api/v1/admin/cafes": {
+      "get": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Lấy danh sách tất cả cafes (phân trang, filter theo status/search).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "searchTerm",
+            "in": "query",
+            "description": "Tìm kiếm theo tên hoặc địa chỉ.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter theo operational status: DATA_BLANK, ACTIVE, INACTIVE, BANNED.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "managerId",
+            "in": "query",
+            "description": "Filter theo manager.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách cafes phân trang.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafeListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Tạo cafe mới (Admin tạo thay manager).\r\n[Role: Admin]",
+        "requestBody": {
+          "description": "Thông tin cafe cần tạo.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateCafeRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateCafeRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateCafeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cafe đã được tạo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafeDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Manager đã có cafe khác.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cafes/{cafeId}": {
+      "get": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Lấy chi tiết một cafe.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafeDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Cập nhật thông tin cafe (Admin sửa thay manager).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin cần cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateCafeRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateCafeRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateCafeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cafe đã được cập nhật.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafeDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Cafe đã bị đóng vĩnh viễn hoặc đang bị banned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Xóa cafe (soft delete - đặt IsActive = false).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cafe đã được xóa."
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cafes/{cafeId}/operational-status": {
+      "put": {
+        "tags": [
+          "Admin - Cafe"
+        ],
+        "summary": "Đặt trạng thái vận hành quán đối tác (Admin). [Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "status: DATA_BLANK, ACTIVE, INACTIVE, BANNED; reason bắt buộc khi BANNED.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trạng thái quán đã cập nhật.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafeOperationalStatusResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "status không hợp lệ hoặc thiếu reason khi BANNED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không có quyền Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy quán.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/overview": {
+      "get": {
+        "tags": [
+          "Admin - Reports"
+        ],
+        "summary": "Lấy tổng quan dashboard: users, cafes, tournaments, lobbies, bookings, deposits, revenue.\r\n[Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Tổng quan dashboard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboardOverviewDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/lobby-failures": {
+      "get": {
+        "tags": [
+          "Admin - Reports"
+        ],
+        "summary": "Báo cáo lobby failures: tổng hợp theo loại (timeout, host-cancelled, cafe-rejected, cafe-expired).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "description": "Bắt đầu khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "description": "Kết thúc khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "failureType",
+            "in": "query",
+            "description": "Filter theo loại: TimeoutFailed, HostCancelled, RejectedByCafe, ExpiredByCafe.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Báo cáo lobby failures.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLobbyFailuresReportDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/deposits": {
+      "get": {
+        "tags": [
+          "Admin - Reports"
+        ],
+        "summary": "Báo cáo deposits: tổng hợp theo trạng thái (pending, paid, refunded, forfeited).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "description": "Bắt đầu khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "description": "Kết thúc khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Báo cáo deposits.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDepositsReportDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/cafe-performance": {
+      "get": {
+        "tags": [
+          "Admin - Reports"
+        ],
+        "summary": "Báo cáo performance của tất cả cafes: bookings, lobbies, tournaments, revenue.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Sắp xếp theo: totalBookings, completionRate, failureRate, totalRevenue (mặc định totalRevenue).",
+            "schema": {
+              "type": "string",
+              "default": "totalRevenue"
+            }
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Sắp xếp giảm dần (mặc định true).",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Báo cáo cafe performance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafePerformanceReportDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/cafe-performance/{cafeId}": {
+      "get": {
+        "tags": [
+          "Admin - Reports"
+        ],
+        "summary": "Báo cáo chi tiết performance của một cafe cụ thể.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "description": "Bắt đầu khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "description": "Kết thúc khoảng thời gian (UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Báo cáo chi tiết cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCafePerformanceDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settlements/{settlementId}/override": {
+      "post": {
+        "tags": [
+          "Admin - Settlement"
+        ],
+        "summary": "W-06: Admin manually override a failed settlement after retry exhaustion.\r\nSets Status = Overridden, OverrideBy = adminId, OverrideAt = now.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "settlementId",
+            "in": "path",
+            "description": "Mã settlement cần override.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Override thành công.",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy settlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Settlement đã được override trước đó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments": {
+      "get": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Lấy danh sách tất cả tournaments (phân trang, filter theo status/cancel).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "searchTerm",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter theo TournamentStatus (Draft, RegistrationOpen, RegistrationClosed, OnGoing, Completed, Cancelled).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cafeId",
+            "in": "query",
+            "description": "Filter theo cafe (optional).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách tournaments phân trang.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTournamentListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Tạo tournament mới (Admin tạo thay cho manager).\r\n[Role: Admin]",
+        "requestBody": {
+          "description": "Thông tin tournament cần tạo.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateTournamentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateTournamentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateTournamentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tournament đã được tạo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy cafe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}": {
+      "get": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Lấy chi tiết một tournament.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTournamentDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Cập nhật tournament (Admin sửa thay manager).\r\nChỉ cho phép khi tournament ở trạng thái Draft.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin cần cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateTournamentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateTournamentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateTournamentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tournament đã được cập nhật.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament không ở trạng thái Draft.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Xóa tournament (Admin xóa thay manager).\r\nChỉ cho phép khi tournament ở trạng thái Draft.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tournament đã được xóa."
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament không ở trạng thái Draft.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/participants": {
+      "get": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Lấy danh sách participants của tournament.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter theo participant status (Registered, CheckedIn, Active, Finished, Withdrawn, NoShow).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách participants.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTournamentParticipantsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/open-registration": {
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Mở đăng ký tournament (Admin thay manager).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã mở đăng ký.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament không ở trạng thái hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/close-registration": {
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Đóng đăng ký tournament (Admin thay manager).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã đóng đăng ký.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament không ở trạng thái hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/start": {
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Bắt đầu tournament (Admin thay manager).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tournament đã bắt đầu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Không đủ người hoặc tournament không ở trạng thái hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/complete": {
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Hoàn thành tournament (Admin force-complete).\r\nChỉ cho phép khi tournament đang OnGoing.\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tournament đã được hoàn thành.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament không ở trạng thái OnGoing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tournaments/{tournamentId}/cancel": {
+      "post": {
+        "tags": [
+          "Admin - Tournament"
+        ],
+        "summary": "Hủy tournament (Admin thay manager).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do hủy (bắt buộc nếu tournament đã có participants).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCancelTournamentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCancelTournamentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCancelTournamentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tournament đã được hủy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lý do bắt buộc khi tournament đã có người đăng ký.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không phải Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Tournament đã hoàn thành hoặc đã bị hủy trước đó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/admin/wallet": {
       "get": {
         "tags": [
@@ -318,17 +2130,17 @@
         }
       }
     },
-    "/api/v1/admin/cafes/{cafeId}/operational-status": {
-      "put": {
+    "/api/v1/admin/wallet/{userId}/reconcile": {
+      "get": {
         "tags": [
-          "AdminCafe"
+          "Admin - Wallet"
         ],
-        "summary": "Đặt trạng thái vận hành quán đối tác (Admin). [Role: Admin]",
+        "summary": "W-05: Verify SUM(ledger entries) = wallet.availableBalance.\r\nLogic: SUM(TopUp + AdminCredit) - SUM(DepositHold + AdminDebit + DepositCapture + DepositForfeit) = availableBalance.\r\n[Role: Admin]",
         "parameters": [
           {
-            "name": "cafeId",
+            "name": "userId",
             "in": "path",
-            "description": "Mã quán.",
+            "description": "UserId cần reconcile.",
             "required": true,
             "schema": {
               "type": "string",
@@ -336,41 +2148,26 @@
             }
           }
         ],
-        "requestBody": {
-          "description": "status: DATA_BLANK, ACTIVE, INACTIVE, BANNED; reason bắt buộc khi BANNED.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminSetCafeOperationalStatusRequestDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Trạng thái quán đã cập nhật."
-          },
-          "400": {
-            "description": "status không hợp lệ hoặc thiếu reason khi BANNED."
-          },
-          "401": {
-            "description": "Thiếu token hoặc token không hợp lệ."
-          },
-          "403": {
-            "description": "Không có quyền Admin."
+            "description": "Kết quả reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletReconcileResultDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Không tìm thấy quán."
+            "description": "User không có ví.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1472,6 +3269,110 @@
         }
       }
     },
+    "/api/v1/admin/cooling-off": {
+      "get": {
+        "tags": [
+          "AdminModeration"
+        ],
+        "summary": "Lấy danh sách user đang cooling-off. [Role: Admin]",
+        "parameters": [
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách user cooling-off."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cooling-off/{userId}/release": {
+      "post": {
+        "tags": [
+          "AdminModeration"
+        ],
+        "summary": "Release cooling-off cho một user. [Role: Admin]",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "Mã người dùng cần release.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do release cooling-off.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseCoolingOffRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseCoolingOffRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseCoolingOffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã release cooling-off thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ hoặc user không trong trạng thái cooling-off."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "404": {
+            "description": "Không tìm thấy ví của người dùng."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/Auth/register": {
       "post": {
         "tags": [
@@ -1500,6 +3401,9 @@
         },
         "responses": {
           "200": {
+            "description": "OK"
+          },
+          "201": {
             "description": "Đăng ký thành công."
           },
           "400": {
@@ -5131,6 +7035,72 @@
         }
       }
     },
+    "/api/cafes/{cafeId}/pos/check-in-tokens": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "POS tạo mã QR cho player scan check-in (BR §21A.7 — 2 chiều check-in).\r\nStaff bấm \"Tạo QR mời khách scan\" → server sinh token 16-char alphanumeric → lưu DB → trả QR payload.\r\nPlayer mở app → scan QR POS → server lookup token → check-in vào cùng reservation.\r\n            \r\nToken có TTL 30 phút mặc định (tối đa 240 phút qua `ttlMinutes`). Mỗi token chỉ dùng 1 lần.\r\nCó thể gắn với 1 reservation cụ thể qua `reservationId`; nếu trống → token dùng cho walk-in/general.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán staff đang vận hành.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ReservationId (optional) + TTL tùy chỉnh (optional).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePosCheckInTokenRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePosCheckInTokenRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePosCheckInTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Tạo QR token thành công, trả token + QrPayload sẵn sàng hiển thị."
+          },
+          "400": {
+            "description": "Request không hợp lệ (TTL âm/vượt giới hạn, reservation không tồn tại)."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không đủ quyền vận hành quán."
+          },
+          "404": {
+            "description": "Quán hoặc reservation không tồn tại."
+          },
+          "409": {
+            "description": "Reservation không thuộc cafe hiện tại."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/cafes/{cafeId}/pos/sessions/{sessionId}/end": {
       "post": {
         "tags": [
@@ -5386,6 +7356,112 @@
           },
           "409": {
             "description": "Không thể khôi phục (đã có member được thanh toán hoặc phiên không ở CHECKING)."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/pause": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "L-05: Tạm dừng phiên chơi — timer ngừng đếm. [Role: Manager, CafeStaff]\r\nChỉ hoạt động khi phiên đang ACTIVE và chưa bị tạm dừng.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi cần tạm dừng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tạm dừng thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên chơi."
+          },
+          "409": {
+            "description": "Phiên không ở trạng thái ACTIVE hoặc đã bị tạm dừng."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/resume-pause": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "L-05: Tiếp tục lại phiên đang bị tạm dừng — timer tiếp tục đếm. [Role: Manager, CafeStaff]\r\nChỉ hoạt động khi phiên đang ACTIVE và IsPaused = true.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi cần tiếp tục.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tiếp tục thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên chơi."
+          },
+          "409": {
+            "description": "Phiên không bị tạm dừng."
           },
           "500": {
             "description": "Lỗi hệ thống."
@@ -5733,6 +7809,66 @@
           },
           "404": {
             "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/inventory-loss/pre-session": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "P-04: Ghi nhận hao hụt linh kiện TRƯỚC KHI có phiên chơi — dùng cho shift handoff.\r\nEndpoint này không cần sessionId, chỉ cần cafeId + gameInventoryBoxId.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin game box và danh sách linh kiện thiếu/hỏng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPreSessionInventoryLossRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPreSessionInventoryLossRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPreSessionInventoryLossRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã ghi nhận hao hụt."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Game box không tồn tại."
           },
           "500": {
             "description": "Lỗi hệ thống."
@@ -6200,6 +8336,212 @@
           },
           "404": {
             "description": "Không tìm thấy quán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/shifts": {
+      "post": {
+        "tags": [
+          "CafeShift"
+        ],
+        "summary": "Mở ca làm việc mới cho quán. [Role: Manager, CafeStaff]",
+        "requestBody": {
+          "description": "Thông tin mở ca (CafeId, OpeningCashBalance).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenShiftRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenShiftRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenShiftRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Mở ca thành công, trả về thông tin ca."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền vận hành quán này."
+          },
+          "404": {
+            "description": "Không tìm thấy quán."
+          },
+          "409": {
+            "description": "Đã có ca đang mở. Cần đóng ca hiện tại trước."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/shifts/{shiftId}/close": {
+      "post": {
+        "tags": [
+          "CafeShift"
+        ],
+        "summary": "Đóng ca làm việc đang mở. [Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "description": "Mã định danh ca làm việc.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin đóng ca (ClosingCashBalance).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseShiftRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseShiftRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseShiftRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đóng ca thành công, trả về thông tin ca sau khi đóng."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền vận hành quán này."
+          },
+          "404": {
+            "description": "Không tìm thấy ca làm việc."
+          },
+          "409": {
+            "description": "Ca đã được đóng trước đó."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/shifts/current": {
+      "get": {
+        "tags": [
+          "CafeShift"
+        ],
+        "summary": "Lấy ca đang mở của quán. [Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "query",
+            "description": "Mã định danh quán.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về ca đang mở hoặc null nếu không có ca nào."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền truy cập quán này."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/shifts/history": {
+      "get": {
+        "tags": [
+          "CafeShift"
+        ],
+        "summary": "Lấy lịch sử các ca làm việc của quán (phân trang). [Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "query",
+            "description": "Mã định danh quán.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Số trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 10, tối đa 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách ca làm việc phân trang."
+          },
+          "400": {
+            "description": "Tham số phân trang không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền truy cập quán này."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -7307,6 +9649,34 @@
         }
       }
     },
+    "/api/Leaderboard/karma": {
+      "get": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "K-06: Global karma leaderboard, ordered by KarmaPoints DESC. [Role: Public — ai cũng xem được.]",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Số lượng người chơi trả về (mặc định 100, tối đa 500).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách người chơi xếp hạng theo karma."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/lobbies": {
       "post": {
         "tags": [
@@ -7956,7 +10326,7 @@
         "tags": [
           "Lobby"
         ],
-        "summary": "Member bấm Ready/Unready khi lobby FULL. Nếu tất cả member Ready → lobby chuyển InProgress. [Role: Player]",
+        "summary": "Member bấm Ready/Unready để xác nhận tham gia lobby. Cho phép Ready khi lobby còn\r\nOpen/Full/Viable (không bắt buộc phải Full). Nếu TẤT CẢ member Ready → lobby chuyển InProgress.\r\nKhi lobby vừa đạt MaxMembers (chuyển sang Full), BR-LOBBY-READY-03 ghi nhận FullAt;\r\nscheduler sẽ timeout nếu 20 phút sau vẫn chưa có ai Ready. [Role: Player]",
         "parameters": [
           {
             "name": "lobbyId",
@@ -7970,7 +10340,7 @@
           }
         ],
         "requestBody": {
-          "description": "isReady = true/false.",
+          "description": "isReady = true (sẵn sàng) hoặc false (hủy).",
           "content": {
             "application/json": {
               "schema": {
@@ -7991,7 +10361,7 @@
         },
         "responses": {
           "200": {
-            "description": "Trạng thái ready đã cập nhật."
+            "description": "Trạng thái ready đã cập nhật. Trả về lobby dto với status mới nhất (Full/InProgress nếu đủ điều kiện)."
           },
           "401": {
             "description": "Thiếu token."
@@ -8003,7 +10373,7 @@
             "description": "Không tìm thấy phòng chờ."
           },
           "409": {
-            "description": "Lobby chưa FULL hoặc member bị Kicked/Left."
+            "description": "Lobby đã đóng (TimeoutFailed/HostCancelled/Closed) hoặc member đã bị Kicked/Left."
           },
           "500": {
             "description": "Lỗi hệ thống."
@@ -8649,6 +11019,9 @@
           },
           "409": {
             "description": "Đã là thành viên / lobby đầy / lobby đã đóng."
+          },
+          "429": {
+            "description": "Thử quá nhiều mã chia sẻ. Vui lòng chờ 15 phút."
           }
         }
       }
@@ -9856,188 +12229,59 @@
         }
       }
     },
-    "/api/admin/payment-master-accounts": {
-      "get": {
-        "tags": [
-          "PaymentMasterAccount"
-        ],
-        "summary": "Lấy danh sách master account. [Role: Admin]",
-        "responses": {
-          "200": {
-            "description": "Danh sách master account."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không có quyền Admin."
-          }
-        }
-      },
+    "/api/check-in/scan-qr": {
       "post": {
         "tags": [
-          "PaymentMasterAccount"
+          "PlayerCheckIn"
         ],
-        "summary": "Tạo master account dùng để nhận/tạm giữ deposit. [Role: Admin]",
+        "summary": "Player scan QR code hiển thị trên POS → gửi token cho backend.\r\nBackend lookup token trong DB, xác minh token còn hiệu lực, xác minh player là thành viên của\r\nreservation liên kết, tự động chọn bàn + hộp game còn trống, gọi nội bộ logic check-in\r\nhiện có của POS và trả về thông tin ActiveSession vừa khởi tạo.\r\n            \r\nToken chỉ dùng được 1 lần (consumed). Mỗi lần scan trả về 200 nếu thành công hoặc 4xx với\r\nlý do cụ thể (hết hạn, đã dùng, đã thu hồi, không phải thành viên reservation...).",
         "requestBody": {
-          "description": "Thông tin master account.",
+          "description": "Payload chứa 16-char token in hoa, alphanumeric (không bao gồm 0/1/I/O).",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentMasterAccountRequestDto"
+                "$ref": "#/components/schemas/PlayerScanTokenRequestDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentMasterAccountRequestDto"
+                "$ref": "#/components/schemas/PlayerScanTokenRequestDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePaymentMasterAccountRequestDto"
+                "$ref": "#/components/schemas/PlayerScanTokenRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "201": {
-            "description": "Tạo master account thành công."
+            "description": "Check-in thành công, trả về thông tin ActiveSession cho player."
           },
           "400": {
-            "description": "Dữ liệu không hợp lệ."
+            "description": "Token không đúng định dạng (16-char alphanumeric uppercase, loại trừ 0/1/I/O)."
           },
           "401": {
-            "description": "Thiếu token hoặc token không hợp lệ."
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
           },
           "403": {
-            "description": "Tài khoản không có quyền Admin."
+            "description": "Player không phải thành viên của reservation liên kết với QR này."
+          },
+          "404": {
+            "description": "Không tìm thấy token hoặc reservation liên kết không tồn tại."
+          },
+          "409": {
+            "description": "Token đã được sử dụng trước đó (consumed)."
+          },
+          "410": {
+            "description": "Token đã hết hạn TTL hoặc đã bị thu hồi (revoked)."
+          },
+          "422": {
+            "description": "Reservation không trong khung giờ check-in hoặc quán không còn bàn/hộp game trống."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/admin/payment-master-accounts/{id}": {
-      "get": {
-        "tags": [
-          "PaymentMasterAccount"
-        ],
-        "summary": "Lấy chi tiết master account. [Role: Admin]",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Mã master account.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Chi tiết master account."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không có quyền Admin."
-          },
-          "404": {
-            "description": "Không tìm thấy."
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "PaymentMasterAccount"
-        ],
-        "summary": "Cập nhật master account. [Role: Admin]",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Mã master account.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Thông tin cần cập nhật.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePaymentMasterAccountRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePaymentMasterAccountRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePaymentMasterAccountRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Cập nhật thành công."
-          },
-          "400": {
-            "description": "Dữ liệu không hợp lệ."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không có quyền Admin."
-          },
-          "404": {
-            "description": "Không tìm thấy."
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "PaymentMasterAccount"
-        ],
-        "summary": "Xóa master account (soft delete). [Role: Admin]",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Mã master account.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Xóa thành công."
-          },
-          "401": {
-            "description": "Thiếu token."
-          },
-          "403": {
-            "description": "Không có quyền Admin."
-          },
-          "404": {
-            "description": "Không tìm thấy."
           }
         }
       }
@@ -10054,6 +12298,113 @@
           },
           "401": {
             "description": "Thiếu token, token hết hạn, token bị thu hồi, hoặc tài khoản bị chặn/vô hiệu hóa."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{sessionId}/receipt": {
+      "get": {
+        "tags": [
+          "Receipt"
+        ],
+        "summary": "Lấy receipt cho một phiên chơi đã thanh toán. [Role: Admin, Manager, CafeStaff]\r\nP-01: Receipt Generation API",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt chi tiết."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền truy cập."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên chơi."
+          },
+          "409": {
+            "description": "Phiên chưa được thanh toán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/cafes/{cafeId}/revenue": {
+      "get": {
+        "tags": [
+          "Receipt"
+        ],
+        "summary": "Lấy báo cáo doanh thu theo kỳ. [Role: Admin, Manager]\r\nP-02: Revenue Report API",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Ngày bắt đầu (yyyy-MM-dd).",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "Ngày kết thúc (yyyy-MM-dd).",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "daily|weekly|monthly. Mặc định: daily.",
+            "schema": {
+              "type": "string",
+              "default": "daily"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Báo cáo doanh thu chi tiết."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ (ngày không hợp lệ hoặc granularity không đúng)."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền truy cập."
+          },
+          "404": {
+            "description": "Không tìm thấy cafe."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -11691,6 +14042,111 @@
         }
       }
     },
+    "/api/v1/tournaments/{tournamentId}/spectate": {
+      "post": {
+        "tags": [
+          "Tournament"
+        ],
+        "summary": "T-04: Bắt đầu spectate một tournament. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bắt đầu spectate thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu."
+          },
+          "409": {
+            "description": "Bạn là người chơi trong tournament này."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/unspectate": {
+      "post": {
+        "tags": [
+          "Tournament"
+        ],
+        "summary": "T-04: Ngừng spectate một tournament. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ngừng spectate thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Bạn không spectate tournament này."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/spectate/me": {
+      "get": {
+        "tags": [
+          "Tournament"
+        ],
+        "summary": "T-04: Lấy thông tin spectating của user hiện tại. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin spectator entry."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Bạn không spectate tournament này."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/pos/tournaments/cafes/{cafeId}": {
       "post": {
         "tags": [
@@ -12804,6 +15260,517 @@
         }
       }
     },
+    "/api/v1/tournaments/{tournamentId}/spectators": {
+      "post": {
+        "tags": [
+          "TournamentSpectator"
+        ],
+        "summary": "T-04: Bắt đầu spectate một tournament. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu muốn spectate.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spectate thành công, trả thông tin spectate entry.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "User là participant của tournament này.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TournamentSpectator"
+        ],
+        "summary": "T-04: Rời khỏi spectate. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rời spectate thành công."
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy spectate entry.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "TournamentSpectator"
+        ],
+        "summary": "T-04: Lấy danh sách spectators của một tournament (public). [Role: Public]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách spectators.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TournamentSpectatorDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TournamentSpectatorDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TournamentSpectatorDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/spectators/me": {
+      "get": {
+        "tags": [
+          "TournamentSpectator"
+        ],
+        "summary": "T-04: Lấy spectate entry của user hiện tại cho một tournament. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin spectate entry hoặc null nếu chưa spectate.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentSpectatorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/waitlist": {
+      "post": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Tham gia waitlist của một tournament đầy. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tham gia waitlist thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu."
+          },
+          "409": {
+            "description": "Đã đăng ký hoặc đã trong waitlist."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Lấy danh sách waitlist của một tournament. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách waitlist."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Hủy tham gia waitlist. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hủy waitlist thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Bạn không có trong waitlist."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/waitlist/me": {
+      "get": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Lấy thông tin waitlist của user hiện tại. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin waitlist entry của user."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/waitlist/confirm": {
+      "post": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Xác nhận tham gia tournament từ waitlist (khi có offer). [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xác nhận thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Bạn không có trong waitlist."
+          },
+          "409": {
+            "description": "Offer đã hết hạn hoặc không có offer."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments/{tournamentId}/waitlist/decline": {
+      "post": {
+        "tags": [
+          "TournamentWaitlist"
+        ],
+        "summary": "T-03: Từ chối offer từ waitlist. [Role: Player]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Từ chối thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "404": {
+            "description": "Bạn không có trong waitlist."
+          },
+          "409": {
+            "description": "Bạn không có offer nào để từ chối."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/UserManagement/users": {
       "get": {
         "tags": [
@@ -13365,6 +16332,54 @@
           },
           "403": {
             "description": "Tài khoản bị chặn hoặc vô hiệu hóa."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/UserProfile/me/profile": {
+      "put": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "K-05: Cập nhật profile người chơi với cover photo, favorite games.\r\nGamesPlayedCount và WinRate được tính từ MatchHistory. [Role: Player, Manager, CafeStaff, Admin]",
+        "requestBody": {
+          "description": "Thông tin profile cần cập nhật (coverPhoto, bio, favoriteGameIds).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlayerProfileDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlayerProfileDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlayerProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật thành công, trả về profile kèm stats."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          },
+          "403": {
+            "description": "Tài khoản bị chặn hoặc vô hiệu hóa."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -14193,6 +17208,550 @@
         },
         "additionalProperties": false
       },
+      "AdminCafeDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatusReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatusChangedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "weekdayOpen": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekdayClose": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekendOpen": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekendClose": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "numberOfTables": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfPrivateRooms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSeats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfGamesOwned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "popularGamesList": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasGameMaster": {
+            "type": "boolean"
+          },
+          "billingModel": {
+            "type": "string",
+            "nullable": true
+          },
+          "basePrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "tieredBlockRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isPricingLocked": {
+            "type": "boolean"
+          },
+          "depositPercentage": {
+            "type": "number",
+            "format": "double"
+          },
+          "defaultHoldDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "refundPolicy": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasSePayConfigured": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafeListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalSeats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfTables": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfGamesOwned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "depositPercentage": {
+            "type": "number",
+            "format": "double"
+          },
+          "hasSePayConfigured": {
+            "type": "boolean"
+          },
+          "staffCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCafeListItemDto"
+            },
+            "nullable": true
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafeOperationalStatusResultDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operationalStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafePerformanceDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completedBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelledBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noShowBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completionRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalLobbies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failedLobbies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failureRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalTournaments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRevenueVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDepositsVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activeCafe": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafePerformanceReportDto": {
+        "type": "object",
+        "properties": {
+          "cafes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCafePerformanceDto"
+            },
+            "nullable": true
+          },
+          "totalCafes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averageCompletionRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageFailureRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRevenueVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCafeStaffDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCancelTournamentRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Lý do hủy tournament (bắt buộc khi tournament đã có participants).",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request DTO for Admin Cancel Tournament."
+      },
+      "AdminCreateCafeRequestDto": {
+        "required": [
+          "address",
+          "managerId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 5,
+            "type": "string"
+          },
+          "address": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalSeats": {
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfTables": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfPrivateRooms": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfGamesOwned": {
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "billingModel": {
+            "$ref": "#/components/schemas/CafePartnerBillingModel"
+          },
+          "basePrice": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          },
+          "tieredBlockRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "maximum": 1440,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "depositPercentage": {
+            "maximum": 0.5,
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          },
+          "defaultHoldDurationMinutes": {
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "refundPolicy": {
+            "$ref": "#/components/schemas/DepositRefundPolicy"
+          },
+          "sePayApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayMerchantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePaySecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayReturnUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "AdminCreateCategoryRequestDto": {
         "required": [
           "name"
@@ -14248,6 +17807,120 @@
         },
         "additionalProperties": false
       },
+      "AdminCreateTournamentRequestDto": {
+        "required": [
+          "cafeId",
+          "gameTemplateId",
+          "registrationDeadline",
+          "startTime",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 5,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registrationDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entryFee": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          },
+          "roundDurationMinutes": {
+            "maximum": 480,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "minParticipants": {
+            "maximum": 32,
+            "minimum": 4,
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxParticipants": {
+            "maximum": 32,
+            "minimum": 4,
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRounds": {
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "preliminaryRounds": {
+            "maximum": 3,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "finalistCount": {
+            "maximum": 8,
+            "minimum": 2,
+            "type": "integer",
+            "format": "int32"
+          },
+          "minKarmaRequirement": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "minEloRequirement": {
+            "maximum": 3000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxEloRequirement": {
+            "maximum": 3000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "pairingMode": {
+            "$ref": "#/components/schemas/TournamentPairingMode"
+          },
+          "autoExtendOnShortage": {
+            "type": "boolean"
+          },
+          "maxExtensionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extensionMinutesPerAttempt": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AdminCreateUserDto": {
         "required": [
           "email",
@@ -14277,6 +17950,372 @@
             "minLength": 0,
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminDashboardOverviewDto": {
+        "type": "object",
+        "properties": {
+          "totalUsers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCafes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activeCafes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalTournaments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "draftTournaments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "registrationOpenTournaments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activeTournaments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalLobbies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failedLobbies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checkedInBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completedBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRevenueVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalDepositsAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "pendingDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelledDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalLobbyFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeoutFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hostCancelledFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rejectedByCafeFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "expiredByCafeFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminDepositItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminDepositTrendItemDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "amountVnd": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminDepositsReportDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDepositItemDto"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPending": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPaid": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRefunded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalForfeited": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPendingAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalPaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRefundedAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalForfeitedAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "pendingDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "paidDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "paidAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "refundedDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "refundedAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "forfeitedDeposits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "forfeitedAmountVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageDepositVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDepositTrendItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminLobbyFailureItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameTemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "hostUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "failureType": {
+            "type": "string",
+            "nullable": true
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminLobbyFailuresReportDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminLobbyFailureItemDto"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeoutCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hostCancelledCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rejectedByCafeCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "expiredByCafeCount": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -14409,6 +18448,492 @@
         },
         "additionalProperties": false
       },
+      "AdminTournamentDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdByManagerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registeredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checkedInCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasThirdPlaceMatch": {
+            "type": "boolean"
+          },
+          "winnerKarmaBonus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "finalistKarmaBonus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noShowKarmaPenalty": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTournamentParticipantDto"
+            },
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registrationDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "roundDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "entryFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRounds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "preliminaryRounds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "finalistCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentRound": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "minKarmaRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minEloRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxEloRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pairingMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "autoExtendOnShortage": {
+            "type": "boolean"
+          },
+          "maxExtensionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extensionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatusReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerOperationalStatusChangedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "weekdayOpen": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekdayClose": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekendOpen": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "weekendClose": {
+            "type": "string",
+            "format": "date-span",
+            "nullable": true
+          },
+          "numberOfTables": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfPrivateRooms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfGamesOwned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "popularGamesList": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasGameMaster": {
+            "type": "boolean"
+          },
+          "isPricingLocked": {
+            "type": "boolean"
+          },
+          "sePayMerchantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePaySecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayReturnUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultHoldDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "refundPolicy": {
+            "type": "string",
+            "nullable": true
+          },
+          "staffMembers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCafeStaffDto"
+            },
+            "nullable": true
+          },
+          "staffCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTournamentListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registrationDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "minParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTournamentListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTournamentListItemDto"
+            },
+            "nullable": true
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTournamentParticipantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tournamentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "eloChange": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "currentElo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isWalkIn": {
+            "type": "boolean"
+          },
+          "checkedInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "withdrawnAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalRank": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "swissWins": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "swissDraws": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "totalPrestigePoints": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTournamentParticipantsResponseDto": {
+        "type": "object",
+        "properties": {
+          "tournamentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tournamentTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTournamentParticipantDto"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AdminUpdateBoardGameRequestDto": {
         "type": "object",
         "properties": {
@@ -14460,6 +18985,129 @@
           },
           "isActive": {
             "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminUpdateCafeRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 5,
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "totalSeats": {
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "numberOfTables": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "numberOfPrivateRooms": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "numberOfGamesOwned": {
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "billingModel": {
+            "$ref": "#/components/schemas/CafePartnerBillingModel"
+          },
+          "basePrice": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tieredBlockMinutes": {
+            "maximum": 1440,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "depositPercentage": {
+            "maximum": 0.5,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "defaultHoldDurationMinutes": {
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "refundPolicy": {
+            "$ref": "#/components/schemas/DepositRefundPolicy"
+          },
+          "sePayApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayMerchantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePaySecretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "sePayReturnUrl": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -14533,6 +19181,100 @@
             "minLength": 0,
             "type": "string",
             "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminUpdateTournamentRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 5,
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "registrationDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "entryFee": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "roundDurationMinutes": {
+            "maximum": 480,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "minParticipants": {
+            "maximum": 32,
+            "minimum": 4,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "maxParticipants": {
+            "maximum": 32,
+            "minimum": 4,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "minKarmaRequirement": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "minEloRequirement": {
+            "maximum": 3000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "maxEloRequirement": {
+            "maximum": 3000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "pairingMode": {
+            "$ref": "#/components/schemas/TournamentPairingMode"
+          },
+          "autoExtendOnShortage": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "maxExtensionCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "extensionMinutesPerAttempt": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15435,6 +20177,20 @@
         },
         "additionalProperties": false
       },
+      "CloseShiftRequestDto": {
+        "required": [
+          "closingCashBalance"
+        ],
+        "type": "object",
+        "properties": {
+          "closingCashBalance": {
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "ComponentCheckResultItemDto": {
         "type": "object",
         "properties": {
@@ -15723,40 +20479,6 @@
         },
         "additionalProperties": false
       },
-      "CreatePaymentMasterAccountRequestDto": {
-        "type": "object",
-        "properties": {
-          "provider": {
-            "type": "string",
-            "nullable": true
-          },
-          "accountHolder": {
-            "type": "string",
-            "nullable": true
-          },
-          "bankCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "maskedAccountNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "virtualAccountNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "qrContent": {
-            "type": "string",
-            "nullable": true
-          },
-          "webhookSecret": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "CreatePaymentRequestDto": {
         "type": "object",
         "properties": {
@@ -15787,6 +20509,24 @@
           },
           "cancelUrl": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreatePosCheckInTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ttlMinutes": {
+            "maximum": 240,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -15942,6 +20682,9 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "hasThirdPlaceMatch": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -16360,6 +21103,24 @@
         },
         "additionalProperties": false
       },
+      "ManualPairingsSummaryDto": {
+        "type": "object",
+        "properties": {
+          "round1Set": {
+            "type": "boolean"
+          },
+          "round2Set": {
+            "type": "boolean"
+          },
+          "round3Set": {
+            "type": "boolean"
+          },
+          "finalSet": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ManualPaymentConfirmRequestDto": {
         "required": [
           "amount",
@@ -16532,6 +21293,25 @@
         },
         "additionalProperties": false
       },
+      "OpenShiftRequestDto": {
+        "required": [
+          "cafeId",
+          "openingCashBalance"
+        ],
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openingCashBalance": {
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "PartialCheckoutRequestDto": {
         "required": [
           "memberIds"
@@ -16586,6 +21366,20 @@
           "Group"
         ],
         "type": "string"
+      },
+      "PlayerScanTokenRequestDto": {
+        "required": [
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 16,
+            "minLength": 16,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "PostLobbyMessageRequestDto": {
         "type": "object",
@@ -16815,6 +21609,30 @@
         },
         "additionalProperties": false
       },
+      "RecordPreSessionInventoryLossRequestDto": {
+        "required": [
+          "cafeInventoryBoxId"
+        ],
+        "type": "object",
+        "properties": {
+          "cafeInventoryBoxId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lostComponents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComponentLossItemDto"
+            },
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RefreshTokenRequestDto": {
         "required": [
           "refreshToken"
@@ -16971,6 +21789,20 @@
           "reason": {
             "maxLength": 1000,
             "minLength": 0,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReleaseCoolingOffRequestDto": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 5,
             "type": "string"
           }
         },
@@ -17787,6 +22619,216 @@
         ],
         "type": "string"
       },
+      "TournamentParticipantStatus": {
+        "enum": [
+          "Registered",
+          "CheckedIn",
+          "Active",
+          "Eliminated",
+          "NoShow",
+          "Finished",
+          "Withdrawn"
+        ],
+        "type": "string"
+      },
+      "TournamentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdByManagerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registrationDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "roundDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxParticipants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "entryFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRounds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "preliminaryRounds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "finalistCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasThirdPlaceMatch": {
+            "type": "boolean"
+          },
+          "currentRound": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "minKarmaRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minEloRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxEloRequirement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noShowKarmaPenalty": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "winnerKarmaBonus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "finalistKarmaBonus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancellationReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/TournamentStatus"
+          },
+          "registeredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checkedInCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "currentUserRegistered": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "currentUserParticipantStatus": {
+            "$ref": "#/components/schemas/TournamentParticipantStatus"
+          },
+          "pairingMode": {
+            "$ref": "#/components/schemas/TournamentPairingMode"
+          },
+          "manualPairings": {
+            "$ref": "#/components/schemas/ManualPairingsSummaryDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TournamentSpectatorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tournamentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tournamentTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string",
+            "nullable": true
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leftAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TournamentStatus": {
+        "enum": [
+          "Draft",
+          "RegistrationOpen",
+          "RegistrationClosed",
+          "OnGoing",
+          "Completed",
+          "Cancelled"
+        ],
+        "type": "string"
+      },
       "TransferHostRequestDto": {
         "type": "object",
         "properties": {
@@ -18122,39 +23164,6 @@
         },
         "additionalProperties": false
       },
-      "UpdatePaymentMasterAccountRequestDto": {
-        "type": "object",
-        "properties": {
-          "provider": {
-            "type": "string",
-            "nullable": true
-          },
-          "accountHolder": {
-            "type": "string",
-            "nullable": true
-          },
-          "bankCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "maskedAccountNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "virtualAccountNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "qrContent": {
-            "type": "string",
-            "nullable": true
-          },
-          "isActive": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
       "UpdatePlayerLocationRequestDto": {
         "required": [
           "latitude",
@@ -18176,6 +23185,48 @@
           },
           "source": {
             "$ref": "#/components/schemas/PlayerLocationSource"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePlayerProfileDto": {
+        "type": "object",
+        "properties": {
+          "bio": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "coverPhotoUrl": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "favoriteGameIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "firstName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "preferredPlayMode": {
+            "$ref": "#/components/schemas/PlayerPlayMode"
           }
         },
         "additionalProperties": false
@@ -18513,6 +23564,44 @@
         },
         "additionalProperties": false
       },
+      "WalletReconcileResultDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walletAvailableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ledgerCredits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ledgerDebits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "computedAvailableBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isBalanced": {
+            "type": "boolean"
+          },
+          "discrepancy": {
+            "type": "integer",
+            "format": "int64",
+            "readOnly": true
+          },
+          "reconciledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "WorkingHoursDto": {
         "required": [
           "weekdayEnd",
@@ -18558,6 +23647,22 @@
   ],
   "tags": [
     {
+      "name": "Admin - Cafe",
+      "description": "Admin endpoints cho Cafe: CRUD đầy đủ, set operational status.\r\n[Role: Admin]"
+    },
+    {
+      "name": "Admin - Reports",
+      "description": "Admin endpoints cho báo cáo: overview statistics, lobby-failures, deposits, cafe-performance.\r\n[Role: Admin]"
+    },
+    {
+      "name": "Admin - Settlement",
+      "description": "Admin endpoints cho Settlement.\r\nW-06: Manual settlement override endpoint."
+    },
+    {
+      "name": "Admin - Tournament",
+      "description": "Admin endpoints cho Tournament: CRUD đầy đủ, force-complete, view participants.\r\n[Role: Admin]"
+    },
+    {
       "name": "Admin - Wallet",
       "description": "Admin endpoints cho Ví BVC. Tách riêng `WalletController` để rõ ràng phân quyền.\r\nTheo BR-RISK-05: mọi admin action ghi audit (PlayerActionHistory) + ledger entry.\r\nTheo BR-RISK-07: chỉ Admin role."
     },
@@ -18590,6 +23695,14 @@
       "description": "Payment controller cho toàn bộ luồng thanh toán booking deposit và session payment.\r\nTất cả endpoint booking deposit đi qua đây (không có BookingController riêng).\r\nBR-02, BR-03, BR-05, BR-06, BR-09, BR-15, BR-18."
     },
     {
+      "name": "PlayerCheckIn",
+      "description": "API để player quét QR do POS tạo, tự check-in vào reservation của mình.\r\nHỗ trợ chiều thứ 2 của luồng check-in 2 chiều (BR §21A.7): thay vì staff scan\r\nQR player, player scan QR POS. Hữu ích cho demo và khi player cầm điện thoại dễ scan hơn."
+    },
+    {
+      "name": "Receipt",
+      "description": "Receipt generation and revenue report endpoints.\r\nP-01: Receipt Generation API — GET /api/v1/sessions/{sessionId}/receipt\r\nP-02: Revenue Report API — GET /api/v1/cafes/{cafeId}/revenue"
+    },
+    {
       "name": "Reservation",
       "description": "API Reservation flow mới — Phase 2/3 (BR §21A.2..21A.6, §XXI-B.1).\r\nTheo rule `lobby-booking-deposit-bvc.mdc`:\r\n- POST /quote            : validate eligibility + tính cọc (idempotent, KHÔNG tạo row).\r\n- POST /confirm          : atomic transaction hold BVC + seat + game + tạo Reservation + Lobby.\r\n- POST /{id}/cancel      : host hủy theo BR-REFUND-02/03.\r\n- POST /{id}/cafe-approval: cafe duyệt lobby pending (BR-NEW-11).\r\n            \r\nEndpoint `POST /api/v1/lobbies` (LobbyController.CreateLobby) cũ đã bị chặn —\r\nlobby chỉ được tạo thông qua reservation flow."
     },
@@ -18600,6 +23713,14 @@
     {
       "name": "TournamentPos",
       "description": "API Tournament dành cho Web POS (Manager).\r\n- Tạo / sửa / mở đăng ký / bắt đầu / hủy / hoàn thành giải.\r\n- Check-in người chơi tại quán.\r\n- Ghi nhận kết quả các bàn đấu."
+    },
+    {
+      "name": "TournamentSpectator",
+      "description": "T-04: API Tournament Spectator - cho phép user spectate (theo dõi) tournament mà không cần đăng ký làm participant."
+    },
+    {
+      "name": "TournamentWaitlist",
+      "description": "T-03: API Tournament Waitlist - quản lý danh sách chờ khi tournament đầy."
     },
     {
       "name": "Wallet",

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Sticky bottom bar — badge hiển thị số filter đang chọn + nút Áp dụng.
-class FilterBottomBar extends StatelessWidget {
+/// Neo-brutalism Sticky bottom bar — badge + Áp dụng button.
+class FilterBottomBar extends StatefulWidget {
   final int totalSelected;
   final VoidCallback onApply;
 
@@ -15,8 +17,37 @@ class FilterBottomBar extends StatelessWidget {
   });
 
   @override
+  State<FilterBottomBar> createState() => _FilterBottomBarState();
+}
+
+class _FilterBottomBarState extends State<FilterBottomBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      duration: const Duration(milliseconds: 80),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
+
     return SafeArea(
       top: false,
       child: Container(
@@ -27,10 +58,11 @@ class FilterBottomBar extends StatelessWidget {
           AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: isDark ? AppColors.surfaceDark : AppColors.surface,
           border: Border(
             top: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
             ),
           ),
         ),
@@ -42,23 +74,31 @@ class FilterBottomBar extends StatelessWidget {
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: AppRadius.radiusFullAll,
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(AppSpacing.huge),
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.filter_alt,
                     size: AppSpacing.sm + 2,
-                    color: theme.colorScheme.onPrimaryContainer,
+                    color: AppColors.white,
                   ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
-                    '$totalSelected',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.onPrimaryContainer,
+                    '${widget.totalSelected}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.white,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -66,17 +106,53 @@ class FilterBottomBar extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: FilledButton(
-                onPressed: onApply,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.radiusSmAll,
+              child: AnimatedBuilder(
+                animation: _scaleAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Transform.translate(
+                      offset: isPressed ? const Offset(2, 2) : Offset.zero,
+                      child: child,
+                    ),
+                  );
+                },
+                child: GestureDetector(
+                  onTapDown: (_) {
+                    _pressCtrl.forward();
+                    HapticFeedback.mediumImpact();
+                  },
+                  onTapUp: (_) => _pressCtrl.reverse(),
+                  onTapCancel: () => _pressCtrl.reverse(),
+                  onTap: widget.onApply,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.borderDark
+                            : AppColors.border,
+                        width: NeoBrutalismTheme.borderWidth,
+                      ),
+                      boxShadow: NeoBrutalismTheme.lightShadow(
+                        shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: const Text(
+                      'ÁP DỤNG',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Áp dụng',
-                  style: TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
             ),

@@ -1,23 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_radius.dart';
-import '../../../../core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/entities.dart';
 import 'common/common.dart';
 import 'shared/meta_row.dart';
 import 'shared/status_chip.dart';
 
-/// Card displaying user search results.
-///
-/// Shows avatar, name, meta and action button that changes based on
-/// `friendshipStatus`.
-///
-/// Actions based on status:
-/// - `none` / `null` → "Kết bạn" (primary button)
-/// - `pendingSent`  → disabled "Đã gửi"
-/// - `pendingReceived` → disabled "Chờ phản hồi"
-/// - `accepted`     → disabled "Bạn bè"
-/// - `blocked`      → disabled "Đã chặn"
+/// Neo-brutalism Card displaying user search results.
 class UserSearchCard extends StatelessWidget {
   const UserSearchCard({
     super.key,
@@ -32,11 +22,10 @@ class UserSearchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return OutlinedCard(
       onTap: onTap,
-      radius: AppRadius.radiusMd,
+      radius: 12,
+      shadowColor: AppColors.black.withValues(alpha: 0.05),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.sm),
         child: Row(
@@ -54,8 +43,9 @@ class UserSearchCard extends StatelessWidget {
                 children: [
                   Text(
                     user.username,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -69,27 +59,60 @@ class UserSearchCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            _buildAction(theme),
+            _buildAction(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAction(ThemeData theme) {
+  Widget _buildAction() {
     switch (user.friendshipStatus) {
       case FriendshipStatus.none:
       case null:
         return SizedBox(
           height: 36,
-          child: FilledButton.icon(
-            onPressed: onSendRequest,
-            icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
-            label: const Text('Kết bạn', style: TextStyle(fontSize: 12)),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.black, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.black,
+                  blurRadius: 0,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onSendRequest,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.person_add_alt_1_outlined,
+                        size: 14,
+                        color: AppColors.white,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'KẾT BẠN',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -97,26 +120,26 @@ class UserSearchCard extends StatelessWidget {
       case FriendshipStatus.pendingSent:
         return const StatusChip(
           icon: Icons.schedule,
-          label: 'Đã gửi',
-          color: Color(0xFF8B8B8B),
+          label: 'ĐÃ GỬI',
+          color: AppColors.textSecondary,
         );
       case FriendshipStatus.pendingReceived:
-        return StatusChip(
+        return const StatusChip(
           icon: Icons.inbox_outlined,
-          label: 'Chờ phản hồi',
-          color: theme.colorScheme.primary,
+          label: 'CHỜ PHẢN HỒI',
+          color: AppColors.primary,
         );
       case FriendshipStatus.accepted:
         return const StatusChip(
           icon: Icons.check_circle_outline,
-          label: 'Bạn bè',
-          color: Color(0xFF2E7D32),
+          label: 'BẠN BÈ',
+          color: AppColors.success,
         );
       case FriendshipStatus.blocked:
-        return StatusChip(
+        return const StatusChip(
           icon: Icons.block,
-          label: 'Đã chặn',
-          color: theme.colorScheme.error,
+          label: 'ĐÃ CHẶN',
+          color: AppColors.error,
         );
     }
   }

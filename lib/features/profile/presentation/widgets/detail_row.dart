@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
-/// 1 dòng thông tin: icon + label (textSecondary) + value (textPrimary, bold).
+/// Neo-brutalism Detail row — icon badge + label + value.
 class DetailRow extends StatelessWidget {
   const DetailRow({
     super.key,
@@ -21,14 +22,26 @@ class DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tint = iconColor ?? theme.colorScheme.onSurfaceVariant;
+    final tint = iconColor ?? AppColors.primary;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.xxs),
-          child: Icon(icon, size: AppIcons.md, color: tint),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: tint.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: tint,
+              width: 1.5,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: AppIcons.md,
+            color: tint,
+          ),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -36,17 +49,21 @@ class DetailRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xxs),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  color: theme.brightness == Brightness.dark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textPrimary,
                 ),
               ),
             ],

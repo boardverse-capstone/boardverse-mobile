@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Bottom sheet để chỉnh sửa bio, họ tên và ngày sinh.
-///
-/// Form state đến từ bên ngoài (controllers trong [HomePage]) nên widget
-/// chỉ thuần UI. Submit chỉ trigger [onSubmit] rồi cubit xử lý.
+/// Neo-brutalism Bottom sheet chỉnh sửa bio, họ tên và ngày sinh.
 class EditProfileSheet extends StatelessWidget {
   const EditProfileSheet({
     super.key,
@@ -33,124 +32,265 @@ class EditProfileSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor =
+        isDark ? AppColors.borderDark : AppColors.border;
 
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Container(
-        decoration: ShapeDecoration(
-          color: theme.colorScheme.surface,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppRadius.radiusXl),
+      child: Stack(
+        children: [
+          // Hard shadow offset
+          Positioned(
+            left: 3,
+            right: 3,
+            top: 3,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.black,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.radiusXl),
+                ),
+              ),
             ),
           ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              AppSpacing.lg,
+          // Main sheet
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : AppColors.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppRadius.radiusXl),
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidthBold,
+                ),
+                left: BorderSide(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidthBold,
+                ),
+                right: BorderSide(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidthBold,
+                ),
+              ),
             ),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(onClose: onClose),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Bio
-                  TextFormField(
-                    controller: bioController,
-                    maxLines: 3,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Mô tả cá nhân',
-                      prefixIcon: Icon(Icons.description_outlined),
-                      helperText: 'Tối đa 1000 ký tự',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Vui lòng nhập mô tả cá nhân';
-                      }
-                      if (value.length > 1000) {
-                        return 'Mô tả không được vượt quá 1000 ký tự';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // First + Last name (2 columns)
-                  Row(
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: firstNameController,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'Tên',
-                            prefixIcon: Icon(AppIcons.user),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Nhập tên';
-                            }
-                            return null;
-                          },
-                        ),
+                      _Header(onClose: onClose),
+                      const SizedBox(height: AppSpacing.md),
+
+                      _NeoTextField(
+                        controller: bioController,
+                        label: 'Mô tả cá nhân',
+                        helperText: 'Tối đa 1000 ký tự',
+                        icon: Icons.description_outlined,
+                        maxLines: 3,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Vui lòng nhập mô tả cá nhân';
+                          }
+                          if (value.length > 1000) {
+                            return 'Mô tả không được vượt quá 1000 ký tự';
+                          }
+                          return null;
+                        },
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: TextFormField(
-                          controller: lastNameController,
-                          textInputAction: TextInputAction.done,
-                          decoration: const InputDecoration(
-                            labelText: 'Họ',
-                            prefixIcon: Icon(AppIcons.user),
+                      const SizedBox(height: AppSpacing.md),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _NeoTextField(
+                              controller: firstNameController,
+                              label: 'Tên',
+                              icon: AppIcons.user,
+                              textInputAction: TextInputAction.next,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Nhập tên';
+                                }
+                                return null;
+                              },
+                            ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Nhập họ';
-                            }
-                            return null;
-                          },
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _NeoTextField(
+                              controller: lastNameController,
+                              label: 'Họ',
+                              icon: AppIcons.user,
+                              textInputAction: TextInputAction.done,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Nhập họ';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      _NeoTextField(
+                        controller: dobController,
+                        label: 'Ngày sinh',
+                        icon: AppIcons.schedule,
+                        suffixIcon: AppIcons.booking,
+                        readOnly: true,
+                        onTap: onPickDate,
+                      ),
+
+                      const SizedBox(height: AppSpacing.lg),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: borderColor,
+                              width: NeoBrutalismTheme.borderWidthBold,
+                            ),
+                            boxShadow: NeoBrutalismTheme.lightShadow(
+                              shadowColor:
+                                  AppColors.primary.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: onSubmit,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: AppSpacing.md,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      AppIcons.confirmBooking,
+                                      color: AppColors.white,
+                                    ),
+                                    SizedBox(width: AppSpacing.sm),
+                                    Text(
+                                      'LƯU THAY ĐỔI',
+                                      style: TextStyle(
+                                        color: AppColors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Date of Birth
-                  TextFormField(
-                    controller: dobController,
-                    readOnly: true,
-                    onTap: onPickDate,
-                    decoration: const InputDecoration(
-                      labelText: 'Ngày sinh',
-                      prefixIcon: Icon(AppIcons.schedule),
-                      suffixIcon: Icon(AppIcons.booking),
-                    ),
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: onSubmit,
-                      icon: const Icon(AppIcons.confirmBooking),
-                      label: const Text('Lưu thay đổi'),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism text field với bold border.
+class _NeoTextField extends StatelessWidget {
+  const _NeoTextField({
+    required this.controller,
+    required this.label,
+    this.helperText,
+    this.icon,
+    this.suffixIcon,
+    this.readOnly = false,
+    this.onTap,
+    this.maxLines = 1,
+    this.textInputAction,
+    this.validator,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? helperText;
+  final IconData? icon;
+  final IconData? suffixIcon;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final int maxLines;
+  final TextInputAction? textInputAction;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      maxLines: maxLines,
+      textInputAction: textInputAction,
+      validator: validator,
+      style: const TextStyle(fontWeight: FontWeight.w700),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        prefixIcon: icon != null ? Icon(icon) : null,
+        suffixIcon: suffixIcon != null ? Icon(suffixIcon) : null,
+        helperText: helperText,
+        filled: true,
+        fillColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: borderColor,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: NeoBrutalismTheme.borderWidthBold,
           ),
         ),
       ),
@@ -165,27 +305,67 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Row(
       children: [
-        Icon(
-          AppIcons.edit,
-          size: AppIcons.md,
-          color: theme.colorScheme.primary,
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.black,
+                blurRadius: 0,
+                offset: Offset(2, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            AppIcons.edit,
+            color: AppColors.white,
+            size: AppIcons.md,
+          ),
         ),
-        const SizedBox(width: AppSpacing.xs),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            'Chỉnh sửa hồ sơ',
+            'CHỈNH SỬA HỒ SƠ',
             style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
         ),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(AppIcons.close),
-          tooltip: 'Đóng',
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.black,
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.black,
+                blurRadius: 0,
+                offset: Offset(2, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: onClose,
+            icon: const Icon(
+              AppIcons.close,
+              color: AppColors.black,
+              size: 16,
+            ),
+            tooltip: 'Đóng',
+          ),
         ),
       ],
     );

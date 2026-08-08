@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 
-/// Quick filter chip pill-style với:
-/// - Scale animation khi tap
-/// - Gradient background khi selected
-/// - Check icon slide in/out khi selected
+/// Quick filter chip Neo-brutalism style với:
+/// - Press scale animation
+/// - Bold border khi selected
+/// - Hard offset shadow khi selected
 class QuickFilterChip extends StatefulWidget {
   final String label;
   final IconData? icon;
@@ -35,9 +37,7 @@ class _QuickFilterChipState extends State<QuickFilterChip>
     super.initState();
     _pressCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
-      lowerBound: 0,
-      upperBound: 1,
+      duration: const Duration(milliseconds: 80),
     );
   }
 
@@ -47,99 +47,101 @@ class _QuickFilterChipState extends State<QuickFilterChip>
     super.dispose();
   }
 
+  void _onTapDown(TapDownDetails details) {
+    _pressCtrl.forward();
+    HapticFeedback.lightImpact();
+  }
+
+  void _onTapUp(TapUpDetails details) => _pressCtrl.reverse();
+  void _onTapCancel() => _pressCtrl.reverse();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
+
     return GestureDetector(
-      onTapDown: (_) => _pressCtrl.forward(),
-      onTapUp: (_) => _pressCtrl.reverse(),
-      onTapCancel: () => _pressCtrl.reverse(),
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
       onTap: widget.onTap,
       child: AnimatedBuilder(
         animation: _pressCtrl,
         builder: (context, child) {
-          final scale = 1 - (_pressCtrl.value * 0.08);
-          return Transform.scale(scale: scale, child: child);
+          return Transform.scale(
+            scale: 1 - (_pressCtrl.value * 0.05),
+            child: Transform.translate(
+              offset: isPressed ? const Offset(2, 2) : Offset.zero,
+              child: child,
+            ),
+          );
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.xs + 2,
           ),
           decoration: BoxDecoration(
-            color: widget.selected ? null : theme.colorScheme.surfaceContainerHighest,
-            gradient: widget.selected
-                ? const LinearGradient(
-                    colors: [AppColors.primary, AppColors.accent],
-                  )
-                : null,
+            color: widget.selected
+                ? AppColors.primary
+                : (isDark ? AppColors.surfaceDark : AppColors.surface),
             borderRadius: AppRadius.radiusFullAll,
             border: Border.all(
               color: widget.selected
-                  ? Colors.transparent
-                  : theme.colorScheme.outlineVariant,
-              width: 1,
+                  ? AppColors.primary
+                  : (isDark ? AppColors.borderDark : AppColors.border),
+              width: widget.selected
+                  ? NeoBrutalismTheme.borderWidthBold
+                  : NeoBrutalismTheme.borderWidth,
             ),
             boxShadow: widget.selected
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
+                ? NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                  )
                 : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedSize(
+              AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      transitionBuilder: (child, animation) {
-                        return ScaleTransition(
-                          scale: animation,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: widget.selected
-                          ? const Icon(
-                              Icons.check,
-                              key: ValueKey('check'),
-                              size: AppSpacing.md,
-                              color: Colors.white,
-                            )
-                          : widget.icon != null
-                              ? Icon(
-                                  widget.icon,
-                                  key: ValueKey('icon'),
-                                  size: AppSpacing.md,
-                                  color: theme.colorScheme.onSurface,
-                                )
-                              : const SizedBox.shrink(key: ValueKey('none')),
-                    ),
-                    if (widget.selected ||
-                        widget.icon != null)
-                      const SizedBox(width: AppSpacing.xxs),
-                  ],
-                ),
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  );
+                },
+                child: widget.selected
+                    ? const Icon(
+                        Icons.check,
+                        key: ValueKey('check'),
+                        size: AppSpacing.md,
+                        color: AppColors.white,
+                      )
+                    : widget.icon != null
+                        ? Icon(
+                            widget.icon,
+                            key: ValueKey('icon'),
+                            size: AppSpacing.md,
+                            color: isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimary,
+                          )
+                        : const SizedBox.shrink(key: ValueKey('none')),
               ),
+              if (widget.selected || widget.icon != null)
+                const SizedBox(width: AppSpacing.xxs),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
                 style: (theme.textTheme.labelLarge ?? const TextStyle()).copyWith(
                   color: widget.selected
-                      ? Colors.white
-                      : theme.colorScheme.onSurface,
+                      ? AppColors.white
+                      : (isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimary),
                   fontWeight: FontWeight.w700,
                 ),
                 child: Text(widget.label),
@@ -152,15 +154,11 @@ class _QuickFilterChipState extends State<QuickFilterChip>
   }
 }
 
-/// Horizontal list các QuickFilterChip — dùng cho quick filter dưới search
-/// bar. Hỗ trợ auto-wrap khi tràn.
+/// Horizontal list các QuickFilterChip — dùng cho quick filter dưới search bar.
 class QuickFilterChipBar extends StatelessWidget {
   final List<QuickFilterItem> items;
 
-  const QuickFilterChipBar({
-    super.key,
-    required this.items,
-  });
+  const QuickFilterChipBar({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -176,8 +174,7 @@ class QuickFilterChipBar extends StatelessWidget {
               selected: items[i].selected,
               onTap: items[i].onTap,
             ),
-            if (i < items.length - 1)
-              const SizedBox(width: AppSpacing.xs),
+            if (i < items.length - 1) const SizedBox(width: AppSpacing.xs),
           ],
         ],
       ),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 
 import '../../../reservation/domain/entities/entities.dart' as res;
 import '../../domain/entities/lobby_entity.dart';
@@ -140,112 +143,111 @@ class LobbyStatusBadge extends StatelessWidget {
   });
 
   _BadgeStyle _styleFor(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     switch (variant) {
       case LobbyStatusBadgeVariant.recruiting:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đang tuyển người',
           icon: AppIcons.users,
-          background: colors.primaryContainer,
-          foreground: colors.onPrimaryContainer,
+          background: AppColors.info,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.viable:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đủ người tối thiểu',
           icon: AppIcons.check,
-          background: AppColors.warning.withValues(alpha: 0.15),
-          foreground: AppColors.warning,
+          background: AppColors.accent,
+          foreground: AppColors.black,
         );
       case LobbyStatusBadgeVariant.full:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Phòng đầy',
           icon: AppIcons.check,
-          background: AppColors.success.withValues(alpha: 0.15),
-          foreground: AppColors.success,
+          background: AppColors.success,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.pendingCafeApproval:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Chờ quán duyệt',
           icon: AppIcons.warning,
-          background: AppColors.warning.withValues(alpha: 0.15),
-          foreground: AppColors.warning,
+          background: AppColors.warning,
+          foreground: AppColors.black,
         );
       case LobbyStatusBadgeVariant.rejectedByCafe:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Quán từ chối',
           icon: AppIcons.cancelBooking,
-          background: colors.errorContainer,
-          foreground: colors.onErrorContainer,
+          background: AppColors.error,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.expiredByCafe:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Hết hạn duyệt',
           icon: Icons.timer_off_outlined,
-          background: colors.errorContainer,
-          foreground: colors.onErrorContainer,
+          background: AppColors.error,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.confirmed:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đã xác nhận đặt chỗ',
           icon: AppIcons.check,
-          background: AppColors.success.withValues(alpha: 0.15),
-          foreground: AppColors.success,
+          background: AppColors.success,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.checkedIn:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đã check-in tại quán',
           icon: AppIcons.location,
-          background: AppColors.success.withValues(alpha: 0.15),
-          foreground: AppColors.success,
+          background: AppColors.success,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.inProgress:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đang chơi',
           icon: Icons.sports_esports_outlined,
-          background: colors.primary,
-          foreground: colors.onPrimary,
+          background: AppColors.primary,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.ratingOpen:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đang đánh giá',
           icon: Icons.star_outline,
-          background: AppColors.warning.withValues(alpha: 0.15),
-          foreground: AppColors.warning,
+          background: AppColors.accent,
+          foreground: AppColors.black,
         );
       case LobbyStatusBadgeVariant.closed:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đã đóng',
           icon: AppIcons.lock,
-          background: colors.surfaceContainerHighest,
-          foreground: colors.onSurfaceVariant,
+          background: AppColors.textTertiary,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.timeoutFailed:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Hết hạn tuyển',
           icon: Icons.timer_off_outlined,
-          background: colors.errorContainer,
-          foreground: colors.onErrorContainer,
+          background: AppColors.error,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.hostCancelled:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đã huỷ',
           icon: AppIcons.cancelBooking,
-          background: colors.errorContainer,
-          foreground: colors.onErrorContainer,
+          background: AppColors.error,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.expired:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Hết hạn',
           icon: Icons.timer_off_outlined,
-          background: colors.errorContainer,
-          foreground: colors.onErrorContainer,
+          background: AppColors.error,
+          foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.unknown:
-        return _BadgeStyle(
+        return const _BadgeStyle(
           label: 'Đang cập nhật…',
           icon: Icons.hourglass_empty,
-          background: colors.surfaceContainerHighest,
-          foreground: colors.onSurfaceVariant,
+          background: AppColors.textTertiary,
+          foreground: AppColors.white,
         );
     }
   }
@@ -253,6 +255,10 @@ class LobbyStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _styleFor(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    final shadowColor = isDark ? AppColors.black : AppColors.black;
+
     return Semantics(
       label: 'Trạng thái phòng: ${style.label}',
       child: Container(
@@ -262,7 +268,15 @@ class LobbyStatusBadge extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: style.background,
-          borderRadius: AppRadius.radiusFullAll,
+          borderRadius: BorderRadius.circular(dense ? 8 : 10),
+          border: Border.all(color: borderColor, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 0,
+              offset: const Offset(2, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -274,12 +288,11 @@ class LobbyStatusBadge extends StatelessWidget {
                 style.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: (dense
-                        ? Theme.of(context).textTheme.labelSmall
-                        : Theme.of(context).textTheme.labelMedium)
-                    ?.copyWith(
+                style: TextStyle(
                   color: style.foreground,
-                  fontWeight: FontWeight.w800,
+                  fontSize: dense ? 11 : 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),

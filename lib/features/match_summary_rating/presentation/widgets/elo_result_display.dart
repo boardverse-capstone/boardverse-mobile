@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/rating_entity.dart';
 
+/// Neo-brutalism Elo result display.
 class EloResultDisplayWidget extends StatelessWidget {
   final EloResult eloResult;
   final VoidCallback? onViewLeaderboard;
@@ -17,10 +20,11 @@ class EloResultDisplayWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPositive = eloResult.eloChange >= 0;
-    final changeColor = isPositive ? colors.tertiary : colors.error;
+    final changeColor =
+        isPositive ? AppColors.success : AppColors.error;
+
     final resultText = switch (eloResult.result) {
       MatchResult.win => 'Thắng',
       MatchResult.lose => 'Thua',
@@ -32,64 +36,102 @@ class EloResultDisplayWidget extends StatelessWidget {
       MatchResult.draw => Icons.handshake_outlined,
     };
     final resultBg = switch (eloResult.result) {
-      MatchResult.win => colors.tertiaryContainer,
-      MatchResult.lose => colors.surfaceContainerHighest,
-      MatchResult.draw => colors.secondaryContainer,
+      MatchResult.win => AppColors.warning,
+      MatchResult.lose => AppColors.error,
+      MatchResult.draw => AppColors.info,
     };
-    final resultFg = switch (eloResult.result) {
-      MatchResult.win => colors.onTertiaryContainer,
-      MatchResult.lose => colors.onSurfaceVariant,
-      MatchResult.draw => colors.onSecondaryContainer,
-    };
+    final resultFg = AppColors.white;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.cardRadius,
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: AppElevation.shadowMd,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(5, 5),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Result badge
           Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(color: resultBg, shape: BoxShape.circle),
-            child: Icon(resultIcon, size: AppIcons.massive, color: resultFg),
+            decoration: BoxDecoration(
+              color: resultBg,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.4),
+                  blurRadius: 0,
+                  offset: const Offset(4, 4),
+                ),
+              ],
+            ),
+            child: Icon(resultIcon, size: 48, color: resultFg),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
             resultText,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: resultFg,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 28,
+              color: resultBg,
+              letterSpacing: 1.5,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Điểm Elo của bạn biến động như sau:',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
 
+          // Elo change container
           Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: changeColor.withValues(alpha: 0.1),
-              borderRadius: AppRadius.radiusMdAll,
-              border: Border.all(color: changeColor.withValues(alpha: 0.32)),
+              color: changeColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.4),
+                  blurRadius: 0,
+                  offset: const Offset(4, 4),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 Text(
-                  'Điểm Elo biến động',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: changeColor,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+                  'ĐIỂM ELO BIẾN ĐỘNG',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 1.0,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -99,60 +141,72 @@ class EloResultDisplayWidget extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.xs),
                       decoration: BoxDecoration(
-                        color: changeColor.withValues(alpha: 0.18),
+                        color: AppColors.white,
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.black,
+                          width: 2,
+                        ),
                       ),
                       child: Icon(
                         isPositive
                             ? Icons.arrow_upward_rounded
                             : Icons.arrow_downward_rounded,
                         color: changeColor,
-                        size: AppIcons.lg,
+                        size: 22,
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       '${eloResult.eloChange.abs()}',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        color: changeColor,
-                        fontWeight: FontWeight.w800,
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 36,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
+                // Before → After row
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,
                     vertical: AppSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: AppRadius.radiusMdAll,
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.black,
+                      width: 2,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '${eloResult.currentElo}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
                           decoration: TextDecoration.lineThrough,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Icon(
+                      const Icon(
                         AppIcons.forward,
-                        size: AppIcons.md,
-                        color: colors.onSurfaceVariant,
+                        size: 18,
+                        color: AppColors.black,
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
                         '${eloResult.newElo}',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface,
+                        style: const TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
                         ),
                       ),
                     ],
@@ -164,32 +218,129 @@ class EloResultDisplayWidget extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
 
           if (onViewLeaderboard != null) ...[
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onViewLeaderboard,
-                icon: const Icon(AppIcons.rating),
-                label: const Text('Xem Bảng xếp hạng'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
-              ),
+            _NeoOutlineButton(
+              label: 'Xem Bảng xếp hạng',
+              icon: AppIcons.rating,
+              color: AppColors.warning,
+              onPressed: onViewLeaderboard!,
             ),
             const SizedBox(height: AppSpacing.sm),
           ],
           if (onComplete != null)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onComplete,
-                icon: const Icon(AppIcons.check),
-                label: const Text('Hoàn tất'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
-              ),
+            _NeoFilledButton(
+              label: 'Hoàn tất',
+              icon: AppIcons.check,
+              color: AppColors.primary,
+              onPressed: onComplete!,
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism filled button.
+class _NeoFilledButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoFilledButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: AppColors.white),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neo-brutalism outline button.
+class _NeoOutlineButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _NeoOutlineButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color, width: 2.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,32 +1,37 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
 
-/// Lightweight line chart for Elo history drawn with [CustomPainter]
-/// (avoid pulling in fl_chart for this single use case).
+/// Neo-brutalism Lightweight line chart for Elo history.
 class EloChart extends StatelessWidget {
   final List<EloHistoryEntity> history;
   const EloChart({super.key, required this.history});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Container(
       height: 180,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.06),
+        ),
       ),
       child: history.length < 2
-          ? Center(
+          ? const Center(
               child: Text(
                 'Cần ít nhất 2 giải đấu để hiển thị biểu đồ',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -35,46 +40,30 @@ class EloChart extends StatelessWidget {
               size: Size.infinite,
               painter: _EloLineChartPainter(
                 history: history,
-                lineColor: theme.colorScheme.primary,
-                fillColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                gridColor: theme.colorScheme.outlineVariant,
-                textColor: theme.colorScheme.onSurfaceVariant,
-                textStyle: theme.textTheme.labelSmall ?? const TextStyle(),
+                lineColor: AppColors.primary,
+                fillColor: AppColors.primary.withValues(alpha: 0.15),
+                gridColor: isDark ? AppColors.borderDark : AppColors.border,
+                textColor: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondary,
+                textStyle: const TextStyle(fontSize: 10),
               ),
             ),
     );
   }
 }
 
-/// Chart padding constants - consistent sizing for Elo history chart
 class _ChartPadding {
   _ChartPadding._();
 
-  /// Left padding for Y-axis labels ( Elo values)
   static const double left = 36.0;
-
-  /// Bottom padding for X-axis
   static const double bottom = 24.0;
-
-  /// Top padding
   static const double top = 8.0;
-
-  /// Right padding
   static const double right = 8.0;
-
-  /// Grid line stroke width
   static const double gridStrokeWidth = 1.0;
-
-  /// Chart line stroke width
   static const double lineStrokeWidth = 2.5;
-
-  /// Data point dot radius
   static const double dotRadius = 3.5;
-
-  /// Data point inner dot radius
   static const double innerDotRadius = 2.5;
-
-  /// Grid lines count
   static const int gridLines = 4;
 }
 
@@ -117,7 +106,6 @@ class _EloLineChartPainter extends CustomPainter {
     final yMax = maxElo + buffer;
     final yRange = (yMax - yMin).abs().clamp(1, double.infinity);
 
-    // Grid + Y-axis labels
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = _ChartPadding.gridStrokeWidth;
@@ -136,7 +124,7 @@ class _EloLineChartPainter extends CustomPainter {
 
       labelPainter.text = TextSpan(
         text: value.round().toString(),
-        style: textStyle.copyWith(color: textColor, fontSize: 10),
+        style: textStyle.copyWith(color: textColor, fontWeight: FontWeight.w800),
       );
       labelPainter.layout();
       labelPainter.paint(
@@ -145,7 +133,6 @@ class _EloLineChartPainter extends CustomPainter {
       );
     }
 
-    // Map (i, elo) → (x, y)
     final points = <Offset>[];
     for (int i = 0; i < history.length; i++) {
       final x = paddingLeft + chartWidth * (i / (history.length - 1));
@@ -155,7 +142,6 @@ class _EloLineChartPainter extends CustomPainter {
       points.add(Offset(x, y));
     }
 
-    // Filled area
     final fillPath = Path()..moveTo(points.first.dx, paddingTop + chartHeight);
     for (final p in points) {
       fillPath.lineTo(p.dx, p.dy);
@@ -164,7 +150,6 @@ class _EloLineChartPainter extends CustomPainter {
     fillPath.close();
     canvas.drawPath(fillPath, Paint()..color = fillColor);
 
-    // Line
     final linePaint = Paint()
       ..color = lineColor
       ..strokeWidth = _ChartPadding.lineStrokeWidth
@@ -178,9 +163,8 @@ class _EloLineChartPainter extends CustomPainter {
     }
     canvas.drawPath(linePath, linePaint);
 
-    // Dots
     final dotPaint = Paint()..color = lineColor;
-    final dotRingPaint = Paint()..color = Colors.white;
+    final dotRingPaint = Paint()..color = AppColors.white;
     for (final p in points) {
       canvas.drawCircle(p, _ChartPadding.dotRadius, dotRingPaint);
       canvas.drawCircle(p, _ChartPadding.innerDotRadius, dotPaint);

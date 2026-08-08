@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_colors.dart';
-import '../../../../../core/theme/app_spacing.dart';
-import '../../../../../core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
 
-/// Reusable meta row widget showing karma points and mutual friends count.
+/// Neo-brutalism Reusable meta row widget showing karma points và mutual friends.
 class MetaRow extends StatelessWidget {
   const MetaRow({
     super.key,
@@ -19,22 +19,33 @@ class MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = <Widget>[];
 
     if (karmaPoints != null && karmaPoints! > 0) {
       items.addAll([
-        Icon(
-          Icons.local_fire_department_outlined,
-          size: compact ? AppIcons.xs : AppIcons.sm,
-          color: AppColors.warning,
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: AppColors.warning,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.black, width: 1),
+          ),
+          child: Icon(
+            AppIcons.karma,
+            size: compact ? 10 : AppIcons.xs,
+            color: AppColors.black,
+          ),
         ),
-        SizedBox(width: compact ? 1 : AppSpacing.xxs),
+        SizedBox(width: compact ? 4 : 6),
         Text(
           '$karmaPoints',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ]);
@@ -43,27 +54,34 @@ class MetaRow extends StatelessWidget {
     if (mutualFriendsCount != null && mutualFriendsCount! > 0) {
       if (items.isNotEmpty) {
         items.addAll([
-          SizedBox(width: compact ? AppSpacing.xxs : AppSpacing.xs),
-          Text(
+          SizedBox(width: compact ? AppSpacing.xs : AppSpacing.sm),
+          const Text(
             '·',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.outline,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColors.textSecondary,
             ),
           ),
-          SizedBox(width: compact ? AppSpacing.xxs : AppSpacing.xs),
+          SizedBox(width: compact ? AppSpacing.xs : AppSpacing.sm),
         ]);
       }
       items.addAll([
         Icon(
           Icons.people_alt_outlined,
           size: compact ? AppIcons.xs : AppIcons.sm,
-          color: theme.colorScheme.outline,
+          color: isDark
+              ? AppColors.textSecondaryDark
+              : AppColors.textSecondary,
         ),
-        SizedBox(width: compact ? 1 : AppSpacing.xxs),
+        SizedBox(width: compact ? 4 : 6),
         Text(
           '$mutualFriendsCount${compact ? '' : ' bạn chung'}',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.outline,
+          style: TextStyle(
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ]);

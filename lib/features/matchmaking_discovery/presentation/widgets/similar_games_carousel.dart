@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/board_game_entity.dart';
 
@@ -18,9 +19,9 @@ class SimilarGamesCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Card rộng 38% màn hình, giữ tỉ lệ 3:4 (ảnh vuông-ish)
     final cardWidth = screenWidth * 0.38;
     final cardHeight = cardWidth * 4 / 3 + AppSpacing.xxxl;
 
@@ -30,13 +31,14 @@ class SimilarGamesCarousel extends StatelessWidget {
         Padding(
           padding: AppSpacing.paddingHorizontalMd,
           child: Text(
-            'Game tương tự bạn có thể thích',
+            'GAME TƯƠNG TỰ',
             style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: AppSpacing.sm),
         SizedBox(
           height: cardHeight,
           child: ListView.builder(
@@ -48,12 +50,20 @@ class SimilarGamesCarousel extends StatelessWidget {
               return Container(
                 width: cardWidth,
                 margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.radiusMdAll,
-                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.surfaceDark : AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: NeoBrutalismTheme.borderWidth,
                   ),
+                  boxShadow: NeoBrutalismTheme.lightShadow(
+                    shadowColor: AppColors.black.withValues(alpha: 0.06),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Material(
+                  color: Colors.transparent,
                   child: InkWell(
                     onTap: () => onGameTap?.call(game),
                     child: Column(
@@ -66,7 +76,8 @@ class SimilarGamesCarousel extends StatelessWidget {
                             width: double.infinity,
                             errorBuilder:
                                 (context, error, stackTrace) => Container(
-                              color: theme.colorScheme.surfaceContainerHighest,
+                              color:
+                                  theme.colorScheme.surfaceContainerHighest,
                               alignment: Alignment.center,
                               child: Icon(
                                 Icons.extension,
@@ -83,8 +94,9 @@ class SimilarGamesCarousel extends StatelessWidget {
                             children: [
                               Text(
                                 game.name,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                style:
+                                    theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -92,8 +104,10 @@ class SimilarGamesCarousel extends StatelessWidget {
                               const SizedBox(height: AppSpacing.xxs),
                               Text(
                                 '${game.minPlayers}-${game.maxPlayers} người',
-                                style: theme.textTheme.labelSmall?.copyWith(
+                                style:
+                                    theme.textTheme.labelSmall?.copyWith(
                                   color: theme.colorScheme.outline,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],

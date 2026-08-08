@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_radius.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 
-/// Compact sticky header cho trang Profile.
-///
-/// Designed để dùng làm `flexibleSpace` của [SliverAppBar]:
-/// - Khi expanded: hiện avatar + username + handle + tier badge.
-/// - Khi collapsed: chỉ còn avatar nhỏ + username (SliverAppBar tự xử lý).
-///
-/// Không dùng gradient rực rỡ — chỉ solid `surface` theo theme + subtle elevation
-/// để giữ phong cách minimal mobile.
+/// Neo-brutalism Compact sticky header cho trang Profile.
 class ProfileStickyHeader extends StatelessWidget {
   const ProfileStickyHeader({
     required this.profile,
@@ -22,8 +17,6 @@ class ProfileStickyHeader extends StatelessWidget {
 
   final ProfileEntity profile;
   final VoidCallback onAvatarTap;
-
-  /// Chiều cao tối đa khi expanded (típ: ~ 220 cho mobile).
   final double maxExtent;
 
   String get _initials {
@@ -34,28 +27,25 @@ class ProfileStickyHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final hasTier =
         profile.gamerTier != null && profile.gamerTier!.isNotEmpty;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 0..1 tỉ lệ collapse (1 = expanded, 0 = collapsed).
         final t = ((constraints.maxHeight - kToolbarHeight) /
                 (maxExtent - kToolbarHeight))
             .clamp(0.0, 1.0);
 
-        // Avatar size: 72 (expanded) → 36 (collapsed).
-        // Giảm delta để tránh overflow khi collapsed gần hết.
         final avatarSize = 36 + (36 * t);
-        // Padding top tính đến status bar.
         final topPadding = MediaQuery.of(context).padding.top + AppSpacing.sm;
 
         return Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+            color: isDark ? AppColors.surfaceDark : AppColors.surface,
             border: Border(
               bottom: BorderSide(
-                color: theme.colorScheme.outlineVariant
+                color: (isDark ? AppColors.borderDark : AppColors.border)
                     .withValues(alpha: 0.5 * t),
               ),
             ),
@@ -87,8 +77,7 @@ class ProfileStickyHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     if (t > 0.4) ...[
@@ -124,7 +113,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasImage = avatarUrl != null && avatarUrl!.isNotEmpty;
 
     return Material(
@@ -137,13 +126,13 @@ class _Avatar extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: theme.colorScheme.outlineVariant,
-              width: 1.5,
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
             ),
           ),
           child: CircleAvatar(
             radius: (size - 6) / 2,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            backgroundColor: AppColors.surfaceVariant,
             backgroundImage:
                 hasImage ? NetworkImage(avatarUrl!) : null,
             child: hasImage
@@ -152,8 +141,8 @@ class _Avatar extends StatelessWidget {
                     initials,
                     style: TextStyle(
                       fontSize: size * 0.4,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
                     ),
                   ),
           ),
@@ -181,6 +170,7 @@ class _HeaderMeta extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -192,14 +182,19 @@ class _HeaderMeta extends StatelessWidget {
               vertical: 2,
             ),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: AppRadius.radiusSmAll,
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppColors.black,
+                width: 1.5,
+              ),
             ),
             child: Text(
               tier!,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
+              style: const TextStyle(
+                color: AppColors.black,
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
               ),
             ),
           ),

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
 import 'package:boardverse_mobile/core/theme/app_shimmer.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
 
-/// Skeleton shimmer cho toàn bộ màn hình profile dashboard.
-///
-/// Bám sát cấu trúc mới:
-/// - 3 [ProfileStatCard] (ELO / Level / Karma) stacked dọc trên mobile.
-/// - 1 [PersonalInfoCard] + 1 [LocationCard] + 1 [QuickActionsCard] grid 2x2.
+/// Neo-brutalism Skeleton shimmer cho toàn bộ màn hình profile.
 class ProfileLoadingSkeleton extends StatelessWidget {
   const ProfileLoadingSkeleton({super.key});
 
@@ -37,15 +34,17 @@ class _StatsStackSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         children: [
-          const _StatCardSkeleton(),
-          const SizedBox(height: AppSpacing.sm),
-          const _StatCardSkeleton(),
-          const SizedBox(height: AppSpacing.sm),
-          const _StatCardSkeleton(),
+          for (var i = 0; i < 3; i++) ...[
+            _StatCardSkeleton(borderColor: borderColor),
+            if (i < 2) const SizedBox(height: AppSpacing.sm),
+          ],
         ],
       ),
     );
@@ -53,21 +52,21 @@ class _StatsStackSkeleton extends StatelessWidget {
 }
 
 class _StatCardSkeleton extends StatelessWidget {
-  const _StatCardSkeleton();
+  const _StatCardSkeleton({required this.borderColor});
+
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
       ),
       child: Row(
         children: [
@@ -75,7 +74,7 @@ class _StatCardSkeleton extends StatelessWidget {
             context: context,
             width: 36,
             height: 36,
-            borderRadius: AppRadius.radiusSmAll,
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -110,21 +109,22 @@ class _InfoCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
         padding: AppSpacing.paddingAllMd,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: AppRadius.radiusLgAll,
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppShimmer.box(context: context, width: 140, height: 18),
+            AppShimmer.box(context: context, width: 140, height: 18, borderRadius: 6),
             const SizedBox(height: AppSpacing.md),
             AppShimmer.textLines(
               context: context,
@@ -144,16 +144,17 @@ class _QuickActionsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
         padding: AppSpacing.paddingAllSm,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: AppRadius.radiusLgAll,
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
         ),
         child: Row(
           children: [
@@ -176,16 +177,14 @@ class _QuickActionTileSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.radiusMdAll,
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -193,7 +192,7 @@ class _QuickActionTileSkeleton extends StatelessWidget {
             context: context,
             width: 32,
             height: 32,
-            borderRadius: AppRadius.radiusSmAll,
+            borderRadius: const BorderRadius.all(Radius.circular(8)),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(

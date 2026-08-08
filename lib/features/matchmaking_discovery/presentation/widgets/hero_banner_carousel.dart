@@ -8,13 +8,6 @@ import 'hero_banner/hero_banner_card.dart';
 import 'hero_banner/hero_page_indicator.dart';
 
 /// Hero Carousel — banner nổi bật ở đầu SearchPage.
-///
-/// Tính năng:
-/// - Auto-scroll mỗi 5 giây (dừng khi user chạm)
-/// - Page indicator dots có animation
-/// - Gradient overlay dưới cùng để text dễ đọc
-/// - Parallax nhẹ khi user vuốt ngang
-/// - Tap vào card → callback onTap
 class HeroBannerCarousel extends StatefulWidget {
   final List<BoardGameEntity> featuredGames;
   final void Function(BoardGameEntity) onTapGame;
@@ -147,7 +140,10 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeOutCubic,
             );
-            Future.delayed(const Duration(milliseconds: 500), _onUserInteractionEnd);
+            Future.delayed(
+              const Duration(milliseconds: 500),
+              _onUserInteractionEnd,
+            );
           },
         ),
       ],

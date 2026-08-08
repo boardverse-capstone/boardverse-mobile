@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/neo_brutalism_theme.dart';
 
-/// A lightweight, simple loading screen for login/auth operations.
-/// 
-/// Optimized for performance with minimal animations and widgets.
+/// Neo-brutalism Loading Screen
 class GameLoadingScreen extends StatefulWidget {
   final String? message;
 
@@ -43,10 +42,7 @@ class _GameLoadingScreenState extends State<GameLoadingScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.primaryDark,
-              AppColors.primary,
-            ],
+            colors: AppColors.cardGradientOrange,
           ),
         ),
         child: SafeArea(
@@ -70,20 +66,20 @@ class _GameLoadingScreenState extends State<GameLoadingScreen>
       animation: _rotation,
       builder: (context, child) {
         return Transform.rotate(
-          angle: _rotation.value * 6.28319, // 2 * pi
+          angle: _rotation.value * 6.28319,
           child: Container(
             width: 80,
             height: 80,
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.3),
+                width: 3,
+              ),
+              boxShadow: NeoBrutalismTheme.lightShadow(
+                shadowColor: AppColors.primary.withValues(alpha: 0.6),
+              ),
             ),
             child: const Center(
               child: Text(
@@ -104,20 +100,31 @@ class _GameLoadingScreenState extends State<GameLoadingScreen>
           widget.message ?? 'Đang truy cập...',
           style: const TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
             color: AppColors.white,
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
+        Container(
           width: 120,
-          child: LinearProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(
-              AppColors.white.withValues(alpha: 0.9),
-            ),
-            backgroundColor: AppColors.white.withValues(alpha: 0.3),
+          height: 6,
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                AppColors.white.withValues(alpha: 0.9),
+              ),
+              backgroundColor: Colors.transparent,
+            ),
           ),
         ),
       ],
@@ -168,7 +175,10 @@ class _MiniGameLoadingState extends State<MiniGameLoading>
           angle: _controller.value * 6.28319,
           child: Text(
             '🎲',
-            style: TextStyle(fontSize: widget.size),
+            style: TextStyle(
+              fontSize: widget.size,
+              color: widget.color,
+            ),
           ),
         );
       },

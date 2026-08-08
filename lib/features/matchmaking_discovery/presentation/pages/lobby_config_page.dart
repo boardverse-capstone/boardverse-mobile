@@ -6,10 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/navigation/lobby_flow_navigator.dart';
-import '../../../lobby_management/presentation/pages/lobby_quote_page.dart';
 import '../../../reservation/domain/entities/entities.dart';
 import '../../../reservation/presentation/cubit/reservation_cubit.dart';
 import '../../../reservation/presentation/cubit/reservation_state.dart';
+import '../../../reservation/presentation/pages/reservation_quote_page.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
@@ -429,7 +429,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       context,
       BlocProvider.value(
         value: reservationCubit,
-        child: const LobbyQuotePage(),
+        child: const ReservationQuotePage(),
       ),
     ).then((_) {
       if (mounted) setState(() => _isCreatingLobby = false);
