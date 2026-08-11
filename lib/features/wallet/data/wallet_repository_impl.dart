@@ -41,12 +41,6 @@ class WalletRepositoryImpl implements WalletRepository {
   }
 
   @override
-  Future<Either<Failure, TransactionEntity>> getTransactionById(
-      String transactionId) async {
-    return await remoteDatasource.getTransactionById(transactionId);
-  }
-
-  @override
   Future<Either<Failure, TopUpQuoteEntity>> updateTopUp({
     required String topUpId,
     required int amountVnd,

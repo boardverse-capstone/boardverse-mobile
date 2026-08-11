@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
 
-/// Bottom sheet hiển thị chi tiết lobby.
+/// Neo-brutalism bottom sheet hiển thị chi tiết lobby.
 class LobbyDetailsSheet extends StatelessWidget {
   final LobbyEntity lobby;
 
@@ -10,144 +12,357 @@ class LobbyDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final rows = [
-      DetailRow(
-        icon: AppIcons.boardGame,
-        label: 'Game',
-        value: lobby.gameName,
-      ),
-      DetailRow(icon: AppIcons.cafe, label: 'Quán', value: lobby.cafeName),
-      DetailRow(
-        icon: AppIcons.schedule,
-        label: 'Giờ hẹn',
-        value:
-            '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
-      ),
-      DetailRow(
-        icon: AppIcons.users,
-        label: 'Người chơi',
-        value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
-      ),
-      DetailRow(
-        icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
-        label: 'Chế độ',
-        value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
-      ),
-      if (lobby.inviteCode != null)
-        DetailRow(
-          icon: AppIcons.copy,
-          label: 'Mã mời',
-          value: lobby.inviteCode!,
+    return DraggableScrollableSheet(
+      initialChildSize: 0.72,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, controller) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 3,
+          ),
         ),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colors.outlineVariant,
-                borderRadius: AppRadius.radiusFullAll,
+        child: Column(
+          children: [
+            // Drag handle
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
 
-          Text(
-            'Chi tiết phòng',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          ...rows.map(
-            (row) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: row,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.pop(context),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isDark ? AppColors.borderDark : AppColors.border,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.black.withValues(alpha: 0.3),
+                          blurRadius: 0,
+                          offset: const Offset(2, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      AppIcons.info,
+                      size: 20,
+                      color: AppColors.white,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  const Expanded(
+                    child: Text(
+                      'Chi tiết phòng',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('Đóng'),
             ),
-          ),
-        ],
+
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                ),
+                children: [
+                  // ── Tổng quan ────────────────────────────────────────────
+                  _NeoSectionHeader(title: 'TỔNG QUAN'),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.boardGame,
+                          label: 'GAME',
+                          value: lobby.gameName,
+                          accent: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.cafe,
+                          label: 'QUÁN',
+                          value: lobby.cafeName.isEmpty
+                              ? '—'
+                              : lobby.cafeName,
+                          accent: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: lobby.isPublic
+                              ? AppIcons.globe
+                              : AppIcons.lock,
+                          label: 'CHẾ ĐỘ',
+                          value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
+                          accent: AppColors.info,
+                        ),
+                      ),
+                      if (lobby.inviteCode != null) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: _NeoDetailCard(
+                            icon: AppIcons.copy,
+                            label: 'MÃ MỜI',
+                            value: lobby.inviteCode!,
+                            accent: AppColors.warning,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // ── Lịch trình ───────────────────────────────────────────
+                  _NeoSectionHeader(title: 'LỊCH TRÌNH'),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.schedule,
+                          label: 'GIỜ HẸN',
+                          value:
+                              '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
+                          accent: AppColors.accent,
+                        ),
+                      ),
+                      if (lobby.cancellationLeadTimeMinutes != null) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: _NeoDetailCard(
+                            icon: AppIcons.timer,
+                            label: 'LEAD-TIME',
+                            value:
+                                '${lobby.cancellationLeadTimeMinutes} phút',
+                            accent: AppColors.info,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // ── Thành viên ─────────────────────────────────────────
+                  _NeoSectionHeader(title: 'THÀNH VIÊN'),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.users,
+                          label: 'HIỆN TẠI / TỐI ĐA',
+                          value:
+                              '${lobby.currentPlayers} / ${lobby.maxPlayers} người',
+                          accent: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.userCheck,
+                          label: 'TỐI THIỂU',
+                          value: '${lobby.minPlayers} người',
+                          accent: AppColors.success,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.userAdd,
+                          label: 'SLOT TRỐNG',
+                          value: '${lobby.slotsRemaining} vị trí',
+                          accent: AppColors.info,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _NeoDetailCard(
+                          icon: AppIcons.karma,
+                          label: 'KARMA TỐI THIỂU',
+                          value: lobby.minimumKarma > 0
+                              ? '${lobby.minimumKarma.toInt()}+'
+                              : 'Không',
+                          accent: AppColors.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Một dòng chi tiết trong sheet (icon + label + value).
-class DetailRow extends StatelessWidget {
+/// Neo-brutalism section header.
+class _NeoSectionHeader extends StatelessWidget {
+  final String title;
+
+  const _NeoSectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: AppColors.border,
+              width: 1,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+            letterSpacing: 1.0,
+            color: AppColors.black,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Neo-brutalism detail card (single tile).
+class _NeoDetailCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final Color accent;
 
-  const DetailRow({
-    super.key,
+  const _NeoDetailCard({
     required this.icon,
     required this.label,
     required this.value,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest,
-            borderRadius: AppRadius.radiusXxsAll,
-          ),
-          child: Icon(icon, size: AppIcons.md, color: colors.primary),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2.5,
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(3, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    width: 1.5,
+                  ),
                 ),
+                child: Icon(icon, size: 14, color: AppColors.white),
               ),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 9,
+                    letterSpacing: 0.8,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

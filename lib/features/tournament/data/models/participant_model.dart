@@ -3,7 +3,7 @@ import 'package:boardverse_mobile/features/tournament/domain/entities/tournament
 /// Tournament participant model for API response mapping.
 class TournamentParticipantModel {
   final String id;
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int elo;
@@ -17,7 +17,7 @@ class TournamentParticipantModel {
 
   const TournamentParticipantModel({
     required this.id,
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.elo,
@@ -31,19 +31,39 @@ class TournamentParticipantModel {
   });
 
   factory TournamentParticipantModel.fromJson(Map<String, dynamic> json) {
-    return TournamentParticipantModel(
-      id: _readRequiredString(json, const [
-        'id',
-        'participantId',
-      ], fallback: ''),
-      oderId: _readString(json, const ['userId', 'oderId'], ''),
-      displayName: _readString(json, const [
+    // Display name: API player-facing endpoint trả về `username` (tài khoản)
+    // cho player đã đăng ký, hoặc `walkInDisplayName` cho walk-in (khách
+    // vãng lai). Nếu cả 2 null → fallback 'Người chơi'.
+    String displayName = 'Người chơi';
+    final walkIn = _readString(json, const ['walkInDisplayName'], '');
+    final username = _readString(json, const ['username'], '');
+    if (walkIn.isNotEmpty) {
+      displayName = walkIn;
+    } else if (username.isNotEmpty) {
+      displayName = username;
+    } else {
+      // Fallback legacy aliases nếu backend trả về field khác.
+      displayName = _readString(json, const [
         'displayName',
         'fullName',
         'name',
-      ], 'Người chơi'),
+      ], 'Người chơi');
+    }
+
+    return TournamentParticipantModel(
+      id: _readString(json, const ['id', 'participantId'], ''),
+      userId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: displayName,
       avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
-      elo: _readInt(json, const ['finalElo', 'initialElo', 'elo'], 1500),
+      // Elo: ưu tiên `currentElo` (Elo hiện tại trong giải). Nếu backend
+      // chỉ trả `finalElo` (sau khi kết thúc) hoặc `initialElo` (snapshot
+      // lúc đăng ký) thì fallback dần. Trước đây model ưu tiên `finalElo`
+      // → player chưa thi đấu (status=Registered) luôn hiển thị 1200 cứng.
+      elo: _readInt(
+        json,
+        const ['currentElo', 'finalElo', 'initialElo', 'elo'],
+        1500,
+      ),
       karma: _readInt(json, const [
         'karmaAtRegistration',
         'karma',
@@ -64,7 +84,7 @@ class TournamentParticipantModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'userId': oderId,
+      'userId': userId,
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'elo': elo,
@@ -84,7 +104,7 @@ class TournamentParticipantModel {
   }) {
     return TournamentParticipantEntity(
       id: id,
-      oderId: oderId,
+      userId: userId,
       displayName: displayName,
       avatarUrl: avatarUrl,
       elo: elo,
@@ -170,18 +190,4 @@ bool _readBool(Map<String, dynamic> json, List<String> keys) {
     if (str == 'false' || str == '0') return false;
   }
   return false;
-}
-
-String _readRequiredString(
-  Map<String, dynamic> json,
-  List<String> keys, {
-  required String fallback,
-}) {
-  for (final key in keys) {
-    final value = json[key];
-    if (value != null && value.toString().trim().isNotEmpty) {
-      return value.toString();
-    }
-  }
-  return fallback;
 }

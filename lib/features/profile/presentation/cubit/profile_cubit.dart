@@ -2,12 +2,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dartz/dartz.dart';
 
 import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
 import 'package:boardverse_mobile/features/profile/domain/repositories/profile_repository.dart';
 import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
 
 export 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
-
 /// Cubit quản lý state của màn hình Profile.
 ///
 /// Tách nhỏ theo 4 nhóm nghiệp vụ:
@@ -19,6 +19,22 @@ class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository repository;
 
   ProfileCubit({required this.repository}) : super(const ProfileInitial());
+
+  /// Các câu thông báo backend trả về khi player chưa từng lưu vị trí.
+  /// Match theo `message` (lowercase, substring) để chịu được cả
+  /// `"Hồ sơ chưa lưu vị trí nào."` (tiếng Việt) lẫn các biến thể
+  /// tiếng Anh tương lai.
+  static const _noLocationMarkers = <String>[
+    'chưa lưu vị trí',
+    'no location',
+    'location not found',
+    'no saved location',
+  ];
+
+  bool _isNoLocationFailure(Failure failure) {
+    final msg = failure.message.toLowerCase();
+    return _noLocationMarkers.any(msg.contains);
+  }
 
   /// Resets the cubit to its initial state. Used when the user logs out
   /// so a fresh profile fetch happens on the next login.
@@ -86,7 +102,22 @@ class ProfileCubit extends Cubit<ProfileState> {
     final result = await repository.getLocation();
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
+      // Backend trả 404 "Hồ sơ chưa lưu vị trí nào." khi player chưa
+      // từng set vị trí — đây KHÔNG phải lỗi, ch� là trạng thái rỗng.
+      // Trước đây cubit emit ProfileFailure khiến toàn bộ dashboard bị
+      // thay bằng full-screen error, che mất phần còn lại của profile.
+      (failure) {
+        if (_isNoLocationFailure(failure)) {
+          // Reuse PlayerLocationEntity cùng shape JSON khi chưa có data.
+          emit(
+            const ProfileLocationLoaded(
+              location: PlayerLocationEntity(hasLocation: false),
+            ),
+          );
+        } else {
+          emit(ProfileFailure(message: failure.message));
+        }
+      },
       (location) => emit(ProfileLocationLoaded(location: location)),
     );
   }
@@ -103,7 +134,12 @@ class ProfileCubit extends Cubit<ProfileState> {
     );
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
+      (failure) {
+        // Backend đôi khi trả 404 với body "chưa lưu vị trí" cho PUT
+        // ngay sau khi DELETE — không phải lỗi, bỏ qua.
+        if (_isNoLocationFailure(failure)) return;
+        emit(ProfileFailure(message: failure.message));
+      },
       (location) => emit(ProfileLocationLoaded(location: location)),
     );
   }
@@ -112,7 +148,15 @@ class ProfileCubit extends Cubit<ProfileState> {
     final result = await repository.deleteLocation();
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
+      (failure) {
+        // Trường hợp "đã xoá rồi / chưa từng có" → vẫn coi như
+        // delete thành công để UI không hiện error toast khó chịu.
+        if (_isNoLocationFailure(failure)) {
+          emit(const ProfileLocationDeleted());
+          return;
+        }
+        emit(ProfileFailure(message: failure.message));
+      },
       (_) => emit(const ProfileLocationDeleted()),
     );
   }
@@ -123,7 +167,11 @@ class ProfileCubit extends Cubit<ProfileState> {
     final result = await repository.getKarmaHistory();
     if (isClosed) return;
     result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
+      // Karma chưa có → coi như rỗng, không phải lỗi.
+      (failure) {
+        if (failure is NotFoundFailure) return;
+        emit(ProfileFailure(message: failure.message));
+      },
       (karma) => emit(ProfileKarmaLoaded(karma: karma)),
     );
   }

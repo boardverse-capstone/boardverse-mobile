@@ -30,10 +30,10 @@ class MyRegistrationsCubit extends Cubit<MyRegistrationsState> {
         message: failure.message,
         activeFilter: filter,
       )),
-      (tournaments) {
-        tournaments.sort((a, b) => b.startTime.compareTo(a.startTime));
+      (entries) {
+        entries.sort((a, b) => b.startTime.compareTo(a.startTime));
         emit(MyRegistrationsLoaded(
-          tournaments: tournaments,
+          entries: entries,
           activeFilter: filter,
         ));
       },

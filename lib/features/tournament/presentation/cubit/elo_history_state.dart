@@ -24,6 +24,7 @@ class EloHistoryLoaded extends EloHistoryState {
   final int currentElo;
   final int totalDelta;
   final int tournamentsPlayed;
+  final String username;
 
   const EloHistoryLoaded({
     required this.history,
@@ -31,6 +32,7 @@ class EloHistoryLoaded extends EloHistoryState {
     required this.currentElo,
     required this.totalDelta,
     required this.tournamentsPlayed,
+    this.username = '',
   });
 
   @override
@@ -40,6 +42,7 @@ class EloHistoryLoaded extends EloHistoryState {
         currentElo,
         totalDelta,
         tournamentsPlayed,
+        username,
       ];
 }
 

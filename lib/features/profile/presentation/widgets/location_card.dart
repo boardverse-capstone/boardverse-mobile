@@ -65,18 +65,52 @@ class _LoadedLocation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasResolved = location.hasResolvedName &&
+        (location.displayName?.trim().isNotEmpty ?? false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (hasResolved)
+          DetailRow(
+            icon: Icons.location_on_outlined,
+            label: 'Địa chỉ',
+            value: location.displayName!,
+          ),
+        if (hasResolved) const SizedBox(height: AppSpacing.sm),
         DetailRow(
           icon: AppIcons.directions,
           label: 'Toạ độ',
           value:
               '${location.latitude!.toStringAsFixed(4)}, ${location.longitude!.toStringAsFixed(4)}',
         ),
+        if (location.district != null && location.district!.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          DetailRow(
+            icon: Icons.location_city,
+            label: 'Quận/Huyện',
+            value: location.district!,
+          ),
+        ],
+        if (location.city != null && location.city!.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          DetailRow(
+            icon: Icons.apartment,
+            label: 'Thành phố',
+            value: location.city!,
+          ),
+        ],
+        if (location.country != null && location.country!.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          DetailRow(
+            icon: AppIcons.globe,
+            label: 'Quốc gia',
+            value: location.country!,
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         DetailRow(
-          icon: AppIcons.globe,
+          icon: Icons.power_input,
           label: 'Nguồn',
           value: location.source == LocationSource.gps
               ? 'GPS thiết bị'

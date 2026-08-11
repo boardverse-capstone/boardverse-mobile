@@ -263,6 +263,77 @@ void main() {
 
       expect(model.hasLocation, isFalse);
     });
+
+    test(
+        'fromJson parse đầy đủ district/city/country/displayName + '
+        'hasResolvedName=true', () {
+      final json = <String, dynamic>{
+        'latitude': 10.7725,
+        'longitude': 106.698,
+        'updatedAt': '2026-08-08T07:27:57.155705Z',
+        'source': 'Manual',
+        'hasLocation': true,
+        'district': 'Phường Bến Thành',
+        'city': 'Thành phố Thủ Đức',
+        'country': 'Việt Nam',
+        'displayName': 'Phường Bến Thành, Thành phố Thủ Đức, Việt Nam',
+        'hasResolvedName': true,
+      };
+
+      final model = PlayerLocationModel.fromJson(json);
+      final entity = model.toEntity();
+
+      expect(model.district, 'Phường Bến Thành');
+      expect(model.city, 'Thành phố Thủ Đức');
+      expect(model.country, 'Việt Nam');
+      expect(model.displayName, contains('Phường Bến Thành'));
+      expect(model.hasResolvedName, isTrue);
+
+      expect(entity.district, 'Phường Bến Thành');
+      expect(entity.city, 'Thành phố Thủ Đức');
+      expect(entity.country, 'Việt Nam');
+      expect(entity.hasResolvedName, isTrue);
+      expect(entity.resolvedLabel, contains('Phường Bến Thành'));
+    });
+
+    test(
+        'fromJson suy ra hasResolvedName=true khi server bỏ sót field này '
+        'nhưng có displayName', () {
+      final json = <String, dynamic>{
+        'latitude': 10.7725,
+        'longitude': 106.698,
+        'source': 1,
+        'hasLocation': true,
+        'displayName': 'Phường Bến Thành',
+        // hasResolvedName cố tình thiếu
+      };
+
+      final model = PlayerLocationModel.fromJson(json);
+      expect(model.hasResolvedName, isTrue);
+    });
+
+    test('toJson round-trip bao gồm district/city/country/displayName', () {
+      const model = PlayerLocationModel(
+        latitude: 10.7725,
+        longitude: 106.698,
+        updatedAt: '2026-08-08T07:27:57Z',
+        source: 1,
+        hasLocation: true,
+        district: 'Phường Bến Thành',
+        city: 'Thành phố Thủ Đức',
+        country: 'Việt Nam',
+        displayName: 'Phường Bến Thành, Thành phố Thủ Đức, Việt Nam',
+        hasResolvedName: true,
+      );
+
+      final json = model.toJson();
+      expect(json['district'], 'Phường Bến Thành');
+      expect(json['city'], 'Thành phố Thủ Đức');
+      expect(json['country'], 'Việt Nam');
+      expect(json['displayName'],
+          'Phường Bến Thành, Thành phố Thủ Đức, Việt Nam');
+      expect(json['hasResolvedName'], isTrue);
+    });
   });
 
   group('KarmaHistoryModel', () {

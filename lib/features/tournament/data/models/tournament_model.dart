@@ -62,6 +62,7 @@ class TournamentModel {
       currentParticipants: _readInt(
         json,
         const [
+          'registeredCount',
           'currentParticipants',
           'participantCount',
           'registeredParticipantCount',
@@ -90,7 +91,11 @@ class TournamentModel {
       currentRound: _readNullableInt(json, const ['currentRound']),
       isUserRegistered: _readBool(
         json,
-        const ['isUserRegistered', 'isRegistered'],
+        const [
+          'currentUserRegistered',
+          'isUserRegistered',
+          'isRegistered',
+        ],
       ),
     );
   }

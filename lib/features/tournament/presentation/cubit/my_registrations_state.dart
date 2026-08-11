@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
 
 /// Filter for "My Registrations" page.
 enum MyRegistrationsFilter {
@@ -46,6 +46,28 @@ enum MyRegistrationsFilter {
         return 'Cancelled';
     }
   }
+
+  /// Map backend `tournamentStatus` string về enum filter này.
+  /// Dùng cho client-side filter ngay cả khi gọi API với `status=null`
+  /// (tức là "Tất cả").
+  static MyRegistrationsFilter fromBackendStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'draft':
+        return MyRegistrationsFilter.all;
+      case 'registrationopen':
+        return MyRegistrationsFilter.registrationOpen;
+      case 'registrationclosed':
+        return MyRegistrationsFilter.registrationClosed;
+      case 'ongoing':
+        return MyRegistrationsFilter.ongoing;
+      case 'completed':
+        return MyRegistrationsFilter.completed;
+      case 'cancelled':
+        return MyRegistrationsFilter.cancelled;
+      default:
+        return MyRegistrationsFilter.all;
+    }
+  }
 }
 
 /// States for MyRegistrationsCubit.
@@ -69,29 +91,29 @@ class MyRegistrationsLoading extends MyRegistrationsState {
 }
 
 class MyRegistrationsLoaded extends MyRegistrationsState {
-  final List<TournamentEntity> tournaments;
+  final List<MyRegistrationEntry> entries;
   final MyRegistrationsFilter activeFilter;
 
   const MyRegistrationsLoaded({
-    required this.tournaments,
+    required this.entries,
     required this.activeFilter,
   });
 
   @override
-  List<Object?> get props => [tournaments, activeFilter];
+  List<Object?> get props => [entries, activeFilter];
 }
 
 class MyRegistrationsError extends MyRegistrationsState {
   final String message;
   final MyRegistrationsFilter activeFilter;
-  final List<TournamentEntity> previousTournaments;
+  final List<MyRegistrationEntry> previousEntries;
 
   const MyRegistrationsError({
     required this.message,
     required this.activeFilter,
-    this.previousTournaments = const [],
+    this.previousEntries = const [],
   });
 
   @override
-  List<Object?> get props => [message, activeFilter, previousTournaments];
+  List<Object?> get props => [message, activeFilter, previousEntries];
 }

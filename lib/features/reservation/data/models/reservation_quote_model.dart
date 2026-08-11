@@ -36,18 +36,18 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
 
     return ReservationQuoteModel(
       reservationId: data['reservationId'] as String?,
-      cafeId: data['cafeId'] as String,
+      cafeId: data['cafeId'] as String? ?? '',
       cafeName: data['cafeName'] as String? ?? '',
-      gameId: data['gameId'] as String,
+      gameId: data['gameId'] as String? ?? '',
       gameName: data['gameName'] as String? ?? '',
-      playDate: DateTime.parse(data['playDate'] as String),
-      timeSlot: TimeSlot.fromString(data['timeSlot'] as String),
+      playDate: DateTime.tryParse(data['playDate'] as String? ?? '') ?? DateTime.now(),
+      timeSlot: TimeSlot.fromString(data['timeSlot'] as String? ?? 'morning'),
       preferredStartTime: data['preferredStartTime'] as String?,
-      scheduledTime: DateTime.parse(data['scheduledTime'] as String),
+      scheduledTime: DateTime.tryParse(data['scheduledTime'] as String? ?? '') ?? DateTime.now(),
       recruitmentDeadline:
-          DateTime.parse(data['recruitmentDeadline'] as String),
-      minPlayers: data['minPlayers'] as int,
-      maxPlayers: data['maxPlayers'] as int,
+          DateTime.tryParse(data['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
+      minPlayers: data['minPlayers'] as int? ?? 2,
+      maxPlayers: data['maxPlayers'] as int? ?? 4,
       depositRatePerPerson: data['depositRatePerPerson'] as int? ?? 0,
       baseDeposit: data['baseDeposit'] as int? ?? 0,
       riskMultiplier:
@@ -60,9 +60,8 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
       bufferWarning: data['bufferWarning'] as bool? ?? false,
       isPrivate: data['isPrivate'] as bool? ?? false,
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
-      expiresAt: data['expiresAt'] != null
-          ? DateTime.parse(data['expiresAt'] as String)
-          : DateTime.now().add(const Duration(minutes: 5)),
+      expiresAt: DateTime.tryParse(data['expiresAt'] as String? ?? '') ??
+          DateTime.now().add(const Duration(minutes: 5)),
       warnings: (data['warnings'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -130,15 +129,15 @@ class ReservationConfirmResultModel extends ReservationConfirmResult {
     final data = json['data'] as Map<String, dynamic>? ?? json;
 
     return ReservationConfirmResultModel(
-      reservationId: data['reservationId'] as String,
-      lobbyId: data['lobbyId'] as String,
+      reservationId: data['reservationId'] as String? ?? '',
+      lobbyId: data['lobbyId'] as String? ?? '',
       lobbyShareCode:
           (data['lobbyShareCode'] ?? data['shareCode']) as String?,
       recruitmentDeadline:
-          DateTime.parse(data['recruitmentDeadline'] as String),
+          DateTime.tryParse(data['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
       cafeApprovalDeadline: data['cafeApprovalDeadline'] != null
-          ? DateTime.parse(data['cafeApprovalDeadline'] as String)
+          ? DateTime.tryParse(data['cafeApprovalDeadline'] as String)
           : null,
       heldBvc: data['heldBvc'] as int? ?? 0,
     );
@@ -202,8 +201,8 @@ class ReservationCancelResultModel extends ReservationCancelResult {
     final data = json['data'] as Map<String, dynamic>? ?? json;
 
     return ReservationCancelResultModel(
-      reservationId: data['reservationId'] as String,
-      lobbyId: data['lobbyId'] as String,
+      reservationId: data['reservationId'] as String? ?? '',
+      lobbyId: data['lobbyId'] as String? ?? '',
       refundBvc: data['refundBvc'] as int? ?? 0,
       forfeitBvc: data['forfeitBvc'] as int? ?? 0,
       refundPolicyApplied: data['refundPolicyApplied'] as String? ?? '',

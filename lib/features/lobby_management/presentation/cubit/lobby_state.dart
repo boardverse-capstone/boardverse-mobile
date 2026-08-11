@@ -83,6 +83,14 @@ class LobbyDismissed extends LobbyState {
   List<Object?> get props => [title, message, reasonCode];
 }
 
+/// Đang fetch danh sách bạn bè online cho flow MỜI THỰC (gửi notification).
+///
+/// Phát ra trước khi [LobbyFriendsLoaded]. UI FriendsSheet dùng state này
+/// để hiển thị shimmer skeleton thay vì spinner cũ.
+class LobbyFriendsLoading extends LobbyState {
+  const LobbyFriendsLoading();
+}
+
 /// Danh sách bạn bè online — dùng cho flow MỜI THỰC (gửi notification).
 class LobbyFriendsLoaded extends LobbyState {
   final List<FriendEntity> friends;

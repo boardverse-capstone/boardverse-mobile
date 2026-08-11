@@ -28,7 +28,6 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
   final bool isQuoteLoading;
   final bool isCreatingLobby;
   final int bufferMinutes;
-  final bool isBufferTooShort;
   final bool hasBufferWarning;
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
@@ -55,7 +54,6 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
     required this.isQuoteLoading,
     required this.isCreatingLobby,
     required this.bufferMinutes,
-    required this.isBufferTooShort,
     required this.hasBufferWarning,
     required this.formatDate,
     required this.formatTime,
@@ -321,7 +319,9 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
 
         LobbyConfigBottomButton(
           label: 'Xác nhận & Đặt cọc',
-          onPressed: widget.isBufferTooShort || liveQuote == null || widget.isCreatingLobby
+          // Bỏ block `isBufferTooShort` — cho phép đặt lobby sát giờ
+          // (BR §XXI-B.4). Chỉ disable khi quote null / đang loading.
+          onPressed: liveQuote == null || widget.isCreatingLobby
               ? null
               : widget.onConfirm,
           isLoading: widget.isCreatingLobby,

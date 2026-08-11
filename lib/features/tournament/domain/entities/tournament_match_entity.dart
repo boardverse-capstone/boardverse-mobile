@@ -43,7 +43,7 @@ class TournamentMatchEntity {
   MatchPlayerResult? get winnerResult {
     if (winnerId == null) return null;
     try {
-      return results.firstWhere((r) => r.oderId == winnerId);
+      return results.firstWhere((r) => r.userId == winnerId);
     } catch (_) {
       return null;
     }
@@ -94,7 +94,7 @@ enum MatchStatus {
 
 /// Individual player result in a match.
 class MatchPlayerResult {
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int score;
@@ -103,7 +103,7 @@ class MatchPlayerResult {
   final int? rank;
 
   MatchPlayerResult({
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.score,

@@ -1,7 +1,7 @@
 /// Tournament participant entity representing a player in a tournament.
 class TournamentParticipantEntity {
   final String id;
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int elo;
@@ -28,7 +28,7 @@ class TournamentParticipantEntity {
 
   const TournamentParticipantEntity({
     required this.id,
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.elo,

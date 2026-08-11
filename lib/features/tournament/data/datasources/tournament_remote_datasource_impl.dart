@@ -7,6 +7,7 @@ import 'package:boardverse_mobile/features/tournament/data/models/participant_mo
 import 'package:boardverse_mobile/features/tournament/data/models/match_model.dart';
 import 'package:boardverse_mobile/features/tournament/data/models/elo_history_model.dart';
 import 'package:boardverse_mobile/features/tournament/data/models/leaderboard_model.dart';
+import 'package:boardverse_mobile/features/tournament/data/models/my_registration_model.dart';
 import 'package:boardverse_mobile/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
 
 /// Implementation of TournamentRemoteDatasource using Dio client.
@@ -176,7 +177,7 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   }
 
   @override
-  Future<List<TournamentModel>> getMyRegistrations({String? status}) async {
+  Future<List<MyRegistrationModel>> getMyRegistrations({String? status}) async {
     try {
       final queryParams = status != null ? {'status': status} : null;
 
@@ -186,19 +187,43 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
       );
 
       final list = _unwrapList(response.data);
-      return list.map((json) => TournamentModel.fromJson(json)).toList();
+      return list
+          .map((json) => MyRegistrationModel.fromJson(json))
+          .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
   }
 
   @override
-  Future<List<EloHistoryModel>> getMyEloHistory() async {
+  Future<MyEloHistoryResponseModel> getMyEloHistory() async {
     try {
       final response = await _dio.get(ApiEndpoints.tournamentsMyEloHistory);
 
-      final list = _unwrapList(response.data);
-      return list.map((json) => EloHistoryModel.fromJson(json)).toList();
+      // Endpoint trả về wrapper object (không phải array). Tự unwrap data
+      // nếu có envelope; nếu backend trả thẳng thì dùng raw.
+      final raw = response.data;
+      final Map<String, dynamic> payload;
+      if (raw is Map<String, dynamic> && raw.containsKey('data')) {
+        final data = raw['data'];
+        if (data is Map<String, dynamic>) {
+          payload = data;
+        } else if (data is List) {
+          // Fallback: một số version cũ có thể trả list thẳng — vẫn wrap
+          // lại để khớp shape mới.
+          payload = {'history': data, 'currentElo': 1500};
+        } else {
+          payload = const {};
+        }
+      } else if (raw is Map<String, dynamic>) {
+        payload = raw;
+      } else {
+        throw const ServerException(
+          message:
+              'Response /my-elo-history không đúng định dạng (expected object)',
+        );
+      }
+      return MyEloHistoryResponseModel.fromJson(payload);
     } on DioException catch (e) {
       throw _mapDioError(e);
     }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
@@ -8,28 +7,35 @@ import '../../domain/entities/entities.dart';
 import '../../domain/repositories/reservation_repository.dart';
 import '../cubit/reservation_list_cubit.dart';
 import '../cubit/reservation_list_state.dart';
+import '../widgets/reservation_card.dart';
+import '../widgets/reservation_card_skeleton.dart';
 import 'reservation_detail_page.dart';
 
-/// Trang danh sách reservation của player — dùng trong tab "Lịch đặt".
+/// Trang / tab danh sách reservation của player.
 ///
 /// Tách ra từ `core/navigation/pages/bookings_page.dart` để UI thuộc về
-/// feature `reservation`. Page này chỉ hiển thị reservation; lobby list
-/// vẫn do `bookings_page.dart` quản lý (vì đó là UI của lobby_management).
+/// feature `reservation`. Có thể nhúng vào bất kỳ page nào (tab,
+/// sub-page) thông qua widget `ReservationListView` — nó tự cung cấp
+/// cubit riêng và quản lý state.
 ///
 /// API: `GET /api/v1/reservations` với filter `hostedByMe` / `joinedByMe`.
 class ReservationListPage extends StatelessWidget {
   /// `hostedByMeOnly`: true → chỉ reservation user host; null/false → tất cả.
   /// `title`: tiêu đề section hiển thị phía trên.
+  /// `scrollable`: nếu `false`, danh sách sẽ không tự cuộn (dùng khi nhúng
+  ///   vào `TabBarView` — outer scroll sẽ cuộn thay).
   const ReservationListPage({
     super.key,
     this.hostedByMeOnly = true,
     this.title = 'Lịch đặt của tôi',
     this.subtitle = 'Các đơn reservation đã tạo qua BVC',
+    this.scrollable = true,
   });
 
   final bool? hostedByMeOnly;
   final String title;
   final String subtitle;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -37,212 +43,178 @@ class ReservationListPage extends StatelessWidget {
       create: (_) => ReservationListCubit(
         repository: sl<ReservationRepository>(),
       )..load(hostedByMe: hostedByMeOnly),
-      child: _ReservationListView(title: title, subtitle: subtitle),
+      child: ReservationListView(
+        title: title,
+        subtitle: subtitle,
+        scrollable: scrollable,
+      ),
     );
   }
 }
 
-class _ReservationListView extends StatelessWidget {
+/// View widget — không tự tạo cubit, dùng cubit có sẵn trong context.
+///
+/// Dùng khi page cha đã cung cấp cubit (ví dụ qua `MultiBlocProvider`),
+/// hoặc khi cần test với cubit giả.
+class ReservationListView extends StatelessWidget {
   final String title;
   final String subtitle;
-  const _ReservationListView({required this.title, required this.subtitle});
+  final bool scrollable;
+  final bool showHeader;
+
+  const ReservationListView({
+    super.key,
+    this.title = 'Lịch đặt của tôi',
+    this.subtitle = 'Các đơn reservation đã tạo qua BVC',
+    this.scrollable = true,
+    this.showHeader = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: AppRadius.radiusSmAll,
-                ),
-                child: Icon(Icons.event_note,
-                    color: colors.onPrimaryContainer, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Làm mới',
-                icon: const Icon(Icons.refresh),
-                onPressed: () => context
-                    .read<ReservationListCubit>()
-                    .refresh(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        BlocBuilder<ReservationListCubit, ReservationListState>(
-          builder: (context, state) {
-            if (state is ReservationListLoading) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (state is ReservationListFailure) {
-              return _ErrorBox(message: state.message);
-            }
-            if (state is ReservationListLoaded) {
-              final items = state.items;
-              if (items.isEmpty) {
-                return _EmptyBox(
-                  icon: Icons.event_busy,
-                  message: 'Bạn chưa tạo đơn reservation nào.',
-                );
-              }
-              return Column(
-                children: [
-                  for (final r in items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: _ReservationCard(reservation: r),
-                    ),
-                ],
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _ReservationCard extends StatelessWidget {
-  final ReservationEntity reservation;
-  const _ReservationCard({required this.reservation});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final time = DateFormat('HH:mm • dd/MM')
-        .format(reservation.scheduledTime.toLocal());
-    final statusColor = _statusColor(colors, reservation.status);
-    return InkWell(
-      borderRadius: AppRadius.radiusMdAll,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ReservationDetailPage(reservation: reservation),
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: AppRadius.radiusMdAll,
-          border: Border.all(color: colors.outlineVariant),
-          boxShadow: AppElevation.shadowSm,
-        ),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    Widget header() {
+      if (!showHeader) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    reservation.gameName,
-                    style: theme.textTheme.titleSmall?.copyWith(
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: AppRadius.radiusSmAll,
+              ),
+              child: Icon(
+                Icons.event_note,
+                color: colors.onPrimaryContainer,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.radiusFullAll,
-                  ),
-                  child: Text(
-                    reservation.status.displayName,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w700,
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            _InfoRow(icon: Icons.storefront, text: reservation.cafeName),
-            _InfoRow(icon: Icons.schedule, text: time),
-            _InfoRow(
-              icon: Icons.confirmation_number,
-              text: 'Cọc: ${reservation.finalDeposit} BVC',
+            IconButton(
+              tooltip: 'Làm mới',
+              icon: const Icon(Icons.refresh),
+              onPressed: () => context.read<ReservationListCubit>().refresh(),
             ),
           ],
         ),
+      );
+    }
+
+    Widget content() {
+      return BlocBuilder<ReservationListCubit, ReservationListState>(
+        builder: (context, state) {
+          if (state is ReservationListLoading) {
+            return _buildSkeleton(context);
+          }
+          if (state is ReservationListFailure) {
+            return _ErrorBox(
+              message: state.message,
+              onRetry: () => context.read<ReservationListCubit>().refresh(),
+            );
+          }
+          if (state is ReservationListLoaded) {
+            return _buildLoaded(context, state.items);
+          }
+          return const SizedBox.shrink();
+        },
+      );
+    }
+
+    if (!scrollable) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showHeader) header(),
+          if (showHeader) const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: content(),
+            ),
+          ),
+        ],
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      children: [
+        if (showHeader) header(),
+        if (showHeader) const SizedBox(height: AppSpacing.sm),
+        content(),
+        const SizedBox(height: AppSpacing.xl),
+      ],
+    );
+  }
+
+  Widget _buildSkeleton(BuildContext context) {
+    return Column(
+      children: List.generate(
+        3,
+        (_) => const Padding(
+          padding: EdgeInsets.only(bottom: AppSpacing.sm),
+          child: ReservationCardSkeleton(),
+        ),
       ),
     );
   }
 
-  Color _statusColor(ColorScheme colors, ReservationStatus status) {
-    if (status.isTerminal) return colors.error;
-    if (status.isActive) return colors.primary;
-    return AppColors.warning;
-  }
-}
+  Widget _buildLoaded(BuildContext context, List<ReservationEntity> items) {
+    if (items.isEmpty) {
+      return const _EmptyBox(
+        icon: Icons.event_busy,
+        message: 'Bạn chưa tạo đơn reservation nào.',
+      );
+    }
+    // Sắp xếp: hoạt động trước, sau đó theo thời gian scheduledTime giảm dần.
+    final sorted = [...items]..sort((a, b) {
+        final aActive = a.status.isActive ||
+            (a.lobbyStatus?.isActive ?? false);
+        final bActive = b.status.isActive ||
+            (b.lobbyStatus?.isActive ?? false);
+        if (aActive != bActive) {
+          return aActive ? -1 : 1;
+        }
+        return b.scheduledTime.compareTo(a.scheduledTime);
+      });
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: colors.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
+    return Column(
+      children: [
+        for (final r in sorted)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: ReservationCard(
+              reservation: r,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReservationDetailPage(reservation: r),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -262,7 +234,9 @@ class _EmptyBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
@@ -284,7 +258,8 @@ class _EmptyBox extends StatelessWidget {
 
 class _ErrorBox extends StatelessWidget {
   final String message;
-  const _ErrorBox({required this.message});
+  final VoidCallback onRetry;
+  const _ErrorBox({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -297,16 +272,33 @@ class _ErrorBox extends StatelessWidget {
         color: colors.errorContainer,
         borderRadius: AppRadius.radiusMdAll,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.error_outline, color: colors.onErrorContainer),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onErrorContainer,
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: colors.onErrorContainer),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onErrorContainer,
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Thử lại'),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.onErrorContainer,
+              ),
+              onPressed: onRetry,
             ),
           ),
         ],

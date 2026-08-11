@@ -28,6 +28,7 @@ class TopUpPage extends StatefulWidget {
 class _TopUpPageState extends State<TopUpPage> {
   final TextEditingController _customAmountController = TextEditingController();
   int _selectedAmountVnd = 100000;
+  bool _isManualChecking = false;
 
   @override
   void initState() {
@@ -430,6 +431,8 @@ class _TopUpPageState extends State<TopUpPage> {
     return Column(
       children: [
         _buildQrSection(context, state, textTheme, borderColor),
+        const SizedBox(height: AppSpacing.md),
+        _buildManualRefreshButton(context, borderColor),
         const SizedBox(height: AppSpacing.lg),
         _buildPaymentInstructions(context, state, textTheme),
         const SizedBox(height: AppSpacing.lg),
@@ -611,6 +614,96 @@ class _TopUpPageState extends State<TopUpPage> {
         ],
       ),
     );
+  }
+
+  /// Nút "Kiểm tra ngay" — cho phép user ép check trạng thái top-up
+  /// thay vì đợi auto-polling 5s.
+  ///
+  /// Hữu ích khi:
+  /// - User đã thanh toán nhưng chưa thấy BVC cộng sau 5s.
+  /// - Muốn refresh ngay sau khi SePay báo thanh toán xong.
+  Widget _buildManualRefreshButton(BuildContext context, Color borderColor) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _isManualChecking ? null : () => _handleManualRefresh(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isManualChecking)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(Icons.refresh, color: AppColors.primary, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  _isManualChecking ? 'ĐANG KIỂM TRA...' : 'KIỂM TRA NGAY',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleManualRefresh(BuildContext context) async {
+    setState(() => _isManualChecking = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final cubit = context.read<TopUpCubit>();
+
+    try {
+      final success = await cubit.manualCheckStatus();
+      if (!mounted) return;
+
+      if (!success) {
+        // Trường hợp vẫn chưa có giao dịch (TopUpAwaitingPayment / mạng lỗi).
+        // Nếu cubit emit TopUpExpired thì BlocConsumer listener đã show dialog
+        // rồi — chỉ snackbar khi vẫn đang chờ.
+        if (cubit.state is TopUpAwaitingPayment) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Chưa nhận được thanh toán. Vui lòng thử lại sau ít phút.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        // Nếu state là TopUpSuccess → BlocConsumer listener đã show success dialog.
+        // Nếu state là TopUpExpired → BlocConsumer listener đã show expired dialog.
+      }
+      // success=true → BlocConsumer listener tự show success dialog.
+    } finally {
+      if (mounted) setState(() => _isManualChecking = false);
+    }
   }
 
   Widget _buildFallbackQr(BuildContext context, dynamic quote) {

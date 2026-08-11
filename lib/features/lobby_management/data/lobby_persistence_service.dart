@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../domain/entities/lobby_entity.dart';
+import 'models/lobby_model.dart';
 
 /// Service for persisting lobby state locally.
 ///
@@ -127,7 +128,11 @@ class LobbyPersistenceService {
       currentPlayers: (details['currentPlayers'] as int?) ?? 0,
       maxPlayers: (details['maxPlayers'] as int?) ?? 2,
       minPlayers: (details['minPlayers'] as int?) ?? 2,
-      isPublic: (details['isPublic'] as bool?) ?? true,
+      isPublic: LobbyModel.parseVisibility(
+        isPublic: details['isPublic'],
+        isPrivate: details['isPrivate'],
+        visibility: details['visibility'],
+      ),
       inviteCode: details['inviteCode'] as String?,
       status: status,
       players: const [],

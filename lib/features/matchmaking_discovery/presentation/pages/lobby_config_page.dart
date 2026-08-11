@@ -77,6 +77,12 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
 
   final Duration _leadTime = const Duration(minutes: 20);
 
+  /// Số phút từ `now` tới `scheduledTime - leadTime` (deadline BR-08).
+  ///
+  /// Dùng [_preferredStartTime] nếu user đã chọn (giờ chính xác user
+  /// muốn chơi) — fallback slot start nếu chưa chọn. Tránh trường hợp
+  /// user chọn giờ 16h trong slot evening mà bị tính nhầm theo slot
+  /// start (18h).
   int get _bufferMinutes {
     final now = DateTime.now();
     final scheduledTime = _getScheduledDateTime();
@@ -84,9 +90,24 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     return deadline.difference(now).inMinutes;
   }
 
-  bool get _isScheduledInPast => _bufferMinutes < 0;
-  bool get _hasBufferWarning => !_isScheduledInPast && _bufferMinutes >= 60 && _bufferMinutes < 120;
-  bool get _isBufferTooShort => !_isScheduledInPast && _bufferMinutes < 60;
+  /// `true` nếu `scheduledTime < now` (lobby sẽ chơi ở quá khứ).
+  /// Đây là điều kiện DUY NHẤT block user khỏi việc đặt lobby. Chỉ
+  /// phụ thuộc `scheduledTime`, không trừ lead time (BR §XXI-B.4: lead
+  /// time chỉ ảnh hưởng deadline tuyển người, không ảnh hưởng khả
+  /// năng tạo lobby).
+  bool get _isScheduledInPast =>
+      _getScheduledDateTime().isBefore(DateTime.now());
+
+  /// Cảnh báo buffer ngắn (< 60 phút) — CHỈ để hiển thị warning trên
+  /// UI, KHÔNG block user khỏi việc đặt lobby. Theo BR §XXI-B.4, lobby
+  /// vẫn được tạo thành công nếu `scheduledTime > now` (không kể lead
+  /// time của backend BR-08 = 20 phút, vì user đã chấp nhận warning).
+  ///
+  /// Trước đây: `bufferMinutes < 60` → button "Tiếp tục" bị disable,
+  /// gây UX xấu khi user muốn đặt sát giờ. Hiện tại: chỉ cảnh báo
+  /// thông tin, vẫn cho đặt.
+  bool get _hasBufferWarning =>
+      !_isScheduledInPast && _bufferMinutes >= 0 && _bufferMinutes < 60;
 
   // Chỉ 3 slots: morning, afternoon, evening (không có night)
   static const _availableSlots = [TimeSlot.morning, TimeSlot.afternoon, TimeSlot.evening];
@@ -136,14 +157,24 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     }
   }
 
+  /// Trả về DateTime giờ chơi thực tế:
+  /// - Ưu tiên [_preferredStartTime] nếu user đã chọn (giờ chính xác
+  ///   user muốn chơi — vd 16h00 trong slot evening).
+  /// - Fallback slot start (morning=9h, afternoon=13h, evening=18h).
+  ///
+  /// Quan trọng: trước đây chỉ dùng slot start → user chọn giờ 16h
+  /// trong slot evening vẫn bị tính theo 18h → có thể block sai khi
+  /// giờ slot start nằm trong tương lai xa nhưng giờ user chọn lại ở
+  /// quá khứ (vd afternoon slot start 13h nhưng bây giờ 14h, user chọn
+  /// 16h vẫn OK, nhưng nếu user chọn 14h slot evening thì tính 18h).
   DateTime _getScheduledDateTime() {
-    final startTime = _getSlotStartTime(_selectedTimeSlot);
+    final time = _preferredStartTime ?? _getSlotStartTime(_selectedTimeSlot);
     return DateTime(
       _selectedDate.year,
       _selectedDate.month,
       _selectedDate.day,
-      startTime.hour,
-      startTime.minute,
+      time.hour,
+      time.minute,
     );
   }
 
@@ -499,7 +530,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         getSlotColor: _getSlotColor,
                         bufferMinutes: _bufferMinutes,
                         isScheduledInPast: _isScheduledInPast,
-                        isBufferTooShort: _isBufferTooShort,
+                        hasBufferWarning: _hasBufferWarning,
                         formatBuffer: _formatBuffer,
                         onNext: () => _goToTab(2),
                       ),
@@ -539,7 +570,6 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         isQuoteLoading: _isQuoteLoading,
                         isCreatingLobby: _isCreatingLobby,
                         bufferMinutes: _bufferMinutes,
-                        isBufferTooShort: _isBufferTooShort,
                         hasBufferWarning: _hasBufferWarning,
                         formatDate: _formatDate,
                         formatTime: _formatTimeOfDay,

@@ -19,6 +19,11 @@ mixin _$PlayerLocationModel {
 @JsonKey(fromJson: _locationSourceFromJson) int? get source;/// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
 /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
  bool get hasLocation;
+/// Địa chỉ đã reverse-geocode (optional — có thể `null` nếu server
+/// chưa build xong hoặc thất bại).
+ String? get district; String? get city; String? get country; String? get displayName;/// `true` khi [displayName] đã được build. Nếu server trả cờ này thì
+/// dùng, ngược lại suy ra từ `displayName != null`.
+@JsonKey(fromJson: _boolFromJson) bool? get hasResolvedName;
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +34,16 @@ $PlayerLocationModelCopyWith<PlayerLocationModel> get copyWith => _$PlayerLocati
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation)&&(identical(other.district, district) || other.district == district)&&(identical(other.city, city) || other.city == city)&&(identical(other.country, country) || other.country == country)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.hasResolvedName, hasResolvedName) || other.hasResolvedName == hasResolvedName));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation);
+int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation,district,city,country,displayName,hasResolvedName);
 
 @override
 String toString() {
-  return 'PlayerLocationModel(latitude: $latitude, longitude: $longitude, updatedAt: $updatedAt, source: $source, hasLocation: $hasLocation)';
+  return 'PlayerLocationModel(latitude: $latitude, longitude: $longitude, updatedAt: $updatedAt, source: $source, hasLocation: $hasLocation, district: $district, city: $city, country: $country, displayName: $displayName, hasResolvedName: $hasResolvedName)';
 }
 
 
@@ -47,9 +52,9 @@ String toString() {
 /// @nodoc
 abstract mixin class $PlayerLocationModelCopyWith<$Res>  {
   factory $PlayerLocationModelCopyWith(PlayerLocationModel value, $Res Function(PlayerLocationModel) _then) = _$PlayerLocationModelCopyWithImpl;
-@useResult
+  @useResult
 $Res call({
- double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation
+ double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation, String? district, String? city, String? country, String? displayName,@JsonKey(fromJson: _boolFromJson) bool? hasResolvedName
 });
 
 
@@ -66,14 +71,19 @@ class _$PlayerLocationModelCopyWithImpl<$Res>
 
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? latitude = freezed,Object? longitude = freezed,Object? updatedAt = freezed,Object? source = freezed,Object? hasLocation = null,}) {
-  return _then(_self.copyWith(
+@pragma('vm:prefer-inline') @override $Res call({Object? latitude = freezed,Object? longitude = freezed,Object? updatedAt = freezed,Object? source = freezed,Object? hasLocation = null,Object? district = freezed,Object? city = freezed,Object? country = freezed,Object? displayName = freezed,Object? hasResolvedName = freezed,}) {
+    return _then(_self.copyWith(
 latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as String?,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as int?,hasLocation: null == hasLocation ? _self.hasLocation : hasLocation // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,district: freezed == district ? _self.district : district // ignore: cast_nullable_to_non_nullable
+as String?,city: freezed == city ? _self.city : city // ignore: cast_nullable_to_non_nullable
+as String?,country: freezed == country ? _self.country : country // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String?,hasResolvedName: freezed == hasResolvedName ? _self.hasResolvedName : hasResolvedName // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -158,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation,  String? district,  String? city,  String? country,  String? displayName, @JsonKey(fromJson: _boolFromJson)  bool? hasResolvedName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel() when $default != null:
-return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
+return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation,_that.district,_that.city,_that.country,_that.displayName,_that.hasResolvedName);case _:
   return orElse();
 
 }
@@ -179,10 +189,10 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation,  String? district,  String? city,  String? country,  String? displayName, @JsonKey(fromJson: _boolFromJson)  bool? hasResolvedName)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel():
-return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
+return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation,_that.district,_that.city,_that.country,_that.displayName,_that.hasResolvedName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +209,10 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? latitude,  double? longitude,  String? updatedAt, @JsonKey(fromJson: _locationSourceFromJson)  int? source,  bool hasLocation,  String? district,  String? city,  String? country,  String? displayName, @JsonKey(fromJson: _boolFromJson)  bool? hasResolvedName)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLocationModel() when $default != null:
-return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation);case _:
+return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_that.hasLocation,_that.district,_that.city,_that.country,_that.displayName,_that.hasResolvedName);case _:
   return null;
 
 }
@@ -214,10 +224,10 @@ return $default(_that.latitude,_that.longitude,_that.updatedAt,_that.source,_tha
 
 
 class _PlayerLocationModel implements PlayerLocationModel {
-  const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, @JsonKey(fromJson: _locationSourceFromJson) this.source, required this.hasLocation});
+  const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, @JsonKey(fromJson: _locationSourceFromJson) this.source, required this.hasLocation, this.district, this.city, this.country, this.displayName, @JsonKey(fromJson: _boolFromJson) this.hasResolvedName});
   
 
-@override final  double? latitude;
+  @override final  double? latitude;
 @override final  double? longitude;
 @override final  String? updatedAt;
 /// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
@@ -226,6 +236,15 @@ class _PlayerLocationModel implements PlayerLocationModel {
 /// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
 /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
 @override final  bool hasLocation;
+/// Địa chỉ đã reverse-geocode (optional — có thể `null` nếu server
+/// chưa build xong hoặc thất bại).
+@override final  String? district;
+@override final  String? city;
+@override final  String? country;
+@override final  String? displayName;
+/// `true` khi [displayName] đã được build. Nếu server trả cờ này thì
+/// dùng, ngược lại suy ra từ `displayName != null`.
+@override@JsonKey(fromJson: _boolFromJson) final  bool? hasResolvedName;
 
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
@@ -237,16 +256,16 @@ _$PlayerLocationModelCopyWith<_PlayerLocationModel> get copyWith => __$PlayerLoc
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerLocationModel&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.source, source) || other.source == source)&&(identical(other.hasLocation, hasLocation) || other.hasLocation == hasLocation)&&(identical(other.district, district) || other.district == district)&&(identical(other.city, city) || other.city == city)&&(identical(other.country, country) || other.country == country)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.hasResolvedName, hasResolvedName) || other.hasResolvedName == hasResolvedName));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation);
+int get hashCode => Object.hash(runtimeType,latitude,longitude,updatedAt,source,hasLocation,district,city,country,displayName,hasResolvedName);
 
 @override
 String toString() {
-  return 'PlayerLocationModel(latitude: $latitude, longitude: $longitude, updatedAt: $updatedAt, source: $source, hasLocation: $hasLocation)';
+  return 'PlayerLocationModel(latitude: $latitude, longitude: $longitude, updatedAt: $updatedAt, source: $source, hasLocation: $hasLocation, district: $district, city: $city, country: $country, displayName: $displayName, hasResolvedName: $hasResolvedName)';
 }
 
 
@@ -257,7 +276,7 @@ abstract mixin class _$PlayerLocationModelCopyWith<$Res> implements $PlayerLocat
   factory _$PlayerLocationModelCopyWith(_PlayerLocationModel value, $Res Function(_PlayerLocationModel) _then) = __$PlayerLocationModelCopyWithImpl;
 @override @useResult
 $Res call({
- double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation
+ double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation, String? district, String? city, String? country, String? displayName,@JsonKey(fromJson: _boolFromJson) bool? hasResolvedName
 });
 
 
@@ -274,18 +293,22 @@ class __$PlayerLocationModelCopyWithImpl<$Res>
 
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? latitude = freezed,Object? longitude = freezed,Object? updatedAt = freezed,Object? source = freezed,Object? hasLocation = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? latitude = freezed,Object? longitude = freezed,Object? updatedAt = freezed,Object? source = freezed,Object? hasLocation = null,Object? district = freezed,Object? city = freezed,Object? country = freezed,Object? displayName = freezed,Object? hasResolvedName = freezed,}) {
   return _then(_PlayerLocationModel(
 latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as String?,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as int?,hasLocation: null == hasLocation ? _self.hasLocation : hasLocation // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,district: freezed == district ? _self.district : district // ignore: cast_nullable_to_non_nullable
+as String?,city: freezed == city ? _self.city : city // ignore: cast_nullable_to_non_nullable
+as String?,country: freezed == country ? _self.country : country // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String?,hasResolvedName: freezed == hasResolvedName ? _self.hasResolvedName : hasResolvedName // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
 
 }
-
 // dart format on

@@ -5,15 +5,22 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism Buffer info card.
+///
+/// Hiển thị "thời gian còn lại trước giờ chơi":
+/// - `bufferMinutes < 0` (quá giờ): error — UI hiển thị "Ngày đã qua".
+/// - `0 ≤ bufferMinutes < 60` (sát giờ): warning (chỉ cảnh báo, KHÔNG
+///   block đặt lobby — BR §XXI-B.4 cho phép tạo lobby sát giờ).
+/// - `60 ≤ bufferMinutes < 120`: warning yellow (BR-08 lead time = 20p).
+/// - `bufferMinutes >= 120`: success green.
 class LobbyConfigBufferInfoCard extends StatelessWidget {
   final int bufferMinutes;
-  final bool isBufferTooShort;
+  final bool hasBufferWarning;
   final String Function(int) formatBuffer;
 
   const LobbyConfigBufferInfoCard({
     super.key,
     required this.bufferMinutes,
-    required this.isBufferTooShort,
+    required this.hasBufferWarning,
     required this.formatBuffer,
   });
 
@@ -78,13 +85,13 @@ class LobbyConfigBufferInfoCard extends StatelessWidget {
       );
     }
 
-    final color = isBufferTooShort
-        ? AppColors.error
+    final color = hasBufferWarning
+        ? AppColors.warning
         : bufferMinutes >= 120
             ? AppColors.success
             : AppColors.warning;
-    final icon = isBufferTooShort
-        ? Icons.error
+    final icon = hasBufferWarning
+        ? Icons.warning
         : bufferMinutes >= 120
             ? Icons.check_circle
             : Icons.warning;

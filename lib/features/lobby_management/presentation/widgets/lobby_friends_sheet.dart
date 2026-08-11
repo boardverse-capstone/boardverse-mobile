@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
 import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/lobby_state.dart';
+import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_friends_shimmer.dart';
 import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/online_friends_list.dart';
 
 /// Bottom sheet mời bạn bè vào lobby.
@@ -117,7 +118,8 @@ class FriendsSheet extends StatelessWidget {
   }
 }
 
-/// Loading state cho sheet.
+/// Loading state cho sheet — Phase 3 2026-08-10: thay spinner bằng shimmer
+/// skeleton list giống layout thật của OnlineFriendsList.
 class SheetLoading extends StatelessWidget {
   final String label;
 
@@ -125,18 +127,22 @@ class SheetLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
-        vertical: AppSpacing.xxl,
+        vertical: AppSpacing.sm,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircularProgressIndicator(color: theme.colorScheme.primary),
-          const SizedBox(height: AppSpacing.md),
-          Text(label, style: theme.textTheme.bodyMedium),
+          // Giữ label để user biết đang load gì (khi label = "Đang tải...").
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          // Shimmer list thay cho spinner.
+          const Flexible(child: LobbyFriendsShimmer(itemCount: 4)),
         ],
       ),
     );

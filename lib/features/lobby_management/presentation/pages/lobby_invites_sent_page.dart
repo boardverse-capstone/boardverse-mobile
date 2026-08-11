@@ -10,6 +10,7 @@ import '../../data/datasources/base/lobby_remote_datasource.dart';
 import '../cubit/lobby_invite_cubit.dart';
 import '../cubit/lobby_invite_state.dart';
 import '../widgets/lobby_invite_card.dart';
+import '../widgets/lobby_list_shimmer.dart';
 
 /// Inbox/Sent của host: xem các lời mời mà user đã GỬI đi
 /// (status = Pending). Khác với [LobbyInvitesPage] — page đó hiển thị lời
@@ -60,8 +61,9 @@ class _LobbyInvitesSentPageState extends State<LobbyInvitesSentPage> {
   @override
   Widget build(BuildContext context) {
     if (_loadingUser) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return const GenericPageShimmer(
+        itemCount: 4,
+        appBarTitle: 'Lời mời đã gửi',
       );
     }
 
@@ -136,7 +138,7 @@ class _LobbyInvitesSentViewState extends State<_LobbyInvitesSentView> {
 
   Widget _buildBody(BuildContext context, LobbyInviteState state) {
     if (state is LobbyInviteLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LobbyInvitesShimmer();
     }
 
     final invites = _currentInvites(state);

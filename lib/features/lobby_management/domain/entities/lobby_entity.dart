@@ -1,10 +1,12 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../reservation/domain/entities/entities.dart' as res;
+
 /// Vòng đời của phòng chờ trực tuyến — đồng bộ với BR §17.5 và `state.md`.
 ///
 /// - [pendingActivation]    : atomic transaction đang xử lý (chưa publish).
 /// - [pendingCafeApproval]  : lobby public > 2 ngày, chờ cafe duyệt (BR-NEW-11).
-/// - [open]                 : đang tuyển người, recruitmentDeadline chưa tới.
+/// - [open]                 : cần thêm người, recruitmentDeadline chưa tới.
 /// - [viable]               : đã đạt minPlayers, vẫn có thể nhận thêm đến max.
 /// - [full]                 : đạt maxPlayers, ngừng nhận.
 /// - [inProgress]           : cả nhóm đã check-in tại quán (Task 4).
@@ -47,6 +49,97 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
         return false;
+    }
+  }
+
+  /// Lobby đang ở phase "active" — UI show nút Ready, action cho phép
+  /// (check-in, chat, etc.). Bao gồm cả pre-game (open/viable/full) và
+  /// in-game (inProgress/ratingOpen).
+  bool get isActive {
+    switch (this) {
+      case LobbyStatus.open:
+      case LobbyStatus.viable:
+      case LobbyStatus.full:
+      case LobbyStatus.inProgress:
+      case LobbyStatus.ratingOpen:
+        return true;
+      case LobbyStatus.pendingActivation:
+      case LobbyStatus.pendingCafeApproval:
+      case LobbyStatus.closed:
+      case LobbyStatus.timeoutFailed:
+      case LobbyStatus.hostCancelled:
+      case LobbyStatus.rejectedByCafe:
+      case LobbyStatus.expiredByCafe:
+        return false;
+    }
+  }
+
+  /// Tên tiếng Việt chuẩn cho lobby status — dùng thống nhất trong UI.
+  ///
+  /// Mapping theo `state machine` trong `docs/apis/lobby.md` §State machine
+  /// + BR-NEW-11. Một số trạng thái "business" đặc biệt:
+  /// - `Viable`: "Đủ người tối thiểu" (đạt minPlayers, vẫn tuyển).
+  /// - `Full`: "Phòng đầy" (đạt maxPlayers, ngừng tuyển).
+  /// - `InProgress`: "Đang chơi" (đã check-in tại quán).
+  /// - `RatingOpen`: "Đang đánh giá" (sau POS thanh toán, đang Karma).
+  /// - `PendingActivation`: "Đang kích hoạt" (atomic transaction BR-§17.4).
+  /// - `PendingCafeApproval`: "Chờ quán duyệt" (BR-NEW-11).
+  String get displayName {
+    switch (this) {
+      case LobbyStatus.pendingActivation:
+        return 'Đang kích hoạt';
+      case LobbyStatus.pendingCafeApproval:
+        return 'Chờ quán duyệt';
+      case LobbyStatus.open:
+        return 'Cần thêm người';
+      case LobbyStatus.viable:
+        return 'Đủ người tối thiểu';
+      case LobbyStatus.full:
+        return 'Phòng đầy';
+      case LobbyStatus.inProgress:
+        return 'Đang chơi';
+      case LobbyStatus.ratingOpen:
+        return 'Đang đánh giá';
+      case LobbyStatus.closed:
+        return 'Đã đóng';
+      case LobbyStatus.timeoutFailed:
+        return 'Hết hạn tuyển';
+      case LobbyStatus.hostCancelled:
+        return 'Đã huỷ';
+      case LobbyStatus.rejectedByCafe:
+        return 'Quán từ chối';
+      case LobbyStatus.expiredByCafe:
+        return 'Hết hạn duyệt';
+    }
+  }
+
+  /// Tên ngắn gọn (1-2 từ) dùng cho chip/badge nhỏ.
+  String get shortName {
+    switch (this) {
+      case LobbyStatus.pendingActivation:
+        return 'Kích hoạt';
+      case LobbyStatus.pendingCafeApproval:
+        return 'Chờ duyệt';
+      case LobbyStatus.open:
+        return 'Tuyển';
+      case LobbyStatus.viable:
+        return 'Đủ min';
+      case LobbyStatus.full:
+        return 'Đầy';
+      case LobbyStatus.inProgress:
+        return 'Đang chơi';
+      case LobbyStatus.ratingOpen:
+        return 'Đánh giá';
+      case LobbyStatus.closed:
+        return 'Đã đóng';
+      case LobbyStatus.timeoutFailed:
+        return 'Hết hạn';
+      case LobbyStatus.hostCancelled:
+        return 'Đã huỷ';
+      case LobbyStatus.rejectedByCafe:
+        return 'Bị từ chối';
+      case LobbyStatus.expiredByCafe:
+        return 'Hết hạn duyệt';
     }
   }
 
@@ -151,6 +244,10 @@ class LobbyEntity extends Equatable {
   /// BR-08: bán kính tìm kiếm lobby khả dụng (km).
   final double searchRadiusKm;
 
+  /// Trạng thái reservation liên kết (nếu có). Dùng cho badge/label
+  /// theo nguyên tắc: ReservationStatus ưu tiên hơn LobbyStatus.
+  final res.ReservationStatus? reservationStatus;
+
   /// Khoảng cách từ user hiện tại tới lobby (km). Optional — chỉ có khi
   /// gọi `/discoverable` hoặc `/search` có tính toán distance.
   final double? distanceKm;
@@ -196,6 +293,7 @@ class LobbyEntity extends Equatable {
     this.reservationId,
     this.minimumKarma = 0,
     this.searchRadiusKm = 5,
+    this.reservationStatus,
     this.distanceKm,
     this.closedAt,
     this.closedReason,
@@ -240,6 +338,7 @@ class LobbyEntity extends Equatable {
     Object? closedReason = _sentinel,
     Object? cancellationLeadTimeMinutes = _sentinel,
     Object? playStartedAt = _sentinel,
+    Object? reservationStatus = _sentinel,
   }) {
     return LobbyEntity(
       id: id ?? this.id,
@@ -275,6 +374,9 @@ class LobbyEntity extends Equatable {
           : reservationId as String?,
       minimumKarma: minimumKarma ?? this.minimumKarma,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
+      reservationStatus: identical(reservationStatus, _sentinel)
+          ? this.reservationStatus
+          : reservationStatus as res.ReservationStatus?,
       distanceKm: identical(distanceKm, _sentinel)
           ? this.distanceKm
           : distanceKm as double?,
@@ -319,6 +421,7 @@ class LobbyEntity extends Equatable {
     reservationId,
     minimumKarma,
     searchRadiusKm,
+    reservationStatus,
     distanceKm,
     closedAt,
     closedReason,
@@ -333,15 +436,20 @@ const Object _sentinel = Object();
 class LobbyPlayer extends Equatable {
   /// ID của membership record
   final String id;
-  
+
   /// ID của user (để kiểm tra membership)
   final String userId;
-  
+
   final String name;
   final String avatarUrl;
   final bool isHost;
-  final bool isReady;
   final DateTime joinedAt;
+
+  /// BR-LOBBY-READY-01: thời điểm member bấm "Sẵn sàng". `null` = chưa
+  /// ready. UI check trực tiếp `readyAt != null` để show "Sẵn sàng" /
+  /// "Chưa sẵn sàng" — thay vì dùng `bool isReady` (dễ bị drift nếu
+  /// backend trả `readyAt` mà không set `isReady` hoặc ngược lại).
+  final DateTime? readyAt;
 
   /// BR-10: điểm uy tín hiện tại của player (chỉ dùng cho filter & hiển thị).
   final double karma;
@@ -352,10 +460,13 @@ class LobbyPlayer extends Equatable {
     required this.name,
     required this.avatarUrl,
     required this.isHost,
-    required this.isReady,
     required this.joinedAt,
+    this.readyAt,
     this.karma = 70,
   });
+
+  /// Derive `isReady` từ `readyAt != null` — UI/business rule BR-LOBBY-READY-01.
+  bool get isReady => readyAt != null;
 
   @override
   List<Object?> get props => [
@@ -364,8 +475,8 @@ class LobbyPlayer extends Equatable {
     name,
     avatarUrl,
     isHost,
-    isReady,
     joinedAt,
+    readyAt,
     karma,
   ];
 }

@@ -13,17 +13,22 @@ int? _locationSourceFromJson(Object? value) {
   };
 }
 
+bool? _boolFromJson(Object? value) {
+  if (value is bool) return value;
+  if (value == null) return null;
+  return null;
+}
+
 /// Response model for GET /api/userprofile/me/location.
 ///
-/// When the user has never set a location, the server returns
+/// Khi user chưa set vị trí, server trả
 /// `{latitude: null, longitude: null, updatedAt: null, source: null}`
-/// together with `hasLocation: false`. We therefore keep the numeric /
-/// timestamp fields nullable so the parser does not throw when `hasLocation`
-/// is false.
+/// cùng `hasLocation: false`. Khi server đã reverse-geocode thành công sẽ
+/// trả thêm `district`, `city`, `country`, `displayName` + cờ
+/// `hasResolvedName` — toàn bộ đều nullable để parser không throw.
 ///
 /// `fromJson` được viết tay (không dùng generated) để có thể nhìn thấy
-/// cả payload khi suy ra `hasLocation` — `@JsonKey(fromJson:)` của
-/// `json_serializable` chỉ nhận `value` của field, không có context json.
+/// cả payload khi suy ra `hasLocation` / `hasResolvedName`.
 @freezed
 abstract class PlayerLocationModel with _$PlayerLocationModel {
   const factory PlayerLocationModel({
@@ -38,6 +43,17 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
     /// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
     /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
     required bool hasLocation,
+
+    /// Địa ch� đã reverse-geocode (optional — có thể `null` nếu server
+    /// chưa build xong hoặc thất bại).
+    String? district,
+    String? city,
+    String? country,
+    String? displayName,
+
+    /// `true` khi [displayName] đã được build. Nếu server trả cờ này thì
+    /// dùng, ngược lại suy ra từ `displayName != null`.
+    @JsonKey(fromJson: _boolFromJson) bool? hasResolvedName,
   }) = _PlayerLocationModel;
 
   /// Custom parser vì `json_serializable`'s `@JsonKey(fromJson:)` chỉ có
@@ -49,8 +65,13 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
     final hasFromServer = rawHas is bool ? rawHas : null;
     final lat = json['latitude'];
     final lng = json['longitude'];
-    final hasLocation =
-        hasFromServer ?? (lat != null && lng != null);
+    final hasLocation = hasFromServer ?? (lat != null && lng != null);
+
+    final rawResolved = json['hasResolvedName'];
+    final resolvedFromServer = rawResolved is bool ? rawResolved : null;
+    final displayName = json['displayName'] as String?;
+    final hasResolvedName =
+        resolvedFromServer ?? (displayName != null && displayName.isNotEmpty);
 
     return PlayerLocationModel(
       latitude: (json['latitude'] as num?)?.toDouble(),
@@ -58,6 +79,11 @@ abstract class PlayerLocationModel with _$PlayerLocationModel {
       updatedAt: json['updatedAt'] as String?,
       source: _locationSourceFromJson(json['source']),
       hasLocation: hasLocation,
+      district: json['district'] as String?,
+      city: json['city'] as String?,
+      country: json['country'] as String?,
+      displayName: displayName,
+      hasResolvedName: hasResolvedName,
     );
   }
 }
@@ -69,6 +95,11 @@ extension PlayerLocationModelX on PlayerLocationModel {
     updatedAt: updatedAt,
     source: source == 0 ? LocationSource.gps : LocationSource.manual,
     hasLocation: hasLocation,
+    district: district,
+    city: city,
+    country: country,
+    displayName: displayName,
+    hasResolvedName: hasResolvedName ?? false,
   );
 
   /// `toJson` thủ công — thay thế bản generated đã bị xoá khi custom hoá
@@ -80,5 +111,10 @@ extension PlayerLocationModelX on PlayerLocationModel {
         'updatedAt': updatedAt,
         'source': source,
         'hasLocation': hasLocation,
+        'district': district,
+        'city': city,
+        'country': country,
+        'displayName': displayName,
+        'hasResolvedName': hasResolvedName,
       };
 }

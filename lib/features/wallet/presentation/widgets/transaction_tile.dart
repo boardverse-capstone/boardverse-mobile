@@ -20,9 +20,11 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isPositive = transaction.amount > 0;
-    final amountColor = isPositive ? AppColors.success : AppColors.error;
-    final amountPrefix = isPositive ? '+' : '';
+    final isCredit = transaction.isCredit;
+    final amountColor = isCredit ? AppColors.success : AppColors.error;
+    // Prefix đúng kiểu Việt: cộng = '+' ASCII, trừ = U+2212 MINUS SIGN
+    // cho đẹp alignment (không phải dấu trừ ASCII ngắn hơn).
+    final amountPrefix = isCredit ? '+' : '−';
 
     return Material(
       color: isDark ? AppColors.surfaceDark : AppColors.surface,
@@ -84,7 +86,7 @@ class TransactionTile extends StatelessWidget {
                       border: Border.all(color: amountColor, width: 1.5),
                     ),
                     child: Text(
-                      '$amountPrefix${transaction.amount} BVC',
+                      '$amountPrefix${transaction.amount.abs()} BVC',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
@@ -95,7 +97,7 @@ class TransactionTile extends StatelessWidget {
                   if (transaction.relatedPaymentRef != null) ...[
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
-                      _formatVnd(transaction.amountVnd),
+                      _formatVnd(transaction.amountVndAbs),
                       style: textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? AppColors.textSecondaryDark

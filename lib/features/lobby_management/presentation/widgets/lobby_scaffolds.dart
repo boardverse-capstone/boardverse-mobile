@@ -1,30 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 
+import 'lobby_page_shimmer.dart';
+
 /// Loading scaffold cho LobbyPage.
+///
+/// Phase 3 2026-08-10: thay spinner đơn giản bằng skeleton shimmer
+/// (`LobbyPageShimmer`) mô phỏng layout thật (hero + info + player grid +
+/// chat + bottom bar) để có cảm giác load mượt và tránh "flash" khi data về.
 class LobbyLoadingScaffold extends StatelessWidget {
   const LobbyLoadingScaffold({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Phòng chờ')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Đang vào phòng...',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
+    return const LobbyPageShimmer();
   }
 }
 

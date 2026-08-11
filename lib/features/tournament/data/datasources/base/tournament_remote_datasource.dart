@@ -3,6 +3,7 @@ import '../../models/participant_model.dart';
 import '../../models/match_model.dart';
 import '../../models/elo_history_model.dart';
 import '../../models/leaderboard_model.dart';
+import '../../models/my_registration_model.dart';
 
 /// Abstract interface for tournament remote data source.
 /// Defines all API calls for tournament module.
@@ -58,10 +59,18 @@ abstract class TournamentRemoteDatasource {
   Future<void> unregister(String tournamentId);
 
   /// `GET /tournaments/my-registrations?status=...`
-  Future<List<TournamentModel>> getMyRegistrations({String? status});
+  ///
+  /// Trả về flat shape trộn tournament + participant (xem
+  /// `MyRegistrationModel` để biết các field). KHÔNG phải
+  /// `TournamentResponseDto` — endpoint này thiếu `registrationDeadline`,
+  /// `maxParticipants`, `gameName`, ... vì vậy dùng entity riêng.
+  Future<List<MyRegistrationModel>> getMyRegistrations({String? status});
 
   /// `GET /tournaments/my-elo-history`
-  Future<List<EloHistoryModel>> getMyEloHistory();
+  ///
+  /// Response được wrap trong object `{ userId, username, currentElo,
+  /// history: [...] }` — không phải array.
+  Future<MyEloHistoryResponseModel> getMyEloHistory();
 
   /// `GET /tournaments/leaderboard?topCount=...&gameTemplateId=...`
   Future<List<LeaderboardEntryModel>> getLeaderboard({

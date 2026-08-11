@@ -79,6 +79,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     _myLobbiesCubit = context.read<MyLobbiesCubit>();
     _realtime = GetIt.instance<LobbyRealtimeService>();
 
+    // Load initial data for Explore tab
+    _loadData();
+
     // Resolve currentUserId từ JWT — không block UI; nếu resolve
     // xong sau khi list đã render thì setState sẽ rebuild với
     // `currentUserId` đúng → list card tự phân biệt lobby của mình.

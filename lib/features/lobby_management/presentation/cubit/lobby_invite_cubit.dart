@@ -62,6 +62,18 @@ class LobbyInviteCubit extends Cubit<LobbyInviteState> {
   }
 
   /// Accept một lời mời - tự động join lobby.
+  ///
+  /// Flow:
+  /// 1. Emit `LobbyInviteActionLoading` (giữ danh sách cũ để UI không
+  ///    "flash" trắng).
+  /// 2. Gọi `acceptInvite` ở datasource. Backend trả
+  ///    `LobbyInviteResponseDto` (xem `real_lobby_remote_datasource.acceptInvite`).
+  /// 3. Nếu success → remove invite khỏi list → emit `LobbyInviteAccepted`
+  ///    để BlocConsumer navigate sang LobbyPage.
+  /// 4. **Quan trọng**: emit tiếp `LobbyInviteLoaded` / `LobbyInviteEmpty`
+  ///    để UI danh sách invite về đúng trạng thái (trước đây chỉ dừng
+  ///    ở `LobbyInviteAccepted` → UI "kẹt" phải reload mới thấy invite
+  ///    biến mất).
   Future<void> acceptInvite(String inviteId) async {
     final currentInvites = _pendingInvites.toList();
     emit(LobbyInviteActionLoading(
@@ -73,17 +85,40 @@ class LobbyInviteCubit extends Cubit<LobbyInviteState> {
     final result = await _remoteDatasource.acceptInvite(inviteId);
 
     result.fold(
-      (failure) => emit(LobbyInviteError(
-        message: failure.message,
-        pendingInvites: currentInvites,
-        allInvites: _allInvites,
-      )),
+      (failure) {
+        // Failure: emit error NHƯNG vẫn giữ danh sách cũ (currentInvites)
+        // → UI vẫn hiển thị invite để user retry hoặc thao tác khác.
+        emit(LobbyInviteError(
+          message: failure.message,
+          pendingInvites: currentInvites,
+          allInvites: _allInvites,
+        ));
+      },
       (lobby) {
+        // Save invite trước khi remove — dùng cho `LobbyInviteAccepted`.
+        final acceptedInvite = currentInvites.firstWhere(
+          (i) => i.inviteId == inviteId,
+          orElse: () => _emptyInvitePlaceholder,
+        );
         _pendingInvites.removeWhere((i) => i.inviteId == inviteId);
+
+        // 1) Emit Accepted để BlocConsumer navigate sang LobbyPage.
         emit(LobbyInviteAccepted(
-          invite: currentInvites.firstWhere((i) => i.inviteId == inviteId),
+          invite: acceptedInvite,
           lobbyId: lobby.id,
         ));
+
+        // 2) Emit Loaded / Empty để UI danh sách invite về đúng trạng
+        // thái sau khi action xong (nếu chỉ emit Accepted, list UI
+        // sẽ "kẹt" cho tới khi user reload).
+        if (_pendingInvites.isEmpty) {
+          emit(const LobbyInviteEmpty());
+        } else {
+          emit(LobbyInviteLoaded(
+            pendingInvites: List<LobbyInviteEntity>.from(_pendingInvites),
+            allInvites: List<LobbyInviteEntity>.from(_allInvites),
+          ));
+        }
       },
     );
   }
@@ -148,3 +183,24 @@ class LobbyInviteCubit extends Cubit<LobbyInviteState> {
   /// Get số lượng pending invites (dùng cho badge).
   int get pendingCount => _pendingInvites.length;
 }
+
+/// Fallback `LobbyInviteEntity` dùng khi `acceptInvite` race-condition
+/// không tìm thấy invite trong list cũ (vd: UI đã reload giữa chừng).
+/// Không nên hiển thị — chỉ dùng làm payload cho `LobbyInviteAccepted`.
+final LobbyInviteEntity _emptyInvitePlaceholder = LobbyInviteEntity(
+  inviteId: '',
+  lobbyId: '',
+  inviterId: '',
+  inviterName: '',
+  inviterAvatar: '',
+  inviteeId: '',
+  status: LobbyInviteStatus.pending,
+  createdAt: _epochStart,
+  expiresAt: _epochStart,
+  gameName: '',
+  cafeName: '',
+  currentMembers: 0,
+  maxMembers: 0,
+);
+
+final DateTime _epochStart = DateTime.fromMillisecondsSinceEpoch(0);

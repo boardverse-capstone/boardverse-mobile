@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:boardverse_mobile/core/di/injection.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
 import 'package:boardverse_mobile/core/widgets/shimmer_skeletons.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_cubit.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_state.dart';
@@ -84,7 +84,7 @@ class _MyRegistrationsView extends StatelessWidget {
     }
 
     if (state is MyRegistrationsLoaded) {
-      if (state.tournaments.isEmpty) {
+      if (state.entries.isEmpty) {
         return _EmptyState(filter: state.activeFilter);
       }
       return RefreshIndicator(
@@ -96,13 +96,13 @@ class _MyRegistrationsView extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.xl,
           ),
-          itemCount: state.tournaments.length,
+          itemCount: state.entries.length,
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
-            final tournament = state.tournaments[index];
+            final entry = state.entries[index];
             return _MyRegistrationCard(
-              tournament: tournament,
-              onTap: () => _openDetail(context, tournament),
+              entry: entry,
+              onTap: () => _openDetail(context, entry),
             );
           },
         ),
@@ -114,14 +114,17 @@ class _MyRegistrationsView extends StatelessWidget {
 
   Future<void> _openDetail(
     BuildContext context,
-    TournamentEntity tournament,
+    MyRegistrationEntry entry,
   ) async {
     final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => TournamentDetailSheet(tournament: tournament),
+      builder: (_) => TournamentDetailSheet(
+        tournamentId: entry.tournamentId,
+        initialTitle: entry.title,
+      ),
     );
     if (changed == true && context.mounted) {
       await context.read<MyRegistrationsCubit>().refresh();
@@ -183,14 +186,15 @@ class _FilterChips extends StatelessWidget {
 }
 
 class _MyRegistrationCard extends StatelessWidget {
-  final TournamentEntity tournament;
+  final MyRegistrationEntry entry;
   final VoidCallback onTap;
 
-  const _MyRegistrationCard({required this.tournament, required this.onTap});
+  const _MyRegistrationCard({required this.entry, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final status = TournamentStatus.fromBackendStatus(entry.tournamentStatus);
 
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
@@ -207,7 +211,7 @@ class _MyRegistrationCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      tournament.title,
+                      entry.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -216,12 +220,12 @@ class _MyRegistrationCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  _StatusChip(status: tournament.status),
+                  _StatusChip(status: status),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '${tournament.cafeName} • ${tournament.gameTemplateName}',
+                entry.cafeName,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -236,19 +240,28 @@ class _MyRegistrationCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
-                    TournamentUtils.formatDateTime(tournament.startTime),
+                    TournamentUtils.formatDateTime(entry.startTime),
                     style: theme.textTheme.bodySmall,
                   ),
                   const Spacer(),
                   Icon(
-                    AppIcons.users,
+                    Icons.emoji_events_outlined,
                     size: AppIcons.sm,
-                    color: theme.colorScheme.primary,
+                    color: entry.eloDelta >= 0
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
                   ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
-                    '${tournament.currentParticipants}/${tournament.maxParticipants}',
-                    style: theme.textTheme.bodySmall,
+                    entry.eloDelta >= 0
+                        ? '+${entry.eloDelta}'
+                        : '${entry.eloDelta}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: entry.eloDelta >= 0
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),

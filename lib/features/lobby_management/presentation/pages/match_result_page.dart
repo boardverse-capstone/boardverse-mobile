@@ -8,6 +8,7 @@ import '../cubit/match_result_cubit.dart';
 import '../cubit/match_result_state.dart';
 import '../widgets/outcome_selector.dart';
 import '../widgets/consensus_status_card.dart';
+import '../widgets/lobby_list_shimmer.dart';
 
 class MatchResultPage extends StatefulWidget {
   final MatchResultCubit matchResultCubit;
@@ -77,7 +78,7 @@ class _MatchResultPageState extends State<MatchResultPage> {
           },
           builder: (context, state) {
             if (state is MatchResultLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const MatchResultShimmer();
             }
 
             if (state is MatchResultError) {

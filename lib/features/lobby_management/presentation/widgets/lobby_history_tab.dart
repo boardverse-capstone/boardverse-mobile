@@ -6,6 +6,7 @@ import '../../../../core/theme/theme.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../cubit/my_lobbies_cubit.dart';
 import '../cubit/my_lobbies_state.dart';
+import 'lobby_card_base.dart';
 
 /// Tab "Của tôi" trong Lobby Hub — chỉ hiển thị danh sách phòng chờ
 /// mà user đã tạo hoặc tham gia (gồm cả lobby liên kết tới reservation).
@@ -115,11 +116,12 @@ class _MyLobbiesSection extends StatelessWidget {
     ColorScheme colors,
   ) {
     if (state is MyLobbiesLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(AppSpacing.lg),
-          child: CircularProgressIndicator(),
-        ),
+      // Phase 3 2026-08-10: thay spinner bằng shimmer skeleton list.
+      return ListView.separated(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        itemCount: 4,
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+        itemBuilder: (_, _) => const _HistoryItemSkeleton(),
       );
     }
     if (state is MyLobbiesFailure) return _SectionError(message: state.message);
@@ -175,198 +177,17 @@ class _HistoryLobbyCard extends StatelessWidget {
     required this.onTap,
   });
 
-  Color _statusColor(ThemeData theme) {
-    final successColor =
-        theme.brightness == Brightness.dark ? AppColorsDark.success : AppColors.success;
-    switch (lobby.status) {
-      case LobbyStatus.open:
-        return successColor;
-      case LobbyStatus.full:
-      case LobbyStatus.inProgress:
-        return theme.colorScheme.tertiary;
-      case LobbyStatus.ratingOpen:
-        return AppColors.info;
-      case LobbyStatus.closed:
-      case LobbyStatus.timeoutFailed:
-      case LobbyStatus.hostCancelled:
-        return theme.colorScheme.error;
-      // Các state mới (BR-NEW-11) — fallback theo semantic.
-      case LobbyStatus.pendingActivation:
-      case LobbyStatus.pendingCafeApproval:
-        return AppColors.warning;
-      case LobbyStatus.viable:
-        return AppColors.success;
-      case LobbyStatus.rejectedByCafe:
-      case LobbyStatus.expiredByCafe:
-        return theme.colorScheme.error;
-    }
-  }
-
-  String _statusText() {
-    switch (lobby.status) {
-      case LobbyStatus.open:
-        return 'Đang tuyển';
-      case LobbyStatus.full:
-        return 'Đã đầy';
-      case LobbyStatus.inProgress:
-        return 'Đang chơi';
-      case LobbyStatus.ratingOpen:
-        return 'Đánh giá';
-      case LobbyStatus.closed:
-        return 'Đã đóng';
-      case LobbyStatus.timeoutFailed:
-        return 'Hết hạn';
-      case LobbyStatus.hostCancelled:
-        return 'Đã hủy';
-      // Các state mới (BR-NEW-11).
-      case LobbyStatus.pendingActivation:
-        return 'Đang kích hoạt';
-      case LobbyStatus.pendingCafeApproval:
-        return 'Chờ quán duyệt';
-      case LobbyStatus.viable:
-        return 'Đủ người tối thiểu';
-      case LobbyStatus.rejectedByCafe:
-        return 'Quán từ chối';
-      case LobbyStatus.expiredByCafe:
-        return 'Hết hạn duyệt';
-    }
-  }
-
-  bool get _isActive =>
-      lobby.status == LobbyStatus.open ||
-      lobby.status == LobbyStatus.full ||
-      lobby.status == LobbyStatus.inProgress ||
-      lobby.status == LobbyStatus.ratingOpen;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final statusColor = _statusColor(theme);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.radiusLgAll,
-        border: Border.all(
-          color: _isActive ? statusColor.withValues(alpha: 0.4) : colors.outlineVariant,
-        ),
-        boxShadow: AppElevation.shadowSm,
+    // Đồng bộ UI với `ReservationCard` — dùng chung `LobbyCardBase`.
+    // Boolean `isJoined` ở đây trở thành "hosted by me" flag cho
+    // `isOwnedByMe` trên card (viền primary).
+    return LobbyCardBase(
+      item: lobbyItemFromEntity(
+        lobby,
+        isOwnedByMe: !isJoined,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadius.radiusLgAll,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.radiusLgAll,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [statusColor, statusColor.withAlpha(204)],
-                    ),
-                    borderRadius: AppRadius.radiusMdAll,
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _isActive ? Icons.sports_esports : Icons.meeting_room_outlined,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              lobby.gameName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (_isActive)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [statusColor, statusColor.withAlpha(204)],
-                                ),
-                                borderRadius: AppRadius.radiusFullAll,
-                              ),
-                              child: Text(
-                                'HOẠT ĐỘNG',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time, size: 14, color: statusColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')} • '
-                            '${lobby.scheduledTime.day}/${lobby.scheduledTime.month}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: AppRadius.radiusFullAll,
-                            ),
-                            child: Text(
-                              _statusText(),
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
-              ],
-            ),
-          ),
-        ),
-      ),
+      onTap: onTap,
     );
   }
 }
@@ -442,6 +263,90 @@ class _SectionError extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shimmer skeleton tile cho history section — match layout của _HistoryLobbyCard.
+class _HistoryItemSkeleton extends StatelessWidget {
+  const _HistoryItemSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgBase = isDark ? AppColors.surfaceElevatedDark : AppColors.surface;
+
+    return AppShimmer.shimmer(
+      context: context,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: bgBase,
+          borderRadius: AppRadius.radiusLgAll,
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Game icon
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: AppRadius.radiusMdAll,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            // Text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    width: 200,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    width: 120,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            // Status pill
+            Container(
+              width: 70,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: AppRadius.radiusSmAll,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

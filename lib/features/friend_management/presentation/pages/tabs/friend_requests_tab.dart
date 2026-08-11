@@ -9,6 +9,10 @@ import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
 /// Neo-brutalism Tab "Lời mời".
+///
+/// Bug fix (Aug 2026):
+/// - Sử dụng `receivedRequestsError` riêng thay vì state `FriendListError`
+///   tổng để không phá hủy dữ liệu của section khác khi user chuyển tab.
 class FriendRequestsTab extends StatelessWidget {
   const FriendRequestsTab({super.key});
 
@@ -16,22 +20,26 @@ class FriendRequestsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<FriendListCubit, FriendListData>(
       builder: (context, state) {
-        if (state is FriendListLoading || state is FriendListInitial) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
-        }
-        if (state is FriendListError) {
-          return ErrorRetryView(
-            message: state.message,
-            onRetry: () => context.read<FriendListCubit>().loadFriends(),
-          );
-        }
         if (state is FriendListLoaded) {
           final received = state.receivedRequests;
-          if (state.receivedRequestsLoading && received.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+
+          // Section requests đang loading + chưa từng load → spinner.
+          if (state.receivedRequestsLoading && !state.receivedRequestsEverLoaded) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            );
           }
+
+          // Section requests load lỗi + chưa có data cũ → retry button.
+          if (state.receivedRequestsError != null && received.isEmpty) {
+            return ErrorRetryView(
+              message: state.receivedRequestsError!,
+              onRetry: () =>
+                  context.read<FriendListCubit>().loadReceivedRequests(),
+            );
+          }
+
+          // Section requests đã load nhưng rỗng → empty state.
           if (received.isEmpty) {
             return RefreshIndicator(
               onRefresh: () => context
@@ -53,6 +61,7 @@ class FriendRequestsTab extends StatelessWidget {
               ),
             );
           }
+
           return RefreshIndicator(
             onRefresh: () =>
                 context.read<FriendListCubit>().refreshReceivedRequests(),
@@ -75,7 +84,11 @@ class FriendRequestsTab extends StatelessWidget {
             ),
           );
         }
-        return const SizedBox.shrink();
+
+        // FriendListInitial/Loading → spinner.
+        return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        );
       },
     );
   }

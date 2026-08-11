@@ -14,6 +14,7 @@ import 'package:boardverse_mobile/features/reservation/domain/entities/entities.
 import 'package:boardverse_mobile/features/reservation/domain/repositories/reservation_repository.dart';
 import 'package:boardverse_mobile/features/reservation/presentation/cubit/reservation_cubit.dart';
 import 'package:boardverse_mobile/features/reservation/presentation/cubit/reservation_state.dart';
+import '../widgets/lobby_page_shimmer.dart';
 
 /// Page hiển thị khi lobby cần cafe duyệt (BR-NEW-11).
 ///
@@ -507,16 +508,16 @@ class _LobbyPendingCafeApprovalPageState
 
 /// Placeholder page — mở tạm khi cafe duyệt xong. Caller
 /// (LobbyHubPage / MainScaffold) sẽ pick up join signal để navigate sang
-/// `LobbyPage` thật. Hiển thị loading tạm.
+/// `LobbyPage` thật. Hiển thị shimmer skeleton trùng với layout LobbyPage.
 class _PendingApprovalClosedPage extends StatelessWidget {
   final String lobbyId;
   const _PendingApprovalClosedPage({required this.lobbyId});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Đang mở phòng chờ...')),
-      body: const Center(child: CircularProgressIndicator()),
+    return const LobbyPageShimmer(
+      playerSlots: 4,
+      showChatSection: false,
     );
   }
 }

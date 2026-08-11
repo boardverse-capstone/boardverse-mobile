@@ -43,21 +43,21 @@ class ReservationModel extends ReservationEntity {
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     return ReservationModel(
-      id: json['id'] as String,
-      hostId: json['hostId'] as String,
+      id: json['id'] as String? ?? '',
+      hostId: json['hostId'] as String? ?? '',
       hostDisplayName: json['hostDisplayName'] as String?,
-      cafeId: json['cafeId'] as String,
+      cafeId: json['cafeId'] as String? ?? '',
       cafeName: json['cafeName'] as String? ?? '',
-      gameId: json['gameId'] as String,
+      gameId: json['gameId'] as String? ?? '',
       gameName: json['gameName'] as String? ?? '',
-      playDate: DateTime.parse(json['playDate'] as String),
-      timeSlot: TimeSlot.fromString(json['timeSlot'] as String),
+      playDate: DateTime.tryParse(json['playDate'] as String? ?? '') ?? DateTime.now(),
+      timeSlot: TimeSlot.fromString(json['timeSlot'] as String? ?? 'morning'),
       preferredStartTime: json['preferredStartTime'] as String?,
-      scheduledTime: DateTime.parse(json['scheduledTime'] as String),
+      scheduledTime: DateTime.tryParse(json['scheduledTime'] as String? ?? '') ?? DateTime.now(),
       recruitmentDeadline:
-          DateTime.parse(json['recruitmentDeadline'] as String),
-      minPlayers: json['minPlayers'] as int,
-      maxPlayers: json['maxPlayers'] as int,
+          DateTime.tryParse(json['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
+      minPlayers: json['minPlayers'] as int? ?? 2,
+      maxPlayers: json['maxPlayers'] as int? ?? 4,
       depositRatePerPerson: json['depositRatePerPerson'] as int? ?? 0,
       baseDeposit: json['baseDeposit'] as int? ?? 0,
       riskMultiplier: (json['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
@@ -73,20 +73,20 @@ class ReservationModel extends ReservationEntity {
       isPrivate: json['isPrivate'] as bool? ?? false,
       requiresCafeApproval: json['requiresCafeApproval'] as bool? ?? false,
       cafeApprovalDeadline: json['cafeApprovalDeadline'] != null
-          ? DateTime.parse(json['cafeApprovalDeadline'] as String)
+          ? DateTime.tryParse(json['cafeApprovalDeadline'] as String)
           : null,
       cafeRejectionReason: json['cafeRejectionReason'] as String?,
       refundPolicyApplied: json['refundPolicyApplied'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+          ? DateTime.tryParse(json['updatedAt'] as String)
           : null,
       isHost: json['isHost'] as bool?,
       remainingApprovalHours: (json['remainingApprovalHours'] as num?)?.toInt(),
       remainingApprovalMinutes: (json['remainingApprovalMinutes'] as num?)?.toInt(),
       isCafeApproved: json['isCafeApproved'] as bool?,
       approvedAt: json['approvedAt'] != null
-          ? DateTime.parse(json['approvedAt'] as String)
+          ? DateTime.tryParse(json['approvedAt'] as String)
           : null,
     );
   }

@@ -7,6 +7,12 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
+    <!-- ─── Location (geolocator — đọc GPS để cập nhật vị trí player) ── -->
+    <!-- COARSE chỉ cần khi user đồng ý chia sẻ vị trí gần đúng; FINE cho
+         toạ độ chính xác phục vụ "Cập nhật vị trí hiện tại" trên profile. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
     <application
         android:label="boardverse_mobile"
         android:name="${applicationName}"

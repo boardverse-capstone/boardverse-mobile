@@ -1,4 +1,5 @@
 import '../../domain/entities/lobby_entity.dart';
+import '../../../reservation/domain/entities/entities.dart' as res;
 
 /// Mapping cho model layer → entity layer.
 /// Enum này tách biệt với `LobbyStatus` của entity để có thể map khi backend
@@ -22,7 +23,10 @@ enum LobbyStatusModel {
     if (value == null) return LobbyStatusModel.open;
     final normalized = value.toLowerCase().trim();
     for (final s in LobbyStatusModel.values) {
-      if (s.name == normalized) return s;
+      // Enum names là camelCase (`timeoutFailed`), còn wire format có thể
+      // là `timeoutfailed`, `TimeoutFailed`, `TIMEOUT_FAILED`, etc. — so
+      // sánh đã lowercase để cover mọi trường hợp backend trả về.
+      if (s.name.toLowerCase() == normalized) return s;
     }
     // Backward-compat cho mock cũ + alias từ backend docs.
     switch (normalized) {
@@ -61,8 +65,13 @@ class LobbyPlayerModel {
   final String name;
   final String avatarUrl;
   final bool isHost;
-  final bool isReady;
   final String joinedAt;
+
+  /// BR-LOBBY-READY-01: thời điểm member bấm Sẵn sàng. `null` nếu chưa ready.
+  /// Format ISO 8601 string trên wire — parsed sang [DateTime] trong
+  /// [toEntity]. UI check `readyAt != null` thay vì `bool isReady` để
+  /// tránh drift nếu backend đổi schema.
+  final String? readyAt;
   final double karma;
 
   const LobbyPlayerModel({
@@ -71,24 +80,33 @@ class LobbyPlayerModel {
     required this.name,
     required this.avatarUrl,
     required this.isHost,
-    required this.isReady,
     required this.joinedAt,
+    this.readyAt,
     this.karma = 70,
   });
 
   factory LobbyPlayerModel.fromJson(Map<String, dynamic> json) {
+    // BR-LOBBY-READY-01: chuẩn backend trả `readyAt: DateTime?` (null = chưa
+    // ready). Một số schema cũ/mock dùng `isReady: bool` — fallback cả 2
+    // để tương thích ngược.
+    final String? readyAtStr =
+        (json['readyAt'] ?? json['ready_at']) as String?;
+    final bool isReadyFlag =
+        (json['isReady'] ?? json['is_ready'] ?? false) as bool;
+
     return LobbyPlayerModel(
       id: (json['id'] ?? '') as String,
-      userId: (json['userId'] ?? '') as String,
+      userId: (json['userId'] ?? json['userId'] ?? '') as String,
       name: (json['name'] ?? json['userName'] ?? '') as String,
       avatarUrl: (json['avatarUrl'] ?? '') as String,
       isHost: (json['isHost'] ?? false) as bool,
-      // Backend `readyAt` (DateTime? — null nếu chưa ready). Một số mock
-      // schema cũ dùng `isReady: bool` — fallback cả 2.
-      isReady: (json['readyAt'] != null) ||
-          ((json['isReady'] ?? false) as bool),
       joinedAt: (json['joinedAt'] ?? DateTime.now().toIso8601String())
           as String,
+      // Ưu tiên `readyAt` (chuẩn BR-LOBBY-READY-01). Nếu null/empty nhưng
+      // backend cũ trả `isReady: true` thì vẫn coi như đã ready (best-effort).
+      readyAt: readyAtStr != null && readyAtStr.isNotEmpty
+          ? readyAtStr
+          : (isReadyFlag ? DateTime.now().toIso8601String() : null),
       karma: (json['karma'] as num?)?.toDouble() ??
           (json['karmaPoints'] as num?)?.toDouble() ??
           70,
@@ -101,21 +119,31 @@ class LobbyPlayerModel {
     'name': name,
     'avatarUrl': avatarUrl,
     'isHost': isHost,
-    'isReady': isReady,
     'joinedAt': joinedAt,
+    'readyAt': readyAt,
     'karma': karma,
   };
 
-  LobbyPlayer toEntity() => LobbyPlayer(
-    id: id,
-    userId: userId,
-    name: name,
-    avatarUrl: avatarUrl,
-    isHost: isHost,
-    isReady: isReady,
-    joinedAt: DateTime.parse(joinedAt),
-    karma: karma,
-  );
+  LobbyPlayer toEntity() {
+    DateTime? parsedReady;
+    if (readyAt != null && readyAt!.isNotEmpty) {
+      try {
+        parsedReady = DateTime.parse(readyAt!);
+      } catch (_) {
+        parsedReady = null;
+      }
+    }
+    return LobbyPlayer(
+      id: id,
+      userId: userId,
+      name: name,
+      avatarUrl: avatarUrl,
+      isHost: isHost,
+      joinedAt: DateTime.parse(joinedAt),
+      readyAt: parsedReady,
+      karma: karma,
+    );
+  }
 }
 
 class LobbyModel {
@@ -149,6 +177,7 @@ class LobbyModel {
   final String? closedReason;
   final int? cancellationLeadTimeMinutes;
   final DateTime? playStartedAt;
+  final res.ReservationStatus? reservationStatus;
 
   LobbyModel({
     required this.id,
@@ -181,6 +210,7 @@ class LobbyModel {
     this.closedReason,
     this.cancellationLeadTimeMinutes,
     this.playStartedAt,
+    this.reservationStatus,
   });
 
   factory LobbyModel.fromJson(Map<String, dynamic> json) {
@@ -226,7 +256,7 @@ class LobbyModel {
     // với full DTO. Cũng fallback `players[]` để tương thích schema cũ.
     final playersJson =
         (json['members'] ?? json['players'] ?? json['memberAvatars']) as List?;
-    final players = playersJson == null
+    final players = playersJson == null || playersJson.isEmpty
         ? <LobbyPlayerModel>[]
         : (playersJson.first is Map
             ? (playersJson)
@@ -239,7 +269,8 @@ class LobbyModel {
                       name: '',
                       avatarUrl: url as String,
                       isHost: false,
-                      isReady: false,
+                      // Mock: chưa ready. UI check `readyAt != null` nên
+                      // null = "Chưa sẵn sàng".
                       joinedAt: DateTime.now().toIso8601String(),
                     ))
                 .toList());
@@ -298,24 +329,69 @@ class LobbyModel {
       playStartedAt: json['playStartedAt'] != null
           ? DateTime.tryParse(json['playStartedAt'] as String)
           : null,
+      reservationStatus: _parseReservationStatus(
+        json['reservationStatus'] as String?,
+      ),
     );
+  }
+
+  /// Parse `reservationStatus` string → enum.
+  static res.ReservationStatus? _parseReservationStatus(String? value) {
+    if (value == null) return null;
+    final normalized = value.toLowerCase().trim();
+    for (final s in res.ReservationStatus.values) {
+      // Enum names là camelCase (`cancelledByPlayer`), wire format có thể
+      // là `cancelledbyplayer`, `CancelledByPlayer`, etc. — compare đã
+      // lowercase để robust với mọi format backend trả về.
+      if (s.name.toLowerCase() == normalized) return s;
+    }
+    return null;
   }
 
   /// Parse `visibility` từ cả schema cũ (`isPublic: bool`) và mới
   /// (`visibility: "public" | "private" | "invite_only"`).
   ///
   /// Hỗ trợ field `isPrivate` từ backend (true = private, false = public).
-  static bool _parseVisibility(dynamic isPublic, [dynamic isPrivate]) {
-    // Nếu có `isPrivate` field → đảo ngược giá trị (isPrivate: true = private lobby)
+  ///
+  /// Độ ưu tiên (cao → thấp):
+  /// 1. `isPrivate: bool`  — backend mới dùng, **tín hiệu chính xác nhất**
+  ///    vì BE đã gửi đúng convention `isPrivate=true/false`.
+  /// 2. `isPublic: bool`  — schema cũ, fallback nếu BE không gửi `isPrivate`.
+  /// 3. `visibility: str`  — schema cũ hơn nữa ("public" / "private" /
+  ///    "invite_only").
+  /// 4. Không có field nào → `true` (mặc định an toàn — public, để không
+  ///    vô tình ẩn lobby đang mở khỏi discoverable/search).
+  ///
+  /// Lưu ý: Nếu cả `isPrivate` và `isPublic` đều có mà **mâu thuẫn**
+  /// (vd: `isPrivate: false` nhưng `isPublic: false`), ưu tiên `isPrivate`
+  /// vì đó là field BE spec dùng hiện tại.
+  static bool parseVisibility({
+    dynamic isPublic,
+    dynamic isPrivate,
+    dynamic visibility,
+  }) {
+    // 1) Ưu tiên `isPrivate` (PascalCase từ BE).
     if (isPrivate != null && isPrivate is bool) {
       return !isPrivate;
     }
+    // 2) Fallback `isPublic` (camelCase — schema cũ).
     if (isPublic is bool) return isPublic;
+    // 3) Fallback `visibility` string ("public" / "private" / "invite_only").
     if (isPublic is String) {
       final normalized = isPublic.toLowerCase().trim();
       return normalized == 'public' || normalized.isEmpty;
     }
-    return true; // mặc định an toàn — public.
+    if (visibility is String) {
+      final normalized = visibility.toLowerCase().trim();
+      return normalized == 'public' || normalized.isEmpty;
+    }
+    // 4) Mặc định — public để tránh ẩn lobby ngoài ý muốn.
+    return true;
+  }
+
+  /// Backward-compatible alias cho code cũ — chỉ dùng nội bộ model.
+  static bool _parseVisibility(dynamic isPublic, [dynamic isPrivate]) {
+    return parseVisibility(isPublic: isPublic, isPrivate: isPrivate);
   }
 
   Map<String, dynamic> toJson() => {
@@ -349,6 +425,7 @@ class LobbyModel {
     'closedReason': closedReason,
     'cancellationLeadTimeMinutes': cancellationLeadTimeMinutes,
     'playStartedAt': playStartedAt?.toIso8601String(),
+    'reservationStatus': reservationStatus?.name,
   };
 
   int get slotsRemaining => maxPlayers - currentPlayers;
@@ -385,6 +462,7 @@ class LobbyModel {
     Object? closedReason = _sentinel,
     Object? cancellationLeadTimeMinutes = _sentinel,
     Object? playStartedAt = _sentinel,
+    Object? reservationStatus = _sentinel,
   }) {
     return LobbyModel(
       id: id ?? this.id,
@@ -440,6 +518,9 @@ class LobbyModel {
       playStartedAt: identical(playStartedAt, _sentinel)
           ? this.playStartedAt
           : playStartedAt as DateTime?,
+      reservationStatus: identical(reservationStatus, _sentinel)
+          ? this.reservationStatus
+          : reservationStatus as res.ReservationStatus?,
     );
   }
 
@@ -470,6 +551,7 @@ class LobbyModel {
     closedReason: closedReason,
     cancellationLeadTimeMinutes: cancellationLeadTimeMinutes,
     playStartedAt: playStartedAt,
+    reservationStatus: reservationStatus,
   );
 
   static LobbyStatus _statusToEntity(LobbyStatusModel status) {

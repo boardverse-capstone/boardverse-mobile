@@ -40,9 +40,18 @@ class LobbyGamePickerSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             if (games.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.lg),
-                child: Center(child: CircularProgressIndicator()),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                    3,
+                    (_) => const Padding(
+                      padding: EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _GamePickerTileSkeleton(),
+                    ),
+                  ),
+                ),
               )
             else
               Flexible(
@@ -94,6 +103,69 @@ class _GameListTile extends StatelessWidget {
         style: theme.textTheme.bodySmall,
       ),
       onTap: () => Navigator.pop(context, game),
+    );
+  }
+}
+
+/// Skeleton tile cho game picker khi đang load danh sách game.
+class _GamePickerTileSkeleton extends StatelessWidget {
+  const _GamePickerTileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgBase = isDark ? AppColors.surfaceElevatedDark : AppColors.surface;
+
+    return AppShimmer.shimmer(
+      context: context,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: bgBase,
+          borderRadius: AppRadius.radiusMdAll,
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    width: 140,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

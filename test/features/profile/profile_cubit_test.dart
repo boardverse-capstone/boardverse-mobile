@@ -364,6 +364,89 @@ void main() {
       act: (c) => c.deleteLocation(),
       expect: () => [const ProfileLocationDeleted()],
     );
+
+    blocTest<ProfileCubit, ProfileState>(
+      '404 "no saved location" từ DELETE → vẫn coi là success '
+      '(idempotent — đã xoá rồi / chưa từng có)',
+      build: () {
+        repository.stubDeleteLocation(
+          const Left(NotFoundFailure(
+            message: 'Hồ sơ chưa lưu vị trí nào.',
+          )),
+        );
+        return cubit;
+      },
+      act: (c) => c.deleteLocation(),
+      expect: () => [const ProfileLocationDeleted()],
+    );
+  });
+
+  // ─── "no location" handling ────────────────────────────────────────────────
+
+  group('getLocation — empty-state handling (fix bug "404 → full-screen error")', () {
+    blocTest<ProfileCubit, ProfileState>(
+      '404 "Hồ sơ chưa lưu vị trí nào." → emit ProfileLocationLoaded '
+      'với hasLocation=false (KHÔNG emit ProfileFailure)',
+      build: () {
+        repository.stubGetLocation(
+          const Left(NotFoundFailure(
+            message: 'Hồ sơ chưa lưu vị trí nào.',
+          )),
+        );
+        return cubit;
+      },
+      act: (c) => c.getLocation(),
+      expect: () => [
+        const ProfileLocationLoaded(
+          location: PlayerLocationEntity(hasLocation: false),
+        ),
+      ],
+    );
+
+    blocTest<ProfileCubit, ProfileState>(
+      '404 message tiếng Anh ("no location") cũng được nhận diện',
+      build: () {
+        repository.stubGetLocation(
+          const Left(NotFoundFailure(message: 'No location saved yet.')),
+        );
+        return cubit;
+      },
+      act: (c) => c.getLocation(),
+      expect: () => [
+        const ProfileLocationLoaded(
+          location: PlayerLocationEntity(hasLocation: false),
+        ),
+      ],
+    );
+
+    blocTest<ProfileCubit, ProfileState>(
+      '404 với message khác (không phải "no location") → vẫn là failure',
+      build: () {
+        repository.stubGetLocation(
+          const Left(NotFoundFailure(message: 'Endpoint không tồn tại')),
+        );
+        return cubit;
+      },
+      act: (c) => c.getLocation(),
+      expect: () => [const ProfileFailure(message: 'Endpoint không tồn tại')],
+    );
+  });
+
+  group('updateLocation — "no location" 404 silently ignored', () {
+    blocTest<ProfileCubit, ProfileState>(
+      '404 "chưa lưu vị trí" → không emit gì cả (silent)',
+      build: () {
+        repository.stubUpdateLocation(
+          const Left(NotFoundFailure(
+            message: 'Hồ sơ chưa lưu vị trí nào.',
+          )),
+        );
+        return cubit;
+      },
+      act: (c) =>
+          c.updateLocation(latitude: 10.77, longitude: 106.70, source: 0),
+      expect: () => <ProfileState>[],
+    );
   });
 
   // ─── getKarmaHistory ──────────────────────────────────────────────────────

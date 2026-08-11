@@ -12,6 +12,10 @@ class FriendListLoading extends FriendListData {
 }
 
 /// Loaded state containing all friend list data.
+///
+/// Lưu ý: per-section error (`friendsError`, `receivedRequestsError`) và
+/// `friendsEverLoaded` / `receivedRequestsEverLoaded` giúp UI hiển thị
+/// retry riêng cho từng tab mà không phá hủy dữ liệu đã load ở section khác.
 class FriendListLoaded extends FriendListData {
   const FriendListLoaded({
     super.friends,
@@ -23,7 +27,53 @@ class FriendListLoaded extends FriendListData {
     super.myReports,
     super.friendsLoading,
     super.receivedRequestsLoading,
+    super.friendsError,
+    super.receivedRequestsError,
+    super.friendsEverLoaded,
+    super.receivedRequestsEverLoaded,
   });
+
+  /// Override `copyWith` để trả về `FriendListLoaded` thay vì
+  /// `FriendListData` — quan trọng để cubit không phải ép kiểu thủ công
+  /// và `isA<FriendListLoaded>()` trong test hoạt động đúng.
+  @override
+  FriendListLoaded copyWith({
+    List<FriendEntity>? friends,
+    List<FriendRequestEntity>? receivedRequests,
+    List<FriendRequestEntity>? sentRequests,
+    int? unreadRequestCount,
+    List<FriendNoteEntity>? notes,
+    FriendPrivacyEntity? privacySettings,
+    List<FriendReportEntity>? myReports,
+    bool? friendsLoading,
+    bool? receivedRequestsLoading,
+    Object? friendsError = friendListErrorSentinel,
+    Object? receivedRequestsError = friendListErrorSentinel,
+    bool? friendsEverLoaded,
+    bool? receivedRequestsEverLoaded,
+  }) {
+    return FriendListLoaded(
+      friends: friends ?? this.friends,
+      receivedRequests: receivedRequests ?? this.receivedRequests,
+      sentRequests: sentRequests ?? this.sentRequests,
+      unreadRequestCount: unreadRequestCount ?? this.unreadRequestCount,
+      notes: notes ?? this.notes,
+      privacySettings: privacySettings ?? this.privacySettings,
+      myReports: myReports ?? this.myReports,
+      friendsLoading: friendsLoading ?? this.friendsLoading,
+      receivedRequestsLoading:
+          receivedRequestsLoading ?? this.receivedRequestsLoading,
+      friendsError: identical(friendsError, friendListErrorSentinel)
+          ? this.friendsError
+          : friendsError as String?,
+      receivedRequestsError: identical(receivedRequestsError, friendListErrorSentinel)
+          ? this.receivedRequestsError
+          : receivedRequestsError as String?,
+      friendsEverLoaded: friendsEverLoaded ?? this.friendsEverLoaded,
+      receivedRequestsEverLoaded:
+          receivedRequestsEverLoaded ?? this.receivedRequestsEverLoaded,
+    );
+  }
 }
 
 /// Error state when data fetching fails.

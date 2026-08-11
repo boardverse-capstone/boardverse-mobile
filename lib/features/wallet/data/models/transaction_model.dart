@@ -31,7 +31,7 @@ class TransactionModel extends TransactionEntity {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'type': type.name,
+      'type': type.wireName,
       'amount': amount,
       'relatedLobbyId': relatedLobbyId,
       'relatedBookingId': relatedBookingId,

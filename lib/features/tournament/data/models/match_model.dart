@@ -80,7 +80,7 @@ class TournamentMatchModel {
 
 /// Individual player result model.
 class MatchPlayerResultModel {
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int score;
@@ -88,7 +88,7 @@ class MatchPlayerResultModel {
   final bool isWinner;
 
   const MatchPlayerResultModel({
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.score,
@@ -97,13 +97,26 @@ class MatchPlayerResultModel {
   });
 
   factory MatchPlayerResultModel.fromJson(Map<String, dynamic> json) {
-    return MatchPlayerResultModel(
-      oderId: _readString(json, const ['userId', 'oderId'], ''),
-      displayName: _readString(json, const [
+    // Display name: backend trả `username` cho player; `walkInDisplayName`
+    // cho walk-in; fallback các alias khác để tương thích ngược.
+    String displayName = 'Người chơi';
+    final walkIn = _readString(json, const ['walkInDisplayName'], '');
+    final username = _readString(json, const ['username'], '');
+    if (walkIn.isNotEmpty) {
+      displayName = walkIn;
+    } else if (username.isNotEmpty) {
+      displayName = username;
+    } else {
+      displayName = _readString(json, const [
         'displayName',
         'fullName',
         'name',
-      ], 'Người chơi'),
+      ], 'Người chơi');
+    }
+
+    return MatchPlayerResultModel(
+      userId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: displayName,
       avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
       score: _readInt(json, const ['score', 'finalScore', 'prestigePoints'], 0),
       cardsBought: _readInt(json, const ['cardsBought', 'cards'], 0),
@@ -113,7 +126,7 @@ class MatchPlayerResultModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'userId': oderId,
+      'userId': userId,
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'score': score,
@@ -124,7 +137,7 @@ class MatchPlayerResultModel {
 
   MatchPlayerResult toEntity() {
     return MatchPlayerResult(
-      oderId: oderId,
+      userId: userId,
       displayName: displayName,
       avatarUrl: avatarUrl,
       score: score,

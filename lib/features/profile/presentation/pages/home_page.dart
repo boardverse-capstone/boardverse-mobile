@@ -5,6 +5,7 @@ import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 
 import 'package:boardverse_mobile/core/navigation/pages/leaderboard_page.dart';
+import 'package:boardverse_mobile/core/services/location/location_service.dart';
 import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import 'package:boardverse_mobile/core/theme/app_colors.dart';
@@ -135,31 +136,41 @@ class _HomePageState extends State<HomePage> {
   Widget _build(BuildContext context, ProfileState state) {
     return switch (state) {
       ProfileLoading() => const _LoadingShell(),
-      ProfileFailure() => Scaffold(
-          appBar: AppBar(title: const Text('BoardVerse')),
-          body: ProfileErrorState(
-            message: state.message,
-            onRetry: () => context.read<ProfileCubit>().getProfile(),
-          ),
+
+      // Chỉ hiện full-screen error khi CHƯA từng load được profile
+      // chính (main failure). Nếu đã có `_lastProfile` cached thì
+      // supplementary failure (location/karma) sẽ được show qua toast
+      // ở `_onStateChanged` — dashboard vẫn render bình thường.
+      ProfileFailure() when _lastProfile == null => Scaffold(
+        appBar: AppBar(title: const Text('BoardVerse')),
+        body: ProfileErrorState(
+          message: state.message,
+          onRetry: () => context.read<ProfileCubit>().getProfile(),
         ),
+      ),
+
       ProfileLoaded() when !state.profile.hasProfile => _buildSetupShell(),
       ProfileLoaded() => _buildDashboardShell(
-          profile: state.profile,
-          location: state.location ?? _lastLocation,
-          karma: state.karma ?? _lastKarma,
-        ),
+        profile: state.profile,
+        location: state.location ?? _lastLocation,
+        karma: state.karma ?? _lastKarma,
+      ),
       ProfileNotFound() => _buildSetupShell(),
+
       // Supplementary-only states: re-render dashboard với cache.
       ProfileLocationLoaded() ||
       ProfileLocationDeleted() ||
       ProfileKarmaLoaded() ||
-      ProfileInitial()
-          when _lastProfile != null =>
-        _buildDashboardShell(
-          profile: _lastProfile!,
-          location: _lastLocation,
-          karma: _lastKarma,
-        ),
+      // `ProfileFailure` supplementary (location/karma fail): fall back
+      // về dashboard thay vì full-screen error — message đã được show
+      // qua toast ở `_onStateChanged`.
+      ProfileFailure() ||
+      ProfileInitial() when _lastProfile != null => _buildDashboardShell(
+        profile: _lastProfile!,
+        location: _lastLocation,
+        karma: _lastKarma,
+      ),
+
       _ => const _LoadingShell(),
     };
   }
@@ -167,36 +178,35 @@ class _HomePageState extends State<HomePage> {
   // ─── Shell factories (DRY — tránh trùng lặp constructor params) ────────
 
   Widget _buildSetupShell() => _SetupShell(
-        formKey: _formKey,
-        bioController: _bioController,
-        firstNameController: _firstNameController,
-        lastNameController: _lastNameController,
-        dobController: _dobController,
-        phoneController: _phoneController,
-        onPickDate: _selectDate,
-        onSubmit: _onCreateProfile,
-      );
+    formKey: _formKey,
+    bioController: _bioController,
+    firstNameController: _firstNameController,
+    lastNameController: _lastNameController,
+    dobController: _dobController,
+    phoneController: _phoneController,
+    onPickDate: _selectDate,
+    onSubmit: _onCreateProfile,
+  );
 
   Widget _buildDashboardShell({
     required ProfileEntity profile,
     PlayerLocationEntity? location,
     KarmaHistoryEntity? karma,
-  }) =>
-      _DashboardShell(
-        profile: profile,
-        location: location,
-        karma: karma,
-        horizontalPadding: _horizontalPadding,
-        onAvatarTap: _changeAvatar,
-        onEditPressed: () => _showEditProfileSheet(profile),
-        onUpdateGpsPressed: _updateLocationGps,
-        onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
-        onOpenLeaderboard: _openLeaderboard,
-        onOpenFriends: _openFriendsPage,
-        onOpenWallet: _openWalletPage,
-        onOpenSettings: _openSystemSettings,
-        onLogout: _logout,
-      );
+  }) => _DashboardShell(
+    profile: profile,
+    location: location,
+    karma: karma,
+    horizontalPadding: _horizontalPadding,
+    onAvatarTap: _changeAvatar,
+    onEditPressed: () => _showEditProfileSheet(profile),
+    onUpdateGpsPressed: _updateLocationGps,
+    onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
+    onOpenLeaderboard: _openLeaderboard,
+    onOpenFriends: _openFriendsPage,
+    onOpenWallet: _openWalletPage,
+    onOpenSettings: _openSystemSettings,
+    onLogout: _logout,
+  );
 
   // ─── Shell components ────────────────────────────────────────────────────
 
@@ -229,22 +239,22 @@ class _HomePageState extends State<HomePage> {
   void _onCreateProfile() {
     if (!_formKey.currentState!.validate()) return;
     context.read<ProfileCubit>().createProfile(
-          bio: _bioController.text.trim(),
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          dateOfBirth: _dobController.text.trim(),
-          phoneNumber: _phoneController.text.trim(),
-        );
+      bio: _bioController.text.trim(),
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      dateOfBirth: _dobController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+    );
   }
 
   void _onUpdateProfile() {
     if (!_formKey.currentState!.validate()) return;
     context.read<ProfileCubit>().updateProfile(
-          bio: _bioController.text.trim(),
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          dateOfBirth: _dobController.text.trim(),
-        );
+      bio: _bioController.text.trim(),
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      dateOfBirth: _dobController.text.trim(),
+    );
   }
 
   void _prefillForm(ProfileEntity profile) {
@@ -292,32 +302,48 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _updateLocationGps() {
-    context.read<ProfileCubit>().updateLocation(
-          latitude: 10.7769,
-          longitude: 106.7008,
-          source: 0,
-        );
-    _showToast('Đang cập nhật vị trí...');
+  /// Read device GPS rồi PUT lên backend. Trước đây hardcode
+  /// `(10.7769, 106.7008)` → backend reverse-geocode trả về "Quận 1"
+  /// dù player thực sự ở chỗ khác. Đã đổi sang `LocationService`.
+  Future<void> _updateLocationGps() async {
+    try {
+      final loc = await const LocationService().getCurrentLocation();
+      if (!mounted) return;
+      context.read<ProfileCubit>().updateLocation(
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            source: 0,
+          );
+      _showToast(
+        'Đã cập nhật vị trí hiện tại '
+        '(${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}).',
+      );
+    } on LocationFailure catch (e) {
+      if (!mounted) return;
+      _showToast(e.userMessage, isError: true);
+    } catch (e) {
+      if (!mounted) return;
+      _showToast('Không thể cập nhật vị trí: $e', isError: true);
+    }
   }
 
   // ─── Navigation ─────────────────────────────────────────────────────────
 
-  void _openLeaderboard() => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LeaderboardPage()),
-      );
+  void _openLeaderboard() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const LeaderboardPage()));
 
-  void _openFriendsPage() => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const FriendsPage()),
-      );
+  void _openFriendsPage() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const FriendsPage()));
 
-  void _openWalletPage() => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const WalletPage()),
-      );
+  void _openWalletPage() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const WalletPage()));
 
-  void _openSystemSettings() => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const SystemSettingsPage()),
-      );
+  void _openSystemSettings() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const SystemSettingsPage()));
 
   // ─── Toast helper ───────────────────────────────────────────────────────
 
@@ -329,9 +355,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => AppToastCard(
         leading: Icon(
           isError ? Icons.error_outline : Icons.check,
-          color: isError
-              ? Theme.of(context).colorScheme.error
-              : Colors.green,
+          color: isError ? Theme.of(context).colorScheme.error : Colors.green,
           size: 24,
         ),
         title: Text(
@@ -444,15 +468,16 @@ class _DashboardShell extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? NeoBrutalismTheme.bgDark : NeoBrutalismTheme.bgLight,
+      backgroundColor: isDark
+          ? NeoBrutalismTheme.bgDark
+          : NeoBrutalismTheme.bgLight,
       appBar: AppBar(
-        backgroundColor: isDark ? NeoBrutalismTheme.bgDark : NeoBrutalismTheme.bgLight,
+        backgroundColor: isDark
+            ? NeoBrutalismTheme.bgDark
+            : NeoBrutalismTheme.bgLight,
         title: const Text(
           'BOARDVERSE',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
         centerTitle: true,
         forceMaterialTransparency: true,
@@ -552,7 +577,8 @@ class _NeoBrutalismLogoutButton extends StatefulWidget {
   final VoidCallback onPressed;
 
   @override
-  State<_NeoBrutalismLogoutButton> createState() => _NeoBrutalismLogoutButtonState();
+  State<_NeoBrutalismLogoutButton> createState() =>
+      _NeoBrutalismLogoutButtonState();
 }
 
 class _NeoBrutalismLogoutButtonState extends State<_NeoBrutalismLogoutButton>
@@ -567,9 +593,10 @@ class _NeoBrutalismLogoutButtonState extends State<_NeoBrutalismLogoutButton>
       duration: const Duration(milliseconds: 80),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -597,9 +624,7 @@ class _NeoBrutalismLogoutButtonState extends State<_NeoBrutalismLogoutButton>
           return Transform.scale(
             scale: _scaleAnimation.value,
             child: Transform.translate(
-              offset: _pressCtrl.isAnimating
-                  ? const Offset(2, 2)
-                  : Offset.zero,
+              offset: _pressCtrl.isAnimating ? const Offset(2, 2) : Offset.zero,
               child: child,
             ),
           );
@@ -621,11 +646,7 @@ class _NeoBrutalismLogoutButtonState extends State<_NeoBrutalismLogoutButton>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                AppIcons.logout,
-                color: AppColors.error,
-                size: AppIcons.md,
-              ),
+              Icon(AppIcons.logout, color: AppColors.error, size: AppIcons.md),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 'ĐĂNG XUẤT',

@@ -360,6 +360,10 @@ class LobbyCubit extends Cubit<LobbyState> {
             ? currentState.lobby
             : null;
 
+    // Phát loading state TRƯỚC khi gọi API để UI hiển thị shimmer skeleton
+    // thay cho spinner cũ — đỡ "flash" trắng khi mở FriendsSheet.
+    emit(const LobbyFriendsLoading());
+
     final result = await _repository.getOnlineFriends();
     if (isClosed) return;
     result.fold(

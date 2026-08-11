@@ -56,6 +56,7 @@ import '../../features/tournament/presentation/cubit/tournament_list_cubit.dart'
 import '../../features/tournament/presentation/cubit/tournament_detail_cubit.dart';
 import '../../features/tournament/presentation/cubit/my_registrations_cubit.dart';
 import '../../features/tournament/presentation/cubit/elo_history_cubit.dart';
+import '../../features/tournament/presentation/cubit/leaderboard_cubit.dart';
 import '../../features/settings/presentation/cubit/theme_cubit.dart';
 import '../../features/wallet/data/datasources/wallet_remote_datasource.dart';
 import '../../features/wallet/data/wallet_repository_impl.dart';
@@ -201,9 +202,11 @@ void setupDependencies() {
 
   // MyLobbiesCubit — section "Phòng chờ của tôi" trong Discovery → tab
   // "Phòng chờ". Sử dụng real API endpoints /hosted và /joined.
+  // Đồng thời fetch cafe details từ /cafes/{id}.
   sl.registerFactory<MyLobbiesCubit>(
     () => MyLobbiesCubit(
       repository: sl<LobbyRepository>(),
+      matchmakingRepository: sl<MatchmakingRepository>(),
     ),
   );
 
@@ -287,6 +290,10 @@ void setupDependencies() {
 
   sl.registerFactory<EloHistoryCubit>(
     () => EloHistoryCubit(repository: sl<TournamentRepository>()),
+  );
+
+  sl.registerFactory<LeaderboardCubit>(
+    () => LeaderboardCubit(repository: sl<TournamentRepository>()),
   );
 
   // ─── Theme preferences ────────────────────────────────────────────────

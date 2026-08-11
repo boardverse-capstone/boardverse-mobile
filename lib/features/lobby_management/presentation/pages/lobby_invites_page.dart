@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/theme/theme.dart';
+import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
 import '../cubit/lobby_invite_cubit.dart';
 import '../cubit/lobby_invite_state.dart';
 import '../widgets/lobby_invite_card.dart';
+import '../widgets/lobby_list_shimmer.dart';
 
 class LobbyInvitesPage extends StatelessWidget {
   final LobbyInviteCubit lobbyInviteCubit;
@@ -22,31 +24,22 @@ class LobbyInvitesPage extends StatelessWidget {
       value: lobbyInviteCubit,
       child: BlocConsumer<LobbyInviteCubit, LobbyInviteState>(
         listener: (context, state) {
+          // Tất cả thông báo accept/decline/cancel/error dùng top snackbar
+          // (slide-in từ đầu màn hình) để đồng bộ với design system + các
+          // flow khác trong app (vd: BookingRealtime, LobbyReservation,
+          // lobby share invite). Bottom SnackBar mặc định hay che nội
+          // dung quan trọng trong các sheet có scroll dọc.
           if (state is LobbyInviteAccepted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Đã tham gia phòng!'),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            context.showTopSnackBar('Đã tham gia phòng!');
             onJoinLobby?.call(state.lobbyId);
           } else if (state is LobbyInviteDeclined) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Đã từ chối lời mời')));
+            context.showTopSnackBar('Đã từ chối lời mời');
             lobbyInviteCubit.loadPendingInvites();
           } else if (state is LobbyInviteCancelled) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Đã hủy lời mời')));
+            context.showTopSnackBar('Đã hủy lời mời');
             lobbyInviteCubit.loadAllInvites();
           } else if (state is LobbyInviteError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            context.showTopSnackBar(state.message, isError: true);
           }
         },
         builder: (context, state) {
@@ -69,7 +62,7 @@ class LobbyInvitesPage extends StatelessWidget {
 
   Widget _buildBody(BuildContext context, LobbyInviteState state) {
     if (state is LobbyInviteLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LobbyInvitesShimmer();
     }
 
     if (state is LobbyInviteEmpty) {

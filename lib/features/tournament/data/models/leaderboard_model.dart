@@ -3,7 +3,7 @@ import 'package:boardverse_mobile/features/tournament/domain/entities/leaderboar
 /// Leaderboard entry model for API response mapping.
 class LeaderboardEntryModel {
   final int rank;
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int globalElo;
@@ -13,7 +13,7 @@ class LeaderboardEntryModel {
 
   const LeaderboardEntryModel({
     required this.rank,
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.globalElo,
@@ -23,14 +23,26 @@ class LeaderboardEntryModel {
   });
 
   factory LeaderboardEntryModel.fromJson(Map<String, dynamic> json) {
-    return LeaderboardEntryModel(
-      rank: _readInt(json, const ['rank', 'position'], 0),
-      oderId: _readString(json, const ['userId', 'oderId'], ''),
-      displayName: _readString(json, const [
+    // Display name: backend trả `username`; fallback các alias khác.
+    String displayName = 'Người chơi';
+    final walkIn = _readString(json, const ['walkInDisplayName'], '');
+    final username = _readString(json, const ['username'], '');
+    if (walkIn.isNotEmpty) {
+      displayName = walkIn;
+    } else if (username.isNotEmpty) {
+      displayName = username;
+    } else {
+      displayName = _readString(json, const [
         'displayName',
         'fullName',
         'name',
-      ], 'Người chơi'),
+      ], 'Người chơi');
+    }
+
+    return LeaderboardEntryModel(
+      rank: _readInt(json, const ['rank', 'position'], 0),
+      userId: _readString(json, const ['userId', 'oderId'], ''),
+      displayName: displayName,
       avatarUrl: _readNullableString(json, const ['avatarUrl', 'avatar']),
       globalElo: _readInt(json, const [
         'globalElo',
@@ -49,7 +61,7 @@ class LeaderboardEntryModel {
   Map<String, dynamic> toJson() {
     return {
       'rank': rank,
-      'userId': oderId,
+      'userId': userId,
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'globalElo': globalElo,
@@ -62,7 +74,7 @@ class LeaderboardEntryModel {
   LeaderboardEntryEntity toEntity() {
     return LeaderboardEntryEntity(
       rank: rank,
-      oderId: oderId,
+      userId: userId,
       displayName: displayName,
       avatarUrl: avatarUrl,
       globalElo: globalElo,

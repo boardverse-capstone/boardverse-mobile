@@ -5,7 +5,8 @@ import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/leaderboard_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
 import 'package:boardverse_mobile/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
@@ -66,7 +67,7 @@ class TournamentRepositoryImpl implements TournamentRepository {
     try {
       final models = await _remoteDatasource.getParticipants(id);
       final entities = models.map((m) {
-        final isMe = currentUserId != null && m.oderId == currentUserId;
+        final isMe = currentUserId != null && m.userId == currentUserId;
         return m.toEntity(isCurrentUser: isMe, totalRounds: totalRounds);
       }).toList();
       return Right(entities);
@@ -99,7 +100,7 @@ class TournamentRepositoryImpl implements TournamentRepository {
       } catch (_) {
         totalRounds = null;
       }
-      final isMe = currentUserId != null && model.oderId == currentUserId;
+      final isMe = currentUserId != null && model.userId == currentUserId;
       return Right(
         model.toEntity(isCurrentUser: isMe, totalRounds: totalRounds),
       );
@@ -181,7 +182,7 @@ class TournamentRepositoryImpl implements TournamentRepository {
   }
 
   @override
-  Future<Either<Failure, List<TournamentEntity>>> getMyRegistrations({
+  Future<Either<Failure, List<MyRegistrationEntry>>> getMyRegistrations({
     String? status,
   }) async {
     try {
@@ -196,11 +197,10 @@ class TournamentRepositoryImpl implements TournamentRepository {
   }
 
   @override
-  Future<Either<Failure, List<EloHistoryEntity>>> getMyEloHistory() async {
+  Future<Either<Failure, MyEloHistoryResponse>> getMyEloHistory() async {
     try {
-      final models = await _remoteDatasource.getMyEloHistory();
-      final entities = models.map((m) => m.toEntity()).toList();
-      return Right(entities);
+      final model = await _remoteDatasource.getMyEloHistory();
+      return Right(model.toEntity());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
     } catch (e) {

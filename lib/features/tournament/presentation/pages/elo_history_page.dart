@@ -123,39 +123,56 @@ class _SummaryCard extends StatelessWidget {
         ),
         borderRadius: AppRadius.radiusMdAll,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _StatColumn(
-              label: 'Elo hiện tại',
-              value: state.currentElo.toString(),
-              color: Colors.white,
+          if (state.username.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Text(
+                state.username,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
             ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.white.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: _StatColumn(
-              label: 'Tổng thay đổi',
-              value: (state.totalDelta >= 0 ? '+' : '') +
-                  state.totalDelta.toString(),
-              color: Colors.white,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.white.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: _StatColumn(
-              label: 'Đã chơi',
-              value: '${state.tournamentsPlayed}',
-              color: Colors.white,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _StatColumn(
+                  label: 'Elo hiện tại',
+                  value: state.currentElo.toString(),
+                  color: Colors.white,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+              Expanded(
+                child: _StatColumn(
+                  label: 'Tổng thay đổi',
+                  value: (state.totalDelta >= 0 ? '+' : '') +
+                      state.totalDelta.toString(),
+                  color: Colors.white,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+              Expanded(
+                child: _StatColumn(
+                  label: 'Đã chơi',
+                  value: '${state.tournamentsPlayed}',
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
       ),

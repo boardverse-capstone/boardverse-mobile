@@ -5,30 +5,94 @@ import 'package:boardverse_mobile/core/theme/app_icons.dart';
 import 'package:boardverse_mobile/core/theme/app_spacing.dart';
 import '../../domain/entities/lobby_entity.dart';
 
-/// Modern lobby player card với neo-brutalism borders, badge indicators và
-/// press animation. Sử dụng bold border + hard shadow signature.
+/// Card hiển thị 1 player trong lobby player grid.
+///
+/// Status label dựa trên **lobby.status + player.isHost/player.readyAt**:
+/// - Host luôn hiển thị "Chủ phòng" (override tất cả trạng thái khác).
+/// - Lobby terminal (closed/cancelled/timeout/rejected/expired) → "Đã đóng".
+/// - Lobby `full`/`inProgress`/`ratingOpen` → hiển thị ready state của player
+///   theo **BR-LOBBY-READY-01** (`readyAt != null` = "Sẵn sàng", ngược lại
+///   "Chưa sẵn sàng"). Trước đây dùng `bool isReady` dễ bị drift với backend.
+/// - Lobby `pendingActivation`/`pendingCafeApproval` → "Thành viên".
+/// - Lobby `open`/`viable` → "Cần thêm người".
+///
+/// Mapping này đảm bảo UI phản ánh đúng nghiệp vụ từ backend
+/// (`docs/apis/lobby.md` §State machine + BR-08 + BR-NEW-11).
 class LobbyPlayerCard extends StatelessWidget {
   final LobbyPlayer player;
+
+  /// Lobby hiện tại — dùng để derive status label theo lobby state.
+  final LobbyStatus lobbyStatus;
+
   final bool isCurrentUser;
   final VoidCallback? onTap;
 
   const LobbyPlayerCard({
     super.key,
     required this.player,
+    required this.lobbyStatus,
     this.isCurrentUser = false,
     this.onTap,
   });
 
+  /// Resolve label + màu cho status chip của player dựa trên
+  /// (lobbyStatus, player.isHost, player.readyAt).
+  ///
+  /// BR-LOBBY-READY-01: check `readyAt != null` (DateTime) thay vì
+  /// `bool isReady`. Backend có thể trả `readyAt: null` nhưng flag lỗi
+  /// thời — check DateTime mới chính xác.
+  ({String label, Color color}) _resolveStatus() {
+    // 1. Host luôn là "Chủ phòng" — bất kể lobby state.
+    if (player.isHost) {
+      return (label: 'Chủ phòng', color: AppColors.accent);
+    }
+
+    // 2. Lobby đã terminal → tất cả player đều "Đã đóng".
+    if (lobbyStatus.isTerminal) {
+      return (label: 'Đã đóng', color: AppColors.textTertiary);
+    }
+
+    // 3. Lobby đang ở phase có thể ready (full/inProgress/ratingOpen).
+    if (lobbyStatus == LobbyStatus.full ||
+        lobbyStatus == LobbyStatus.inProgress ||
+        lobbyStatus == LobbyStatus.ratingOpen) {
+      // BR-LOBBY-READY-01: `readyAt != null` = đã sẵn sàng.
+      final isReady = player.readyAt != null;
+      return isReady
+          ? (label: 'Sẵn sàng', color: AppColors.success)
+          : (label: 'Chưa sẵn sàng', color: AppColors.textTertiary);
+    }
+
+    // 4. Lobby open/viable → cần thêm người, player chưa cam kết.
+    if (lobbyStatus == LobbyStatus.open ||
+        lobbyStatus == LobbyStatus.viable) {
+      return (label: 'Cần thêm người', color: AppColors.info);
+    }
+
+    // 5. Lobby pending (chờ kích hoạt / chờ quán duyệt) → "Thành viên".
+    if (lobbyStatus == LobbyStatus.pendingActivation ||
+        lobbyStatus == LobbyStatus.pendingCafeApproval) {
+      return (label: 'Thành viên', color: AppColors.warning);
+    }
+
+    return (label: 'Thành viên', color: AppColors.textTertiary);
+  }
+
+  /// Quyết định có show badge "ready" (icon check) trên avatar hay không.
+  /// Chỉ relevant khi lobby đang ở phase có ready (full/inProgress/ratingOpen).
+  /// Host luôn có host badge (ưu tiên hơn ready badge).
+  bool _showReadyBadge() {
+    if (player.isHost) return false; // ưu tiên host badge
+    return lobbyStatus == LobbyStatus.full ||
+        lobbyStatus == LobbyStatus.inProgress ||
+        lobbyStatus == LobbyStatus.ratingOpen;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final successColor = AppColors.success;
-    final statusColor = player.isReady ? successColor : AppColors.textTertiary;
-    final statusLabel = player.isHost
-        ? 'Chủ phòng'
-        : player.isReady
-            ? 'Sẵn sàng'
-            : 'Đang chờ';
+    final status = _resolveStatus();
+    final statusLabel = status.label;
 
     final cardColor = isCurrentUser
         ? (isDark ? AppColors.primaryDark : AppColors.primaryLight)
@@ -74,29 +138,35 @@ class LobbyPlayerCard extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: [
                     _PlayerAvatar(player: player, isCurrentUser: isCurrentUser),
-                    // Ready badge
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.borderDark
-                                : AppColors.border,
-                            width: 2,
+                    // Ready badge — chỉ hiển thị khi lobby đang ở phase
+                    // có ready (full/inProgress/ratingOpen). BR-LOBBY-READY-01:
+                    // check `readyAt != null` (DateTime) thay vì bool flag.
+                    if (_showReadyBadge()) ...[
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: player.readyAt != null
+                                ? AppColors.success
+                                : AppColors.textTertiary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.border,
+                              width: 2,
+                            ),
                           ),
+                          child: player.readyAt != null
+                              ? const Icon(AppIcons.check,
+                                  size: 12, color: AppColors.white)
+                              : null,
                         ),
-                        child: player.isReady
-                            ? const Icon(AppIcons.check,
-                                size: 12, color: AppColors.white)
-                            : null,
                       ),
-                    ),
+                    ],
                     // Host badge
                     if (player.isHost)
                       Positioned(
@@ -141,9 +211,7 @@ class LobbyPlayerCard extends StatelessWidget {
                     vertical: AppSpacing.xxs,
                   ),
                   decoration: BoxDecoration(
-                    color: player.isHost
-                        ? AppColors.accent
-                        : statusColor,
+                    color: status.color,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isDark
@@ -246,12 +314,18 @@ class LobbyPlayerGrid extends StatelessWidget {
   final List<LobbyPlayer> players;
   final int maxSlots;
   final String? currentUserId;
+
+  /// Lobby hiện tại — truyền xuống từng [LobbyPlayerCard] để derive
+  /// status label theo lobby state.
+  final LobbyStatus lobbyStatus;
+
   final Function(LobbyPlayer)? onPlayerTap;
 
   const LobbyPlayerGrid({
     super.key,
     required this.players,
     required this.maxSlots,
+    required this.lobbyStatus,
     this.currentUserId,
     this.onPlayerTap,
   });
@@ -262,15 +336,24 @@ class LobbyPlayerGrid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxExtent = constraints.maxWidth >= 720 ? 172.0 : 152.0;
+        // Phase 3 2026-08-10: chuyển sang **2 card / hàng** (cố định)
+        // thay vì `maxCrossAxisExtent` (sinh ra 3 card khi viewport
+        // ~360dp gây chật, info cắt cụt). Aspect ratio dùng cellWidth
+        // để cell auto-resize cho cả mobile + tablet.
+        const crossAxisCount = 2;
+        const spacing = AppSpacing.md;
+        final availableWidth = constraints.maxWidth -
+            (spacing * (crossAxisCount - 1));
+        final cellWidth = availableWidth / crossAxisCount;
+        // Cell rộng : cao = 1 : 1.05 → đủ chỗ cho avatar + tên + chip.
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: maxExtent,
-            childAspectRatio: 0.72,
-            crossAxisSpacing: AppSpacing.md,
-            mainAxisSpacing: AppSpacing.md,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: cellWidth / (cellWidth * 1.05),
           ),
           itemCount: players.length + emptySlots,
           itemBuilder: (context, index) {
@@ -284,6 +367,7 @@ class LobbyPlayerGrid extends StatelessWidget {
                           player.id == currentUserId);
               return LobbyPlayerCard(
                 player: player,
+                lobbyStatus: lobbyStatus,
                 isCurrentUser: isCurrentUser,
                 onTap: onPlayerTap == null
                     ? null
@@ -433,9 +517,9 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
       return const SizedBox.shrink();
     }
 
-    // Tính số người đã Ready.
+    // Tính số người đã Ready (BR-LOBBY-READY-01: `readyAt != null`).
     final readyCount =
-        widget.lobby.players.where((p) => p.isReady).length;
+        widget.lobby.players.where((p) => p.readyAt != null).length;
     final totalMembers = widget.lobby.players.length;
 
     // Current user có phải member + ready chưa?

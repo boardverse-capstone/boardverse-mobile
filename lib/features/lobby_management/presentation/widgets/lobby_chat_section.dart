@@ -25,7 +25,7 @@ class LobbyChatSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
-        AppSpacing.lg,
+        AppSpacing.md,
         AppSpacing.md,
         0,
       ),
@@ -68,12 +68,18 @@ class LobbyChatSection extends StatelessWidget {
             ),
             child: Column(
               children: [
-                // Messages list
-                SizedBox(
-                  height: 240,
+                // Messages list — co giãn theo số message, nhưng giới hạn
+                // tối đa 280dp để tránh "đẩy" các section khác ra khỏi
+                // viewport khi có nhiều tin nhắn.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 120,
+                    maxHeight: 280,
+                  ),
                   child: messages.isEmpty
                       ? ChatEmptyState(theme: theme, colors: colors)
                       : ListView.builder(
+                          shrinkWrap: true,
                           padding: const EdgeInsets.all(AppSpacing.md),
                           itemCount: messages.length,
                           itemBuilder: (context, index) => ChatBubble(

@@ -100,12 +100,14 @@ class ApiEndpoints {
 
   // ─── Payments (SePay) ───
   static const String bookingDeposit = '/api/payments/booking-deposit';
-  static const String bookingDepositDetail = '/api/payments/booking-deposit/{id}';
+  static const String bookingDepositDetail =
+      '/api/payments/booking-deposit/{id}';
   static const String bookingDepositByOrder =
       '/api/payments/booking-deposit/by-order/{orderId}';
   static const String bookingDepositRegenerateQr =
       '/api/payments/booking-deposit/{id}/regenerate-qr';
-  static const String bookingDepositRefund = '/api/payments/booking-deposit/refund';
+  static const String bookingDepositRefund =
+      '/api/payments/booking-deposit/refund';
 
   // ─── Payments: Session & Manual Confirm (POS-side, reference only) ───
   // Theo đặc tả `.agents/docs/apis_docs/payment.md`:
@@ -214,7 +216,8 @@ class ApiEndpoints {
       '/api/v1/lobbies/{id}/open-karma-window';
 
   /// POST /api/v1/lobbies/{id}/transfer-host — Host chuyển quyền host cho thành viên khác.
-  static String lobbyTransferHost(String id) => '/api/v1/lobbies/$id/transfer-host';
+  static String lobbyTransferHost(String id) =>
+      '/api/v1/lobbies/$id/transfer-host';
 
   /// POST /api/v1/lobbies/{id}/kick — Host kick thành viên khỏi lobby.
   static String lobbyKick(String id) => '/api/v1/lobbies/$id/kick';

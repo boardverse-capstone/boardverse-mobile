@@ -17,6 +17,16 @@ enum SectionKind { friends, receivedRequests }
 /// - Notes management
 /// - Privacy settings
 /// - Reports
+///
+/// Lưu ý quan trọng về data preservation:
+/// - Khi `loadFriends()` hoặc `loadReceivedRequests()` fail, ta KHÔNG emit
+///   `FriendListError` (sẽ phá hủy toàn bộ dữ liệu đã load) — thay vào đó
+///   ta giữ nguyên `FriendListLoaded` và set `friendsError` /
+///   `receivedRequestsError` cho section tương ứng. UI mỗi tab sẽ tự hiển
+///   thị ErrorRetryView riêng.
+/// - Fix bug cũ: trước đây `_emitError` luôn emit `FriendListError` → user
+///   chuyển tab thấy màn hình trắng / "không tìm thấy bạn bè" dù list đã
+///   load thành công trước đó.
 class FriendListCubit extends Cubit<FriendListState> {
   FriendListCubit({required this.repository}) : super(const FriendListInitial());
 
@@ -24,6 +34,10 @@ class FriendListCubit extends Cubit<FriendListState> {
 
   // ─── Section Loading Helpers ─────────────────────────────────────────────────
 
+  /// Set loading cho 1 section, đồng thời clear error của section đó.
+  /// Nếu state hiện tại chưa phải `FriendListLoaded`, ta tự khởi tạo
+  /// một state rỗng để giữ UI ổn định (tránh mất dữ liệu khi đã load
+  /// section khác trước đó).
   void _setSectionLoading(SectionKind kind, bool isLoading) {
     final current = state;
     if (current is FriendListLoaded) {
@@ -33,16 +47,72 @@ class FriendListCubit extends Cubit<FriendListState> {
         receivedRequestsLoading: kind == SectionKind.receivedRequests
             ? isLoading
             : current.receivedRequestsLoading,
+        // Clear error khi bắt đầu retry.
+        friendsError: kind == SectionKind.friends && isLoading
+            ? null
+            : current.friendsError,
+        receivedRequestsError: kind == SectionKind.receivedRequests && isLoading
+            ? null
+            : current.receivedRequestsError,
       ));
+      return;
     }
+
+    // Chuyển từ Initial/Loading/Error → Loaded(rỗng) để có thể track
+    // loading per-section. Preserve lại dữ liệu đã load trước đó nếu có.
+    final prev = current;
+    final base = prev is FriendListLoaded ? prev : null;
+    emit(FriendListLoaded(
+      friends: base?.friends ?? const [],
+      receivedRequests: base?.receivedRequests ?? const [],
+      sentRequests: base?.sentRequests ?? const [],
+      unreadRequestCount: base?.unreadRequestCount ?? 0,
+      notes: base?.notes ?? const [],
+      privacySettings: base?.privacySettings,
+      myReports: base?.myReports ?? const [],
+      friendsLoading: kind == SectionKind.friends ? isLoading : false,
+      receivedRequestsLoading:
+          kind == SectionKind.receivedRequests ? isLoading : false,
+      friendsError: kind == SectionKind.friends && isLoading
+          ? null
+          : base?.friendsError,
+      receivedRequestsError: kind == SectionKind.receivedRequests && isLoading
+          ? null
+          : base?.receivedRequestsError,
+      friendsEverLoaded: base?.friendsEverLoaded ?? false,
+      receivedRequestsEverLoaded: base?.receivedRequestsEverLoaded ?? false,
+    ));
   }
 
-  void _emitError(String message) {
+  /// Set error cho 1 section, giữ nguyên dữ liệu đã load (nếu có).
+  /// Đây là fix chính cho bug "chuyển tab bị trắng màn hình":
+  /// trước đây `_emitError` emit `FriendListError` tổng → phá hủy mọi
+  /// dữ liệu; bây giờ ta chỉ đánh dấu section nào bị lỗi.
+  void _emitSectionError(SectionKind kind, String message) {
     final current = state;
-    if (current is FriendListLoaded) {
-      emit(FriendListError(message: message));
+    final prev = current is FriendListLoaded ? current : null;
+    if (prev != null) {
+      emit(prev.copyWith(
+        friendsLoading:
+            kind == SectionKind.friends ? false : prev.friendsLoading,
+        receivedRequestsLoading: kind == SectionKind.receivedRequests
+            ? false
+            : prev.receivedRequestsLoading,
+        friendsError:
+            kind == SectionKind.friends ? message : prev.friendsError,
+        receivedRequestsError: kind == SectionKind.receivedRequests
+            ? message
+            : prev.receivedRequestsError,
+      ));
     } else {
-      emit(FriendListError(message: message));
+      // State chưa từng có FriendListLoaded (Initial/Loading) → vẫn
+      // tạo FriendListLoaded(rỗng) với error để UI hiển thị retry button.
+      emit(FriendListLoaded(
+        friendsError:
+            kind == SectionKind.friends ? message : null,
+        receivedRequestsError:
+            kind == SectionKind.receivedRequests ? message : null,
+      ));
     }
   }
 
@@ -58,7 +128,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     result.fold(
       (failure) {
         _setSectionLoading(SectionKind.friends, false);
-        _emitError(failure.message);
+        _emitSectionError(SectionKind.friends, failure.message);
       },
       (data) {
         final current = state;
@@ -66,10 +136,17 @@ class FriendListCubit extends Cubit<FriendListState> {
         emit(FriendListLoaded(
           friends: data,
           receivedRequests: prev?.receivedRequests ?? const [],
+          sentRequests: prev?.sentRequests ?? const [],
           unreadRequestCount: prev?.unreadRequestCount ?? 0,
           notes: prev?.notes ?? const [],
           privacySettings: prev?.privacySettings,
           myReports: prev?.myReports ?? const [],
+          friendsLoading: false,
+          receivedRequestsLoading: prev?.receivedRequestsLoading ?? false,
+          friendsError: null,
+          receivedRequestsError: prev?.receivedRequestsError,
+          friendsEverLoaded: true,
+          receivedRequestsEverLoaded: prev?.receivedRequestsEverLoaded ?? false,
         ));
       },
     );
@@ -89,7 +166,7 @@ class FriendListCubit extends Cubit<FriendListState> {
     result.fold(
       (failure) {
         _setSectionLoading(SectionKind.receivedRequests, false);
-        _emitError(failure.message);
+        _emitSectionError(SectionKind.receivedRequests, failure.message);
       },
       (data) {
         final current = state;
@@ -97,10 +174,17 @@ class FriendListCubit extends Cubit<FriendListState> {
         emit(FriendListLoaded(
           friends: prev?.friends ?? const [],
           receivedRequests: data,
+          sentRequests: prev?.sentRequests ?? const [],
           unreadRequestCount: data.where((r) => !r.isRead).length,
           notes: prev?.notes ?? const [],
           privacySettings: prev?.privacySettings,
           myReports: prev?.myReports ?? const [],
+          friendsLoading: prev?.friendsLoading ?? false,
+          receivedRequestsLoading: false,
+          friendsError: prev?.friendsError,
+          receivedRequestsError: null,
+          friendsEverLoaded: prev?.friendsEverLoaded ?? false,
+          receivedRequestsEverLoaded: true,
         ));
       },
     );
@@ -120,7 +204,15 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation không được phá hủy state hiện tại.
+        // UI sẽ tự hiển thị SnackBar lỗi qua SearchUsersTab.
+        // Nếu chưa có FriendListLoaded (Initial) → emit action state.
+        if (currentState is! FriendListLoaded) {
+          emit(FriendRequestSent(addresseeId: addresseeId));
+        }
+        // Không emit FriendListError tổng — giữ nguyên FriendListLoaded.
+      },
       (request) {
         if (currentState is FriendListLoaded) {
           emit(currentState.copyWith(
@@ -139,7 +231,15 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation không phá hủy FriendListLoaded.
+        if (currentState is! FriendListLoaded) {
+          emit(FriendRequestProcessed(
+            requestId: requestId,
+            accepted: true,
+          ));
+        }
+      },
       (_) {
         if (currentState is FriendListLoaded) {
           final newReceived = currentState.receivedRequests
@@ -165,7 +265,14 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        if (currentState is! FriendListLoaded) {
+          emit(FriendRequestProcessed(
+            requestId: requestId,
+            accepted: false,
+          ));
+        }
+      },
       (_) {
         if (currentState is FriendListLoaded) {
           final newReceived = currentState.receivedRequests
@@ -212,7 +319,11 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        if (currentState is! FriendListLoaded) {
+          emit(FriendUnfriended(friendId: friendId));
+        }
+      },
       (_) {
         if (currentState is FriendListLoaded) {
           emit(currentState.copyWith(
@@ -231,7 +342,9 @@ class FriendListCubit extends Cubit<FriendListState> {
 
     if (isClosed) return;
     await result.fold(
-      (failure) async => _emitError(failure.message),
+      (failure) async {
+        // Lỗi mutation: không phá hủy state, để UI hiển thị SnackBar.
+      },
       (_) async {
         await loadFriends();
         if (isClosed) return;
@@ -256,7 +369,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi load notes: không phá hủy state.
+      },
       (notes) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -282,7 +397,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation: không phá hủy FriendListLoaded.
+      },
       (savedNote) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -309,7 +426,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation: không phá hủy FriendListLoaded.
+      },
       (_) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -331,7 +450,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi load privacy: không phá hủy state.
+      },
       (privacy) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -355,7 +476,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation: không phá hủy state.
+      },
       (privacy) {
         final currentState = state;
         if (currentState is FriendListLoaded) {
@@ -383,7 +506,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi mutation: không phá hủy state.
+      },
       (_) => emit(FriendReportCreated(targetUserId: targetUserId)),
     );
   }
@@ -394,7 +519,9 @@ class FriendListCubit extends Cubit<FriendListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => _emitError(failure.message),
+      (failure) {
+        // Lỗi load reports: không phá hủy state.
+      },
       (reports) {
         final currentState = state;
         if (currentState is FriendListLoaded) {

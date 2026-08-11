@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
 
 /// Neo-brutalism Widget hiển thị số dư ví BVC.
 class BalanceCard extends StatelessWidget {
   final WalletEntity wallet;
-  final bool showHeldBalance;
   final VoidCallback? onTopUpPressed;
 
   const BalanceCard({
     super.key,
     required this.wallet,
-    this.showHeldBalance = true,
     this.onTopUpPressed,
   });
 
@@ -95,42 +92,6 @@ class BalanceCard extends StatelessWidget {
               ),
             ],
           ),
-          if (showHeldBalance && wallet.heldBalance > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.lock_outline,
-                    size: AppIcons.xs,
-                    color: AppColors.white,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    '${wallet.heldBalance} BVC đang giữ',
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           if (onTopUpPressed != null) ...[
             const SizedBox(height: AppSpacing.lg),
             Container(

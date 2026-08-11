@@ -22,9 +22,6 @@ abstract class WalletRemoteDatasource {
     int pageSize = 20,
   });
 
-  /// Lấy chi tiết giao dịch
-  Future<Either<Failure, TransactionModel>> getTransactionById(String transactionId);
-
   /// PATCH /api/v1/wallet/topup/{topUpId}
   /// Đổi số tiền đơn top-up BVC đang Pending (chưa thanh toán).
   /// Đơn cũ = Cancelled, đơn mới = Pending với SePay URL mới.
@@ -81,7 +78,9 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300) {
         final data = response.data['data'] as Map<String, dynamic>;
         return Right(TopUpQuoteModel.fromJson(data));
       }
@@ -114,26 +113,6 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
       }
 
       return Left(ServerFailure(message: 'Failed to get transactions: ${response.statusCode}'));
-    } on DioException catch (e) {
-      return Left(_handleDioError(e));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, TransactionModel>> getTransactionById(String transactionId) async {
-    try {
-      final response = await dio.get(
-        '${ApiEndpoints.walletTransactions}/$transactionId',
-      );
-
-      if (response.statusCode == 200) {
-        final data = response.data['data'] as Map<String, dynamic>;
-        return Right(TransactionModel.fromJson(data));
-      }
-
-      return Left(ServerFailure(message: 'Failed to get transaction: ${response.statusCode}'));
     } on DioException catch (e) {
       return Left(_handleDioError(e));
     } catch (e) {

@@ -6,6 +6,7 @@ import '../../../../core/theme/theme.dart';
 import '../../../match_summary_rating/presentation/cubit/rating_cubit.dart';
 import '../../../match_summary_rating/presentation/cubit/rating_state.dart';
 import '../../../match_summary_rating/presentation/widgets/player_rating_card.dart';
+import '../widgets/lobby_list_shimmer.dart';
 
 /// Phase E — Lobby Karma Rating page.
 ///
@@ -81,7 +82,7 @@ class _LobbyRatingPageState extends State<LobbyRatingPage> {
 
   Widget _buildBody(BuildContext context, RatingState state) {
     if (state is RatingLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LobbyRatingShimmer();
     }
 
     if (state is RatingFailure) {
@@ -104,7 +105,7 @@ class _LobbyRatingPageState extends State<LobbyRatingPage> {
       return const _SuccessPanel();
     }
 
-    return const Center(child: CircularProgressIndicator());
+    return const LobbyRatingShimmer();
   }
 }
 

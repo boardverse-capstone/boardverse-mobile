@@ -10,6 +10,8 @@ import 'package:dartz/dartz.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/leaderboard_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
@@ -18,8 +20,8 @@ import 'package:boardverse_mobile/features/tournament/domain/repositories/tourna
 
 class FakeTournamentRepository implements TournamentRepository {
   List<TournamentEntity> openTournaments;
-  List<TournamentEntity> myRegistrations;
-  List<EloHistoryEntity> eloHistory;
+  List<MyRegistrationEntry> myRegistrations;
+  MyEloHistoryResponse eloHistory;
   List<LeaderboardEntryEntity> leaderboard;
   TournamentEntity? tournamentDetail;
   Map<String, List<TournamentParticipantEntity>> participants;
@@ -31,8 +33,8 @@ class FakeTournamentRepository implements TournamentRepository {
 
   FakeTournamentRepository({
     List<TournamentEntity>? openTournaments,
-    List<TournamentEntity>? myRegistrations,
-    List<EloHistoryEntity>? eloHistory,
+    List<MyRegistrationEntry>? myRegistrations,
+    MyEloHistoryResponse? eloHistory,
     List<LeaderboardEntryEntity>? leaderboard,
     this.tournamentDetail,
     Map<String, List<TournamentParticipantEntity>>? participants,
@@ -42,8 +44,14 @@ class FakeTournamentRepository implements TournamentRepository {
     this.failure,
     this.registerFailure,
   }) : openTournaments = openTournaments ?? <TournamentEntity>[],
-       myRegistrations = myRegistrations ?? <TournamentEntity>[],
-       eloHistory = eloHistory ?? <EloHistoryEntity>[],
+       myRegistrations = myRegistrations ?? <MyRegistrationEntry>[],
+       eloHistory = eloHistory ??
+           const MyEloHistoryResponse(
+             userId: '',
+             username: '',
+             currentElo: 0,
+             history: [],
+           ),
        leaderboard = leaderboard ?? <LeaderboardEntryEntity>[],
        participants =
            participants ?? <String, List<TournamentParticipantEntity>>{},
@@ -140,7 +148,7 @@ class FakeTournamentRepository implements TournamentRepository {
   }
 
   @override
-  Future<Either<Failure, List<TournamentEntity>>> getMyRegistrations({
+  Future<Either<Failure, List<MyRegistrationEntry>>> getMyRegistrations({
     String? status,
   }) async {
     if (failure != null) return Left(failure!);
@@ -148,7 +156,7 @@ class FakeTournamentRepository implements TournamentRepository {
   }
 
   @override
-  Future<Either<Failure, List<EloHistoryEntity>>> getMyEloHistory() async {
+  Future<Either<Failure, MyEloHistoryResponse>> getMyEloHistory() async {
     if (failure != null) return Left(failure!);
     return Right(eloHistory);
   }
@@ -206,7 +214,7 @@ class TournamentTestFixtures {
   }) {
     return TournamentParticipantEntity(
       id: id,
-      oderId: 'user-$id',
+      userId: 'user-$id',
       displayName: 'Player $id',
       avatarUrl: null,
       elo: 1500,
@@ -240,7 +248,7 @@ class TournamentTestFixtures {
   }) {
     return EloHistoryEntity(
       id: id,
-      oderId: 'user-1',
+      userId: 'user-1',
       displayName: 'Player 1',
       tournamentTitle: 'Wingspan Season Opening',
       tournamentId: 't1',
@@ -255,13 +263,47 @@ class TournamentTestFixtures {
   static LeaderboardEntryEntity leaderboard({int rank = 1}) {
     return LeaderboardEntryEntity(
       rank: rank,
-      oderId: 'user-$rank',
+      userId: 'user-$rank',
       displayName: 'Player Rank $rank',
       avatarUrl: null,
       globalElo: 2000 - rank * 25,
       karma: 500 - rank * 5,
       tournamentsPlayed: 25 - rank,
       tournamentsWon: 5,
+    );
+  }
+
+  /// MyRegistrationEntry khớp với response thật của
+  /// `GET /tournaments/my-registrations`.
+  static MyRegistrationEntry myRegistration({
+    String id = 't1',
+    String title = 'Splendor Summer Cup',
+    String tournamentStatus = 'RegistrationOpen',
+    String participantStatus = 'Registered',
+    DateTime? startTime,
+  }) {
+    final s = startTime ?? _daysFromNow(7);
+    return MyRegistrationEntry(
+      tournamentId: id,
+      title: title,
+      cafeId: 'cafe-1',
+      cafeName: 'Vietcold Cafe',
+      startTime: s,
+      tournamentStatus: tournamentStatus,
+      participantId: 'p-$id',
+      participantStatus: participantStatus,
+      isWalkIn: false,
+      walkInDisplayName: null,
+      registeredAt: _daysFromNow(-1),
+      checkedInAt: null,
+      swissScore: 0,
+      swissWins: 0,
+      swissDraws: 0,
+      swissLosses: 0,
+      finalRank: null,
+      initialElo: 1200,
+      finalElo: 1200,
+      eloDelta: 0,
     );
   }
 }

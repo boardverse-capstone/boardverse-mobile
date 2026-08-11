@@ -8,6 +8,7 @@
 
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_cubit.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_state.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/pages/elo_history_page.dart';
@@ -65,29 +66,35 @@ void main() {
     });
 
     testWidgets('shows summary card + chart + history items', (tester) async {
-      repository.eloHistory = [
-        TournamentTestFixtures.eloHistory(
-          id: 'e1',
-          delta: 30,
-          initialElo: 1500,
-        ),
-        TournamentTestFixtures.eloHistory(
-          id: 'e2',
-          delta: -15,
-          initialElo: 1530,
-        ),
-        TournamentTestFixtures.eloHistory(
-          id: 'e3',
-          delta: 20,
-          initialElo: 1515,
-        ),
-      ];
+      repository.eloHistory = MyEloHistoryResponse(
+        userId: 'user-1',
+        username: 'player5',
+        currentElo: 1535,
+        history: [
+          TournamentTestFixtures.eloHistory(
+            id: 'e1',
+            delta: 30,
+            initialElo: 1500,
+          ),
+          TournamentTestFixtures.eloHistory(
+            id: 'e2',
+            delta: -15,
+            initialElo: 1530,
+          ),
+          TournamentTestFixtures.eloHistory(
+            id: 'e3',
+            delta: 20,
+            initialElo: 1515,
+          ),
+        ],
+      );
 
       final cubit = EloHistoryCubit(repository: repository);
       await pumpPage(tester, cubit: cubit);
 
       // Summary card
       expect(find.text('Elo hiện tại'), findsOneWidget);
+      expect(find.text('player5'), findsOneWidget);
 
       // Chart section
       expect(find.text('Biểu đồ Elo'), findsOneWidget);
@@ -97,18 +104,23 @@ void main() {
     });
 
     test('total delta is the sum of API deltas', () async {
-      repository.eloHistory = [
-        TournamentTestFixtures.eloHistory(
-          id: 'e1',
-          delta: 30,
-          initialElo: 1600,
-        ),
-        TournamentTestFixtures.eloHistory(
-          id: 'e2',
-          delta: -10,
-          initialElo: 1630,
-        ),
-      ];
+      repository.eloHistory = MyEloHistoryResponse(
+        userId: 'user-1',
+        username: 'player5',
+        currentElo: 1620,
+        history: [
+          TournamentTestFixtures.eloHistory(
+            id: 'e1',
+            delta: 30,
+            initialElo: 1600,
+          ),
+          TournamentTestFixtures.eloHistory(
+            id: 'e2',
+            delta: -10,
+            initialElo: 1630,
+          ),
+        ],
+      );
       final cubit = EloHistoryCubit(repository: repository);
 
       await cubit.loadEloHistory();

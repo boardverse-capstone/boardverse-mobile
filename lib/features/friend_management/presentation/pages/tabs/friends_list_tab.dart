@@ -9,6 +9,16 @@ import '../../widgets/widgets.dart';
 import '../friend_profile_page.dart';
 
 /// Neo-brutalism Tab "Bạn bè".
+///
+/// Bug fix (Aug 2026):
+/// - Trước đây cubit emit `FriendListError` (state tổng) khi load lỗi → phá
+///   hủy toàn bộ dữ liệu đã load ở các section khác. Khi user chuyển tab
+///   qua lại, dữ liệu hiển thị "không tìm thấy bạn bè" dù list đã load
+///   thành công trước đó.
+/// - Bây giờ cubit giữ `FriendListLoaded` và set `friendsError` /
+///   `receivedRequestsError` cho section tương ứng. UI mỗi tab tự check
+///   error riêng và hiển thị retry button, trong khi vẫn giữ nguyên data
+///   đã load.
 class FriendsListTab extends StatelessWidget {
   const FriendsListTab({super.key});
 
@@ -16,21 +26,35 @@ class FriendsListTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<FriendListCubit, FriendListData>(
       builder: (context, state) {
+        // Tab này đang ở friends section.
         if (state is FriendListLoading || state is FriendListInitial) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
-        }
-        if (state is FriendListError) {
-          return ErrorRetryView(
-            message: state.message,
-            onRetry: () => context.read<FriendListCubit>().loadFriends(),
-          );
-        }
-        if (state is FriendListLoaded) {
-          if (state.friendsLoading && state.friends.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+          // Chưa load lần nào → loading.
+          if (state is FriendListInitial) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            );
           }
+        }
+
+        // FriendListLoaded có thể có hoặc chưa có friends data.
+        if (state is FriendListLoaded) {
+          // Section friends đang loading + chưa từng load → spinner.
+          if (state.friendsLoading && !state.friendsEverLoaded) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            );
+          }
+
+          // Section friends load lỗi + chưa có data cũ → hiển thị retry
+          // (không phá hủy data ở section khác).
+          if (state.friendsError != null && state.friends.isEmpty) {
+            return ErrorRetryView(
+              message: state.friendsError!,
+              onRetry: () => context.read<FriendListCubit>().loadFriends(),
+            );
+          }
+
+          // Section friends đã load nhưng list rỗng → empty state.
           if (state.friends.isEmpty) {
             return RefreshIndicator(
               onRefresh: () =>
@@ -51,6 +75,8 @@ class FriendsListTab extends StatelessWidget {
               ),
             );
           }
+
+          // Section friends có data → hiển thị list.
           return RefreshIndicator(
             onRefresh: () =>
                 context.read<FriendListCubit>().refreshFriends(),
@@ -77,6 +103,8 @@ class FriendsListTab extends StatelessWidget {
             ),
           );
         }
+
+        // Fallback cho các state không mong đợi.
         return const SizedBox.shrink();
       },
     );

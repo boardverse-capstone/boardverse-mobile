@@ -31,9 +31,6 @@ abstract class WalletRepository {
     int pageSize = 20,
   });
 
-  /// Lấy chi tiết một giao dịch
-  Future<Either<Failure, TransactionEntity>> getTransactionById(String transactionId);
-
   /// Đổi số tiền đơn top-up đang Pending (chưa thanh toán).
   /// Đơn cũ = Cancelled; đơn mới trả về qua [TopUpQuoteEntity].
   Future<Either<Failure, TopUpQuoteEntity>> updateTopUp({

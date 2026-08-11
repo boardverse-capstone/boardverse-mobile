@@ -8,7 +8,6 @@
 
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_cubit.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_state.dart';
 import 'package:boardverse_mobile/features/tournament/presentation/pages/my_registrations_page.dart';
@@ -47,22 +46,22 @@ void main() {
     testWidgets('shows error state with retry on failure', (tester) async {
       repository.setFailure(const ServerFailure(message: 'Mạng không ổn'));
 
-  final cubit = MyRegistrationsCubit(repository: repository);
-  await pumpPage(tester, cubit: cubit);
+      final cubit = MyRegistrationsCubit(repository: repository);
+      await pumpPage(tester, cubit: cubit);
 
-  expect(find.text('Đã xảy ra lỗi'), findsOneWidget);
-  expect(find.text('Mạng không ổn'), findsOneWidget);
-  expect(find.text('Thử lại'), findsOneWidget);
+      expect(find.text('Đã xảy ra lỗi'), findsOneWidget);
+      expect(find.text('Mạng không ổn'), findsOneWidget);
+      expect(find.text('Thử lại'), findsOneWidget);
 
-  // Tap retry → empty list state.
-  repository.setFailure(null);
-  await tester.tap(find.text('Thử lại'));
-  // Use pump, not pumpAndSettle — Shimmer animations would loop forever.
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 100));
+      // Tap retry → empty list state.
+      repository.setFailure(null);
+      await tester.tap(find.text('Thử lại'));
+      // Use pump, not pumpAndSettle — Shimmer animations would loop forever.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-  expect(find.text('Chưa có giải đấu'), findsOneWidget);
-});
+      expect(find.text('Chưa có giải đấu'), findsOneWidget);
+    });
 
     testWidgets('shows empty state for all filter when list is empty',
         (tester) async {
@@ -76,17 +75,17 @@ void main() {
       );
     });
 
-    testWidgets('renders tournament cards when loaded', (tester) async {
+    testWidgets('renders registration cards when loaded', (tester) async {
       repository.myRegistrations = [
-        TournamentTestFixtures.tournament(
+        TournamentTestFixtures.myRegistration(
           id: 't1',
           title: 'Wingspan Cup',
-          status: TournamentStatus.ongoing,
+          tournamentStatus: 'OnGoing',
         ),
-        TournamentTestFixtures.tournament(
+        TournamentTestFixtures.myRegistration(
           id: 't2',
           title: 'Catan Masters',
-          status: TournamentStatus.completed,
+          tournamentStatus: 'Completed',
         ),
       ];
 
@@ -95,7 +94,6 @@ void main() {
 
       expect(find.text('Wingspan Cup'), findsOneWidget);
       expect(find.text('Catan Masters'), findsOneWidget);
-      expect(find.text('8/16'), findsNWidgets(2));
     });
 
     testWidgets('switching filter chip triggers reload', (tester) async {

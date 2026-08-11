@@ -26,7 +26,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   final Color Function(TimeSlot, ColorScheme) getSlotColor;
   final int bufferMinutes;
   final bool isScheduledInPast;
-  final bool isBufferTooShort;
+  final bool hasBufferWarning;
   final String Function(int) formatBuffer;
   final VoidCallback onNext;
 
@@ -50,7 +50,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.getSlotColor,
     required this.bufferMinutes,
     required this.isScheduledInPast,
-    required this.isBufferTooShort,
+    required this.hasBufferWarning,
     required this.formatBuffer,
     required this.onNext,
   });
@@ -290,7 +290,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                 // Buffer info
                 LobbyConfigBufferInfoCard(
                   bufferMinutes: bufferMinutes,
-                  isBufferTooShort: isBufferTooShort,
+                  hasBufferWarning: hasBufferWarning,
                   formatBuffer: formatBuffer,
                 ),
               ],
@@ -299,8 +299,11 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
         ),
 
         LobbyConfigBottomButton(
+          // CHỈ disable khi `scheduledTime` đã ở quá khứ. Buffer ngắn
+          // (< 60 phút) chỉ hiển thị warning — vẫn cho user đặt lobby
+          // sát giờ theo BR §XXI-B.4.
           label: 'Tiếp tục',
-          onPressed: isScheduledInPast || isBufferTooShort ? null : onNext,
+          onPressed: isScheduledInPast ? null : onNext,
         ),
       ],
     );

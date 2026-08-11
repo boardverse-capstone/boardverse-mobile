@@ -4,8 +4,9 @@ import '../../../../core/error/failures.dart';
 import '../entities/tournament_entity.dart';
 import '../entities/tournament_participant_entity.dart';
 import '../entities/tournament_match_entity.dart';
-import '../entities/elo_history_entity.dart';
 import '../entities/leaderboard_entity.dart';
+import '../entities/my_elo_history_entity.dart';
+import '../entities/my_registration_entity.dart';
 
 /// Abstract repository interface for tournament operations.
 abstract class TournamentRepository {
@@ -58,12 +59,18 @@ abstract class TournamentRepository {
   Future<Either<Failure, void>> unregister(String id);
 
   /// Giải của tôi (đã đăng ký).
-  Future<Either<Failure, List<TournamentEntity>>> getMyRegistrations({
+  ///
+  /// Endpoint trả về flat shape (xem [MyRegistrationEntry]) chứ không
+  /// phải `TournamentEntity` đầy đủ — vì vậy repo trả về entity riêng.
+  Future<Either<Failure, List<MyRegistrationEntry>>> getMyRegistrations({
     String? status,
   });
 
   /// Lịch sử Elo của tôi.
-  Future<Either<Failure, List<EloHistoryEntity>>> getMyEloHistory();
+  ///
+  /// Endpoint trả về wrapper object chứa `currentElo`, `username` và
+  /// `history: []`. Entity [MyEloHistoryResponse] đại diện cho wrapper này.
+  Future<Either<Failure, MyEloHistoryResponse>> getMyEloHistory();
 
   /// Bảng xếp hạng.
   Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({

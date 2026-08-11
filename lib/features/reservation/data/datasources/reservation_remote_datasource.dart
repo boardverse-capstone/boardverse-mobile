@@ -126,7 +126,7 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
         data: request.toJson(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return Right(
             ReservationQuoteModel.fromJson(response.data as Map<String, dynamic>));
       }
@@ -148,7 +148,11 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
         data: request.toJson(),
       );
 
-      if (response.statusCode == 200) {
+      // Backend có thể trả 200 OK hoặc 201 Created tuỳ endpoint
+      // (createQuote/confirmReservation thường 201, cancel có thể 200).
+      // Coi cả 2xx là thành công để tránh UI báo "Failed to confirm
+      // reservation: 201" khi backend đúng chuẩn HTTP semantics.
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return Right(ReservationConfirmResultModel.fromJson(
             response.data as Map<String, dynamic>));
       }
@@ -176,7 +180,7 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
         data: body,
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return Right(ReservationCancelResultModel.fromJson(
             response.data as Map<String, dynamic>));
       }

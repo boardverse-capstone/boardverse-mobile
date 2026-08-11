@@ -23,16 +23,19 @@ class ProfileErrorState extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
         child: SectionCard(
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
@@ -46,15 +49,15 @@ class ProfileErrorState extends StatelessWidget {
                 ),
                 child: Icon(
                   AppIcons.busy,
-                  size: AppIcons.xxl,
+                  size: AppIcons.xl,
                   color: AppColors.error,
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 'Tải dữ liệu thất bại',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -62,14 +65,14 @@ class ProfileErrorState extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.textSecondaryDark
                       : AppColors.textSecondary,
-                  height: 1.5,
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.lg),
               SizedBox(
                 width: double.infinity,
                 child: Container(
@@ -91,7 +94,7 @@ class ProfileErrorState extends StatelessWidget {
                       onTap: onRetry,
                       child: const Padding(
                         padding: EdgeInsets.symmetric(
-                          vertical: AppSpacing.md,
+                          vertical: AppSpacing.sm,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -99,13 +102,14 @@ class ProfileErrorState extends StatelessWidget {
                             Icon(
                               AppIcons.refresh,
                               color: AppColors.white,
+                              size: AppIcons.sm,
                             ),
                             SizedBox(width: AppSpacing.sm),
                             Text(
                               'THỬ LẠI',
                               style: TextStyle(
                                 color: AppColors.white,
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1,
                               ),

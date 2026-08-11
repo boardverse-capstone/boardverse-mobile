@@ -76,17 +76,34 @@ class _FriendsScaffoldState extends State<_FriendsScaffold>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? AppColors.backgroundDark : AppColors.background;
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    // Khoảng cách thêm phía trên tiêu đề để không bị status bar của hệ
+    // thống che mất chữ. `MediaQuery.padding.top` = chiều cao status bar
+    // trên Android/iOS (đã trừ phần hệ thống dùng), fallback 0 cho
+    // desktop/web. Dùng `padding` (không phải `viewPadding`) để tương thích
+    // với cả môi trường test (viewPadding có thể không được set trong
+    // widget test).
+    final topInset = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
-        title: const Text(
-          'BẠN BÈ',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
+        // Tăng toolbarHeight để chứa cả status bar + title, tránh bị
+        // status bar đè lên title trên các thiết bị có notch / status bar
+        // cao. Đây là fix bug: "BẠN BÈ" bị status bar che mất chữ.
+        toolbarHeight: kToolbarHeight + topInset,
+        titleSpacing: 0,
+        title: Padding(
+          // Đẩy title xuống dưới status bar. SafeArea đảm bảo thêm
+          // padding nếu thiết bị có insets > 0.
+          padding: EdgeInsets.only(top: topInset),
+          child: const Text(
+            'BẠN BÈ',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
           ),
         ),
         centerTitle: true,

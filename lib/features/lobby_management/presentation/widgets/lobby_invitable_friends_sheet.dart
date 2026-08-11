@@ -6,6 +6,7 @@ import '../../../../core/widgets/top_snack_bar.dart';
 import '../../domain/entities/lobby_invitable_friend.dart';
 import '../../domain/repositories/lobby_repository.dart';
 import '../cubit/lobby_invitable_friends_cubit.dart';
+import 'lobby_friends_shimmer.dart';
 
 /// Bottom sheet dùng API mới `GET /api/v1/lobbies/{id}/invitable-friends`.
 ///
@@ -635,15 +636,13 @@ class _SheetLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: AppSpacing.md),
-          Text('Đang tải danh sách bạn bè...'),
-        ],
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
+      // Phase 3 2026-08-10: thay spinner + text bằng shimmer skeleton
+      // list giống layout friend tile thật.
+      child: LobbyFriendsShimmer(itemCount: 4),
     );
   }
 }

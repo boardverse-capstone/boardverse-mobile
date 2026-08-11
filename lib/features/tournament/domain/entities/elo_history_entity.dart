@@ -1,27 +1,42 @@
 /// Elo history entry for a player's tournament performance.
+///
+/// Fields map against `/tournaments/my-elo-history` response —
+/// backend uses `eloBefore` / `eloAfter` (not `initialElo` / `finalElo`)
+/// and `tournamentDate` (not `playedAt`). [id] is optional because
+/// the API does not provide a stable history entry id.
 class EloHistoryEntity {
-  final String id;
-  final String oderId;
+  final String? id;
+  final String userId;
   final String displayName;
   final String tournamentTitle;
   final String tournamentId;
+
+  /// Game tên (vd: "Splendor") — optional vì API có thể trả về ở root
+  /// response thay vì từng entry.
+  final String? gameTemplateName;
+
   final int initialElo;
   final int finalElo;
   final int delta;
   final DateTime playedAt;
   final int? rank;
 
+  /// Trạng thái tournament tại thời điểm snapshot (vd "RegistrationOpen").
+  final String? tournamentStatus;
+
   const EloHistoryEntity({
-    required this.id,
-    required this.oderId,
+    this.id,
+    required this.userId,
     required this.displayName,
     required this.tournamentTitle,
     required this.tournamentId,
+    this.gameTemplateName,
     required this.initialElo,
     required this.finalElo,
     required this.delta,
     required this.playedAt,
     this.rank,
+    this.tournamentStatus,
   });
 
   /// Whether the player gained Elo.

@@ -1,7 +1,7 @@
 /// Leaderboard entry for global Elo ranking.
 class LeaderboardEntryEntity {
   final int rank;
-  final String oderId;
+  final String userId;
   final String displayName;
   final String? avatarUrl;
   final int globalElo;
@@ -11,7 +11,7 @@ class LeaderboardEntryEntity {
 
   const LeaderboardEntryEntity({
     required this.rank,
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     this.avatarUrl,
     required this.globalElo,
@@ -39,7 +39,7 @@ class LeaderboardEntryEntity {
   }
 
   /// Whether this entry is the current user.
-  bool isCurrentUser(String currentUserId) => oderId == currentUserId;
+  bool isCurrentUser(String currentUserId) => userId == currentUserId;
 }
 
 /// Elo tier classification.

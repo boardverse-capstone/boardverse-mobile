@@ -186,6 +186,59 @@ class TopUpCubit extends Cubit<TopUpState> {
     }
   }
 
+  /// User bấm "Kiểm tra ngay" để ép check trạng thái ngay lập tức
+  /// (không phải đợi auto-polling 5s).
+  ///
+  /// Logic giống [_pollOnceSilent] nhưng trả về `true` nếu phát hiện
+  /// thanh toán thành công (đã emit [TopUpSuccess]) — để UI biết
+  /// có nên hiển thị snackbar "chưa nhận được" hay không.
+  ///
+  /// Trả về:
+  /// - `true`  : đã emit [TopUpSuccess] (BlocConsumer sẽ tự show success dialog).
+  /// - `false` : chưa thấy giao dịch / mạng lỗi / đơn hết hạn.
+  Future<bool> manualCheckStatus() async {
+    if (_currentOrderId == null) return false;
+
+    // Check expiration first
+    if (state is TopUpAwaitingPayment) {
+      final currentState = state as TopUpAwaitingPayment;
+      if (DateTime.now().isAfter(currentState.deadline)) {
+        _stopPolling();
+        emit(const TopUpExpired());
+        return false;
+      }
+    }
+
+    final result = await repository.checkTopUpSuccessByOrderId(_currentOrderId!);
+    if (isClosed) return false;
+
+    var successDetected = false;
+
+    await result.fold(
+      (failure) async {
+        // Network error → silently ignore; UI sẽ giữ state hiện tại.
+      },
+      (isSuccess) async {
+        if (isSuccess) {
+          successDetected = true;
+          _stopPolling();
+          // Lấy balance server-side (BR § III.1) để tránh lệch local.
+          final walletRes = await repository.getWallet(includeHeld: true);
+          final newBalance = walletRes.fold(
+            (_) => (_previousBalance ?? 0) + (_lastExpectedBvc ?? 0),
+            (w) => w.availableBalance,
+          );
+          emit(TopUpSuccess(
+            amountBvc: _lastExpectedBvc ?? 0,
+            newBalance: newBalance,
+          ));
+        }
+      },
+    );
+
+    return successDetected;
+  }
+
   /// Reset về initial state
   void cancel() {
     _stopPolling();

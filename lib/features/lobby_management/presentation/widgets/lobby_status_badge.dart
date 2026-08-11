@@ -135,18 +135,20 @@ class _BadgeStyle {
 class LobbyStatusBadge extends StatelessWidget {
   final LobbyStatusBadgeVariant variant;
   final bool dense;
+  final bool showActiveIndicator;
 
   const LobbyStatusBadge({
     super.key,
     required this.variant,
     this.dense = false,
+    this.showActiveIndicator = false,
   });
 
   _BadgeStyle _styleFor(BuildContext context) {
     switch (variant) {
       case LobbyStatusBadgeVariant.recruiting:
         return const _BadgeStyle(
-          label: 'Đang tuyển người',
+          label: 'Cần thêm người',
           icon: AppIcons.users,
           background: AppColors.info,
           foreground: AppColors.white,
@@ -260,7 +262,7 @@ class LobbyStatusBadge extends StatelessWidget {
     final shadowColor = isDark ? AppColors.black : AppColors.black;
 
     return Semantics(
-      label: 'Trạng thái phòng: ${style.label}',
+      label: 'Trạng thái phòng: ${style.label}${showActiveIndicator ? ' (Hoạt động)' : ''}',
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: dense ? AppSpacing.sm : AppSpacing.md,
@@ -283,19 +285,28 @@ class LobbyStatusBadge extends StatelessWidget {
           children: [
             Icon(style.icon, size: dense ? 14 : 16, color: style.foreground),
             SizedBox(width: dense ? 4 : AppSpacing.xs),
-            Flexible(
-              child: Text(
-                style.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: style.foreground,
-                  fontSize: dense ? 11 : 13,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.3,
-                ),
+            Text(
+              style.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: style.foreground,
+                fontSize: dense ? 11 : 13,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.3,
               ),
             ),
+            if (showActiveIndicator) ...[
+              const SizedBox(width: 4),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: style.foreground,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
       ),

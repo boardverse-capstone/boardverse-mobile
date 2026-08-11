@@ -9,7 +9,7 @@ import '../../../reservation/domain/entities/entities.dart';
 /// `ReservationStatus` + `LobbyStatus`:
 /// - Confirmed + Full (lobby đầy) → banner xanh lá "✅ Booking đã xác nhận"
 /// - Confirmed + Viable (đủ min, vẫn nhận thêm) → banner vàng "⏳ Lobby đạt tối thiểu"
-/// - Holding (chưa confirmed) → banner info "🕒 Đang tuyển người"
+/// - Holding (chưa confirmed) → banner info "🕒 Cần thêm người"
 /// - Cancelled/Rejected → banner đỏ "❌ Đã hủy"
 /// - NoShow → banner cam "⚠️ Bạn đã không đến"
 class ConfirmationStatusBanner extends StatelessWidget {
@@ -199,7 +199,7 @@ class _BannerConfig {
           color: AppColors.info,
           foregroundColor: AppColors.white,
           icon: Icons.people_alt_rounded,
-          title: 'Đang tuyển người',
+          title: 'Cần thêm người',
           subtitle: ({required scheduledTimeText, required playersNeeded}) =>
               'Còn ${playersNeeded > 0 ? playersNeeded : 1} người nữa để đạt '
               'minPlayers. Lobby sẽ tự xác nhận khi đủ người.',

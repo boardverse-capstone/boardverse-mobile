@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:boardverse_mobile/core/error/failures.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
 import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
 import 'tournament_list_state.dart';
 
@@ -24,7 +25,7 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     if (_isDisposed) return;
     emit(const TournamentListLoading());
 
-    final results = await Future.wait([
+    final results = await Future.wait<Object>([
       _repository.getOpenTournaments(),
       _repository.getMyRegistrations(
         status: TournamentStatus.ongoing.toBackendStatus(),
@@ -35,7 +36,11 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     ]);
     if (_isDisposed) return;
 
-    _emitFromResults(results[0], results[1], results[2]);
+    _emitFromResults(
+      results[0] as Either<Failure, List<TournamentEntity>>,
+      results[1] as Either<Failure, List<MyRegistrationEntry>>,
+      results[2] as Either<Failure, List<MyRegistrationEntry>>,
+    );
   }
 
   /// Loads open tournaments filtered by a game template when supported.
@@ -43,7 +48,7 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     if (_isDisposed) return;
     emit(const TournamentListLoading());
 
-    final results = await Future.wait([
+    final results = await Future.wait<Object>([
       _repository.getOpenTournaments(gameTemplateId: gameTemplateId),
       _repository.getMyRegistrations(
         status: TournamentStatus.ongoing.toBackendStatus(),
@@ -54,13 +59,17 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     ]);
     if (_isDisposed) return;
 
-    _emitFromResults(results[0], results[1], results[2]);
+    _emitFromResults(
+      results[0] as Either<Failure, List<TournamentEntity>>,
+      results[1] as Either<Failure, List<MyRegistrationEntry>>,
+      results[2] as Either<Failure, List<MyRegistrationEntry>>,
+    );
   }
 
   void _emitFromResults(
     Either<Failure, List<TournamentEntity>> openResult,
-    Either<Failure, List<TournamentEntity>> myOngoingResult,
-    Either<Failure, List<TournamentEntity>> myCompletedResult,
+    Either<Failure, List<MyRegistrationEntry>> myOngoingResult,
+    Either<Failure, List<MyRegistrationEntry>> myCompletedResult,
   ) {
     // Guard: don't emit if cubit is disposed
     if (_isDisposed || isClosed) return;
@@ -87,9 +96,10 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
     myOngoingResult.fold(
       (failure) => errors.add('ongoing: ${failure.message}'),
-      (tournaments) {
+      (entries) {
         ongoing =
-            tournaments
+            entries
+                .map(_projectToEntity)
                 .where((t) => t.status == TournamentStatus.ongoing)
                 .toList()
               ..sort((a, b) => b.startTime.compareTo(a.startTime));
@@ -98,9 +108,10 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
     myCompletedResult.fold(
       (failure) => errors.add('completed: ${failure.message}'),
-      (tournaments) {
+      (entries) {
         completed =
-            tournaments
+            entries
+                .map(_projectToEntity)
                 .where((t) => t.status == TournamentStatus.completed)
                 .toList()
               ..sort((a, b) => b.startTime.compareTo(a.startTime));
@@ -125,6 +136,40 @@ class TournamentListCubit extends Cubit<TournamentListState> {
         completedTournaments: completed,
         totalOpenCount: open.length,
       ),
+    );
+  }
+
+  /// Project `MyRegistrationEntry` (flat shape) sang `TournamentEntity` tối
+  /// thiểu để hiển thị card list. Vì API `/my-registrations` không trả
+  /// `registrationDeadline`, `maxParticipants`, `gameName`, … ta dùng
+  /// giá trị mặc định hợp lý (registrationDeadline = end of startTime day,
+  /// maxParticipants = 0, currentParticipants = 0) — chỉ dùng cho tab
+  /// "Đang diễn ra" / "Hoàn thành" nên các field này không ảnh hưởng UX.
+  TournamentEntity _projectToEntity(MyRegistrationEntry entry) {
+    final startTime = entry.startTime;
+    final registrationDeadline = entry.registeredAt.isAfter(startTime)
+        ? startTime
+        : entry.registeredAt;
+    return TournamentEntity(
+      id: entry.tournamentId,
+      title: entry.title,
+      cafeName: entry.cafeName,
+      gameTemplateName: '',
+      startTime: startTime,
+      registrationDeadline: registrationDeadline,
+      status: TournamentStatus.fromBackendStatus(entry.tournamentStatus),
+      currentParticipants: 0,
+      maxParticipants: 0,
+      minKarmaRequirement: 0,
+      registrationFee: null,
+      prizePool: 0,
+      description: '',
+      organizerName: null,
+      roundDurationMinutes: 60,
+      preliminaryRounds: 3,
+      currentRound: null,
+      isUserRegistered: true,
+      isUserCheckedIn: entry.checkedInAt != null,
     );
   }
 

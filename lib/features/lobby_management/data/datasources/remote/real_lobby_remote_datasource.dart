@@ -420,8 +420,37 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     try {
       final path = ApiEndpoints.lobbyInviteAccept.replaceAll('{inviteId}', inviteId);
       final res = await _dio.post<Map<String, dynamic>>(path);
-      final model = LobbyModel.fromJson(_unwrap(res.data));
-      return Right<Failure, LobbyEntity>(model.toEntity());
+
+      // Backend `POST /api/v1/lobbies/invites/{inviteId}/accept` trả về
+      // `LobbyInviteResponseDto` (xem `lobby-invite.md` §Accept invite):
+      //   { inviteId, lobbyId, status, ... }
+      // — KHÔNG phải `LobbyDto` đầy đủ. Trước đây code cố parse như
+      // `LobbyModel.fromJson(_unwrap(res.data))` ⇒ throw `TypeError`
+      // (`json['id'] as String` không tồn tại) ⇒ UI báo "Lỗi không xác
+      // định" dù backend đã accept thành công.
+      //
+      // Flow fix: parse invite DTO → lấy `lobbyId` → fetch
+      // `GET /api/v1/lobbies/{lobbyId}` để trả full `LobbyEntity`.
+      final raw = _unwrap(res.data);
+      final inviteModel = LobbyInviteModel.fromJson(raw);
+      final lobbyId = inviteModel.lobbyId;
+
+      // Fallback nếu lobbyId thiếu trong response (không nên xảy ra
+      // theo spec nhưng defensive): trả LobbyEntity rỗng để cubit không
+      // crash, đồng thời log để debug.
+      if (lobbyId.isEmpty) {
+        return Left<Failure, LobbyEntity>(
+          ServerFailure(
+            message: 'Lỗi không xác định: invite response thiếu lobbyId',
+          ),
+        );
+      }
+
+      final lobbyRes = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.lobbyDetail.replaceAll('{id}', lobbyId),
+      );
+      final lobbyModel = LobbyModel.fromJson(_unwrap(lobbyRes.data));
+      return Right<Failure, LobbyEntity>(lobbyModel.toEntity());
     } on DioException catch (e) {
       return Left<Failure, LobbyEntity>(_mapDioError(e));
     } catch (e) {
@@ -703,7 +732,15 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       ),
       timeoutAt: parseDate(json['timeoutAt']),
       status: _parseStatus(json['status']),
-      isPublic: json['isPublic'] as bool? ?? true,
+      // Visibility: dùng `parseVisibility` để hỗ trợ cả `isPrivate` (BE
+      // mới) lẫn `isPublic` (schema cũ). Trước đây chỉ đọc `isPublic`,
+      // gây bug: lobby public (isPrivate: false) bị mobile hiển thị
+      // nhầm thành private khi BE không gửi `isPublic`.
+      isPublic: LobbyModel.parseVisibility(
+        isPublic: json['isPublic'],
+        isPrivate: json['isPrivate'],
+        visibility: json['visibility'],
+      ),
     );
   }
 
