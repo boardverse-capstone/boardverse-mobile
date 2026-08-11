@@ -146,7 +146,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
       appBar: AppBar(
         title: Text(
           'Phòng chờ',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [
           const LobbyHubActions(),
@@ -154,7 +156,8 @@ class _LobbyHubPageState extends State<LobbyHubPage>
             IconButton(
               tooltip: _showGameFilter ? 'Ẩn bộ lọc' : 'Bộ lọc game',
               icon: Icon(_showGameFilter ? Icons.tune : Icons.filter_list),
-              onPressed: () => setState(() => _showGameFilter = !_showGameFilter),
+              onPressed: () =>
+                  setState(() => _showGameFilter = !_showGameFilter),
             ),
         ],
         bottom: PreferredSize(
@@ -180,7 +183,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
               onKarmaChanged: _onKarmaChanged,
               onClear: _clearFilter,
             ),
-            crossFadeState: _showGameFilter ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            crossFadeState: _showGameFilter
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 200),
           ),
 
@@ -295,7 +300,8 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
     if (failureOrLobby != null) {
       final msg = failureOrLobby.message;
-      final is409 = msg.contains('409') ||
+      final is409 =
+          msg.contains('409') ||
           msg.contains('trạng thái mở') ||
           msg.contains('đã đóng') ||
           msg.contains('đang chờ cafe duyệt') ||
@@ -305,7 +311,8 @@ class _LobbyHubPageState extends State<LobbyHubPage>
         if (!mounted) return;
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+            builder: (_) =>
+                LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
           ),
         );
         return;
@@ -314,9 +321,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
       if (is409) {
         _showLobbyStatusDialog(msg);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
       return;
     }
@@ -354,7 +361,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+                color: Theme.of(
+                  ctx,
+                ).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
                 borderRadius: AppRadius.radiusMdAll,
               ),
               child: Row(
@@ -372,15 +381,15 @@ class _LobbyHubPageState extends State<LobbyHubPage>
                         Text(
                           'Phòng không khả dụng',
                           style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
                           message,
                           style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                              ),
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -430,7 +439,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
         ),
         builder: (sheetCtx) {
           final s = _matchmakingCubit.state;
-          final games = s is MatchmakingSearchResults ? s.games : <BoardGameEntity>[];
+          final games = s is MatchmakingSearchResults
+              ? s.games
+              : <BoardGameEntity>[];
           return LobbyGamePickerSheet(games: games);
         },
       );
@@ -442,10 +453,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     if (!mounted) return;
     LobbyFlowNavigator.push(
       context,
-      LobbyCafeSelectionPage(
-        game: game,
-        matchmakingCubit: _matchmakingCubit,
-      ),
+      LobbyCafeSelectionPage(game: game, matchmakingCubit: _matchmakingCubit),
     );
   }
 }
@@ -469,7 +477,10 @@ class _ModernTabBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 48,
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
@@ -496,7 +507,9 @@ class _ModernTabBar extends StatelessWidget implements PreferredSizeWidget {
           indicatorPadding: const EdgeInsets.all(4),
           labelColor: Colors.white,
           unselectedLabelColor: colors.onSurfaceVariant,
-          labelStyle: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          labelStyle: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
           labelPadding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
           tabs: const [
             Tab(
