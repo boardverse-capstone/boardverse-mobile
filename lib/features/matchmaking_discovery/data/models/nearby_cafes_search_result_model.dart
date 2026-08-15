@@ -16,39 +16,48 @@ class NearbyCafesSearchResultModel {
 
   factory NearbyCafesSearchResultModel.fromJson(Map<String, dynamic> json) {
     // Lưu ý: `json` ở đây đã được `ApiResponse.fromJson` strip wrapper
-    // (xem `getNearbyCafesSearch` / `getNearbyCafesForCurrentUser` trong
-    // matchmaking_remote_datasource_impl.dart). Tức là `json` chính là
-    // object `data` của envelope:
-    //   `{ "cafes": { "data": [...], "meta": {...} },
-    //      "emptyResultMessage": "...",
-    //      "alternativeSuggestions": [...] }`
-    // KHÔNG phải `{ "statusCode":..., "data": { ... } }`.
+    // (xem `getNearbyCafesSearch` / `getNearbyCafesForCurrentUser` /
+    // `searchCafes` trong matchmaking_remote_datasource_impl.dart). Tức là
+    // `json` chính là object `data` của envelope.
     //
-    // Trước đây code cố đọc `json['data']` gây ra `dataJson = null` → luôn
-    // trả về `[]` dù server trả đầy đủ cafe. Bug này đã làm trang
-    // boardgame details hiển thị "Không có quán" dù endpoint thực tế
-    // trả 200 với danh sách đầy đủ.
+    // Hai shape khả dĩ:
+    //   • `/api/cafes/nearby` (và `/nearby/me`) trả:
+    //       { "cafes": { "data": [...], "meta": {...} },
+    //         "emptyResultMessage": "...", "alternativeSuggestions": [...] }
+    //   • `/api/cafes/search` trả dạng paginated trực tiếp:
+    //       { "data": [...], "meta": {...} }
+    // Hai endpoint dùng chung model này — đoạn parse dưới đây chấp nhận cả
+    // hai để không phải tạo thêm DTO riêng.
 
+    List<CafeModel> cafes = const <CafeModel>[];
+
+    // Case 1: `/nearby` → json['cafes'] = { "data": [...], "meta": {...} }
     final cafesJson = json['cafes'];
-
-    List<CafeModel> cafes;
     if (cafesJson is Map<String, dynamic>) {
-      // Paginated: `{ "data": [...], "meta": {...} }`
       final cafesData = cafesJson['data'];
-      cafes = (cafesData is List)
-          ? cafesData
-              .cast<Map<String, dynamic>>()
-              .map(CafeModel.fromNearbyJson)
-              .toList()
-          : const <CafeModel>[];
-    } else if (cafesJson is List) {
-      // Flat array: `cafes: [...]`
+      if (cafesData is List) {
+        cafes = cafesData
+            .cast<Map<String, dynamic>>()
+            .map(CafeModel.fromNearbyJson)
+            .toList();
+      }
+    }
+    // Case 2: `/search` → json['data'] = [ ... ] (paginated trực tiếp)
+    else if (cafesJson == null) {
+      final searchData = json['data'];
+      if (searchData is List) {
+        cafes = searchData
+            .cast<Map<String, dynamic>>()
+            .map(CafeModel.fromNearbyJson)
+            .toList();
+      }
+    }
+    // Case 3: fallback — array phẳng trực tiếp dưới `cafes`.
+    else if (cafesJson is List) {
       cafes = cafesJson
           .cast<Map<String, dynamic>>()
           .map(CafeModel.fromNearbyJson)
           .toList();
-    } else {
-      cafes = const <CafeModel>[];
     }
 
     return NearbyCafesSearchResultModel(

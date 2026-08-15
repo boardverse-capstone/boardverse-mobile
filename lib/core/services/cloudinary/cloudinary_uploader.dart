@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -50,6 +50,9 @@ class CloudinaryUploadException implements Exception {
 /// We deliberately use `dio` (already in the project) instead of
 /// `cloudinary_flutter`'s uploader so the call site is explicit,
 /// testable, and decoupled from Flutter widget lifecycle.
+///
+/// Uses [MultipartFile.fromBytes] so it works on all platforms
+/// (mobile, desktop, and web) — no dart:io dependency.
 class CloudinaryUploader {
   CloudinaryUploader({Dio? dio})
       : _dio = dio ??
@@ -65,27 +68,33 @@ class CloudinaryUploader {
 
   /// Upload a single file as `image` resource to Cloudinary.
   ///
+  /// [bytes]     – raw file content (works on every platform).
+  /// [fileName]  – original file name (including extension, e.g. `avatar.jpg`).
   /// Returns the secure URL ready to be saved on the backend.
   /// [folder] and [publicId] are optional; [publicId] without an
   /// extension lets Cloudinary derive the format from the uploaded bytes.
   Future<CloudinaryUploadResult> upload({
-    required File file,
+    required Uint8List bytes,
+    required String fileName,
     required String folder,
     String? publicId,
     void Function(double progress)? onProgress,
   }) async {
     CloudinaryConfig.assertConfigured();
 
-    final fileName = publicId ?? file.uri.pathSegments.last;
-    final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(
-        file.path,
-        filename: fileName,
+    final formDataFields = <String, dynamic>{
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: publicId ?? fileName,
       ),
       'upload_preset': CloudinaryConfig.uploadPreset,
       'folder': folder,
-      'public_id': ?publicId,
-    });
+    };
+    if (publicId != null) {
+      formDataFields['public_id'] = publicId;
+    }
+
+    final formData = FormData.fromMap(formDataFields);
 
     try {
       final response = await _dio.post<Map<String, dynamic>>(

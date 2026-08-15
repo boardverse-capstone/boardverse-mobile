@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/navigation/tournament_routes.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/participant_detail_page.dart';
+import 'package:boardverse/core/navigation/tournament_routes.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/presentation/pages/participant_detail_page.dart';
 
 /// Tab 2: Lists tournament participants.
 /// Tap a row to navigate to [ParticipantDetailPage].

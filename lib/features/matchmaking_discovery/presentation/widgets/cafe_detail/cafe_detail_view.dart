@@ -9,12 +9,19 @@ import '../../../domain/entities/board_game_entity.dart';
 import '../../../domain/entities/cafe_detail_entity.dart';
 import '../../pages/lobby_cafe_selection_page.dart';
 import '../../cubit/matchmaking_cubit.dart';
+import 'amenities_card.dart';
 import 'book_cta_button.dart';
 import 'cafe_info_row.dart';
 import 'cafe_section_title.dart';
+import 'deposit_card.dart';
+import 'lobby_config_card.dart';
+import 'operational_status_card.dart';
 import 'pricing_card.dart';
+import 'refund_policy_card.dart';
+import 'seat_capacity_card.dart';
 import 'se_pay_badge.dart';
 import 'tappable_info_row.dart';
+import 'time_slot_grid.dart';
 
 /// Body của [CafeDetailPage] — Neo-brutalism style.
 class CafeDetailView extends StatelessWidget {
@@ -119,6 +126,7 @@ class CafeDetailView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ─── Header: name + distance ─────────────────────
                     Text(
                       cafe.name,
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -126,9 +134,96 @@ class CafeDetailView extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
+                    if (cafe.distanceKm != null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.near_me_rounded,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${cafe.distanceKm!.toStringAsFixed(1)} km từ bạn',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.md),
+
+                    // ─── Operational status (BR-05) ──────────────────
+                    OperationalStatusCard(cafe: cafe),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // ─── Pricing card ────────────────────────────────
                     PricingCard(cafe: cafe),
                     const SizedBox(height: AppSpacing.md),
+
+                    // ─── Seat capacity (live) ────────────────────────
+                    SeatCapacityCard(cafe: cafe),
+
+                    // ─── Ghế trống theo khung giờ ────────────────────
+                    TimeSlotGrid(cafe: cafe),
+
+                    // ─── Tiện ích ────────────────────────────────────
+                    if ((cafe.numberOfTables > 0 ||
+                            cafe.numberOfPrivateRooms > 0 ||
+                            cafe.numberOfGamesOwned > 0 ||
+                            cafe.hasGameMaster)) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const CafeSectionTitle(
+                        title: 'Tiện ích',
+                        icon: Icons.dashboard_customize_rounded,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      AmenitiesCard(
+                        numberOfTables: cafe.numberOfTables,
+                        numberOfPrivateRooms: cafe.numberOfPrivateRooms,
+                        numberOfGamesOwned: cafe.numberOfGamesOwned,
+                        hasGameMaster: cafe.hasGameMaster,
+                      ),
+                    ],
+
+                    // ─── Đặt cọc ─────────────────────────────────────
+                    if (cafe.depositPercentage > 0 ||
+                        cafe.depositRatePerPerson > 0 ||
+                        (cafe.minDeposit != null && cafe.minDeposit! > 0)) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const CafeSectionTitle(
+                        title: 'Đặt cọc',
+                        icon: Icons.account_balance_wallet_rounded,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      DepositCard(cafe: cafe),
+                    ],
+
+                    // ─── Refund policy ───────────────────────────────
+                    const SizedBox(height: AppSpacing.lg),
+                    const CafeSectionTitle(
+                      title: 'Chính sách hoàn tiền',
+                      icon: Icons.replay_circle_filled_rounded,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    RefundPolicyCard(cafe: cafe),
+
+                    // ─── Lobby config ────────────────────────────────
+                    if (cafe.cafeConfig != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const CafeSectionTitle(
+                        title: 'Quy định lobby',
+                        icon: Icons.groups_rounded,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      LobbyConfigCard(cafe: cafe),
+                    ],
+
+                    // ─── Liên hệ ────────────────────────────────────
+                    const SizedBox(height: AppSpacing.lg),
                     const CafeSectionTitle(
                       title: 'Liên hệ',
                       icon: Icons.contact_phone,
@@ -155,6 +250,8 @@ class CafeDetailView extends StatelessWidget {
                             _openMap(cafe.latitude!, cafe.longitude!),
                       ),
                     ],
+
+                    // ─── Giới thiệu ──────────────────────────────────
                     if (cafe.description != null &&
                         cafe.description!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.lg),
@@ -186,6 +283,8 @@ class CafeDetailView extends StatelessWidget {
                         ),
                       ),
                     ],
+
+                    // ─── Thông tin thêm ──────────────────────────────
                     const SizedBox(height: AppSpacing.lg),
                     const CafeSectionTitle(
                       title: 'Thông tin thêm',
@@ -207,6 +306,7 @@ class CafeDetailView extends StatelessWidget {
                       const SizedBox(height: AppSpacing.md),
                       const SePayBadge(),
                     ],
+                    // Bottom safe-area cho CTA.
                     const SizedBox(height: AppSpacing.huge + AppSpacing.lg),
                   ],
                 ),
@@ -215,53 +315,85 @@ class CafeDetailView extends StatelessWidget {
           ],
         ),
 
-        // Sticky bottom CTA
-        if (selectedGame != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : AppColors.surface,
-                border: Border(
-                  top: BorderSide(
-                    color: isDark ? AppColors.borderDark : AppColors.border,
-                    width: NeoBrutalismTheme.borderWidth,
-                  ),
+        // ─── Sticky bottom CTA — luôn hiển thị ─────────────────────
+        // Trước đây chỉ render khi `selectedGame != null`. Sau refactor
+        // CTA luôn stick ở bottom để user đặt chỗ từ cafe detail (kể cả
+        // khi mở thẳng từ tab Cafe, không qua boardgame).
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceDark : AppColors.surface,
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: NeoBrutalismTheme.borderWidth,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.black.withValues(alpha: 0.1),
-                    blurRadius: 0,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
               ),
-              child: SafeArea(
-                top: false,
-                child: BookCtaButton(
-                  gameName: selectedGame!.name,
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LobbyCafeSelectionPage(
-                        game: selectedGame!,
-                        matchmakingCubit: matchmakingCubit,
-                      ),
-                    ),
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.1),
+                  blurRadius: 0,
+                  offset: const Offset(0, -3),
                 ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: BookCtaButton(
+                gameName: selectedGame?.name,
+                onPressed: selectedGame == null
+                    ? () => _showSelectGamePrompt(context)
+                    : () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LobbyCafeSelectionPage(
+                              game: selectedGame!,
+                              matchmakingCubit: matchmakingCubit,
+                            ),
+                          ),
+                        ),
               ),
             ),
           ),
+        ),
       ],
+    );
+  }
+
+  /// Khi user mở cafe detail nhưng chưa chọn game, hiện dialog nhắc chọn
+  /// game trước khi đặt chỗ.
+  Future<void> _showSelectGamePrompt(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.black, width: 2),
+        ),
+        title: const Text(
+          'Chọn tựa game trước',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'Để đặt chỗ tại quán, bạn cần chọn tựa game muốn chơi.\n\n'
+          'Vào tab Boardgame để chọn game, hoặc tìm theo tên ở thanh tìm kiếm.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
     );
   }
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 import '../../../match_summary_rating/presentation/pages/rating_page.dart';
 import '../cubit/in_game_cubit.dart';
 import '../cubit/in_game_state.dart';
@@ -18,12 +18,18 @@ class InGameSessionPage extends StatefulWidget {
   final String gameName;
   final int tableNumber;
 
+  /// Nếu true, bỏ qua `checkIn` trong initState — dùng khi user đã
+  /// được staff check-in rồi (gọi từ LobbyCheckInSection sau khi
+  /// nhận BookingCheckedInEvent). Tránh duplicate check-in call.
+  final bool skipCheckIn;
+
   const InGameSessionPage({
     super.key,
     required this.bookingId,
     required this.cafeName,
     required this.gameName,
     required this.tableNumber,
+    this.skipCheckIn = false,
   });
 
   @override
@@ -36,7 +42,9 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
   @override
   void initState() {
     super.initState();
-    _inGameCubit.checkIn(widget.bookingId);
+    if (!widget.skipCheckIn) {
+      _inGameCubit.checkIn(widget.bookingId);
+    }
   }
 
   @override

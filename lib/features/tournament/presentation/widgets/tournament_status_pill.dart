@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
 
 /// Neo-brutalism Tournament status pill.
 class TournamentStatusPill extends StatelessWidget {

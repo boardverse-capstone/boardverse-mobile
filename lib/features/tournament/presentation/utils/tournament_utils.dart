@@ -1,6 +1,6 @@
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_state.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_state.dart';
 
 class TournamentUtils {
   TournamentUtils._();

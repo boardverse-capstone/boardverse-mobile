@@ -11,12 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/core/network/paginated_response.dart';
-import 'package:boardverse_mobile/features/reservation/domain/entities/entities.dart';
-import 'package:boardverse_mobile/features/reservation/domain/repositories/reservation_repository.dart';
-import 'package:boardverse_mobile/features/reservation/presentation/pages/reservation_list_page.dart';
-import 'package:boardverse_mobile/features/reservation/presentation/widgets/reservation_card.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/core/network/paginated_response.dart';
+import 'package:boardverse/features/reservation/domain/entities/entities.dart';
+import 'package:boardverse/features/reservation/domain/repositories/reservation_repository.dart';
+import 'package:boardverse/features/reservation/presentation/pages/reservation_list_page.dart';
+import 'package:boardverse/features/reservation/presentation/widgets/reservation_card.dart';
 
 class _StubReservationRepository implements ReservationRepository {
   Either<Failure, List<ReservationEntity>> reservationsResult =
@@ -65,6 +65,7 @@ class _StubReservationRepository implements ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -79,6 +80,7 @@ class _StubReservationRepository implements ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,

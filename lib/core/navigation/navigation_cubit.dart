@@ -19,5 +19,5 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   void setTabFromEnum(NavTab tab) => setTab(tab.tabIndex);
 
-  void goHome() => setTab(NavTab.home.tabIndex);
+  void goActivity() => setTab(NavTab.activity.tabIndex);
 }

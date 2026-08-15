@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Neo-brutalism Styled text field cho auth forms.
 class AuthTextField extends StatelessWidget {

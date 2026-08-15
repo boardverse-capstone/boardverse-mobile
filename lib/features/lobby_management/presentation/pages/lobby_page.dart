@@ -2,19 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
-import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
-import 'package:boardverse_mobile/features/booking_payment/domain/entities/booking_rating_submission_entity.dart';
-import 'package:boardverse_mobile/features/booking_payment/domain/entities/session_status_entity.dart';
-import 'package:boardverse_mobile/features/booking_payment/domain/repositories/booking_repository.dart';
-import 'package:boardverse_mobile/features/booking_payment/presentation/cubit/booking_realtime_cubit.dart';
-import 'package:boardverse_mobile/features/booking_payment/presentation/widgets/rating_form_sheet.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invite_entity.dart';
-import 'package:boardverse_mobile/features/reservation/domain/entities/entities.dart' as res;
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/current_user_resolver.dart';
+import 'package:boardverse/core/widgets/top_snack_bar.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
+import 'package:boardverse/features/lobby_management/lobby_routes.dart';
+import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_chat_message.dart';
 import '../cubit/lobby_cubit.dart';
@@ -91,16 +87,8 @@ class _LobbyPageState extends State<LobbyPage> {
 
   LobbyState? _lastGoodLobbyState;
 
-  /// Map userId → arrival status cho MembersArrivalChecklist. Track realtime
-  /// qua SignalR BookingCheckedIn event + self-report cubit.
+  /// Map userId → arrival status cho MembersArrivalChecklist.
   final Map<String, MemberArrivalStatus> _arrivalByUserId = {};
-
-  /// Booking id (nếu có) — dùng để bind BookingRealtimeCubit cho realtime
-  /// checked-in/checked-out events.
-  String? _currentBookingId;
-
-  /// Trigger show session-status card khi user đã check-in.
-  SessionStatusEntity? _sessionStatus;
 
   @override
   void initState() {
@@ -478,9 +466,6 @@ class _LobbyPageState extends State<LobbyPage> {
             return cubit;
           },
         ),
-        BlocProvider<BookingRealtimeCubit>(
-          create: (_) => getIt<BookingRealtimeCubit>(),
-        ),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -532,50 +517,12 @@ class _LobbyPageState extends State<LobbyPage> {
                 reservationCubit.startWatching(
                   reservationId: lobby.reservationId,
                 );
-
-                // Bind BookingRealtime để đón check-in/check-out events.
-                _bindBookingRealtime(lobby.reservationId);
-              }
-            },
-          ),
-          BlocListener<BookingRealtimeCubit, BookingRealtimeState>(
-            listener: (context, state) async {
-              if (state is BookingCheckedInEvent) {
-                final userId = _currentUserId;
-                if (userId != null && userId.isNotEmpty) {
-                  setState(() {
-                    _arrivalByUserId[userId] = MemberArrivalStatus.checkedIn;
-                  });
-                }
-                if (!mounted) return;
-                context.showTopSnackBar(
-                  'Bạn đã check-in! Phiên chơi bắt đầu.',
-                );
-              } else if (state is BookingCheckedOutEvent) {
-                final lobby = _currentLobby();
-                if (lobby != null &&
-                    lobby.hostId != (_currentUserId ?? '') &&
-                    _currentBookingId != null) {
-                  await _showRatingFormAfterCheckout(_currentBookingId!);
-                }
-              } else if (state is LobbyAutoCancelledState) {
-                if (!mounted) return;
-                context.showTopSnackBar(
-                  'Phòng chờ đã bị huỷ: ${state.reason}',
-                  isError: true,
-                );
               }
             },
           ),
           BlocListener<LobbyReservationCubit, LobbyReservationState>(
             listener: (context, state) {
-              if (state is LobbyReservationLoaded) {
-                final reservation = state.reservation;
-                if (reservation.status == res.ReservationStatus.checkedIn &&
-                    _sessionStatus == null) {
-                  _bindBookingRealtime(reservation.id);
-                }
-              }
+              // Reservation watching is handled in LobbyCubit listener
             },
           ),
         ],
@@ -908,55 +855,6 @@ class _LobbyPageState extends State<LobbyPage> {
       builder: (sheetContext) => LobbyDetailsSheet(lobby: lobby),
     );
   }
-
-  /// Bind BookingRealtimeCubit cho 1 reservationId. Idempotent — chỉ
-  /// connect nếu id thay đổi hoặc chưa bind.
-  void _bindBookingRealtime(String? reservationId) {
-    if (reservationId == null || reservationId.isEmpty) return;
-    if (_currentBookingId == reservationId) return;
-    _currentBookingId = reservationId;
-    final cubit = context.read<BookingRealtimeCubit>();
-    cubit.watchBooking(reservationId);
-  }
-
-  /// Lấy lobby hiện tại từ `_lastGoodLobbyState`.
-  LobbyEntity? _currentLobby() {
-    final s = _lastGoodLobbyState;
-    if (s is LobbyCreated) return s.lobby;
-    if (s is LobbyUpdatedRealtime) return s.lobby;
-    if (s is LobbyEnded) return s.lobby;
-    return null;
-  }
-
-  /// Auto-trigger RatingFormSheet khi nhận BookingCheckedOut event. Kiểm
-  /// tra rating status trước để tránh mở sheet 2 lần.
-  Future<void> _showRatingFormAfterCheckout(String bookingId) async {
-    final repo = getIt<BookingRepository>();
-    final statusResult = await repo.getRatingStatus(bookingId);
-    if (!mounted) return;
-    statusResult.fold((_) => null, (status) async {
-      if (!mounted) return;
-      if (!status.canRate || status.alreadyRated) return;
-      if (!mounted) return;
-      final detailResult = await repo.getBookingById(bookingId);
-      if (!mounted) return;
-      detailResult.fold(
-        (_) => null,
-        (booking) async {
-          if (!mounted) return;
-          await showModalBottomSheet<RatingSubmissionResultEntity>(
-            context: context,
-            isScrollControlled: true,
-            builder: (_) => RatingFormSheet(
-              booking: booking,
-              ratingStatus: status,
-              repository: repo,
-            ),
-          );
-        },
-      );
-    });
-  }
 }
 
 /// Players section — header + player grid + invite button.
@@ -1141,6 +1039,24 @@ class _LobbyStatusStrip extends StatelessWidget {
     );
   }
 
+  /// Navigate to InGameSessionPage after staff scan/check-in.
+  /// `tableNumber` default to 1 if not available from reservation.
+  void _navigateToInGameSession(
+    BuildContext context, {
+    required res.ReservationEntity reservation,
+    required LobbyEntity lobby,
+  }) {
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      LobbyRoutes.inGameSession,
+      arguments: InGameSessionPageArgs(
+        bookingId: reservation.id,
+        cafeName: reservation.cafeName,
+        gameName: reservation.gameName,
+        tableNumber: 1, // tableNumber gán từ staff khi check-in
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reservation = _reservation;
@@ -1152,9 +1068,10 @@ class _LobbyStatusStrip extends StatelessWidget {
       reservationStatus: reservation?.status,
     );
 
-    // ── Check-in section: confirmed + lobby canCheckIn ───────────────────
+    // ── Check-in section: confirmed/checkedIn + lobby canCheckIn ───────────
     final showCheckIn = reservation != null &&
-        reservation.status == res.ReservationStatus.confirmed &&
+        (reservation.status == res.ReservationStatus.confirmed ||
+            reservation.status == res.ReservationStatus.checkedIn) &&
         lobby.status.canCheckIn;
 
     // ── Pending cafe approval banner — Phase B ──────────────────────────
@@ -1216,6 +1133,11 @@ class _LobbyStatusStrip extends StatelessWidget {
             currentUserId: currentUserId,
             arrivalByUserId: arrivalByUserId,
             lobbyPlayers: lobby.players,
+            onEnterSession: () => _navigateToInGameSession(
+              context,
+              reservation: reservation,
+              lobby: lobby,
+            ),
           ),
       ],
     );

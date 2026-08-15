@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
-import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/current_user_resolver.dart';
+import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import '../../../../core/di/injection.dart';
 import '../../domain/entities/lobby_invite_entity.dart';
 import '../../data/datasources/base/lobby_remote_datasource.dart';

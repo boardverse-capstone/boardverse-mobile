@@ -98,14 +98,14 @@ class _NavBarContentNeo extends StatelessWidget {
 
   IconData _iconFor(NavTab tab) {
     switch (tab) {
-      case NavTab.home:
-        return Icons.home_rounded;
+      case NavTab.activity:
+        return Icons.notifications_rounded;
       case NavTab.bookings:
         return Icons.calendar_month_rounded;
-      case NavTab.discovery:
+      case NavTab.explore:
         return Icons.explore_rounded;
-      case NavTab.tournament:
-        return Icons.emoji_events_rounded;
+      case NavTab.lobbies:
+        return Icons.groups_rounded;
       case NavTab.profile:
         return Icons.person_rounded;
     }

@@ -3,17 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/navigation/lobby_flow_navigator.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/cafe_info_helper.dart';
-import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
-import 'package:boardverse_mobile/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
-import 'package:boardverse_mobile/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
-import 'package:boardverse_mobile/features/reservation/domain/entities/entities.dart';
-import 'package:boardverse_mobile/features/reservation/domain/repositories/reservation_repository.dart';
-import 'package:boardverse_mobile/features/reservation/presentation/cubit/reservation_cubit.dart';
-import 'package:boardverse_mobile/features/reservation/presentation/cubit/reservation_state.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/navigation/lobby_flow_navigator.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/cafe_info_helper.dart';
+import 'package:boardverse/core/widgets/top_snack_bar.dart';
+import 'package:boardverse/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
+import 'package:boardverse/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
+import 'package:boardverse/features/reservation/domain/entities/entities.dart';
+import 'package:boardverse/features/reservation/domain/repositories/reservation_repository.dart';
+import 'package:boardverse/features/reservation/presentation/cubit/reservation_cubit.dart';
+import 'package:boardverse/features/reservation/presentation/cubit/reservation_state.dart';
 import '../widgets/lobby_page_shimmer.dart';
 
 /// Page hiển thị khi lobby cần cafe duyệt (BR-NEW-11).

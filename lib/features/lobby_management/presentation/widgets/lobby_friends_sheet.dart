@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/lobby_state.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_friends_shimmer.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/online_friends_list.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/lobby_management/presentation/cubit/lobby_state.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_friends_shimmer.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/online_friends_list.dart';
 
 /// Bottom sheet mời bạn bè vào lobby.
 class FriendsSheet extends StatelessWidget {

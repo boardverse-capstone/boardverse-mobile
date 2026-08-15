@@ -7,22 +7,22 @@
 
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/leaderboard_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_spectator_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_waitlist_entity.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
 
 class FakeTournamentRepository implements TournamentRepository {
   List<TournamentEntity> openTournaments;
   List<MyRegistrationEntry> myRegistrations;
   MyEloHistoryResponse eloHistory;
-  List<LeaderboardEntryEntity> leaderboard;
   TournamentEntity? tournamentDetail;
   Map<String, List<TournamentParticipantEntity>> participants;
   Map<String, TournamentParticipantEntity> participantById;
@@ -31,11 +31,15 @@ class FakeTournamentRepository implements TournamentRepository {
   Failure? failure;
   Failure? registerFailure;
 
+  MyWaitlistStatus myWaitlistStatus;
+  List<TournamentWaitlistEntry> waitlistEntries;
+  MySpectatorStatus mySpectatorStatus;
+  List<TournamentSpectatorEntry> spectatorEntries;
+
   FakeTournamentRepository({
     List<TournamentEntity>? openTournaments,
     List<MyRegistrationEntry>? myRegistrations,
     MyEloHistoryResponse? eloHistory,
-    List<LeaderboardEntryEntity>? leaderboard,
     this.tournamentDetail,
     Map<String, List<TournamentParticipantEntity>>? participants,
     Map<String, TournamentParticipantEntity>? participantById,
@@ -43,22 +47,32 @@ class FakeTournamentRepository implements TournamentRepository {
     Map<String, TournamentMatchEntity>? matchById,
     this.failure,
     this.registerFailure,
+    MyWaitlistStatus? myWaitlistStatus,
+    List<TournamentWaitlistEntry>? waitlistEntries,
+    MySpectatorStatus? mySpectatorStatus,
+    List<TournamentSpectatorEntry>? spectatorEntries,
   }) : openTournaments = openTournaments ?? <TournamentEntity>[],
        myRegistrations = myRegistrations ?? <MyRegistrationEntry>[],
-       eloHistory = eloHistory ??
+       eloHistory =
+           eloHistory ??
            const MyEloHistoryResponse(
              userId: '',
              username: '',
              currentElo: 0,
              history: [],
            ),
-       leaderboard = leaderboard ?? <LeaderboardEntryEntity>[],
        participants =
            participants ?? <String, List<TournamentParticipantEntity>>{},
        participantById =
            participantById ?? <String, TournamentParticipantEntity>{},
        matches = matches ?? <String, List<TournamentMatchEntity>>{},
-       matchById = matchById ?? <String, TournamentMatchEntity>{};
+       matchById = matchById ?? <String, TournamentMatchEntity>{},
+       myWaitlistStatus =
+           myWaitlistStatus ?? const MyWaitlistStatus(isInWaitlist: false),
+       waitlistEntries = waitlistEntries ?? <TournamentWaitlistEntry>[],
+       mySpectatorStatus =
+           mySpectatorStatus ?? const MySpectatorStatus(isSpectating: false),
+       spectatorEntries = spectatorEntries ?? <TournamentSpectatorEntry>[];
 
   void setFailure(Failure? newFailure) => failure = newFailure;
 
@@ -161,14 +175,144 @@ class FakeTournamentRepository implements TournamentRepository {
     return Right(eloHistory);
   }
 
+  // ─── T-03: Waitlist ────────────────────────────────────────────────────
+
+  Failure? waitlistJoinFailure;
+  Failure? waitlistLeaveFailure;
+  Failure? waitlistConfirmFailure;
+  Failure? waitlistDeclineFailure;
+  Failure? waitlistStatusFailure;
+  Failure? waitlistListFailure;
+
   @override
-  Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
-    int topCount = 100,
-    String? gameTemplateId,
-  }) async {
+  Future<Either<Failure, JoinWaitlistResult>> joinWaitlist(
+    String tournamentId,
+  ) async {
+    if (waitlistJoinFailure != null) return Left(waitlistJoinFailure!);
     if (failure != null) return Left(failure!);
-    return Right(leaderboard);
+    return Right(
+      JoinWaitlistResult(
+        waitlistEntryId: 'entry-$tournamentId',
+        tournamentId: tournamentId,
+        tournamentName: 'Giải $tournamentId',
+        userId: 'me',
+        username: 'me',
+        position: 1,
+        joinedAt: DateTime.now(),
+        status: WaitlistEntryStatus.waiting,
+      ),
+    );
   }
+
+  @override
+  Future<Either<Failure, List<TournamentWaitlistEntry>>> getWaitlist(
+    String tournamentId, {
+    int? page,
+    int? pageSize,
+  }) async {
+    if (waitlistListFailure != null) return Left(waitlistListFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(waitlistEntries);
+  }
+
+  @override
+  Future<Either<Failure, MyWaitlistStatus>> getMyWaitlistStatus(
+    String tournamentId,
+  ) async {
+    if (waitlistStatusFailure != null) return Left(waitlistStatusFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(myWaitlistStatus);
+  }
+
+  @override
+  Future<Either<Failure, void>> leaveWaitlist(String tournamentId) async {
+    if (waitlistLeaveFailure != null) return Left(waitlistLeaveFailure!);
+    if (failure != null) return Left(failure!);
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, WaitlistActionResult>> confirmWaitlistOffer(
+    String tournamentId,
+  ) async {
+    if (waitlistConfirmFailure != null) return Left(waitlistConfirmFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(
+      WaitlistActionResult(
+        waitlistEntryId: 'entry-$tournamentId',
+        tournamentId: tournamentId,
+        status: WaitlistEntryStatus.promoted,
+      ),
+    );
+  }
+
+  @override
+  Future<Either<Failure, WaitlistActionResult>> declineWaitlistOffer(
+    String tournamentId,
+  ) async {
+    if (waitlistDeclineFailure != null) return Left(waitlistDeclineFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(
+      WaitlistActionResult(
+        waitlistEntryId: 'entry-$tournamentId',
+        tournamentId: tournamentId,
+        status: WaitlistEntryStatus.cancelled,
+      ),
+    );
+  }
+
+  // ─── T-04: Spectator ──────────────────────────────────────────────────
+
+  Failure? spectatorStartFailure;
+  Failure? spectatorStopFailure;
+  Failure? spectatorStatusFailure;
+  Failure? spectatorListFailure;
+
+  @override
+  Future<Either<Failure, List<TournamentSpectatorEntry>>> getSpectators(
+    String tournamentId,
+  ) async {
+    if (spectatorListFailure != null) return Left(spectatorListFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(spectatorEntries);
+  }
+
+  @override
+  Future<Either<Failure, MySpectatorStatus>> getMySpectatorStatus(
+    String tournamentId,
+  ) async {
+    if (spectatorStatusFailure != null) return Left(spectatorStatusFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(mySpectatorStatus);
+  }
+
+  @override
+  Future<Either<Failure, TournamentSpectatorEntry>> startSpectating(
+    String tournamentId,
+  ) async {
+    if (spectatorStartFailure != null) return Left(spectatorStartFailure!);
+    if (failure != null) return Left(failure!);
+    return Right(
+      TournamentSpectatorEntry(
+        id: 'sp-$tournamentId',
+        tournamentId: tournamentId,
+        tournamentTitle: 'Giải $tournamentId',
+        userId: 'me',
+        userName: 'me',
+        joinedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> stopSpectating(String tournamentId) async {
+    if (spectatorStopFailure != null) return Left(spectatorStopFailure!);
+    if (failure != null) return Left(failure!);
+    return const Right(null);
+  }
+
+  // Leaderboard đã tách ra feature riêng — không còn method trên
+  // TournamentRepository.
 }
 
 /// Builders cho entity tests.
@@ -257,19 +401,6 @@ class TournamentTestFixtures {
       delta: delta,
       playedAt: _daysFromNow(-3),
       rank: 1,
-    );
-  }
-
-  static LeaderboardEntryEntity leaderboard({int rank = 1}) {
-    return LeaderboardEntryEntity(
-      rank: rank,
-      userId: 'user-$rank',
-      displayName: 'Player Rank $rank',
-      avatarUrl: null,
-      globalElo: 2000 - rank * 25,
-      karma: 500 - rank * 5,
-      tournamentsPlayed: 25 - rank,
-      tournamentsWon: 5,
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/nearby_cafes_search_result_entity.dart';
@@ -39,15 +40,18 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
-      (games) => emit(
-        MatchmakingSearchResults(
-          games: games,
-          query: query,
-          category: category,
-          minPlayers: minPlayers,
-          maxPlayers: maxPlayers,
-        ),
-      ),
+      (games) {
+        _refreshPopularGameId(games);
+        emit(
+          MatchmakingSearchResults(
+            games: games,
+            query: query,
+            category: category,
+            minPlayers: minPlayers,
+            maxPlayers: maxPlayers,
+          ),
+        );
+      },
     );
   }
 
@@ -60,12 +64,15 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
-      (games) => emit(
-        MatchmakingSearchResults(
-          games: games,
-          filter: filter,
-        ),
-      ),
+      (games) {
+        _refreshPopularGameId(games);
+        emit(
+          MatchmakingSearchResults(
+            games: games,
+            filter: filter,
+          ),
+        );
+      },
     );
   }
 
@@ -119,17 +126,16 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         await cafesResult.fold(
           (failure) async => emit(MatchmakingFailure(message: failure.message)),
           (searchResult) async {
-            // Server `/api/cafes/nearby?gameTemplateId=...` (AC 2.1) đã đảm
-            // bảo chỉ trả về quán có ít nhất một hộp game của `gameTemplateId`
-            // (trạng thái `Available` **hoặc** `InUse`). Theo AC 3.1, quán
-            // vẫn hiển thị khi tất cả hộp đang `InUse` (UI: "Chờ game
-            // ~X phút").
+            // Theo AC 2.1 của `cafe.md`, server đã filter `cafes` theo
+            // `gameTemplateId` (quán có ít nhất 1 hộp game của `gameId`,
+            // trạng thái Available hoặc InUse). Theo AC 3.1, quán vẫn hiển
+            // thị khi tất cả hộp đang InUse (UI: "Chờ game ~X phút").
             //
             // Vì vậy filter phải dựa trên `totalGameBoxCount` (Available +
             // InUse) thay vì `availableGameCount` (chỉ Available) — trước
             // đây filter chỉ `availableGameCount > 0` đã loại bỏ nhầm quán
-            // có hộp đang `InUse`, dẫn đến UI hiển thị "không có quán gần"
-            // dù server trả 200 đầy đủ.
+            // có hộp đang InUse → gây bug "không có quán" trên UI dù server
+            // trả 200 đầy đủ.
             final nearbyCafes = searchResult.cafes
                 .where((c) => c.totalGameBoxCount > 0)
                 .toList();
@@ -141,45 +147,38 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
               return;
             }
 
-            // Branch này trước đó có điều kiện logically-impossible
-            // `outOfRadiusCafes.isNotEmpty && nearbyCafes.isEmpty`
-            // (vì `outOfRadiusCafes` là subset của `nearbyCafes`). Khi
-            // server thực sự trả quán out-of-radius (player ở ngoài
-            // bán kính 15km), trả về `OutOfRadius` để UI hiển thị game
-            // tương tự. Ngược lại, render danh sách bình thường (kể cả
-            // những quán out-of-radius để user biết cần mở rộng bán kính).
+            // Gộp tất cả trường hợp về `MatchmakingGameDetail` (kể cả khi
+            // không có quán trong bán kính). State class này đã có sẵn
+            // `isOutOfRadius` + `alternativeSuggestions` đủ để render UI
+            // thống nhất, không cần state riêng `MatchmakingOutOfRadius`.
+            //
+            // Lý do thống nhất:
+            // 1. Trước đây code tách thành `OutOfRadius` riêng + gọi thêm API
+            //    `getSimilarGames(...)` để lấy game tương tự. Nhưng data
+            //    này đã có sẵn trong `searchResult.alternativeSuggestions`
+            //    từ API `/api/cafes/nearby` (AC 5.2). Gọi API riêng là
+            //    duplicate + tăng latency.
+            // 2. Case "có quán nhưng quá xa" (vd: 22.8km, xa hơn 15km) và
+            //    case "không có quán nào" trước đây hiển thị 2 UI khác nhau:
+            //    - Có quán xa → `_buildOutOfRadiusView` (icon to + message
+            //      "Không có quán nào trong bán kính 15km" + carousel game
+            //      tương tự). Khi `similarGames = []` (backend không gợi ý)
+            //      thì carousel rỗng → UI "đề xuất lại chính game này" vô
+            //      nghĩa.
+            //    - Không có quán → `_buildGameDetailView` với empty state +
+            //      alternatives (UI đẹp hơn, user thích).
+            //    → Thống nhất về 1 UI giống case "không có quán".
             final hasInRadius =
                 nearbyCafes.any((c) => (c.distanceMeters / 1000.0) <= 15);
-            if (!hasInRadius && nearbyCafes.isNotEmpty) {
-              final similarResult = await repository.getSimilarGames(
-                gameId: gameId,
-                latitude: latitude,
-                longitude: longitude,
-              );
-              if (isClosed) return;
-              similarResult.fold(
-                (failure) => emit(
-                  MatchmakingOutOfRadius(
-                    selectedGame: gameDetail.toBoardGameEntity(),
-                    similarGames: const [],
-                  ),
-                ),
-                (similarGames) => emit(
-                  MatchmakingOutOfRadius(
-                    selectedGame: gameDetail.toBoardGameEntity(),
-                    similarGames: similarGames,
-                  ),
-                ),
-              );
-              return;
-            }
+            final isOutOfRadius =
+                !hasInRadius; // Cả 2 case (có quán xa hoặc không có quán)
 
             emit(
               MatchmakingGameDetail(
                 game: gameDetail,
                 nearbyCafes: nearbyCafes,
                 isGpsEnabled: isGpsEnabled,
-                isOutOfRadius: nearbyCafes.isEmpty,
+                isOutOfRadius: isOutOfRadius,
                 emptyResultMessage: searchResult.emptyResultMessage,
                 alternativeSuggestions:
                     searchResult.alternativeSuggestions,
@@ -448,20 +447,23 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
-      (games) => emit(
-        MatchmakingSearchResults(
-          games: games,
-          query: query,
-          filter: SearchFilterEntity(
+      (games) {
+        _refreshPopularGameId(games);
+        emit(
+          MatchmakingSearchResults(
+            games: games,
             query: query,
-            categoryIds: categoryIds,
-            minPlayers: playerCount,
-            durationRanges: durationRanges,
-            pageNumber: pageNumber,
-            pageSize: pageSize,
+            filter: SearchFilterEntity(
+              query: query,
+              categoryIds: categoryIds,
+              minPlayers: playerCount,
+              durationRanges: durationRanges,
+              pageNumber: pageNumber,
+              pageSize: pageSize,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -547,41 +549,97 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     );
   }
 
-  /// Lấy quán gần dùng vị trí đã lưu — `GET /api/cafes/nearby/me`.
-  Future<void> loadNearbyCafesForCurrentUser({
-    required String gameId,
-    double radiusKm = 15.0,
-  }) async {
-    emit(const MatchmakingLoading());
+/// Lấy quán gần dùng vị trí đã lưu — `GET /api/cafes/nearby/me`.
+///
+/// `gameId` đã trở thành optional — backend không còn bắt buộc. Truyền
+/// null nếu muốn lấy tất cả quán trong bán kính.
+Future<void> loadNearbyCafesForCurrentUser({
+  String? gameId,
+  double radiusKm = 15.0,
+}) async {
+  emit(const MatchmakingLoading());
 
-    final result = await repository.getNearbyCafesForCurrentUser(
-      gameId: gameId,
-      radiusKm: radiusKm,
-    );
+  final result = await repository.getNearbyCafesForCurrentUser(
+    gameId: gameId,
+    radiusKm: radiusKm,
+  );
 
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
-      (data) => emit(MatchmakingNearbyCafesLoaded(
-        gameId: gameId,
-        cafes: data.cafes,
-        emptyResultMessage: data.emptyResultMessage,
-        alternativeSuggestions: data.alternativeSuggestions,
-      )),
-    );
+  if (isClosed) return;
+  result.fold(
+    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (data) => emit(MatchmakingNearbyCafesLoaded(
+      gameId: gameId ?? '',
+      cafes: data.cafes,
+      emptyResultMessage: data.emptyResultMessage,
+      alternativeSuggestions: data.alternativeSuggestions,
+    )),
+  );
+}
+
+/// Lấy quán gần theo toạ độ — `GET /api/cafes/nearby?...`.
+Future<void> loadNearbyCafesWithCoordinates({
+  String? gameId,
+  required double latitude,
+  required double longitude,
+  double radiusKm = 15.0,
+}) async {
+  emit(const MatchmakingLoading());
+
+  final result = await repository.getNearbyCafesWithGameSearch(
+    gameId: gameId,
+    latitude: latitude,
+    longitude: longitude,
+    radiusKm: radiusKm,
+  );
+
+  if (isClosed) return;
+  result.fold(
+    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (data) => emit(MatchmakingNearbyCafesLoaded(
+      gameId: gameId ?? '',
+      cafes: data.cafes,
+      emptyResultMessage: data.emptyResultMessage,
+      alternativeSuggestions: data.alternativeSuggestions,
+    )),
+  );
+}
+
+/// Reset state về [MatchmakingInitial] khi player ấn "Đổi game" từ
+/// [LobbyCafeSelectionPage].
+///
+/// Lý do cần thiết:
+///
+/// - Trước khi reset, state có thể là [MatchmakingNearbyCafesLoaded] với
+///   `gameId` của game cũ. Khi [LobbyCafeSelectionPage] rebuild sau khi
+///   player back/forward, hàm `_initialLoad()` sẽ check
+///   `state.gameId == widget.game.id` và nếu khác sẽ fetch lại — nhưng
+///   giữa lúc đó UI sẽ hiển thị data sai trong 1 frame.
+/// - Reset về [MatchmakingInitial] ép UI render shimmer loading cho tới
+///   khi [loadNearbyCafesForCurrentUser] chính thức emit loaded state mới.
+void resetNearbyCafesForGameSwitch() {
+  if (isClosed) return;
+  // Chỉ reset khi state hiện tại là related nearby state — tránh phá
+  // vỡ state quan trọng khác (search results, game detail, ...).
+  // Loading state không có class riêng (dùng chung MatchmakingLoading),
+  // nhưng emit Initial khi đang Loading cũng an toàn — UI sẽ re-render
+  // shimmer (initial state cũng render shimmer).
+  if (state is MatchmakingNearbyCafesLoaded || state is MatchmakingLoading) {
+    emit(const MatchmakingInitial());
   }
+}
 
-  /// Lấy quán gần theo toạ độ — `GET /api/cafes/nearby?...`.
-  Future<void> loadNearbyCafesWithCoordinates({
-    required String gameId,
-    required double latitude,
-    required double longitude,
+  /// Tìm kiếm quán cafe theo tên — `GET /api/cafes/search?name=...`.
+  /// Dùng cho unified search page (cùng tab với boardgame search).
+  Future<void> searchCafes({
+    required String name,
+    double? latitude,
+    double? longitude,
     double radiusKm = 15.0,
   }) async {
     emit(const MatchmakingLoading());
 
-    final result = await repository.getNearbyCafesWithGameSearch(
-      gameId: gameId,
+    final result = await repository.searchCafes(
+      name: name,
       latitude: latitude,
       longitude: longitude,
       radiusKm: radiusKm,
@@ -590,12 +648,188 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
     result.fold(
       (failure) => emit(MatchmakingFailure(message: failure.message)),
-      (data) => emit(MatchmakingNearbyCafesLoaded(
-        gameId: gameId,
+      (data) => emit(MatchmakingCafeSearchResults(
+        query: name,
         cafes: data.cafes,
         emptyResultMessage: data.emptyResultMessage,
         alternativeSuggestions: data.alternativeSuggestions,
       )),
     );
   }
+
+/// Cafe tab — hiển thị quán có board game gần vị trí player.
+///
+/// Thuật toán (sau refactor `cafe.md`):
+/// 1. Gọi trực tiếp `/api/cafes/nearby/me` KHÔNG cần `gameTemplateId`
+///    (backend đã bỏ yêu cầu bắt buộc). Đơn giản hoá flow — không cần
+///    pre-fetch popular game trước khi load cafe.
+/// 2. Nếu trả về 0 quán nhưng có `alternativeSuggestions` không rỗng → thử
+///    game được gợi ý có `nearbyCafeCount` cao nhất (thực tế chính là game
+///    gần player nhất — đảm bảo user luôn thấy quán thay vì empty state).
+/// 3. Nếu user đang nhập `name` thì switch sang `searchCafes` luôn.
+///
+/// Được bọc trong try/catch ở [loadCafesNearbyForCurrentUser] để đảm bảo
+/// luôn emit state cuối cùng (kể cả failure) — tránh kẹt ở Loading.
+Future<void> loadCafesNearbyForCurrentUser({
+  String? name,
+  String? preferredGameId,
+  double radiusKm = 15.0,
+}) async {
+  try {
+    await _loadCafesNearbyForCurrentUserImpl(
+      name: name,
+      preferredGameId: preferredGameId,
+      radiusKm: radiusKm,
+    );
+  } catch (e, stack) {
+    // Safety net: bất kỳ exception nào lọt qua cũng phải emit state để
+    // UI không bị kẹt ở Loading. Trước đây nếu _resolveWithFallback
+    // throw uncaught thì state Loading không bao giờ đổi → skeleton
+    // xoay mãi.
+    if (isClosed) return;
+    emit(MatchmakingFailure(
+      message: 'Lỗi không mong đợi khi tải danh sách quán: $e',
+    ));
+    // ignore: avoid_print
+    print('loadCafesNearbyForCurrentUser error: $e\n$stack');
+  }
+}
+
+Future<void> _loadCafesNearbyForCurrentUserImpl({
+  String? name,
+  String? preferredGameId,
+  double radiusKm = 15.0,
+}) async {
+  final trimmedName = (name ?? '').trim();
+  // Có query → dùng endpoint search.
+  if (trimmedName.isNotEmpty) {
+    return searchCafes(name: trimmedName, radiusKm: radiusKm);
+  }
+
+  emit(const MatchmakingLoading());
+
+  // Backend đã bỏ yêu cầu bắt buộc `gameTemplateId` cho
+  // `/api/cafes/nearby/me` — gọi thẳng endpoint, không cần pre-fetch
+  // popular game. `preferredGameId` (nếu có) chỉ dùng cho fallback
+  // alternativeSuggestions ở dưới.
+  final firstResult = await repository.getNearbyCafesForCurrentUser(
+    radiusKm: radiusKm,
+  );
+
+  if (isClosed) return;
+
+  // Fallback nếu lần 1 trống — vẫn dùng `preferredGameId` (nếu page
+  // truyền vào) hoặc `_popularGameId` cache để so sánh.
+  final fallbackGameId =
+      (preferredGameId != null && preferredGameId.isNotEmpty)
+          ? preferredGameId
+          : _popularGameId;
+  final first = await _resolveWithFallback(
+    firstResult: firstResult,
+    primaryGameId: fallbackGameId,
+    radiusKm: radiusKm,
+  );
+  if (first != null) {
+    emit(first);
+    return;
+  }
+
+  // Fallback cũng trả về cùng data → emit state từ firstResult nguyên thuỷ.
+  firstResult.fold(
+    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (data) => emit(MatchmakingCafeSearchResults(
+      query: '',
+      cafes: data.cafes,
+      emptyResultMessage: data.emptyResultMessage,
+      alternativeSuggestions: data.alternativeSuggestions,
+    )),
+  );
+}
+
+  /// Cache "game ưu tiên" (rating cao nhất) — dùng cho tab Cafe khi cần
+  /// `gameTemplateId` mà không muốn gọi lại API boardgames.
+  ///
+  /// Được set bởi [searchGames] khi state chuyển sang
+  /// `MatchmakingSearchResults`, và đọc bởi
+  /// [loadCafesNearbyForCurrentUser]. Cache này sống trong cubit instance
+  /// (in-memory) — nếu cubit bị dispose hoặc refresh, giá trị sẽ về `null`.
+  String? _popularGameId;
+
+  /// Lấy game ID ưu tiên (rating cao nhất) từ cache cubit. Trả về `null`
+  /// nếu chưa có dữ liệu boardgames.
+  ///
+  /// Cache này được set khi boardgame tab load thành công. Cafe tab dùng nó
+  /// để không phải gọi lại API boardgames — tuân thủ constraint "Chạy bên
+  /// tabs nào thì apis bên đó".
+  String? pickPopularGameIdFromCache() => _popularGameId;
+
+  /// Cập nhật cache popular game ID. Được gọi tự động bởi [searchGames]
+  /// mỗi khi có kết quả boardgames hợp lệ.
+  void _refreshPopularGameId(List<BoardGameEntity> games) {
+    if (games.isEmpty) {
+      _popularGameId = null;
+      return;
+    }
+    final sorted = [...games]
+      ..sort((a, b) => b.rating.compareTo(a.rating));
+    _popularGameId = sorted.first.id;
+  }
+
+/// Kết quả trả về từ [getNearbyCafesForCurrentUser] có thể rỗng khi quán
+/// gần player không có sẵn game nào trùng `primaryGameId`. Trong trường hợp
+/// đó, backend kèm `alternativeSuggestions` — mỗi suggestion có
+/// `nearbyCafeCount`. Hàm này fallback sang game có nhiều quán nhất.
+///
+/// `primaryGameId` có thể `null` (Cafe tab giờ gọi API không kèm gameId) —
+/// trong trường hợp đó, fallback vẫn chạy nếu server trả alternative.
+///
+/// Trả về `null` nếu không cần fallback (firstResult có data hoặc first
+/// result success/failure không phải dạng "trống").
+Future<MatchmakingCafeSearchResults?> _resolveWithFallback({
+  required Either<Failure, NearbyCafesSearchResultEntity> firstResult,
+  String? primaryGameId,
+  required double radiusKm,
+}) async {
+  // Lấy data từ firstResult nếu success.
+  NearbyCafesSearchResultEntity? firstData;
+  firstResult.fold(
+    (failure) => null,
+    (data) => firstData = data,
+  );
+
+  // firstResult đã fail → để caller xử lý MatchmakingFailure.
+  if (firstData == null) return null;
+
+  // Có quán rồi hoặc không có alternative → không cần fallback.
+  if (firstData!.cafes.isNotEmpty) return null;
+  if (firstData!.alternativeSuggestions.isEmpty) return null;
+
+  // Chọn suggestion có nearbyCafeCount cao nhất.
+  final best = [...firstData!.alternativeSuggestions]
+    ..sort((a, b) => b.nearbyCafeCount.compareTo(a.nearbyCafeCount));
+  final bestGame = best.first;
+  // Bỏ qua fallback nếu suggestion trùng `primaryGameId` đã thử.
+  if (primaryGameId != null &&
+      bestGame.gameTemplateId == primaryGameId) {
+    return null;
+  }
+  if (bestGame.nearbyCafeCount <= 0) return null;
+
+  final secondResult = await repository.getNearbyCafesForCurrentUser(
+    gameId: bestGame.gameTemplateId,
+    radiusKm: radiusKm,
+  );
+  if (isClosed) return null;
+
+  return secondResult.fold(
+    (failure) => null,
+    (data) => MatchmakingCafeSearchResults(
+      query: '',
+      cafes: data.cafes,
+      emptyResultMessage: data.emptyResultMessage,
+      alternativeSuggestions: data.alternativeSuggestions,
+      fallbackGameName: bestGame.gameName,
+    ),
+  );
+}
 }

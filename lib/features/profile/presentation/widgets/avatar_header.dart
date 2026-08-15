@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_colors_dark.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_colors_dark.dart';
+import 'package:boardverse/core/theme/app_radius.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
 
 /// Neo-brutalism Header gradient hiển thị avatar, tên người dùng, hạng tier và bio.
 class AvatarHeader extends StatelessWidget {

@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_model.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_model.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
 import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
 import '../../../domain/entities/lobby_invitable_friend.dart';

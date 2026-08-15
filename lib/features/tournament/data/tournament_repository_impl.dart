@@ -1,15 +1,16 @@
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/error/exceptions.dart';
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/leaderboard_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
-import 'package:boardverse_mobile/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
+import 'package:boardverse/core/error/exceptions.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_waitlist_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_spectator_entity.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
 
 /// Implementation of TournamentRepository.
 class TournamentRepositoryImpl implements TournamentRepository {
@@ -208,17 +209,47 @@ class TournamentRepositoryImpl implements TournamentRepository {
     }
   }
 
+  // ─── T-03: Tournament Waitlist ──────────────────────────────────────────
+
   @override
-  Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
-    int topCount = 100,
-    String? gameTemplateId,
+  Future<Either<Failure, JoinWaitlistResult>> joinWaitlist(
+      String tournamentId) async {
+    try {
+      final model = await _remoteDatasource.joinWaitlist(tournamentId);
+      return Right(
+        JoinWaitlistResult(
+          waitlistEntryId: model.id ?? model.waitlistEntryId ?? '',
+          tournamentId: model.tournamentId,
+          tournamentName: model.tournamentName ?? '',
+          userId: model.userId,
+          username: model.username ?? '',
+          position: model.position,
+          joinedAt: model.joinedAt,
+          status: WaitlistEntryStatusX.fromApi(model.status),
+        ),
+      );
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<TournamentWaitlistEntry>>> getWaitlist(
+    String tournamentId, {
+    int? page,
+    int? pageSize,
   }) async {
     try {
-      final models = await _remoteDatasource.getLeaderboard(
-        topCount: topCount,
-        gameTemplateId: gameTemplateId,
+      final models = await _remoteDatasource.getWaitlist(
+        tournamentId,
+        page: page,
+        pageSize: pageSize,
       );
-      final entities = models.map((m) => m.toEntity()).toList();
+      final entities = models
+          .map((m) => m.toEntity(fallbackTournamentName: ''))
+          .toList();
       return Right(entities);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
@@ -226,4 +257,121 @@ class TournamentRepositoryImpl implements TournamentRepository {
       return Left(ServerFailure(message: 'Unexpected error: $e'));
     }
   }
+
+  @override
+  Future<Either<Failure, MyWaitlistStatus>> getMyWaitlistStatus(
+      String tournamentId) async {
+    try {
+      final model = await _remoteDatasource.getMyWaitlistStatus(tournamentId);
+      return Right(model.toEntity());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> leaveWaitlist(String tournamentId) async {
+    try {
+      await _remoteDatasource.leaveWaitlist(tournamentId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, WaitlistActionResult>> confirmWaitlistOffer(
+      String tournamentId) async {
+    try {
+      final model =
+          await _remoteDatasource.confirmWaitlistOffer(tournamentId);
+      return Right(model.toEntity());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, WaitlistActionResult>> declineWaitlistOffer(
+      String tournamentId) async {
+    try {
+      final model =
+          await _remoteDatasource.declineWaitlistOffer(tournamentId);
+      return Right(model.toEntity());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  // ─── T-04: Tournament Spectator ────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, List<TournamentSpectatorEntry>>> getSpectators(
+      String tournamentId) async {
+    try {
+      final models = await _remoteDatasource.getSpectators(tournamentId);
+      final entities = models
+          .map((m) => m.toEntity(fallbackTournamentTitle: ''))
+          .toList();
+      return Right(entities);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, MySpectatorStatus>> getMySpectatorStatus(
+      String tournamentId) async {
+    try {
+      final model = await _remoteDatasource.getMySpectatorStatus(tournamentId);
+      final entry = model.model?.toEntity(fallbackTournamentTitle: '');
+      return Right(
+        MySpectatorStatus(
+          isSpectating: model.isSpectating,
+          entry: entry,
+        ),
+      );
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, TournamentSpectatorEntry>> startSpectating(
+      String tournamentId) async {
+    try {
+      final model = await _remoteDatasource.startSpectating(tournamentId);
+      return Right(model.toEntity(fallbackTournamentTitle: ''));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> stopSpectating(String tournamentId) async {
+    try {
+      await _remoteDatasource.stopSpectating(tournamentId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  // Leaderboard đã tách ra feature riêng — xem `lib/features/leaderboard/`.
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 import '../../../reservation/domain/entities/entities.dart' as res;
 import '../../domain/entities/lobby_entity.dart';

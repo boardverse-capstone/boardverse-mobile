@@ -21,8 +21,6 @@ class CafeModel {
   final int totalSeats;
   final int availableSeats;
   final CafeSeatStatus seatStatus;
-  final double? depositAmount;
-  final int? depositMinutesLimit;
   final String? openingHours;
   final String? phoneNumber;
 
@@ -41,7 +39,6 @@ class CafeModel {
   final String? billingModel; // TIME_BASED, FIXED, TIERED
   final double? tieredBlockRate;
   final int? tieredBlockMinutes;
-  final double? depositPercentage;
   final bool isPricingLocked;
   final bool hasSePayConfigured;
 
@@ -60,8 +57,6 @@ class CafeModel {
     required this.totalSeats,
     required this.availableSeats,
     required this.seatStatus,
-    this.depositAmount,
-    this.depositMinutesLimit,
     this.openingHours,
     this.phoneNumber,
     // NearbyCafeDto fields
@@ -79,7 +74,6 @@ class CafeModel {
     this.billingModel,
     this.tieredBlockRate,
     this.tieredBlockMinutes,
-    this.depositPercentage,
     this.isPricingLocked = false,
     this.hasSePayConfigured = false,
   });
@@ -110,8 +104,6 @@ class CafeModel {
       totalSeats: json['totalSeats'] as int? ?? 20,
       availableSeats: json['availableSeats'] as int? ?? 15,
       seatStatus: _parseSeatStatus(json['seatStatus'] as String?),
-      depositAmount: (json['depositAmount'] as num?)?.toDouble(),
-      depositMinutesLimit: json['depositMinutesLimit'] as int?,
       openingHours: json['openingHours'] as String?,
       phoneNumber: json['phoneNumber'] as String?,
       // Nearby fields
@@ -131,7 +123,6 @@ class CafeModel {
       billingModel: json['billingModel'] as String?,
       tieredBlockRate: (json['tieredBlockRate'] as num?)?.toDouble(),
       tieredBlockMinutes: json['tieredBlockMinutes'] as int?,
-      depositPercentage: (json['depositPercentage'] as num?)?.toDouble(),
       isPricingLocked: json['isPricingLocked'] as bool? ?? false,
       hasSePayConfigured: json['hasSePayConfigured'] as bool? ?? false,
     );
@@ -139,15 +130,43 @@ class CafeModel {
 
   /// Parse trực tiếp từ `NearbyCafeDto` (mỗi phần tử trong `cafes.data[]`
   /// của response `GET /api/cafes/nearby`).
+  ///
+  /// **Field semantics** (xem `.agents/docs/apis_docs/cafe.md`):
+  /// - `totalSeats` / `availableSeats` — sức chứa thực tế của quán (tổng số
+  ///   ghế ngồi). Phản ánh đúng `CafeEntity.totalSeats` cho UI "Ghế trống".
+  /// - `totalTableCount` / `availableTableCount` — số bàn vật lý. Map sang
+  ///   field `availableTables` legacy cho UI "Bàn trống".
+  /// - `totalGameBoxCount` / `availableGameCount` — số hộp game theo tựa
+  ///   đã chọn tại quán.
+  ///
   /// Lưu ý: NearbyCafeDto **không** có `name`, `address`, `imageUrl`, …
   /// nên sẽ cần gọi thêm `GET /api/cafes/{id}` để lấy chi tiết.
   /// Hàm này chấp nhận các trường optional — khi thiếu sẽ dùng default
   /// để hiển thị tạm thời.
   factory CafeModel.fromNearbyJson(Map<String, dynamic> json) {
-    // Tính seatStatus string từ số bàn trống/tổng
-    final available = json['availableTableCount'] as int? ?? 0;
-    final total = json['totalTableCount'] as int? ?? 0;
-    final seatStatusStr = _seatStatusStringFromAvailable(available, total);
+    // Ưu tiên `availableSeats` thật từ API; nếu không có, ước lượng
+    // theo `seatsPerTable = totalSeats / totalTableCount`:
+    // `availableSeats ≈ availableTableCount * seatsPerTable`.
+    final availableTables = json['availableTableCount'] as int? ?? 0;
+    final totalTables = json['totalTableCount'] as int? ?? 0;
+    final totalSeats = json['totalSeats'] as int? ?? 0;
+    final availableSeatsRaw = json['availableSeats'] as int?;
+    int availableSeats;
+    if (availableSeatsRaw != null) {
+      availableSeats = availableSeatsRaw;
+    } else if (totalSeats > 0 && totalTables > 0) {
+      // Ước lượng đều theo tỷ lệ ghế/bàn.
+      final seatsPerTable = totalSeats / totalTables;
+      availableSeats = (availableTables * seatsPerTable).round();
+    } else {
+      availableSeats = availableTables;
+    }
+
+    // Tính seatStatus từ tỷ lệ ghế trống nếu có dữ liệu; fallback dùng
+    // tỷ lệ bàn trống (giữ behavior cũ cho backward-compat).
+    final seatStatusStr = totalSeats > 0
+        ? _seatStatusStringFromAvailable(availableSeats, totalSeats)
+        : _seatStatusStringFromAvailable(availableTables, totalTables);
 
     return CafeModel.fromJson({
       'id': json['cafeId'] ?? json['id'],
@@ -155,17 +174,22 @@ class CafeModel {
       'address': json['address'] ?? '',
       'imageUrl': json['imageUrl'] ?? '',
       'distanceMeters': json['distanceMeters'],
-      'availableTables': json['availableTableCount'] ?? 0,
+      'availableTables': availableTables,
       'hasGameInStock':
           (json['availableGameCount'] as int? ?? 0) > 0,
       'estimatedWaitMinutes': json['estimatedWaitMinutes'],
       'rating': 0,
       'availableGameIds': <String>[],
-      'totalSeats': json['totalTableCount'] ?? 0,
-      'availableSeats': json['availableTableCount'] ?? 0,
-      'seatStatus': seatStatusStr, // String cho fromJson
-      'availableTableCount': json['availableTableCount'] ?? 0,
-      'totalTableCount': json['totalTableCount'] ?? 0,
+      // Seat-based fields — dùng `totalSeats`/`availableSeats` THẬT từ
+      // backend; `availableSeats` ước lượng đều theo tỷ lệ ghế/bàn khi
+      // backend chưa trả field này.
+      'totalSeats': totalSeats,
+      'availableSeats': availableSeats,
+      'seatStatus': seatStatusStr,
+      'phoneNumber': json['phoneNumber'],
+      // Nearby fields — giữ nguyên để UI "Bàn trống" / "Box game" chạy đúng.
+      'availableTableCount': availableTables,
+      'totalTableCount': totalTables,
       'totalGameBoxCount': json['totalGameBoxCount'] ?? 0,
       'availableGameCount': json['availableGameCount'] ?? 0,
       'selectedGameAvailabilityStatus':
@@ -219,8 +243,6 @@ class CafeModel {
       'totalSeats': totalSeats,
       'availableSeats': availableSeats,
       'seatStatus': seatStatus.name,
-      'depositAmount': depositAmount,
-      'depositMinutesLimit': depositMinutesLimit,
       'openingHours': openingHours,
       'phoneNumber': phoneNumber,
       // Nearby fields
@@ -248,8 +270,6 @@ class CafeModel {
         totalSeats: totalSeats,
         availableSeats: availableSeats,
         seatStatus: seatStatus,
-        depositAmount: depositAmount,
-        depositMinutesLimit: depositMinutesLimit,
         openingHours: openingHours,
         phoneNumber: phoneNumber,
         // Nearby fields
@@ -291,7 +311,6 @@ class CafeModel {
       billingModel: parsedBilling,
       basePrice: basePrice ?? 0,
       tieredBlockMinutes: tieredBlockMinutes,
-      depositPercentage: depositPercentage,
       isPricingLocked: isPricingLocked,
       hasSePayConfigured: hasSePayConfigured,
       // Capacity

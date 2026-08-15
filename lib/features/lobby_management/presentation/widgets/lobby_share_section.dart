@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import '../../../lobby_management/domain/entities/lobby_invite_entity.dart';
 import '../../lobby_routes.dart';
 

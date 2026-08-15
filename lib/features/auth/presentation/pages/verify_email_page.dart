@@ -1,5 +1,3 @@
-import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,7 +5,7 @@ import '../../../../core/navigation/pages/main_scaffold.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_toast_card.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import '../widgets/widgets.dart';
@@ -48,17 +46,17 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
 
   void _onVerify() {
     if (_otpController.text.trim().length != _otpLength) {
-      _showToast('Vui lòng nhập đủ $_otpLength chữ số.', isError: true);
+      AppToast.showError(
+        context,
+        null,
+        defaultMessage: 'Vui lòng nhập đủ $_otpLength chữ số.',
+      );
       return;
     }
     context.read<AuthCubit>().verifyEmail(otpCode: _otpController.text.trim());
   }
 
   void _onResendCode() => context.read<AuthCubit>().sendEmailVerification(email: widget.email);
-
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(autoDismiss: true, snackbarDuration: const Duration(seconds: 3), position: DelightSnackbarPosition.top, builder: (context) => AppToastCard(leading: Icon(isError ? Icons.error_outline : Icons.check_circle_outlined, color: isError ? AppColors.error : AppColors.success, size: 28), title: Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))).show(context);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,19 +65,19 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
         listener: (context, state) {
           if (state is AuthSuccess) {
             // Auto-login after OTP verification — straight into the app.
-            _showToast('Xác thực thành công!');
+            AppToast.showSuccess(context, 'Xác thực thành công!');
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const MainScaffold()),
               (route) => false,
             );
           } else if (state is AuthEmailVerified) {
             // Fallback for the flow where tokens weren't returned by register.
-            _showToast(state.message);
+            AppToast.showSuccess(context, state.message);
             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginPage()), (route) => false);
           } else if (state is AuthEmailVerificationSent) {
-            _showToast(state.message);
+            AppToast.showSuccess(context, state.message);
           } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
+            AppToast.showError(context, state.message);
           }
         },
         builder: (context, state) {

@@ -3,14 +3,14 @@
 /// Import tất cả theme-related files từ một chỗ:
 ///
 /// ```dart
-/// import 'package:boardverse_mobile/core/theme/theme.dart';
+/// import 'package:boardverse/core/theme/theme.dart';
 /// ```
 ///
 /// Hoặc import riêng lẻ:
 ///
 /// ```dart
-/// import 'package:boardverse_mobile/core/theme/app_colors.dart';
-/// import 'package:boardverse_mobile/core/theme/app_theme.dart';
+/// import 'package:boardverse/core/theme/app_colors.dart';
+/// import 'package:boardverse/core/theme/app_theme.dart';
 /// ```
 library;
 
@@ -29,6 +29,9 @@ export 'app_elevation.dart';
 // UI Components
 export 'app_shimmer.dart';
 export 'app_icons.dart';
+
+// Neo-brutalism widgets
+export '../widgets/neo_panel.dart';
 
 // Main Theme
 export 'app_theme.dart';

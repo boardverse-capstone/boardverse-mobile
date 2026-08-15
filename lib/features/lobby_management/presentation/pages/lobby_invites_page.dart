@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/widgets/top_snack_bar.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import '../cubit/lobby_invite_cubit.dart';
 import '../cubit/lobby_invite_state.dart';
 import '../widgets/lobby_invite_card.dart';

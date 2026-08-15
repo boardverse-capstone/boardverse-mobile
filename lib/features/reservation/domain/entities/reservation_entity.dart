@@ -62,6 +62,7 @@ enum ReservationStatus {
   confirmed,
   checkedIn,
   completed,
+  earlyCheckout,
   expired,
   cancelledByPlayer,
   cancelledByCafe,
@@ -83,6 +84,8 @@ enum ReservationStatus {
         return 'Đã check-in';
       case ReservationStatus.completed:
         return 'Hoàn thành';
+      case ReservationStatus.earlyCheckout:
+        return 'Kết thúc sớm';
       case ReservationStatus.expired:
         return 'Hết hạn';
       case ReservationStatus.cancelledByPlayer:
@@ -105,6 +108,7 @@ enum ReservationStatus {
 
   bool get isTerminal =>
       this == ReservationStatus.completed ||
+      this == ReservationStatus.earlyCheckout ||
       this == ReservationStatus.expired ||
       this == ReservationStatus.cancelledByPlayer ||
       this == ReservationStatus.cancelledByCafe ||

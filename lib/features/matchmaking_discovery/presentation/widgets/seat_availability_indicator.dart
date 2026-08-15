@@ -154,7 +154,10 @@ class SeatAvailabilityIndicator extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${availability!.availableSeats}/${availability!.totalSeats} ghế',
+                  // Chỉ hiển thị sức chứa tổng (totalSeats) — không
+                  // "X/Y". availableSeats từ API là tổng ghế trống cộng
+                  // dồn qua các time-slot, không phải ghế trống hiện tại.
+                  '${availability!.totalSeats} ghế',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),

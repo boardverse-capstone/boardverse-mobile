@@ -10,9 +10,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/features/reservation/data/datasources/reservation_remote_datasource.dart';
-import 'package:boardverse_mobile/features/reservation/data/models/reservation_quote_model.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/features/reservation/data/datasources/reservation_remote_datasource.dart';
+import 'package:boardverse/features/reservation/data/models/reservation_quote_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

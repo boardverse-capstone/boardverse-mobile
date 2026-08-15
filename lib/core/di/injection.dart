@@ -12,6 +12,7 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/cubit/auth_cubit.dart';
 import '../../features/profile/data/datasources/profile_remote_datasource.dart';
 import '../../features/profile/data/profile_repository_impl.dart';
+import '../../features/profile/data/services/profile_cache_service.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/matchmaking_discovery/data/matchmaking_repository_impl.dart';
@@ -48,6 +49,10 @@ import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart'
 import '../../features/match_summary_rating/data/rating_repository_impl.dart';
 import '../../features/match_summary_rating/domain/repositories/rating_repository.dart';
 import '../../features/match_summary_rating/presentation/cubit/rating_cubit.dart';
+import '../../features/leaderboard/data/datasources/leaderboard_remote_datasource.dart';
+import '../../features/leaderboard/data/leaderboard_repository_impl.dart';
+import '../../features/leaderboard/domain/repositories/leaderboard_repository.dart';
+import '../../features/leaderboard/presentation/cubit/leaderboard_cubit.dart';
 import '../../features/tournament/data/datasources/base/tournament_remote_datasource.dart';
 import '../../features/tournament/data/datasources/tournament_remote_datasource_impl.dart';
 import '../../features/tournament/data/tournament_repository_impl.dart';
@@ -56,7 +61,7 @@ import '../../features/tournament/presentation/cubit/tournament_list_cubit.dart'
 import '../../features/tournament/presentation/cubit/tournament_detail_cubit.dart';
 import '../../features/tournament/presentation/cubit/my_registrations_cubit.dart';
 import '../../features/tournament/presentation/cubit/elo_history_cubit.dart';
-import '../../features/tournament/presentation/cubit/leaderboard_cubit.dart';
+import '../../features/tournament/presentation/cubit/tournament_engagement_cubit.dart';
 import '../../features/settings/presentation/cubit/theme_cubit.dart';
 import '../../features/wallet/data/datasources/wallet_remote_datasource.dart';
 import '../../features/wallet/data/wallet_repository_impl.dart';
@@ -67,25 +72,6 @@ import '../../features/reservation/data/datasources/reservation_remote_datasourc
 import '../../features/reservation/data/reservation_repository_impl.dart';
 import '../../features/reservation/domain/repositories/reservation_repository.dart';
 import '../../features/reservation/presentation/cubit/reservation_cubit.dart';
-import '../../features/booking_payment/data/booking_persistence_service.dart';
-import '../../features/booking_payment/data/booking_repository_impl.dart';
-import '../../features/booking_payment/data/datasources/base/booking_rating_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/booking_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/bookings_by_cafe_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/cafe_availability_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/cafe_table_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/base/session_status_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/booking_rating_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/booking_remote_datasource_impl.dart';
-import '../../features/booking_payment/data/datasources/remote/bookings_by_cafe_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/cafe_availability_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/cafe_table_remote_datasource.dart';
-import '../../features/booking_payment/data/datasources/remote/session_status_remote_datasource.dart';
-import '../../features/booking_payment/data/realtime/booking_realtime_service_factory.dart';
-import '../../features/booking_payment/domain/repositories/booking_repository.dart';
-import '../../features/booking_payment/presentation/cubit/booking_detail_actions_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_realtime_cubit.dart';
-import '../../features/booking_payment/presentation/cubit/booking_result_cubit.dart';
 import '../services/storage/theme_preferences_service.dart';
 import '../utils/current_user_resolver.dart';
 
@@ -138,6 +124,10 @@ void setupDependencies() {
     () => ProfileRemoteDatasourceImpl(dio: sl<Dio>()),
   );
 
+  sl.registerLazySingleton<ProfileCacheService>(
+    () => ProfileCacheService(),
+  );
+
   sl.registerLazySingleton<ProfileRepository>(
     () =>
         ProfileRepositoryImpl(remoteDatasource: sl<ProfileRemoteDatasource>()),
@@ -145,7 +135,10 @@ void setupDependencies() {
 
   // Factory: new Cubit instance every time it is requested.
   sl.registerFactory<ProfileCubit>(
-    () => ProfileCubit(repository: sl<ProfileRepository>()),
+    () => ProfileCubit(
+      repository: sl<ProfileRepository>(),
+      cache: sl<ProfileCacheService>(),
+    ),
   );
 
   // ─── Feature: Matchmaking Discovery ──────────────────────────────────
@@ -292,8 +285,26 @@ void setupDependencies() {
     () => EloHistoryCubit(repository: sl<TournamentRepository>()),
   );
 
+  // Tournament Engagement (T-03 Waitlist + T-04 Spectator) — lifetime
+  // gắn liền với [TournamentDetailPage], tạo mới mỗi lần mở detail.
+  sl.registerFactory<TournamentEngagementCubit>(
+    () => TournamentEngagementCubit(repository: sl<TournamentRepository>()),
+  );
+
+  // ─── Feature: Leaderboard (Global — BR §K-06) ──────────────────────────
+  // Dùng chung cho Tournament tab + Profile/Home "Xếp hạng".
+  sl.registerLazySingleton<LeaderboardRemoteDatasource>(
+    () => LeaderboardRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<LeaderboardRepository>(
+    () => LeaderboardRepositoryImpl(remote: sl<LeaderboardRemoteDatasource>()),
+  );
+
+  // Factory — mỗi page mount tạo cubit mới để tránh cache entries qua các
+  // màn khác nhau. Tournament page cũng dùng lại cubit này.
   sl.registerFactory<LeaderboardCubit>(
-    () => LeaderboardCubit(repository: sl<TournamentRepository>()),
+    () => LeaderboardCubit(repository: sl<LeaderboardRepository>()),
   );
 
   // ─── Theme preferences ────────────────────────────────────────────────
@@ -315,8 +326,14 @@ void setupDependencies() {
     () => WalletRepositoryImpl(remoteDatasource: sl<WalletRemoteDatasource>()),
   );
 
-  // Singleton cubit for persistent wallet state
-  sl.registerLazySingleton<WalletCubit>(
+  // Factory cubit: new instance every time it is requested.
+  //
+  // Registered as Factory (not LazySingleton) so that logout → fresh
+  // login always yields a clean wallet cubit with no cached state
+  // from the previous user. Any caller (e.g. WalletPage) can still
+  // resolve it via GetIt.I<WalletCubit>() and the BlocProvider will
+  // create the instance.
+  sl.registerFactory<WalletCubit>(
     () => WalletCubit(repository: sl<WalletRepository>()),
   );
 
@@ -349,65 +366,6 @@ void setupDependencies() {
   /// Mỗi LobbyPage mount sẽ tạo 1 instance mới; tự dispose khi page pop.
   sl.registerFactory<LobbyReservationCubit>(
     () => LobbyReservationCubit(repository: sl<ReservationRepository>()),
-  );
-
-  // ─── Feature: Booking Payment (POS check-in + rating + session) ─────
-  // Backend API: /api/bookings, /api/payments/booking-deposit/*, ...
-  sl.registerLazySingleton<BookingRemoteDatasource>(
-    () => BookingRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-  sl.registerLazySingleton<CafeTableRemoteDatasource>(
-    () => CafeTableRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-  sl.registerLazySingleton<CafeAvailabilityRemoteDatasource>(
-    () => CafeAvailabilityRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-  sl.registerLazySingleton<BookingRatingRemoteDatasource>(
-    () => BookingRatingRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-  sl.registerLazySingleton<SessionStatusRemoteDatasource>(
-    () => SessionStatusRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-  sl.registerLazySingleton<BookingsByCafeRemoteDatasource>(
-    () => BookingsByCafeRemoteDatasourceImpl(dio: sl<Dio>()),
-  );
-
-  sl.registerLazySingleton<BookingPersistenceService>(
-    () => BookingPersistenceService(storage: sl<FlutterSecureStorage>()),
-  );
-
-  sl.registerLazySingleton<BookingRepository>(
-    () => BookingRepositoryImpl(
-      datasource: sl<BookingRemoteDatasource>(),
-      cafeTableDatasource: sl<CafeTableRemoteDatasource>(),
-      cafeAvailabilityDatasource: sl<CafeAvailabilityRemoteDatasource>(),
-      bookingRatingDatasource: sl<BookingRatingRemoteDatasource>(),
-      sessionStatusDatasource: sl<SessionStatusRemoteDatasource>(),
-      bookingsByCafeDatasource: sl<BookingsByCafeRemoteDatasource>(),
-      persistence: sl<BookingPersistenceService>(),
-    ),
-  );
-
-  // ─── Booking Realtime Service (SignalR /hubs/lobby, gap #7) ────────────
-  // Service này cần JWT — provider qua getter lazy để tránh đăng ký
-  // ngay khi app boot (trước khi user login).
-  sl.registerLazySingleton<BookingRealtimeServiceFactory>(
-    () => BookingRealtimeServiceFactory(),
-  );
-
-  // Cubits (factory — mỗi page mount tạo instance mới).
-  sl.registerFactory<BookingResultCubit>(
-    () => BookingResultCubit(repository: sl<BookingRepository>()),
-  );
-  sl.registerFactory<BookingDetailActionsCubit>(
-    () => BookingDetailActionsCubit(sl<BookingRepository>()),
-  );
-  sl.registerFactory<BookingRealtimeCubit>(
-    () => BookingRealtimeCubit(
-      signalRFactory: sl<BookingRealtimeServiceFactory>(),
-      fcm: sl<FcmService>(),
-      repository: sl<BookingRepository>(),
-    ),
   );
 
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────

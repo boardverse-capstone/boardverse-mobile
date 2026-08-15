@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/detail_row.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/profile/domain/entities/player_location_entity.dart';
+import 'package:boardverse/features/profile/presentation/widgets/detail_row.dart';
+import 'package:boardverse/features/profile/presentation/widgets/section_card.dart';
 
 /// Thẻ "Vị trí đã lưu":
 /// - Nếu [location.hasLocation] = true: hiển thị toạ độ + nguồn + nút "Xoá".

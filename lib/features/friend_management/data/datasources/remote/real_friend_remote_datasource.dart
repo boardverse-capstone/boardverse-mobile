@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/features/friend_management/data/datasources/base/friend_remote_datasource.dart';
+import 'package:boardverse/features/friend_management/data/datasources/base/friend_remote_datasource.dart';
 
 import '_api_guard_mixin.dart';
 import '_friend_datasource_friends.dart';

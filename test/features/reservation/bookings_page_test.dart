@@ -16,32 +16,34 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/core/network/paginated_response.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/realtime/lobby_realtime_service.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_chat_message.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart'
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/core/network/paginated_response.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/lobby_management/data/realtime/lobby_realtime_service.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_chat_message.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart'
     show LobbyEntity, LobbyStatus;
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invite_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_share_info.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_summary.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/repositories/lobby_repository.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_share_info.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_summary.dart';
+import 'package:boardverse/features/lobby_management/domain/repositories/lobby_repository.dart';
+import 'package:boardverse/features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
 // Chỉ import ReservationEntity (không qua `entities.dart` để tránh pull
 // theo LobbyStatus trùng tên với lobby_management).
-import 'package:boardverse_mobile/features/reservation/domain/entities/reservation_entity.dart'
+import 'package:boardverse/features/reservation/domain/entities/reservation_entity.dart'
     hide LobbyStatus;
-import 'package:boardverse_mobile/features/reservation/domain/entities/reservation_quote_entity.dart';
-import 'package:boardverse_mobile/features/reservation/domain/repositories/reservation_repository.dart';
-import 'package:boardverse_mobile/core/navigation/pages/bookings_page.dart';
+import 'package:boardverse/features/reservation/domain/entities/reservation_quote_entity.dart';
+import 'package:boardverse/features/reservation/domain/repositories/reservation_repository.dart';
+import 'package:boardverse/core/navigation/pages/bookings_page.dart';
 
 class _StubLobbyRepository implements LobbyRepository {
-  Either<Failure, List<LobbyEntity>> hostedResult =
-      const Right(<LobbyEntity>[]);
-  Either<Failure, List<LobbyEntity>> joinedResult =
-      const Right(<LobbyEntity>[]);
+  Either<Failure, List<LobbyEntity>> hostedResult = const Right(
+    <LobbyEntity>[],
+  );
+  Either<Failure, List<LobbyEntity>> joinedResult = const Right(
+    <LobbyEntity>[],
+  );
 
   void stubHosted(List<LobbyEntity> data) {
     hostedResult = Right(data);
@@ -91,7 +93,10 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> joinLobby(String lobbyId, String? inviteCode) async {
+  Future<Either<Failure, bool>> joinLobby(
+    String lobbyId,
+    String? inviteCode,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -101,7 +106,10 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, void>> inviteFriend(String lobbyId, String friendId) async {
+  Future<Either<Failure, void>> inviteFriend(
+    String lobbyId,
+    String friendId,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -124,7 +132,9 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, LobbyInviteEntity>> resendInvite(String inviteId) async {
+  Future<Either<Failure, LobbyInviteEntity>> resendInvite(
+    String inviteId,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -141,7 +151,8 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, List<LobbyInviteEntity>>> getPendingLobbyInvites() async {
+  Future<Either<Failure, List<LobbyInviteEntity>>>
+  getPendingLobbyInvites() async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -153,7 +164,9 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, LobbyEntity>> acceptLobbyInvite(String inviteId) async {
+  Future<Either<Failure, LobbyEntity>> acceptLobbyInvite(
+    String inviteId,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -168,7 +181,9 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(String lobbyId) async {
+  Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(
+    String lobbyId,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -183,7 +198,10 @@ class _StubLobbyRepository implements LobbyRepository {
   }
 
   @override
-  Future<Either<Failure, void>> cancelLobby(String lobbyId, String reasonCode) async {
+  Future<Either<Failure, void>> cancelLobby(
+    String lobbyId,
+    String reasonCode,
+  ) async {
     return const Left(NotFoundFailure(message: 'Not implemented'));
   }
 
@@ -323,8 +341,9 @@ class _StubLobbyRepository implements LobbyRepository {
 }
 
 class _StubReservationRepository implements ReservationRepository {
-  Either<Failure, List<ReservationEntity>> reservationsResult =
-      const Right(<ReservationEntity>[]);
+  Either<Failure, List<ReservationEntity>> reservationsResult = const Right(
+    <ReservationEntity>[],
+  );
 
   void stubReservations(List<ReservationEntity> data) {
     reservationsResult = Right(data);
@@ -332,7 +351,7 @@ class _StubReservationRepository implements ReservationRepository {
 
   @override
   Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
-      getReservations({
+  getReservations({
     List<String>? statuses,
     DateTime? playDate,
     String? cafeId,
@@ -365,12 +384,12 @@ class _StubReservationRepository implements ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
     required String idempotencyKey,
-  }) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+  }) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, ReservationConfirmResult>> confirmReservation({
@@ -379,49 +398,46 @@ class _StubReservationRepository implements ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
     required int expectedFinalDeposit,
     required String idempotencyKey,
-  }) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+  }) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, ReservationCancelResult>> cancelReservation({
     required String reservationId,
     String? reason,
     required String idempotencyKey,
-  }) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+  }) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, ReservationEntity>> getReservation(
-      String reservationId) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+    String reservationId,
+  ) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, ReservationEntity>> getReservationDetail(
-      String reservationId) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+    String reservationId,
+  ) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
-      getPendingCafeApprovals({
+  getPendingCafeApprovals({
     String? cafeId,
     DateTime? playDate,
     int page = 1,
     int pageSize = 20,
-  }) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+  }) async => const Left(NotFoundFailure(message: 'Not implemented'));
 
   @override
   Future<Either<Failure, void>> cafeApproval({
     required String reservationId,
     required bool approve,
     String? reason,
-  }) async =>
-      const Left(NotFoundFailure(message: 'Not implemented'));
+  }) async => const Left(NotFoundFailure(message: 'Not implemented'));
 }
 
 LobbyEntity _makeLobby({
@@ -522,9 +538,7 @@ void main() {
   Widget wrap() {
     return BlocProvider<MyLobbiesCubit>.value(
       value: cubit,
-      child: const MaterialApp(
-        home: BookingsPage(),
-      ),
+      child: const MaterialApp(home: BookingsPage()),
     );
   }
 
@@ -533,14 +547,18 @@ void main() {
       await tester.pumpWidget(wrap());
       await tester.pump();
 
-      expect(find.text('LỊCH ĐẶT'), findsOneWidget,
-          reason: 'Page title "LỊCH ĐẶT" phải hiển thị');
+      expect(
+        find.text('LỊCH ĐẶT'),
+        findsOneWidget,
+        reason: 'Page title "LỊCH ĐẶT" phải hiển thị',
+      );
       expect(find.text('Phòng chờ'), findsOneWidget);
       expect(find.text('Lịch đặt'), findsOneWidget);
     });
 
-    testWidgets('tab "Lịch đặt" (default) render reservation list',
-        (tester) async {
+    testWidgets('tab "Lịch đặt" (default) render reservation list', (
+      tester,
+    ) async {
       reservationRepo.stubReservations([
         _makeReservation(gameName: 'Wingspan'),
       ]);
@@ -549,8 +567,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Wingspan'), findsOneWidget,
-          reason: 'Reservation phải render ở tab Lịch đặt (default)');
+      expect(
+        find.text('Wingspan'),
+        findsOneWidget,
+        reason: 'Reservation phải render ở tab Lịch đặt (default)',
+      );
     });
 
     testWidgets('tab "Lịch đặt" hiển thị empty state', (tester) async {
@@ -566,7 +587,9 @@ void main() {
       );
     });
 
-    testWidgets('chuyển sang tab "Phòng chờ" render lobby list', (tester) async {
+    testWidgets('chuyển sang tab "Phòng chờ" render lobby list', (
+      tester,
+    ) async {
       lobbyRepo.stubHosted([_makeLobby()]);
       cubit.load(null);
 
@@ -580,12 +603,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Catan'), findsOneWidget,
-          reason: 'Lobby phải render trong tab Phòng chờ');
+      expect(
+        find.text('Catan'),
+        findsOneWidget,
+        reason: 'Lobby phải render trong tab Phòng chờ',
+      );
     });
 
-    testWidgets('tab "Phòng chờ" hiển thị empty state khi không có lobby',
-        (tester) async {
+    testWidgets('tab "Phòng chờ" hiển thị empty state khi không có lobby', (
+      tester,
+    ) async {
       lobbyRepo.stubHosted(const []);
       lobbyRepo.stubJoined(const []);
 
@@ -604,8 +631,9 @@ void main() {
       );
     });
 
-    testWidgets('tab "Phòng chờ" render error + retry khi API fail',
-        (tester) async {
+    testWidgets('tab "Phòng chờ" render error + retry khi API fail', (
+      tester,
+    ) async {
       lobbyRepo.stubThrows();
 
       await tester.pumpWidget(wrap());

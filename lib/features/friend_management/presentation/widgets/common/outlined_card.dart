@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism Outlined card widget with hard border offset shadow.
 class OutlinedCard extends StatelessWidget {

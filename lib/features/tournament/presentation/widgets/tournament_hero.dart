@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_state.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_state.dart';
 
 /// Neo-brutalism Hero header cho tab Tournament — gradient background với
 /// pattern trang trí.

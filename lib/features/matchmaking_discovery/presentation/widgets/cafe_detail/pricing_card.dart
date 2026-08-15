@@ -95,46 +95,6 @@ class PricingCard extends StatelessWidget {
               ),
             ],
           ),
-          if (cafe.depositPercentage != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              height: 2,
-              color: AppColors.primary.withValues(alpha: 0.2),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.payments_outlined,
-                    size: 18,
-                    color: AppColors.secondary,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Tiền cọc',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  cafe.depositDisplay,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.secondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );

@@ -183,7 +183,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
   @override
   Future<Either<Failure, NearbyCafesSearchResultEntity>>
       getNearbyCafesWithGameSearch({
-    required String gameId,
+    String? gameId,
     required double latitude,
     required double longitude,
     double radiusKm = 15.0,
@@ -209,16 +209,16 @@ class MatchmakingRepositoryImpl extends CacheableRepository
   @override
   Future<Either<Failure, NearbyCafesSearchResultEntity>>
       getNearbyCafesForCurrentUser({
-    required String gameId,
+    String? gameId,
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
   }) async {
     try {
-      // Cache key theo gameId + radius (các params khác default ổn định).
-      // Dedupes BoardGameDetailPage, LobbyCafeSelectionPage, SearchPage
-      // cùng gọi endpoint này trong vòng 30s.
-      final key = 'cafes-nearby-me:$gameId:$radiusKm';
+      // Cache key: chỉ theo radius (gameId optional — null khi Cafe tab
+      // gọi thẳng, các params khác default ổn định).
+      final key =
+          'cafes-nearby-me:${gameId ?? '_'}:$radiusKm:$pageNumber:$pageSize';
       final result = await cache<NearbyCafesSearchResultModel>(
         key,
         () => datasource.getNearbyCafesForCurrentUser(
@@ -232,6 +232,36 @@ class MatchmakingRepositoryImpl extends CacheableRepository
     } catch (e) {
       return Left(ServerFailure(
           message: 'Lỗi tìm quán gần (me): ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, NearbyCafesSearchResultEntity>> searchCafes({
+    required String name,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      // Search-by-name cache key chỉ theo query name (lat/lng optional).
+      final key = 'cafes-search:${name.toLowerCase().trim()}';
+      final result = await cache<NearbyCafesSearchResultModel>(
+        key,
+        () => datasource.searchCafes(
+          name: name,
+          latitude: latitude,
+          longitude: longitude,
+          radiusKm: radiusKm,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        ),
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi tìm kiếm quán: ${e.toString()}'));
     }
   }
 
@@ -254,7 +284,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
   }
 
   @override
-  Future<Either<Failure, CafeEntity?>> getCafeById(String id) async {
+  Future<Either<Failure, CafeDetailEntity?>> getCafeById(String id) async {
     try {
       final cafe = await datasource.getCafeById(id);
       return Right(cafe?.toEntity());
@@ -267,7 +297,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
   Future<Either<Failure, CafeDetailEntity?>> getCafeDetail(String id) async {
     try {
       final cafe = await datasource.getCafeById(id);
-      return Right(cafe?.toDetailEntity());
+      return Right(cafe?.toEntity());
     } catch (e) {
       return Left(ServerFailure(message: 'Lỗi lấy chi tiết quán: ${e.toString()}'));
     }

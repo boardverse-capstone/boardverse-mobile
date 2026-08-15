@@ -13,6 +13,7 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
   final DateTime selectedDate;
   final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
+  final TimeOfDay? preferredEndTime;
   final int maxPlayers;
   final bool isPublic;
   final double minimumKarma;
@@ -31,6 +32,7 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
     required this.selectedDate,
     required this.selectedTimeSlot,
     required this.preferredStartTime,
+    this.preferredEndTime,
     required this.maxPlayers,
     required this.isPublic,
     required this.minimumKarma,
@@ -99,8 +101,14 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
             if (preferredStartTime != null)
               LobbyConfigDialogRow(
                 icon: Icons.schedule,
-                label: 'Giờ',
+                label: 'Giờ bắt đầu',
                 value: formatTime(preferredStartTime!),
+              ),
+            if (preferredEndTime != null)
+              LobbyConfigDialogRow(
+                icon: Icons.schedule,
+                label: 'Giờ kết thúc',
+                value: formatTime(preferredEndTime!),
               ),
             LobbyConfigDialogRow(
               icon: Icons.people,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 import '../../domain/entities/entities.dart';
 import 'common/common.dart';
 import 'shared/activity_status_helpers.dart';

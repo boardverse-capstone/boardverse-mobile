@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
@@ -35,6 +37,14 @@ abstract class WalletRemoteDatasource {
   /// Hủy đơn top-up BVC đang Pending (chưa thanh toán).
   /// Set local flag Status = Cancelled. Webhook SePay sau sẽ tự reject.
   Future<Either<Failure, void>> cancelTopUp(String topUpId);
+
+  /// GET /api/v1/wallet/topup/{orderId}/qr-image
+  /// Fallback endpoint lấy ảnh QR PNG — dùng khi backend không trả
+  /// `qrImageBase64` trong response của POST/PATCH /topup.
+  ///
+  /// Backend proxy từ vietqr.app server-side → bypass CORS trên Flutter Web.
+  /// Trả về `Uint8List` PNG bytes để `Image.memory` render.
+  Future<Either<Failure, Uint8List>> getQrImageBytes(String orderId);
 }
 
 /// Implementation using Dio
@@ -161,6 +171,34 @@ class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
 
       return Left(ServerFailure(
         message: 'Failed to cancel top-up: ${response.statusCode}',
+      ));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Uint8List>> getQrImageBytes(String orderId) async {
+    if (orderId.isEmpty) {
+      return const Left(ServerFailure(message: 'OrderId trống.'));
+    }
+    try {
+      final response = await dio.get<List<int>>(
+        ApiEndpoints.walletTopupQrImage(orderId),
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return Right(Uint8List.fromList(response.data!));
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to fetch QR image: ${response.statusCode}',
       ));
     } on DioException catch (e) {
       return Left(_handleDioError(e));

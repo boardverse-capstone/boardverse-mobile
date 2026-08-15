@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_radius.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Single entry in the [QuickActionsCard] grid.
 class QuickActionItem {

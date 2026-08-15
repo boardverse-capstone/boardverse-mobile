@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/stat_card.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/presentation/widgets/stat_card.dart';
 
 /// Row hiển thị 3 chỉ số quan trọng của profile: ELO rating, Level, Karma.
 ///

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse/core/theme/theme.dart';
 import '../../data/datasources/base/lobby_remote_datasource.dart';
 import '../../domain/entities/lobby_entity.dart';
 

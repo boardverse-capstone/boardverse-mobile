@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_page_shimmer.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_list_shimmer.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_page_shimmer.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_list_shimmer.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
 
 /// Tests cho shimmer skeleton (Phase 3 — thay thế spinner).
 ///

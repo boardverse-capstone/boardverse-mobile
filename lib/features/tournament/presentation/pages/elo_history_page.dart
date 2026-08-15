@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/widgets/shimmer_skeletons.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/utils/tournament_utils.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/elo_chart.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/widgets/shimmer_skeletons.dart';
+import 'package:boardverse/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/elo_history_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/elo_history_state.dart';
+import 'package:boardverse/features/tournament/presentation/utils/tournament_utils.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/elo_chart.dart';
 
 /// Shows the current user's Elo history across tournaments.
 class EloHistoryPage extends StatelessWidget {

@@ -2,8 +2,9 @@ import '../../models/tournament_model.dart';
 import '../../models/participant_model.dart';
 import '../../models/match_model.dart';
 import '../../models/elo_history_model.dart';
-import '../../models/leaderboard_model.dart';
 import '../../models/my_registration_model.dart';
+import '../../models/tournament_waitlist_model.dart';
+import '../../models/tournament_spectator_model.dart';
 
 /// Abstract interface for tournament remote data source.
 /// Defines all API calls for tournament module.
@@ -72,9 +73,52 @@ abstract class TournamentRemoteDatasource {
   /// history: [...] }` — không phải array.
   Future<MyEloHistoryResponseModel> getMyEloHistory();
 
-  /// `GET /tournaments/leaderboard?topCount=...&gameTemplateId=...`
-  Future<List<LeaderboardEntryModel>> getLeaderboard({
-    int topCount = 100,
-    String? gameTemplateId,
+  // ─── T-03: Tournament Waitlist ──────────────────────────────────────────
+  // Docs: `.agents/docs/apis_docs/tournament-waitlist.md`
+
+  /// `POST /tournaments/{id}/waitlist` — tham gia waitlist của tournament
+  /// đầy. Trả về entry mới (kèm `position` hiện tại).
+  Future<TournamentWaitlistModel> joinWaitlist(String tournamentId);
+
+  /// `GET /tournaments/{id}/waitlist?page=...&pageSize=...` — danh sách
+  /// toàn bộ user trong waitlist (phân trang).
+  Future<List<TournamentWaitlistModel>> getWaitlist(
+    String tournamentId, {
+    int? page,
+    int? pageSize,
   });
+
+  /// `GET /tournaments/{id}/waitlist/me` — trạng thái waitlist của tôi.
+  /// Khi chưa join, backend trả `data.isInWaitlist = false`.
+  Future<MyWaitlistStatusModel> getMyWaitlistStatus(String tournamentId);
+
+  /// `DELETE /tournaments/{id}/waitlist` — rời khỏi waitlist.
+  Future<void> leaveWaitlist(String tournamentId);
+
+  /// `POST /tournaments/{id}/waitlist/confirm` — xác nhận offer từ waitlist.
+  Future<WaitlistActionResultModel> confirmWaitlistOffer(String tournamentId);
+
+  /// `POST /tournaments/{id}/waitlist/decline` — từ chối offer.
+  Future<WaitlistActionResultModel> declineWaitlistOffer(String tournamentId);
+
+  // ─── T-04: Tournament Spectator ────────────────────────────────────────
+  // Docs: `.agents/docs/apis_docs/tournament.md` (Spectator Endpoints)
+
+  /// `GET /tournaments/{id}/spectators` — danh sách spectators (public).
+  Future<List<TournamentSpectatorModel>> getSpectators(String tournamentId);
+
+  /// `GET /tournaments/{id}/spectators/me` — spectate entry của tôi.
+  /// Khi chưa spectate, backend trả `data: null`.
+  Future<MySpectatorStatusModel> getMySpectatorStatus(String tournamentId);
+
+  /// `POST /tournaments/{id}/spectators` — bắt đầu spectate.
+  Future<TournamentSpectatorModel> startSpectating(String tournamentId);
+
+  /// `DELETE /tournaments/{id}/spectators` — rời khỏi spectate.
+  Future<void> stopSpectating(String tournamentId);
+
+  /// **Leaderboard đã tách ra feature riêng** — xem
+  /// `lib/features/leaderboard/`. Endpoint mới:
+  /// - `GET /api/v1/leaderboard/{karma,elo,level}`
+  /// Endpoint cũ `/api/v1/tournaments/leaderboard` (BR-10) đã deprecated.
 }

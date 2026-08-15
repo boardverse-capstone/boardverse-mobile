@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Countdown widget tới một thời điểm `scheduledTime`. Neo-brutalism style
 /// với bold border + hard shadow.

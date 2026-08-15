@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:boardverse_mobile/features/lobby_management/data/models/lobby_model.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/data/models/lobby_model.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
 
 /// Tests cho `LobbyPlayer.readyAt` (BR-LOBBY-READY-01) + JSON mapping.
 ///

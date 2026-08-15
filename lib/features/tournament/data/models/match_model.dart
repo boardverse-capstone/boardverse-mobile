@@ -1,4 +1,4 @@
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
 
 /// Tournament match model for API response mapping.
 class TournamentMatchModel {

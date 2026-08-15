@@ -6,6 +6,7 @@ class WalletModel extends WalletEntity {
     required super.userId,
     required super.availableBalance,
     required super.heldBalance,
+    required super.riskMultiplier,
     required super.riskLevel,
     required super.isCoolingOff,
     required super.accountStatus,
@@ -16,6 +17,8 @@ class WalletModel extends WalletEntity {
       userId: json['userId'] as String,
       availableBalance: json['availableBalance'] as int,
       heldBalance: json['heldBalance'] as int? ?? 0,
+      riskMultiplier:
+          (json['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
       riskLevel: RiskLevel.fromString(json['riskLevel'] as String? ?? 'low'),
       isCoolingOff: json['isCoolingOff'] as bool? ?? false,
       accountStatus:
@@ -28,6 +31,7 @@ class WalletModel extends WalletEntity {
       'userId': userId,
       'availableBalance': availableBalance,
       'heldBalance': heldBalance,
+      'riskMultiplier': riskMultiplier,
       'riskLevel': riskLevel.name,
       'isCoolingOff': isCoolingOff,
       'accountStatus': accountStatus.name,

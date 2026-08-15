@@ -184,19 +184,6 @@ class MatchmakingGpsDisabled extends MatchmakingState {
   List<Object?> get props => [message, selectedGame];
 }
 
-class MatchmakingOutOfRadius extends MatchmakingState {
-  final BoardGameEntity selectedGame;
-  final List<BoardGameEntity> similarGames;
-
-  const MatchmakingOutOfRadius({
-    required this.selectedGame,
-    required this.similarGames,
-  });
-
-  @override
-  List<Object?> get props => [selectedGame, similarGames];
-}
-
 // ─── Seat Availability States ─────────────────────────────────────
 
 class SeatChecking extends MatchmakingState {
@@ -330,4 +317,36 @@ class MatchmakingNearbyCafesLoaded extends MatchmakingState {
   @override
   List<Object?> get props =>
       [gameId, cafes, emptyResultMessage, alternativeSuggestions];
+}
+
+// ─── Cafe Search Results (by name) ──────────────────────────────
+
+class MatchmakingCafeSearchResults extends MatchmakingState {
+  final String query;
+  final List<CafeEntity> cafes;
+  final String? emptyResultMessage;
+  final List<dynamic> alternativeSuggestions; // AlternativeGameSuggestionEntity
+
+  /// Tên game mà cubit đã fallback sang khi game phổ biến nhất không có
+  /// quán gần player. `null` khi không có fallback (response đầu tiên có
+  /// data, hoặc fallback cũng trống). UI có thể hiển thị tên game để user
+  /// biết hệ thống đã tự chọn game thay thế.
+  final String? fallbackGameName;
+
+  const MatchmakingCafeSearchResults({
+    required this.query,
+    required this.cafes,
+    this.emptyResultMessage,
+    this.alternativeSuggestions = const [],
+    this.fallbackGameName,
+  });
+
+  @override
+  List<Object?> get props => [
+        query,
+        cafes,
+        emptyResultMessage,
+        alternativeSuggestions,
+        fallbackGameName,
+      ];
 }

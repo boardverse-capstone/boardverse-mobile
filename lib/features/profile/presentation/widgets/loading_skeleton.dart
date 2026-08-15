@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_shimmer.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_shimmer.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism Skeleton shimmer cho toàn bộ màn hình profile.
 class ProfileLoadingSkeleton extends StatelessWidget {

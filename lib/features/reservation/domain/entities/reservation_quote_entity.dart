@@ -13,7 +13,14 @@ class ReservationQuoteEntity extends Equatable {
   final DateTime playDate;
   final TimeSlot timeSlot;
   final String? preferredStartTime;
-  final DateTime scheduledTime;
+  final String? preferredEndTime;
+
+  /// Giờ bắt đầu thực tế được xếp lịch (server tính toán từ timeSlot + preferredStartTime).
+  final DateTime scheduledStartTime;
+
+  /// Giờ kết thúc thực tế được xếp lịch (server tính toán từ timeSlot.endTime hoặc preferredEndTime).
+  final DateTime scheduledEndTime;
+
   final DateTime recruitmentDeadline;
   final int minPlayers;
   final int maxPlayers;
@@ -45,7 +52,9 @@ class ReservationQuoteEntity extends Equatable {
     required this.playDate,
     required this.timeSlot,
     this.preferredStartTime,
-    required this.scheduledTime,
+    this.preferredEndTime,
+    required this.scheduledStartTime,
+    required this.scheduledEndTime,
     required this.recruitmentDeadline,
     required this.minPlayers,
     required this.maxPlayers,
@@ -98,6 +107,8 @@ class ReservationQuoteEntity extends Equatable {
         requiresCafeApproval,
         expiresAt,
         riskLevel,
+        scheduledStartTime,
+        scheduledEndTime,
       ];
 }
 

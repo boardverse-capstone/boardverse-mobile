@@ -1,11 +1,12 @@
-import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/utils/enums.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_toast_card.dart';
+import '../../../../core/navigation/pages/main_scaffold.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import '../widgets/widgets.dart';
@@ -27,6 +28,30 @@ class _RegisterPageState extends State<RegisterPage>
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _acceptTerms = false;
+
+  // Theo cùng pattern với `LoginPage` để đảm bảo hành vi đồng nhất:
+// web dùng GOOGLE_WEB_CLIENT_ID làm clientId, mobile dùng
+// GOOGLE_SERVER_CLIENT_ID làm serverClientId.
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
+    serverClientId: _serverClientId,
+  );
+
+  /// Trả về serverClientId dùng cho cả Android & iOS.
+  /// - Web: null (không cần)
+  /// - Android/iOS: GOOGLE_SERVER_CLIENT_ID (Web OAuth Client ID)
+  ///
+  /// Lý do dùng Web Client ID cho mobile:
+  /// `google_sign_in` Flutter plugin yêu cầu Web OAuth Client ID làm
+  /// serverClientId để Firebase Auth xác thực idToken phía backend.
+  static String? get _serverClientId {
+    if (kIsWeb) return null;
+    return dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
+  }
+
+  late final GoogleAuthHelper _googleAuthHelper = GoogleAuthHelper(
+    googleSignIn: _googleSignIn,
+  );
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
@@ -71,7 +96,11 @@ class _RegisterPageState extends State<RegisterPage>
   void _onRegister() {
     if (!_formKey.currentState!.validate()) return;
     if (!_acceptTerms) {
-      _showToast('Vui lòng đồng ý với điều khoản sử dụng', isError: true);
+      AppToast.showError(
+        context,
+        null,
+        defaultMessage: 'Vui lòng đồng ý với điều khoản sử dụng',
+      );
       return;
     }
     context.read<AuthCubit>().register(
@@ -82,25 +111,23 @@ class _RegisterPageState extends State<RegisterPage>
         );
   }
 
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(
-      autoDismiss: true,
-      snackbarDuration: const Duration(seconds: 3),
-      position: DelightSnackbarPosition.top,
-      builder: (context) => AppToastCard(
-        leading: Icon(
-          isError ? Icons.error_outline : Icons.check_circle_outlined,
-          color: isError
-              ? Theme.of(context).colorScheme.error
-              : AppColors.success,
-          size: 28,
-        ),
-        title: Text(
-          message,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ).show(context);
+  /// Google Sign-In cho đăng ký.
+  ///
+  /// Tận dụng cùng endpoint backend `/api/auth/google-login`: nếu email
+  /// chưa tồn tại → backend tự tạo tài khoản Player mới, nếu đã tồn tại
+  /// → đăng nhập luôn. Frontend không phân biệt flow nào — để backend
+  /// quyết định.
+  Future<void> _onGoogleRegister() async {
+    await _googleAuthHelper.signIn(
+      context: context,
+      onLoadingChanged: (_) {
+        // Loading state do AuthCubit quản lý qua `state is AuthLoading`
+        // nên không cần local flag ở đây.
+      },
+      onError: (msg) {
+        if (mounted) AppToast.showError(context, msg);
+      },
+    );
   }
 
   @override
@@ -110,7 +137,9 @@ class _RegisterPageState extends State<RegisterPage>
         listener: (context, state) {
           switch (state) {
             case AuthRegistered():
-              _showToast(state.message);
+              // Luồng đăng ký thường: backend trả về token ngay nhưng tài
+              // khoản chưa verify email → chuyển sang trang nhập OTP.
+              AppToast.showSuccess(context, state.message);
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -119,8 +148,19 @@ class _RegisterPageState extends State<RegisterPage>
                   ),
                 ),
               );
+            case AuthSuccess():
+              // Luồng Google: backend tự tạo user (nếu mới) hoặc login
+              // (nếu cũ) và trả về token hợp lệ → vào thẳng app.
+              AppToast.showSuccess(context, 'Đăng ký với Google thành công!');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const MainScaffold(),
+                ),
+              );
             case AuthFailure():
-              _showToast(state.message, isError: true);
+              AppToast.showError(context, state.message);
             default:
               break;
           }
@@ -291,6 +331,15 @@ class _RegisterPageState extends State<RegisterPage>
                 onPressed: _onRegister,
               ),
               const SizedBox(height: AppSpacing.lg),
+              _SocialDivider(),
+              const SizedBox(height: AppSpacing.lg),
+              AuthSocialButton(
+                icon: Icons.g_mobiledata,
+                label: 'Đăng ký với Google',
+                onPressed:
+                    state is AuthLoading ? () {} : _onGoogleRegister,
+              ),
+              const SizedBox(height: AppSpacing.lg),
               AuthLinkText(
                 text: 'Đã có tài khoản? ',
                 linkText: 'Đăng nhập',
@@ -298,6 +347,39 @@ class _RegisterPageState extends State<RegisterPage>
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Divider "hoặc" giữa form đăng ký và nút Google.
+///
+/// Đặt ở cuối file để cô lập — chỉ `RegisterPage` dùng. `LoginPage` có bản
+/// riêng để tránh phụ thuộc ngược.
+class _SocialDivider extends StatelessWidget {
+  const _SocialDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(color: theme.colorScheme.outlineVariant),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Text(
+            'hoặc',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(color: theme.colorScheme.outlineVariant),
         ),
       ],
     );

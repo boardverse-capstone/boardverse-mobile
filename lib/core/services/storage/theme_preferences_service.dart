@@ -12,21 +12,20 @@ class ThemePreferencesService {
 
   final FlutterSecureStorage _storage;
 
-  /// Async: đọc [ThemeMode] đã lưu. Trả về [ThemeMode.system] nếu chưa có
+  /// Async: đọc [ThemeMode] đã lưu. Trả về [ThemeMode.light] nếu chưa có
   /// hoặc giá trị lưu không hợp lệ.
   Future<ThemeMode> loadMode() async {
     try {
       final raw = await _storage.read(key: _key);
       return _parseMode(raw);
     } catch (_) {
-      return ThemeMode.system;
+      return ThemeMode.light;
     }
   }
 
-  /// Sync convenience: trả về [ThemeMode.system] mặc định. Dùng cho lúc app
-  /// khởi động khi chưa đợi được async load — UI sẽ tự cập nhật sau khi
-  /// [loadMode] hoàn thành.
-  ThemeMode get defaultMode => ThemeMode.system;
+  /// Default mode dùng cho lúc app khởi động khi chưa đợi được async load —
+  /// UI sẽ tự cập nhật sau khi [loadMode] hoàn thành.
+  ThemeMode get defaultMode => ThemeMode.light;
 
   Future<void> saveMode(ThemeMode mode) async {
     await _storage.write(key: _key, value: _serializeMode(mode));
@@ -39,8 +38,9 @@ class ThemePreferencesService {
       case 'dark':
         return ThemeMode.dark;
       case 'system':
-      default:
         return ThemeMode.system;
+      default:
+        return ThemeMode.light;
     }
   }
 

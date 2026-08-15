@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 import '../../../reservation/domain/entities/entities.dart';
 
 /// Banner hiển thị trạng thái booking xuyên suốt giai đoạn "Sau lobby FULL

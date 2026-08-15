@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invite_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_invite_card.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_invite_card.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

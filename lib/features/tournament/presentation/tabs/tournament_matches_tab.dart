@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/navigation/tournament_routes.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/match_detail_page.dart';
+import 'package:boardverse/core/navigation/tournament_routes.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/presentation/pages/match_detail_page.dart';
 
 /// Tab 3: Tournament bracket / matches grouped by round.
 /// Tapping a match card opens [MatchDetailPage].

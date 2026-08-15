@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
 
 /// States for TournamentDetailCubit.
 sealed class TournamentDetailState extends Equatable {

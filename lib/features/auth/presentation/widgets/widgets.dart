@@ -5,3 +5,4 @@ export 'auth_text_field.dart';
 export 'auth_buttons.dart';
 export 'auth_components.dart';
 export 'auth_helpers.dart';
+export 'google_auth_helper.dart';

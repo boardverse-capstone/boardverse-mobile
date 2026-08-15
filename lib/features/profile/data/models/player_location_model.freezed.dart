@@ -18,8 +18,7 @@ mixin _$PlayerLocationModel {
 /// this enum as either a number or its string name.
 @JsonKey(fromJson: _locationSourceFromJson) int? get source;/// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
 /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
- bool get hasLocation;
-/// Địa chỉ đã reverse-geocode (optional — có thể `null` nếu server
+ bool get hasLocation;/// Địa ch� đã reverse-geocode (optional — có thể `null` nếu server
 /// chưa build xong hoặc thất bại).
  String? get district; String? get city; String? get country; String? get displayName;/// `true` khi [displayName] đã được build. Nếu server trả cờ này thì
 /// dùng, ngược lại suy ra từ `displayName != null`.
@@ -52,7 +51,7 @@ String toString() {
 /// @nodoc
 abstract mixin class $PlayerLocationModelCopyWith<$Res>  {
   factory $PlayerLocationModelCopyWith(PlayerLocationModel value, $Res Function(PlayerLocationModel) _then) = _$PlayerLocationModelCopyWithImpl;
-  @useResult
+@useResult
 $Res call({
  double? latitude, double? longitude, String? updatedAt,@JsonKey(fromJson: _locationSourceFromJson) int? source, bool hasLocation, String? district, String? city, String? country, String? displayName,@JsonKey(fromJson: _boolFromJson) bool? hasResolvedName
 });
@@ -72,7 +71,7 @@ class _$PlayerLocationModelCopyWithImpl<$Res>
 /// Create a copy of PlayerLocationModel
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? latitude = freezed,Object? longitude = freezed,Object? updatedAt = freezed,Object? source = freezed,Object? hasLocation = null,Object? district = freezed,Object? city = freezed,Object? country = freezed,Object? displayName = freezed,Object? hasResolvedName = freezed,}) {
-    return _then(_self.copyWith(
+  return _then(_self.copyWith(
 latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
@@ -227,7 +226,7 @@ class _PlayerLocationModel implements PlayerLocationModel {
   const _PlayerLocationModel({this.latitude, this.longitude, this.updatedAt, @JsonKey(fromJson: _locationSourceFromJson) this.source, required this.hasLocation, this.district, this.city, this.country, this.displayName, @JsonKey(fromJson: _boolFromJson) this.hasResolvedName});
   
 
-  @override final  double? latitude;
+@override final  double? latitude;
 @override final  double? longitude;
 @override final  String? updatedAt;
 /// 0 = Gps (device), 1 = Manual (map picker). The API may serialize
@@ -236,7 +235,7 @@ class _PlayerLocationModel implements PlayerLocationModel {
 /// `true` khi `latitude` và `longitude` đều có giá trị. Nếu server
 /// trả `hasLocation` rõ ràng thì dùng nó, ngược lại suy ra từ lat/lng.
 @override final  bool hasLocation;
-/// Địa chỉ đã reverse-geocode (optional — có thể `null` nếu server
+/// Địa ch� đã reverse-geocode (optional — có thể `null` nếu server
 /// chưa build xong hoặc thất bại).
 @override final  String? district;
 @override final  String? city;
@@ -311,4 +310,5 @@ as bool?,
 
 
 }
+
 // dart format on

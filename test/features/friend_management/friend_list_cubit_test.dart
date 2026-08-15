@@ -11,11 +11,11 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/repositories/friend_repository.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/cubit/friend_list_cubit.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/cubit/states/states.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/friend_management/domain/entities/entities.dart';
+import 'package:boardverse/features/friend_management/domain/repositories/friend_repository.dart';
+import 'package:boardverse/features/friend_management/presentation/cubit/friend_list_cubit.dart';
+import 'package:boardverse/features/friend_management/presentation/cubit/states/states.dart';
 
 class MockFriendListRepository implements FriendRepository {
   final Map<String, dynamic> stubs = {};

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
 
 /// Neo-brutalism Reusable meta row widget showing karma points và mutual friends.
 class MetaRow extends StatelessWidget {

@@ -1,0 +1,36 @@
+{
+  "project_info": {
+    "project_number": "172487124758",
+    "project_id": "boardverse-app",
+    "storage_bucket": "boardverse-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:172487124758:android:c4a5a67bcfcfa3ed745237",
+        "android_client_info": {
+          "package_name": "com.boardverse.boardverse_mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "68670797761-ahcgps3dvhrg8vgsgieefp19tbsi4l66.apps.googleusercontent.com",
+          "client_type": 3,
+          "android_key_store_name": "androiddebugkey",
+          "android_key_store_hash_sha1": "02:FF:9E:1D:51:EE:1A:37:82:61:48:80:4E:25:35:39:E9:EE:10:B4"
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0h3Dq0IN1GN8U_s8PDg43afFq_s6aRJk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

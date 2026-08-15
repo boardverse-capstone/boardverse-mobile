@@ -8,18 +8,19 @@
 
 import 'dart:typed_data';
 
-import 'package:boardverse_mobile/core/error/exceptions.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/data/datasources/tournament_remote_datasource_impl.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/elo_history_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/match_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/participant_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/my_registration_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/tournament_model.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/tournament_detail_page.dart';
+import 'package:boardverse/core/error/exceptions.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/data/datasources/tournament_remote_datasource_impl.dart';
+import 'package:boardverse/features/tournament/data/models/elo_history_model.dart';
+import 'package:boardverse/features/tournament/data/models/match_model.dart';
+import 'package:boardverse/features/tournament/data/models/participant_model.dart';
+import 'package:boardverse/features/tournament/data/models/my_registration_model.dart';
+import 'package:boardverse/features/tournament/data/models/tournament_model.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_state.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_engagement_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/pages/tournament_detail_page.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,10 +39,16 @@ void main() {
     required TournamentDetailCubit cubit,
     String tournamentId = 't1',
   }) async {
+    final engagementCubit =
+        TournamentEngagementCubit(repository: repository);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
-        home: TournamentDetailPage(tournamentId: tournamentId, cubit: cubit),
+        home: TournamentDetailPage(
+          tournamentId: tournamentId,
+          cubit: cubit,
+          engagementCubit: engagementCubit,
+        ),
       ),
     );
     await tester.pump();

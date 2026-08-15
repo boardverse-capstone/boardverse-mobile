@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Neo-brutalism section header với bold border, hard shadow badge icon.
 class HomeSectionHeader extends StatelessWidget {

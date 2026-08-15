@@ -82,12 +82,6 @@ class FilterHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.refresh,
-                          size: AppSpacing.md,
-                          color: AppColors.error,
-                        ),
-                        const SizedBox(width: 4),
                         Text(
                           'ĐẶT LẠI',
                           style: theme.textTheme.labelMedium?.copyWith(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism Logo widget với bold style.
 class AuthLogo extends StatelessWidget {
@@ -25,31 +25,14 @@ class AuthLogo extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        Image.asset(
+          'assets/logos/logoBG.png',
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.cardGradientOrange,
-            ),
-            borderRadius: BorderRadius.circular(size * 0.28),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.3),
-              width: 3,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.4),
-                blurRadius: 0,
-                offset: const Offset(4, 4),
-              ),
-            ],
-          ),
-          child: Icon(
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => Icon(
             Icons.games_outlined,
-            size: size * 0.48,
+            size: size * 0.7,
             color: AppColors.white,
           ),
         ),
@@ -106,10 +89,16 @@ class AuthLogoMini extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.games_outlined,
-            color: AppColors.white,
-            size: AppIcons.sm,
+          Image.asset(
+            'assets/logos/logoBG.png',
+            width: AppIcons.sm + 4,
+            height: AppIcons.sm + 4,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const Icon(
+              Icons.games_outlined,
+              color: AppColors.white,
+              size: AppIcons.sm,
+            ),
           ),
           const SizedBox(width: AppSpacing.xs),
           Text(

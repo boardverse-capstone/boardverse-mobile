@@ -11,7 +11,9 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
     required super.playDate,
     required super.timeSlot,
     super.preferredStartTime,
-    required super.scheduledTime,
+    super.preferredEndTime,
+    required super.scheduledStartTime,
+    required super.scheduledEndTime,
     required super.recruitmentDeadline,
     required super.minPlayers,
     required super.maxPlayers,
@@ -43,7 +45,13 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
       playDate: DateTime.tryParse(data['playDate'] as String? ?? '') ?? DateTime.now(),
       timeSlot: TimeSlot.fromString(data['timeSlot'] as String? ?? 'morning'),
       preferredStartTime: data['preferredStartTime'] as String?,
-      scheduledTime: DateTime.tryParse(data['scheduledTime'] as String? ?? '') ?? DateTime.now(),
+      preferredEndTime: data['preferredEndTime'] as String?,
+      scheduledStartTime: DateTime.tryParse(
+              data['scheduledStartTime'] as String? ?? '') ??
+          DateTime.now(),
+      scheduledEndTime: DateTime.tryParse(
+              data['scheduledEndTime'] as String? ?? '') ??
+          DateTime.now().add(const Duration(hours: 4)),
       recruitmentDeadline:
           DateTime.tryParse(data['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
       minPlayers: data['minPlayers'] as int? ?? 2,
@@ -80,6 +88,7 @@ class QuoteRequestModel {
   final DateTime playDate;
   final String timeSlot;
   final String? preferredStartTime;
+  final String? preferredEndTime;
   final int minPlayers;
   final int maxPlayers;
   final bool isPrivate;
@@ -91,6 +100,7 @@ class QuoteRequestModel {
     required this.playDate,
     required this.timeSlot,
     this.preferredStartTime,
+    this.preferredEndTime,
     required this.minPlayers,
     required this.maxPlayers,
     this.isPrivate = false,
@@ -105,6 +115,7 @@ class QuoteRequestModel {
       // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
+      'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -151,6 +162,7 @@ class ConfirmRequestModel {
   final DateTime playDate;
   final String timeSlot;
   final String? preferredStartTime;
+  final String? preferredEndTime;
   final int minPlayers;
   final int maxPlayers;
   final bool isPrivate;
@@ -163,6 +175,7 @@ class ConfirmRequestModel {
     required this.playDate,
     required this.timeSlot,
     this.preferredStartTime,
+    this.preferredEndTime,
     required this.minPlayers,
     required this.maxPlayers,
     this.isPrivate = false,
@@ -178,6 +191,7 @@ class ConfirmRequestModel {
       // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
+      'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,

@@ -15,6 +15,7 @@ import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import 'features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
+import 'features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
 import 'features/settings/presentation/cubit/theme_cubit.dart';
@@ -90,6 +91,17 @@ class BoardVerseApp extends StatelessWidget {
                 case '/home':
                   return MaterialPageRoute(
                     builder: (_) => const MainScaffold(),
+                  );
+                case LobbyRoutes.inGameSession:
+                  final args = settings.arguments as InGameSessionPageArgs;
+                  return MaterialPageRoute(
+                    builder: (_) => InGameSessionPage(
+                      bookingId: args.bookingId,
+                      cafeName: args.cafeName,
+                      gameName: args.gameName,
+                      tableNumber: args.tableNumber,
+                      skipCheckIn: args.skipCheckIn,
+                    ),
                   );
                 default:
                   return MaterialPageRoute(

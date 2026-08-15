@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_skeleton.dart';
 
 /// Shows details of a single participant in a tournament.
 ///
@@ -70,7 +71,7 @@ class _ParticipantDetailPageState extends State<ParticipantDetailPage> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return TournamentSkeleton.participantDetail();
           }
           if (snapshot.hasError) {
             return _ErrorState(

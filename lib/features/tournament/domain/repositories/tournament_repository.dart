@@ -4,9 +4,10 @@ import '../../../../core/error/failures.dart';
 import '../entities/tournament_entity.dart';
 import '../entities/tournament_participant_entity.dart';
 import '../entities/tournament_match_entity.dart';
-import '../entities/leaderboard_entity.dart';
 import '../entities/my_elo_history_entity.dart';
 import '../entities/my_registration_entity.dart';
+import '../entities/tournament_waitlist_entity.dart';
+import '../entities/tournament_spectator_entity.dart';
 
 /// Abstract repository interface for tournament operations.
 abstract class TournamentRepository {
@@ -72,9 +73,74 @@ abstract class TournamentRepository {
   /// `history: []`. Entity [MyEloHistoryResponse] đại diện cho wrapper này.
   Future<Either<Failure, MyEloHistoryResponse>> getMyEloHistory();
 
-  /// Bảng xếp hạng.
-  Future<Either<Failure, List<LeaderboardEntryEntity>>> getLeaderboard({
-    int topCount = 100,
-    String? gameTemplateId,
+  // ─── T-03: Tournament Waitlist ──────────────────────────────────────────
+
+  /// Tham gia waitlist của tournament đầy. Trả về entry mới kèm `position`
+  /// hiện tại.
+  ///
+  /// Lỗi:
+  /// - 404: tournament không tồn tại
+  /// - 409: đã đăng ký participant / đã trong waitlist
+  Future<Either<Failure, JoinWaitlistResult>> joinWaitlist(
+      String tournamentId);
+
+  /// Danh sách user đang chờ trong waitlist (phân trang).
+  Future<Either<Failure, List<TournamentWaitlistEntry>>> getWaitlist(
+    String tournamentId, {
+    int? page,
+    int? pageSize,
   });
+
+  /// Trạng thái waitlist của tôi — dùng để biết user đã trong waitlist,
+  /// vị trí, có offer cần confirm không.
+  ///
+  /// Khi chưa join: [MyWaitlistStatus.isInWaitlist] = false.
+  Future<Either<Failure, MyWaitlistStatus>> getMyWaitlistStatus(
+      String tournamentId);
+
+  /// Rời khỏi waitlist.
+  Future<Either<Failure, void>> leaveWaitlist(String tournamentId);
+
+  /// Xác nhận offer từ waitlist (khi có slot trống).
+  ///
+  /// Lỗi:
+  /// - 404: không có trong waitlist
+  /// - 409: offer đã hết hạn hoặc không còn slot
+  Future<Either<Failure, WaitlistActionResult>> confirmWaitlistOffer(
+      String tournamentId);
+
+  /// Từ chối offer từ waitlist.
+  ///
+  /// Sau khi decline, slot sẽ được offer cho user tiếp theo.
+  Future<Either<Failure, WaitlistActionResult>> declineWaitlistOffer(
+      String tournamentId);
+
+  // ─── T-04: Tournament Spectator ────────────────────────────────────────
+
+  /// Danh sách spectators của tournament (public — không cần auth).
+  Future<Either<Failure, List<TournamentSpectatorEntry>>> getSpectators(
+      String tournamentId);
+
+  /// Trạng thái spectate của tôi — khi chưa spectate trả
+  /// [MySpectatorStatus.isSpectating] = false.
+  Future<Either<Failure, MySpectatorStatus>> getMySpectatorStatus(
+      String tournamentId);
+
+  /// Bắt đầu spectate một tournament.
+  ///
+  /// Lỗi:
+  /// - 404: tournament không tồn tại
+  /// - 409: user là participant của tournament này (không được cùng
+  ///   vừa chơi vừa spectate)
+  Future<Either<Failure, TournamentSpectatorEntry>> startSpectating(
+      String tournamentId);
+
+  /// Rời khỏi spectate.
+  Future<Either<Failure, void>> stopSpectating(String tournamentId);
+
+  /// **Leaderboard đã tách ra feature riêng** — xem
+  /// `lib/features/leaderboard/`. Không còn method `getLeaderboard` ở
+  /// TournamentRepository vì backend đã chuyển sang các endpoint public
+  /// `/api/v1/leaderboard/{karma,elo,level}` (xem
+  /// `.agents/docs/apis_docs/leaderboard.md`).
 }

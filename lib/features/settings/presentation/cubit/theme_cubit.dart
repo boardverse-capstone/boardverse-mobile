@@ -8,7 +8,7 @@ export 'theme_state.dart';
 
 /// Cubit quản lý [ThemeMode] hiện tại của ứng dụng.
 ///
-/// - Khởi tạo với [ThemeMode.system] mặc định và sau đó [load] sẽ đọc
+/// - Khởi tạo với [ThemeMode.light] mặc định và sau đó [load] sẽ đọc
 ///   preference đã lưu để cập nhật state.
 /// - Cung cấp các hàm [setLight], [setDark], [setSystem] để chuyển đổi.
 /// - Mỗi lần thay đổi sẽ được persist xuống local storage.

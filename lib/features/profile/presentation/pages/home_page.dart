@@ -4,31 +4,32 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 
-import 'package:boardverse_mobile/core/navigation/pages/leaderboard_page.dart';
-import 'package:boardverse_mobile/core/services/location/location_service.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
-import 'package:boardverse_mobile/core/widgets/app_toast_card.dart';
-import 'package:boardverse_mobile/features/auth/presentation/cubit/auth_cubit.dart';
-import 'package:boardverse_mobile/features/auth/presentation/pages/login_page.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/karma_history_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/presentation/controllers/avatar_upload_controller.dart';
-import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/edit_profile_sheet.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/error_state.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/loading_skeleton.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/location_card_neo.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_header_card_neo.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/profile_stats_row_neo.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/quick_actions_card_neo.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/setup_profile_form.dart';
-import 'package:boardverse_mobile/features/settings/presentation/pages/system_settings_page.dart';
-import 'package:boardverse_mobile/features/wallet/presentation/pages/wallet_page.dart';
+import 'package:boardverse/core/navigation/pages/leaderboard_page.dart';
+import 'package:boardverse/core/services/location/location_service.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/widgets/app_toast_card.dart';
+import 'package:boardverse/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:boardverse/features/auth/presentation/pages/login_page.dart';
+import 'package:boardverse/features/friend_management/presentation/pages/friends_page.dart';
+import 'package:boardverse/features/profile/domain/entities/karma_history_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/player_location_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/presentation/controllers/avatar_upload_controller.dart';
+import 'package:boardverse/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:boardverse/features/profile/presentation/widgets/avatar_viewer_sheet.dart';
+import 'package:boardverse/features/profile/presentation/widgets/edit_profile_sheet.dart';
+import 'package:boardverse/features/profile/presentation/widgets/error_state.dart';
+import 'package:boardverse/features/profile/presentation/widgets/loading_skeleton.dart';
+import 'package:boardverse/features/profile/presentation/widgets/location_card_neo.dart';
+import 'package:boardverse/features/profile/presentation/widgets/profile_header_card_neo.dart';
+import 'package:boardverse/features/profile/presentation/widgets/profile_stats_row_neo.dart';
+import 'package:boardverse/features/profile/presentation/widgets/quick_actions_card_neo.dart';
+import 'package:boardverse/features/profile/presentation/widgets/setup_profile_form.dart';
+import 'package:boardverse/features/settings/presentation/pages/system_settings_page.dart';
+import 'package:boardverse/features/wallet/presentation/pages/wallet_page.dart';
 
 /// Trang chính của feature profile.
 ///
@@ -68,7 +69,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     Future.microtask(() {
       if (!mounted) return;
-      context.read<ProfileCubit>().getProfile();
+      final cubit = context.read<ProfileCubit>();
+      // Hydrate UI instantly from cache so the screen renders with
+      // the player's info even before the network response lands (or
+      // if it never lands).
+      cubit.hydrateFromCache();
+      cubit.getProfile();
     });
   }
 
@@ -192,21 +198,23 @@ class _HomePageState extends State<HomePage> {
     required ProfileEntity profile,
     PlayerLocationEntity? location,
     KarmaHistoryEntity? karma,
-  }) => _DashboardShell(
-    profile: profile,
-    location: location,
-    karma: karma,
-    horizontalPadding: _horizontalPadding,
-    onAvatarTap: _changeAvatar,
-    onEditPressed: () => _showEditProfileSheet(profile),
-    onUpdateGpsPressed: _updateLocationGps,
-    onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
-    onOpenLeaderboard: _openLeaderboard,
-    onOpenFriends: _openFriendsPage,
-    onOpenWallet: _openWalletPage,
-    onOpenSettings: _openSystemSettings,
-    onLogout: _logout,
-  );
+  }) =>
+      _DashboardShell(
+        profile: profile,
+        location: location,
+        karma: karma,
+        horizontalPadding: _horizontalPadding,
+        onAvatarTap: _changeAvatar,
+        onEditPressed: () => _showEditProfileSheet(profile),
+        onUpdateGpsPressed: _updateLocationGps,
+        onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
+        onOpenLeaderboard: _openLeaderboard,
+        onOpenFriends: _openFriendsPage,
+        onOpenWallet: _openWalletPage,
+        onOpenSettings: _openSystemSettings,
+        onLogout: _logout,
+        onRefresh: () => context.read<ProfileCubit>().getProfile(),
+      );
 
   // ─── Shell components ────────────────────────────────────────────────────
 
@@ -226,6 +234,21 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    final profile = _lastProfile;
+    if (profile == null) return;
+
+    await AvatarViewerSheet.show(
+      context,
+      avatarUrl: profile.avatarUrl,
+      username: profile.username,
+      onChangeAvatar: () async {
+        Navigator.of(context).pop(); // Dismiss viewer
+        await _performAvatarUpload();
+      },
+    );
+  }
+
+  Future<void> _performAvatarUpload() async {
     try {
       final result = await _avatarUpload.runWithFeedback(context);
       if (!mounted || result == null) return;
@@ -446,6 +469,7 @@ class _DashboardShell extends StatelessWidget {
     required this.onOpenWallet,
     required this.onOpenSettings,
     required this.onLogout,
+    required this.onRefresh,
   });
 
   final ProfileEntity profile;
@@ -461,6 +485,7 @@ class _DashboardShell extends StatelessWidget {
   final VoidCallback onOpenWallet;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -484,60 +509,68 @@ class _DashboardShell extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProfileHeaderCardNeo(
-                profile: profile,
-                onAvatarTap: onAvatarTap,
-                onEditPressed: onEditPressed,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ProfileStatsRowNeoCompact(profile: profile),
-              const SizedBox(height: AppSpacing.md),
-              LocationCardNeo(
-                location: location,
-                onUpdateGpsPressed: onUpdateGpsPressed,
-                onDeletePressed: onDeleteLocation,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              QuickActionsGridNeo(
-                actions: [
-                  QuickActionItemNeo(
-                    icon: AppIcons.users,
-                    title: 'Bạn bè',
-                    onTap: onOpenFriends,
-                    accentColor: AppColors.secondary, // Xanh dương/Teal
-                  ),
-                  QuickActionItemNeo(
-                    icon: AppIcons.tournament,
-                    title: 'Xếp hạng',
-                    onTap: onOpenLeaderboard,
-                    accentColor: AppColors.accent, // Vàng
-                  ),
-                  QuickActionItemNeo(
-                    icon: AppIcons.money,
-                    title: 'Ví BVC',
-                    onTap: onOpenWallet,
-                    accentColor: AppColors.success, // Xanh lá
-                  ),
-                  QuickActionItemNeo(
-                    icon: AppIcons.settings,
-                    title: 'Cài đặt',
-                    onTap: onOpenSettings,
-                    accentColor: AppColors.primary, // Cam
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _NeoBrutalismLogoutButton(
-                onPressed: () => _confirmLogout(context),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-            ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            onRefresh();
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ProfileHeaderCardNeo(
+                  profile: profile,
+                  onAvatarTap: onAvatarTap,
+                  onEditPressed: onEditPressed,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ProfileStatsRowNeoCompact(profile: profile),
+                const SizedBox(height: AppSpacing.md),
+                LocationCardNeo(
+                  location: location,
+                  onUpdateGpsPressed: onUpdateGpsPressed,
+                  onDeletePressed: onDeleteLocation,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                QuickActionsGridNeo(
+                  actions: [
+                    QuickActionItemNeo(
+                      icon: AppIcons.users,
+                      title: 'Bạn bè',
+                      onTap: onOpenFriends,
+                      accentColor: AppColors.secondary, // Xanh dương/Teal
+                    ),
+                    QuickActionItemNeo(
+                      icon: AppIcons.tournament,
+                      title: 'Xếp hạng',
+                      onTap: onOpenLeaderboard,
+                      accentColor: AppColors.accent, // Vàng
+                    ),
+                    QuickActionItemNeo(
+                      icon: AppIcons.money,
+                      title: 'Ví BVC',
+                      onTap: onOpenWallet,
+                      accentColor: AppColors.success, // Xanh lá
+                    ),
+                    QuickActionItemNeo(
+                      icon: AppIcons.settings,
+                      title: 'Cài đặt',
+                      onTap: onOpenSettings,
+                      accentColor: AppColors.primary, // Cam
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                _NeoBrutalismLogoutButton(
+                  onPressed: () => _confirmLogout(context),
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+              ],
+            ),
           ),
         ),
       ),

@@ -186,6 +186,21 @@ class AppColors {
   static const Color eloPlatinum = Color(0xFFE5E4E2);
   static const Color eloDiamond = Color(0xFFB9F2FF);
 
+  // ========================
+  // GAMER TIER COLORS (BR §K-06)
+  // ========================
+  //
+  // Đầy đủ 7 tier: Bronze → Grandmaster. Dùng cho badge tier trong
+  // leaderboard và profile. Chuẩn neo-brutalism: tier accent riêng biệt
+  // + contrast cao với text trắng/đen.
+  static const Color tierBronze = Color(0xFFCD7F32);
+  static const Color tierSilver = Color(0xFFB0BEC5);
+  static const Color tierGold = Color(0xFFFFC107);
+  static const Color tierPlatinum = Color(0xFF80DEEA);
+  static const Color tierDiamond = Color(0xFF40C4FF);
+  static const Color tierMaster = Color(0xFFE91E63);
+  static const Color tierGrandmaster = Color(0xFF9C27B0);
+
   static Color getMedalColor(int rank) {
     return switch (rank) {
       1 => eloGold,

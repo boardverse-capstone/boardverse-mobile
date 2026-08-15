@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Dialog notification khi phiên chơi kết thúc — neo-brutalism style.
 class SessionEndedNotificationDialog extends StatelessWidget {

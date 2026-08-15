@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
 import 'tournament_detail_state.dart';
 
 /// Cubit for managing tournament detail state.
@@ -12,12 +15,30 @@ class TournamentDetailCubit extends Cubit<TournamentDetailState> {
   String? _currentTournamentId;
   String? _currentUserId;
   int _loadVersion = 0;
+  Timer? _autoRefreshTimer;
+  static const _autoRefreshInterval = Duration(minutes: 2);
 
   TournamentDetailCubit({required this._repository})
     : super(const TournamentDetailInitial());
 
   /// Current tournament ID.
   String? get currentTournamentId => _currentTournamentId;
+
+  /// Start auto-refresh timer for ongoing tournaments.
+  void startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(_autoRefreshInterval, (_) {
+      if (_currentTournamentId != null && !isClosed) {
+        loadDetail(_currentTournamentId!, currentUserId: _currentUserId);
+      }
+    });
+  }
+
+  /// Stop auto-refresh timer.
+  void stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
 
   /// Loads tournament detail, participants, and matches.
   Future<void> loadDetail(String tournamentId, {String? currentUserId}) async {
@@ -79,9 +100,16 @@ class TournamentDetailCubit extends Cubit<TournamentDetailState> {
         selectedRound: 0,
       ),
     );
+
+    // Auto-refresh only for ongoing tournaments
+    if (tournament!.status.isOngoing) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
   }
 
-  /// registers the user for the tournament.
+  /// Registers the user for the tournament.
   Future<void> register(String tournamentId) async {
     final snapshot = _snapshotFrom(state);
     if (snapshot == null || isClosed) return;
@@ -161,6 +189,13 @@ class TournamentDetailCubit extends Cubit<TournamentDetailState> {
     );
   }
 
+  /// Refreshes the detail data.
+  Future<void> refresh() async {
+    if (_currentTournamentId != null) {
+      await loadDetail(_currentTournamentId!, currentUserId: _currentUserId);
+    }
+  }
+
   /// Changes the selected round filter.
   void selectRound(int round) {
     final currentState = state;
@@ -169,11 +204,11 @@ class TournamentDetailCubit extends Cubit<TournamentDetailState> {
     }
   }
 
-  /// Refreshes the detail data.
-  Future<void> refresh() async {
-    if (_currentTournamentId != null) {
-      await loadDetail(_currentTournamentId!, currentUserId: _currentUserId);
-    }
+  @override
+  Future<void> close() {
+    _autoRefreshTimer?.cancel();
+    _loadVersion++;
+    return super.close();
   }
 
   TournamentEntity _mergeUserState(
@@ -219,12 +254,6 @@ class TournamentDetailCubit extends Cubit<TournamentDetailState> {
       );
     }
     return null;
-  }
-
-  @override
-  Future<void> close() {
-    _loadVersion++;
-    return super.close();
   }
 }
 

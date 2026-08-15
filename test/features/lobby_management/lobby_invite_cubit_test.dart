@@ -5,19 +5,19 @@
 // khi user reload page. Fix: emit tiếp `LobbyInviteLoaded` (hoặc
 // `LobbyInviteEmpty` nếu list rỗng) sau khi emit `LobbyInviteAccepted`.
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_invite_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_share_info.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_summary.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_chat_message.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/match_result_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/models/elo_update_model.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/cubit/lobby_invite_state.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_share_info.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_summary.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_chat_message.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/match_result_entity.dart';
+import 'package:boardverse/features/lobby_management/data/models/elo_update_model.dart';
+import 'package:boardverse/features/lobby_management/presentation/cubit/lobby_invite_cubit.dart';
+import 'package:boardverse/features/lobby_management/presentation/cubit/lobby_invite_state.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 

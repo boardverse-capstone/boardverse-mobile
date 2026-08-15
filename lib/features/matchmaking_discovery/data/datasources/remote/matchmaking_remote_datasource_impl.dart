@@ -8,6 +8,7 @@ import '../../../domain/entities/game_play_configuration_entity.dart';
 import '../../models/board_game_model.dart';
 import '../../models/board_game_detail_model.dart';
 import '../../models/cafe_model.dart';
+import '../../models/cafe_detail_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/game_play_configuration_model.dart';
 import '../../models/game_play_navigation_model.dart';
@@ -232,7 +233,7 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
 
   @override
   Future<NearbyCafesSearchResultModel> getNearbyCafesSearch({
-    required String gameTemplateId,
+    String? gameTemplateId,
     required double latitude,
     required double longitude,
     double radiusKm = 15.0,
@@ -240,16 +241,20 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
     int pageSize = 20,
   }) async {
     try {
+      // Backend không còn bắt buộc `gameTemplateId` — chỉ append nếu có.
+      final queryParameters = <String, dynamic>{
+        'latitude': latitude,
+        'longitude': longitude,
+        'radiusKm': radiusKm,
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      };
+      if (gameTemplateId != null && gameTemplateId.isNotEmpty) {
+        queryParameters['gameTemplateId'] = gameTemplateId;
+      }
       final response = await _dio.get(
         ApiEndpoints.cafesNearby,
-        queryParameters: {
-          'gameTemplateId': gameTemplateId,
-          'latitude': latitude,
-          'longitude': longitude,
-          'radiusKm': radiusKm,
-          'pageNumber': pageNumber,
-          'pageSize': pageSize,
-        },
+        queryParameters: queryParameters,
       );
       final envelope = ApiResponse.fromJson(
         response.data as Map<String, dynamic>,
@@ -264,20 +269,25 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
 
   @override
   Future<NearbyCafesSearchResultModel> getNearbyCafesForCurrentUser({
-    required String gameTemplateId,
+    String? gameTemplateId,
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
   }) async {
     try {
+      // Backend không còn bắt buộc `gameTemplateId` — chỉ append nếu có.
+      // Cafe tab (SearchPage) giờ gọi thẳng không kèm gameId.
+      final queryParameters = <String, dynamic>{
+        'radiusKm': radiusKm,
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      };
+      if (gameTemplateId != null && gameTemplateId.isNotEmpty) {
+        queryParameters['gameTemplateId'] = gameTemplateId;
+      }
       final response = await _dio.get(
         ApiEndpoints.cafesNearbyMe,
-        queryParameters: {
-          'gameTemplateId': gameTemplateId,
-          'radiusKm': radiusKm,
-          'pageNumber': pageNumber,
-          'pageSize': pageSize,
-        },
+        queryParameters: queryParameters,
       );
       final envelope = ApiResponse.fromJson(
         response.data as Map<String, dynamic>,
@@ -291,14 +301,51 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
   }
 
   @override
-  Future<CafeModel?> getCafeById(String id) async {
+  Future<NearbyCafesSearchResultModel> searchCafes({
+    required String name,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final queryParameters = <String, dynamic>{
+        'name': name,
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      };
+      if (latitude != null) queryParameters['latitude'] = latitude;
+      if (longitude != null) queryParameters['longitude'] = longitude;
+      if (latitude != null && longitude != null) {
+        queryParameters['radiusKm'] = radiusKm;
+      }
+
+      final response = await _dio.get(
+        ApiEndpoints.cafeSearch,
+        queryParameters: queryParameters,
+      );
+      final envelope = ApiResponse.fromJson(
+        response.data as Map<String, dynamic>,
+        fromJsonT: (json) => NearbyCafesSearchResultModel.fromJson(
+            json as Map<String, dynamic>),
+      );
+      return envelope.data ?? const NearbyCafesSearchResultModel();
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<CafeDetailModel?> getCafeById(String id) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.cafeDetail.replaceAll('{id}', id),
       );
       final envelope = ApiResponse.fromJson(
         response.data as Map<String, dynamic>,
-        fromJsonT: (json) => CafeModel.fromJson(json as Map<String, dynamic>),
+        fromJsonT: (json) =>
+            CafeDetailModel.fromJson(json as Map<String, dynamic>),
       );
       return envelope.data;
     } on DioException catch (e) {

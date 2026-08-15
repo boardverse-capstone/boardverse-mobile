@@ -1,4 +1,4 @@
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
 
 /// Tournament participant model for API response mapping.
 class TournamentParticipantModel {

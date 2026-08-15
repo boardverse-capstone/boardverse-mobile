@@ -1,5 +1,5 @@
-name: boardverse_mobile
-description: "boardverse_mobile"
+name: boardverse
+description: "BoardVerse - Kết nối yêu board game"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -48,8 +48,12 @@ dependencies:
   dartz: ^0.10.1
   equatable: ^2.0.7
   qr_flutter: ^4.1.0
+  shared_preferences: ^2.3.5
   url_launcher: ^6.3.2
   intl: ^0.20.3
+  # QR download — lưu ảnh QR SePay vào gallery để player mở app ngân hàng quét.
+  path_provider: ^2.1.6
+  gal: ^2.3.3
 
   # UI & Animation
   shimmer: ^3.0.0
@@ -86,6 +90,20 @@ dev_dependencies:
   freezed: ^3.2.5
   json_serializable: ^6.14.0
   bloc_test: ^10.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  image_path: assets/icons/app_icon.png
+
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_mode: contain
+
+  # Nếu muốn giữ icon cũ cho một platform nào đó, set false ở đây
+  # Windows/Linux/macOS không cần cho mobile-only app
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -100,6 +118,8 @@ flutter:
 
   assets:
     - .env
+    - assets/logos/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

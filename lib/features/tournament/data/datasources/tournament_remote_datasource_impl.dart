@@ -1,14 +1,15 @@
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/core/error/exceptions.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/tournament_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/participant_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/match_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/elo_history_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/leaderboard_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/models/my_registration_model.dart';
-import 'package:boardverse_mobile/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/core/error/exceptions.dart';
+import 'package:boardverse/features/tournament/data/models/tournament_model.dart';
+import 'package:boardverse/features/tournament/data/models/participant_model.dart';
+import 'package:boardverse/features/tournament/data/models/match_model.dart';
+import 'package:boardverse/features/tournament/data/models/elo_history_model.dart';
+import 'package:boardverse/features/tournament/data/models/my_registration_model.dart';
+import 'package:boardverse/features/tournament/data/models/tournament_waitlist_model.dart';
+import 'package:boardverse/features/tournament/data/models/tournament_spectator_model.dart';
+import 'package:boardverse/features/tournament/data/datasources/base/tournament_remote_datasource.dart';
 
 /// Implementation of TournamentRemoteDatasource using Dio client.
 ///
@@ -229,26 +230,163 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
     }
   }
 
-  @override
-  Future<List<LeaderboardEntryModel>> getLeaderboard({
-    int topCount = 100,
-    String? gameTemplateId,
-  }) async {
-    try {
-      final response = await _dio.get(
-        ApiEndpoints.tournamentsLeaderboard,
-        queryParameters: {
-          'topCount': topCount,
-          'gameTemplateId': ?gameTemplateId,
-        },
-      );
+  // ─── T-03: Tournament Waitlist ──────────────────────────────────────────
 
-      final list = _unwrapList(response.data);
-      return list.map((json) => LeaderboardEntryModel.fromJson(json)).toList();
+  @override
+  Future<TournamentWaitlistModel> joinWaitlist(String tournamentId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.tournamentWaitlistJoin(tournamentId),
+      );
+      return TournamentWaitlistModel.fromJson(_unwrapMap(response.data));
     } on DioException catch (e) {
       throw _mapDioError(e);
     }
   }
+
+  @override
+  Future<List<TournamentWaitlistModel>> getWaitlist(
+    String tournamentId, {
+    int? page,
+    int? pageSize,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (page != null) queryParams['page'] = page;
+      if (pageSize != null) queryParams['pageSize'] = pageSize;
+
+      final response = await _dio.get(
+        ApiEndpoints.tournamentWaitlist(tournamentId),
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+
+      final list = _unwrapList(response.data);
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((json) => TournamentWaitlistModel.fromJson(json))
+          .toList();
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<MyWaitlistStatusModel> getMyWaitlistStatus(
+      String tournamentId) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.tournamentWaitlistMe(tournamentId),
+      );
+      // Trường hợp `data: null` (chưa join) → trả `isInWaitlist=false`.
+      final raw = _unwrapMapNullable(response.data);
+      if (raw == null) {
+        return const MyWaitlistStatusModel(isInWaitlist: false);
+      }
+      return MyWaitlistStatusModel.fromJson(raw);
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> leaveWaitlist(String tournamentId) async {
+    try {
+      await _dio.delete(ApiEndpoints.tournamentWaitlistLeave(tournamentId));
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<WaitlistActionResultModel> confirmWaitlistOffer(
+      String tournamentId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.tournamentWaitlistConfirm(tournamentId),
+      );
+      return WaitlistActionResultModel.fromJson(_unwrapMap(response.data));
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<WaitlistActionResultModel> declineWaitlistOffer(
+      String tournamentId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.tournamentWaitlistDecline(tournamentId),
+      );
+      return WaitlistActionResultModel.fromJson(_unwrapMap(response.data));
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  // ─── T-04: Tournament Spectator ────────────────────────────────────────
+
+  @override
+  Future<List<TournamentSpectatorModel>> getSpectators(
+      String tournamentId) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.tournamentSpectators(tournamentId),
+      );
+      final list = _unwrapList(response.data);
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((json) => TournamentSpectatorModel.fromJson(json))
+          .toList();
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<MySpectatorStatusModel> getMySpectatorStatus(
+      String tournamentId) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.tournamentSpectatorMe(tournamentId),
+      );
+      // Backend trả `data: null` khi user chưa spectate.
+      final raw = _unwrapMapNullable(response.data);
+      if (raw == null) {
+        return const MySpectatorStatusModel(isSpectating: false);
+      }
+      return MySpectatorStatusModel(
+        isSpectating: true,
+        model: TournamentSpectatorModel.fromJson(raw),
+      );
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<TournamentSpectatorModel> startSpectating(String tournamentId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.tournamentSpectatorJoin(tournamentId),
+      );
+      return TournamentSpectatorModel.fromJson(_unwrapMap(response.data));
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> stopSpectating(String tournamentId) async {
+    try {
+      await _dio.delete(ApiEndpoints.tournamentSpectatorLeave(tournamentId));
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  // Leaderboard đã tách ra feature riêng (`lib/features/leaderboard/`).
+  // Xem `LeaderboardRepository.fetchLeaderboard(kind: ...)` — gọi các
+  // endpoint mới `/api/v1/leaderboard/{karma,elo,level}`.
 
   // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -274,6 +412,18 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
     throw const ServerException(
       message: 'Response không đúng định dạng envelope',
     );
+  }
+
+  /// Tolerant variant: trả null khi `data` không phải object (vd null khi
+  /// user chưa join waitlist / chưa spectate). Caller xử lý default.
+  Map<String, dynamic>? _unwrapMapNullable(dynamic raw) {
+    if (raw is Map<String, dynamic>) {
+      if (!raw.containsKey('data')) return raw;
+      final data = raw['data'];
+      if (data == null) return null;
+      if (data is Map<String, dynamic>) return data;
+    }
+    return null;
   }
 
   /// Bóc lớp `data` của envelope và cast sang `List<dynamic>`.

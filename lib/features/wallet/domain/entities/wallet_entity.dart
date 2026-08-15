@@ -46,6 +46,9 @@ class WalletEntity extends Equatable {
   /// Số BVC đang bị giữ cho reservation/lobby
   final int heldBalance;
 
+  /// Hệ số nhân cọc (1.0 = bình thường, 1.25 = medium, 1.5 = high, 2.0 = critical)
+  final double riskMultiplier;
+
   /// Mức rủi ro (low/medium/high/critical) — user chỉ thấy enum, không thấy score (BR-RISK-09)
   final RiskLevel riskLevel;
 
@@ -59,6 +62,7 @@ class WalletEntity extends Equatable {
     required this.userId,
     required this.availableBalance,
     required this.heldBalance,
+    this.riskMultiplier = 1.0,
     required this.riskLevel,
     required this.isCoolingOff,
     required this.accountStatus,
@@ -92,6 +96,7 @@ class WalletEntity extends Equatable {
         userId,
         availableBalance,
         heldBalance,
+        riskMultiplier,
         riskLevel,
         isCoolingOff,
         accountStatus,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -9,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../cubit/topup_cubit.dart';
 import '../cubit/topup_state.dart';
+import '../widgets/qr_network_image.dart';
 
 /// Neo-brutalism Màn hình nạp BVC.
 class TopUpPage extends StatefulWidget {
@@ -428,51 +428,160 @@ class _TopUpPageState extends State<TopUpPage> {
 
   Widget _buildCountdownSection(BuildContext context, TopUpAwaitingPayment state, Color borderColor) {
     final textTheme = Theme.of(context).textTheme;
+    final canCancelOrUpdate = state.quote.hasTopUpId;
     return Column(
       children: [
         _buildQrSection(context, state, textTheme, borderColor),
         const SizedBox(height: AppSpacing.md),
-        _buildManualRefreshButton(context, borderColor),
-        const SizedBox(height: AppSpacing.lg),
-        _buildPaymentInstructions(context, state, textTheme),
-        const SizedBox(height: AppSpacing.lg),
+        // Hàng nút action: download QR (chính) + manual check (phụ).
         Row(
           children: [
             Expanded(
-              child: _NeoOutlineButton(
-                label: 'HỦY ĐƠN',
-                icon: Icons.close,
-                color: AppColors.error,
-                borderColor: borderColor,
-                onTap: () => _showCancelConfirmation(context),
-              ),
+              flex: 2,
+              child: _buildDownloadQrButton(context, state, borderColor),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: _NeoOutlineButton(
-                label: 'ĐỔI SỐ TIỀN',
-                icon: Icons.edit,
-                color: AppColors.textPrimary,
-                borderColor: borderColor,
-                onTap: () => _showUpdateAmountDialog(context),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _NeoFilledButton(
-                label: 'MỞ SEPAY',
-                icon: Icons.open_in_new,
-                color: AppColors.primary,
-                borderColor: borderColor,
-                onTap: () {
-                  context.read<TopUpCubit>().openPaymentUrl();
-                },
-              ),
+              flex: 1,
+              child: _buildManualRefreshButton(context, borderColor),
             ),
           ],
         ),
+        const SizedBox(height: AppSpacing.lg),
+        _buildPaymentInstructions(context, state, textTheme),
+        const SizedBox(height: AppSpacing.lg),
+        // Hủy / Đổi số tiền chỉ enable khi backend đã trả topUpId (Guid).
+        // Nếu backend Swagger phiên bản hiện tại chưa trả field này,
+        // đường dẫn PATCH/DELETE sẽ 404 → UI disable + hiển thị thông báo.
+        if (canCancelOrUpdate)
+          Row(
+            children: [
+              Expanded(
+                child: _NeoOutlineButton(
+                  label: 'HỦY ĐƠN',
+                  icon: Icons.close,
+                  color: AppColors.error,
+                  borderColor: borderColor,
+                  onTap: () => _showCancelConfirmation(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _NeoOutlineButton(
+                  label: 'ĐỔI SỐ TIỀN',
+                  icon: Icons.edit,
+                  color: AppColors.textPrimary,
+                  borderColor: borderColor,
+                  onTap: () => _showUpdateAmountDialog(context),
+                ),
+              ),
+            ],
+          )
+        else
+          _CancelUpdateUnavailableNotice(borderColor: borderColor),
       ],
     );
+  }
+
+  /// Nút "TẢI MÃ QR" — download ảnh QR SePay về gallery để player
+  /// mở app ngân hàng quét. Lý do: trên điện thoại, mở SePay web khó
+  /// chuyển sang app ngân hàng hơn so với dùng QR có sẵn.
+  Widget _buildDownloadQrButton(
+    BuildContext context,
+    TopUpAwaitingPayment state,
+    Color borderColor,
+  ) {
+    final qrUrl = state.quote.qrUrl;
+    final isDisabled = qrUrl.isEmpty || _isDownloadingQr;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: isDisabled ? null : () => _handleDownloadQr(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isDownloadingQr)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      color: AppColors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(Icons.download_rounded, color: AppColors.white, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(
+                  child: Text(
+                    _isDownloadingQr ? 'ĐANG TẢI...' : 'TẢI MÃ QR',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isDownloadingQr = false;
+
+  Future<void> _handleDownloadQr(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final cubit = context.read<TopUpCubit>();
+
+    setState(() => _isDownloadingQr = true);
+    try {
+      final result = await cubit.downloadCurrentQr();
+      if (!mounted) return;
+      if (result.success) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã lưu mã QR vào Photos (${result.fileName}). '
+              'Mở app ngân hàng → Quét QR từ thư viện để thanh toán.',
+            ),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? 'Không thể tải mã QR.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloadingQr = false);
+    }
   }
 
   void _showUpdateAmountDialog(BuildContext context) {
@@ -568,39 +677,18 @@ class _TopUpPageState extends State<TopUpPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.black, width: 2),
             ),
-            child: qrUrl.isEmpty
-                ? const SizedBox(
-                    height: 220,
-                    width: 220,
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    ),
-                  )
-                : Image.network(
-                    qrUrl,
-                    height: 220,
-                    width: 220,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return SizedBox(
-                        height: 220,
-                        width: 220,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildFallbackQr(context, state.quote);
-                    },
-                  ),
+            // Dùng `QrNetworkImage` để bypass UA "Dart" bị CDN block.
+            // Fallback chain:
+            //   1. Download ảnh bằng Dio + Chrome UA → Image.memory.
+            //   2. Fail → generate QR local từ paymentUrl.
+            //   3. Fail nữa → icon placeholder.
+            child: QrNetworkImage(
+              qrUrl: qrUrl,
+              paymentUrl: state.quote.paymentUrl,
+              qrImageBase64: state.quote.qrImageBase64,
+              size: 220,
+              backgroundColor: AppColors.white,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -658,13 +746,17 @@ class _TopUpPageState extends State<TopUpPage> {
                 else
                   const Icon(Icons.refresh, color: AppColors.primary, size: 18),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  _isManualChecking ? 'ĐANG KIỂM TRA...' : 'KIỂM TRA NGAY',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                    color: AppColors.primary,
+                Flexible(
+                  child: Text(
+                    _isManualChecking ? 'ĐANG KIỂM TRA...' : 'KIỂM TRA NGAY',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ],
@@ -704,37 +796,6 @@ class _TopUpPageState extends State<TopUpPage> {
     } finally {
       if (mounted) setState(() => _isManualChecking = false);
     }
-  }
-
-  Widget _buildFallbackQr(BuildContext context, dynamic quote) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          QrImageView(
-            data: quote.paymentUrl,
-            version: QrVersions.auto,
-            size: 220,
-            backgroundColor: AppColors.white,
-            errorCorrectionLevel: QrErrorCorrectLevel.M,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Không thể tải ảnh QR. Dùng mã QR này.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showCancelConfirmation(BuildContext context) {
@@ -814,8 +875,8 @@ class _TopUpPageState extends State<TopUpPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildInstructionStep('1', 'Quét mã QR bằng app SePay'),
-          _buildInstructionStep('2', 'Hoặc mở link thanh toán'),
+          _buildInstructionStep('1', 'Bấm "TẢI MÃ QR" để lưu ảnh QR về máy'),
+          _buildInstructionStep('2', 'Mở app ngân hàng → Quét QR từ thư viện'),
           _buildInstructionStep('3', 'Thanh toán đúng số tiền hiển thị'),
           _buildInstructionStep('4', 'Đợi xác nhận và BVC sẽ được cộng vào ví'),
         ],
@@ -1053,66 +1114,6 @@ class _NeoOutlineButton extends StatelessWidget {
   }
 }
 
-/// Neo-brutalism filled button.
-class _NeoFilledButton extends StatelessWidget {
-  const _NeoFilledButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.borderColor,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final Color borderColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
-        boxShadow: NeoBrutalismTheme.lightShadow(
-          shadowColor: color.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: AppColors.white, size: 16),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.6,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Neo-brutalism package tile.
 class _PackageTile extends StatelessWidget {
   const _PackageTile({
@@ -1238,5 +1239,55 @@ class _ThousandsSeparatorFormatter extends TextInputFormatter {
       result.write(str[i]);
     }
     return result.toString();
+  }
+}
+
+/// Notice hiển thị khi backend chưa trả `topUpId` (Guid) trong response —
+/// lúc đó không thể gọi DELETE/PATCH để hủy/đổi số tiền.
+///
+/// Lý do: Path param `topUpId` của `PATCH/DELETE /api/v1/wallet/topup/{id}`
+/// là Guid (BvcTopUpRequest.Id), không phải `orderId` "BVC-...". Khi
+/// backend Swagger chưa trả field này, mobile không có Guid để cancel nên
+/// disable nút + hiển thị thông báo rõ ràng cho user (thay vì bấm 404).
+class _CancelUpdateUnavailableNotice extends StatelessWidget {
+  const _CancelUpdateUnavailableNotice({required this.borderColor});
+
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline,
+            color: AppColors.warning,
+            size: 18,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'Hủy / đổi số tiền đang bảo trì. Đơn sẽ tự hết hạn sau ~10 phút '
+              'nếu bạn không thanh toán. Vui lòng quét QR để hoàn tất.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.warning,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

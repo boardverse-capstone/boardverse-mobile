@@ -7,12 +7,13 @@ import '../../../../../core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism CTA button để đặt chỗ.
 class BookCtaButton extends StatefulWidget {
-  final String gameName;
+  /// Tên game hiển thị ở subtitle (optional — nếu null sẽ ẩn subtitle).
+  final String? gameName;
   final VoidCallback onPressed;
 
   const BookCtaButton({
     super.key,
-    required this.gameName,
+    this.gameName,
     required this.onPressed,
   });
 
@@ -113,17 +114,20 @@ class _BookCtaButtonState extends State<BookCtaButton>
                         letterSpacing: 0.8,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Chơi ${widget.gameName}',
-                      style: TextStyle(
-                        color: AppColors.white.withValues(alpha: 0.85),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                    if (widget.gameName != null &&
+                        widget.gameName!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Chơi ${widget.gameName}',
+                        style: TextStyle(
+                          color: AppColors.white.withValues(alpha: 0.85),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                   ],
                 ),
               ),

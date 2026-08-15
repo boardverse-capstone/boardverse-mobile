@@ -26,6 +26,7 @@ class ReservationCubit extends Cubit<ReservationState> {
   String? _quoteIdempotencyKey;
   String? _confirmIdempotencyKey;
   String? _lastInputsFingerprint;
+  String? _preferredEndTime; // Stored from createQuote call for use in confirmReservation
 
   ReservationCubit({
     required this.repository,
@@ -38,6 +39,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -48,6 +50,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       'playDate': playDate.toIso8601String().split('T').first,
       'timeSlot': timeSlot.name,
       'preferredStartTime': preferredStartTime,
+      'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -86,6 +89,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     bool isPrivate = false,
@@ -98,6 +102,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       playDate: playDate,
       timeSlot: timeSlot,
       preferredStartTime: preferredStartTime,
+      preferredEndTime: preferredEndTime,
       minPlayers: minPlayers,
       maxPlayers: maxPlayers,
       isPrivate: isPrivate,
@@ -122,6 +127,7 @@ class ReservationCubit extends Cubit<ReservationState> {
 
     _lastInputsFingerprint = fingerprint;
     _quoteIdempotencyKey = generateIdempotencyKey();
+    _preferredEndTime = preferredEndTime;
 
     final result = await repository.createQuote(
       cafeId: cafeId,
@@ -129,6 +135,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       playDate: playDate,
       timeSlot: timeSlot,
       preferredStartTime: preferredStartTime,
+      preferredEndTime: preferredEndTime,
       minPlayers: minPlayers,
       maxPlayers: maxPlayers,
       isPrivate: isPrivate,
@@ -197,6 +204,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       playDate: quote.playDate,
       timeSlot: quote.timeSlot,
       preferredStartTime: quote.preferredStartTime,
+      preferredEndTime: _preferredEndTime,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -278,6 +286,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       playDate: quote.playDate,
       timeSlot: quote.timeSlot,
       preferredStartTime: quote.preferredStartTime,
+      preferredEndTime: _preferredEndTime,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -300,6 +309,7 @@ class ReservationCubit extends Cubit<ReservationState> {
       playDate: quote.playDate,
       timeSlot: quote.timeSlot,
       preferredStartTime: quote.preferredStartTime,
+      preferredEndTime: _preferredEndTime,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -315,6 +325,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     _quoteIdempotencyKey = null;
     _confirmIdempotencyKey = null;
     _lastInputsFingerprint = null;
+    _preferredEndTime = null;
     emit(const ReservationInitial());
   }
 }

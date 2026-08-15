@@ -28,6 +28,8 @@ abstract class ReservationRepository {
   /// [gameId] - game muốn chơi
   /// [playDate] - ngày chơi
   /// [timeSlot] - khung giờ
+  /// [preferredStartTime] - giờ bắt đầu ưa thích (optional)
+  /// [preferredEndTime] - giờ kết thúc ưa thích (optional)
   /// [isPrivate] - lobby private (bỏ qua cafe approval) hay public (cần cafe duyệt)
   /// [minPlayers], [maxPlayers] - số người
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
@@ -36,6 +38,7 @@ abstract class ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -59,6 +62,7 @@ abstract class ReservationRepository {
     required DateTime playDate,
     required TimeSlot timeSlot,
     String? preferredStartTime,
+    String? preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,

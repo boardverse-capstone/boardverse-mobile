@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
@@ -42,9 +44,31 @@ abstract class WalletRepository {
   /// Hủy đơn top-up đang Pending (chưa thanh toán).
   Future<Either<Failure, void>> cancelTopUp(String topUpId);
 
+  /// Lấy ảnh QR PNG bytes qua fallback endpoint.
+  ///
+  /// Dùng khi backend không embed `qrImageBase64` trong response của
+  /// POST/PATCH /topup. Backend proxy từ vietqr.app server-side →
+  /// bypass CORS trên Flutter Web.
+  Future<Either<Failure, Uint8List>> getQrImageBytes(String orderId);
+
   /// Kiểm tra xem top-up đã thành công chưa bằng cách check transaction history.
   ///
-  /// Thay vì check balance (sai), ta check transaction có relatedPaymentRef = orderId.
-  /// Đây là cách đúng để xác nhận topup đã được xử lý bởi SePay webhook.
-  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(String orderId);
+  /// Quy trình 3-tier fallback (xem `WalletRepositoryImpl`):
+  ///   1. **Tier 1** (lý tưởng): tìm transaction `relatedPaymentRef == orderId`.
+  ///   2. **Tier 2** (backend không gắn ref): phát hiện transaction `TopUp`
+  ///      tạo SAU [quoteCreatedAt] (xem BR §3.3). Loại trừ transaction do
+  ///      chính quote này tạo (nếu có) → giúp không match nhầm cho lần top-up
+  ///      kế tiếp.
+  ///   3. **Tier 3** (fallback cuối): kiểm tra balance delta — nếu balance
+  ///      hiện tại > [previousBalance] + 1 BVC → coi như đã nạp thành công.
+  ///
+  /// Trả về `true` khi BẤT KỲ tier nào match. Cờ [previousBalance] /
+  /// [expectedBvc] / [quoteCreatedAt] là optional — nếu caller cung cấp thì
+  /// tier 2 + 3 hoạt động chính xác hơn.
+  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(
+    String orderId, {
+    int? previousBalance,
+    int? expectedBvc,
+    DateTime? quoteCreatedAt,
+  });
 }

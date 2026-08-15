@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_status_pill.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_detail_header.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_detail_info.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_action_button.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/current_user_resolver.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_state.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_status_pill.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_detail_header.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_detail_info.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_action_button.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_skeleton.dart';
 
 /// Bottom sheet hiển thị chi tiết 1 tournament + các tab (info /
 /// participants / matches) + nút register/withdraw.
@@ -168,7 +169,7 @@ class _TournamentDetailSheetState extends State<TournamentDetailSheet> {
                 ),
               ),
               child: isLoading || currentTournament == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? TournamentSkeleton.detailSheet()
                   : _buildContent(
                       context,
                       scrollController,
@@ -289,7 +290,9 @@ class _TournamentDetailSheetState extends State<TournamentDetailSheet> {
                 onClose: () => Navigator.pop(context),
               ),
               const SizedBox(height: AppSpacing.xl),
-              const Center(child: CircularProgressIndicator()),
+              // Skeleton shimmer thay cho spinner — đồng nhất với các
+              // màn loading khác trong feature tournament.
+              TournamentSkeleton.detailBody(),
             ],
           ),
         ),

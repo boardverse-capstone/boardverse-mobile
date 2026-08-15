@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/elo_history_entity.dart';
 
 /// Neo-brutalism Lightweight line chart for Elo history.
 class EloChart extends StatelessWidget {

@@ -9,14 +9,14 @@
 // - UpdateProgressRequestModel
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:boardverse_mobile/features/profile/data/models/create_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/karma_history_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/player_location_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/profile_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_avatar_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_location_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_progress_request_model.dart';
+import 'package:boardverse/features/profile/data/models/create_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/karma_history_model.dart';
+import 'package:boardverse/features/profile/data/models/player_location_model.dart';
+import 'package:boardverse/features/profile/data/models/profile_model.dart';
+import 'package:boardverse/features/profile/data/models/update_avatar_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_location_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_progress_request_model.dart';
 
 void main() {
   group('ProfileModel', () {

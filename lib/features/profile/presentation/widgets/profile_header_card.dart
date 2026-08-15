@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_radius.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_radius.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
 
 /// Static profile header card — hiển thị avatar + username + bio + tier badge.
 ///

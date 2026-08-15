@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
 
 /// Gradient background dùng chung cho các auth pages.
 /// 
@@ -21,20 +21,33 @@ class AuthGradientBackground extends StatelessWidget {
   final AlignmentGeometry end;
   final Widget child;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: begin,
-          end: end,
-          colors: colors,
-          stops: stops,
+@override
+Widget build(BuildContext context) {
+  return Stack(
+    fit: StackFit.expand,
+    children: [
+      // Background gradient that fills the *entire* screen, including
+      // any space below the scrollable content (e.g. when the page
+      // is shorter than the viewport or the on-screen keyboard is
+      // open and reveals the area underneath the scroll view).
+      //
+      // Without this, the gradient only stretched to the size of the
+      // [SingleChildScrollView] child, leaving a white strip at the
+      // bottom of the screen on shorter pages.
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: begin,
+            end: end,
+            colors: colors,
+            stops: stops,
+          ),
         ),
       ),
-      child: child,
-    );
-  }
+      child,
+    ],
+  );
+}
 
   /// Login page gradient — Orange → đen.
   static List<Color> loginGradient(BuildContext context) {
@@ -60,6 +73,18 @@ class AuthGradientBackground extends StatelessWidget {
       AppColors.accent,
       AppColors.primary,
       AppColors.primaryDark,
+    ];
+  }
+
+  /// Setup-profile gradient — dùng cho màn hình buộc player điền
+  /// thông tin cá nhân cơ bản sau khi đăng ký / login. Tone cyan/cool
+  /// để phân biệt với login (orange) và register (cyan-đen), tránh
+  /// nhầm lẫn với màn hình auth.
+  static List<Color> setupGradient(BuildContext context) {
+    return const [
+      AppColors.primary,
+      AppColors.primaryDark,
+      AppColors.backgroundDark,
     ];
   }
 

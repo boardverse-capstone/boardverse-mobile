@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/detail_row.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/presentation/widgets/detail_row.dart';
+import 'package:boardverse/features/profile/presentation/widgets/section_card.dart';
 
 /// Neo-brutalism Thẻ "Thông tin tài khoản".
 class PersonalInfoCard extends StatelessWidget {

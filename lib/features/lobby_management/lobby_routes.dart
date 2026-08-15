@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/navigation/lobby_join_signal.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/navigation/lobby_join_signal.dart';
+import 'package:boardverse/features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'presentation/cubit/lobby_invite_cubit.dart';
 import 'presentation/cubit/match_result_cubit.dart';
 import 'presentation/pages/join_by_code_page.dart';
@@ -27,6 +28,7 @@ class LobbyRoutes {
   static const String lobbyPendingCafeApproval =
       '/lobby/pending-cafe-approval';
   static const String lobbyPage = '/lobby/page';
+  static const String inGameSession = '/lobby/in-game-session';
 
   static const String shareCodeDeepLink = 'boardverse://lobby/join';
   static const String lobbyDeepLink = 'boardverse://lobby';
@@ -73,6 +75,27 @@ class LobbyInvitesHistoryPageArgs {
   const LobbyInvitesHistoryPageArgs({
     required this.lobbyId,
     this.lobbyName,
+  });
+}
+
+/// Page arguments cho [InGameSessionPage].
+class InGameSessionPageArgs {
+  final String bookingId;
+  final String cafeName;
+  final String gameName;
+  final int tableNumber;
+
+  /// Nếu true, InGameSessionPage bỏ qua checkIn trong initState.
+  /// Dùng khi navigate từ LobbyCheckInSection (user đã được staff
+  /// check-in rồi).
+  final bool skipCheckIn;
+
+  const InGameSessionPageArgs({
+    required this.bookingId,
+    required this.cafeName,
+    required this.gameName,
+    required this.tableNumber,
+    this.skipCheckIn = true,
   });
 }
 
@@ -134,6 +157,18 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
             lobbyId: args.lobbyId,
             gameName: args.gameName,
           ),
+        ),
+      );
+
+    case LobbyRoutes.inGameSession:
+      final args = settings.arguments as InGameSessionPageArgs;
+      return MaterialPageRoute(
+        builder: (_) => InGameSessionPage(
+          bookingId: args.bookingId,
+          cafeName: args.cafeName,
+          gameName: args.gameName,
+          tableNumber: args.tableNumber,
+          skipCheckIn: args.skipCheckIn,
         ),
       );
 

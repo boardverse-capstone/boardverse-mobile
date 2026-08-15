@@ -1,12 +1,12 @@
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_model.dart';
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_profile_model.dart';
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_request_model.dart';
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_search_model.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_model.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_profile_model.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_request_model.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_search_model.dart';
+import 'package:boardverse/features/friend_management/domain/entities/entities.dart';
 
 import '_api_guard_mixin.dart';
 

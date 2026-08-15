@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
 
 /// Quick action row cho giai đoạn "Sau lobby FULL → trước khi đến quán".
 /// Hiển thị các nút người chơi cần — neo-brutalism style với bold border + hard shadow.

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/core/theme/neo_brutalism_theme.dart';
-import 'package:boardverse_mobile/features/profile/presentation/widgets/section_card.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/features/profile/presentation/widgets/section_card.dart';
 
 /// Neo-brutalism Trạng thái lỗi khi GET /userprofile thất bại.
 class ProfileErrorState extends StatelessWidget {

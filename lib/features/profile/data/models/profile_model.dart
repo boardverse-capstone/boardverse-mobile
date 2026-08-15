@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
 
 part 'profile_model.freezed.dart';
 part 'profile_model.g.dart';

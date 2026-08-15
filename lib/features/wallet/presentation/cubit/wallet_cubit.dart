@@ -16,6 +16,15 @@ class WalletCubit extends Cubit<WalletState> {
 
   WalletCubit({required this.repository}) : super(const WalletInitial());
 
+  /// Resets the cubit to its initial state. Called on logout so the
+  /// next user starts from a clean slate and doesn't see stale data
+  /// from the previous session.
+  void reset() {
+    if (isClosed) return;
+    _cachedWallet = null;
+    emit(const WalletInitial());
+  }
+
   /// Lấy thông tin ví
   Future<void> loadWallet({bool includeHeld = false}) async {
     emit(const WalletLoading());

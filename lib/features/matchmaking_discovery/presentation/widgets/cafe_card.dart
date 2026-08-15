@@ -59,7 +59,6 @@ class _CafeCardState extends State<CafeCard>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final hasDeposit = widget.cafe.depositAmount != null;
     final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
 
     return AnimatedBuilder(
@@ -145,7 +144,9 @@ class _CafeCardState extends State<CafeCard>
                             ],
                           ),
                           const SizedBox(height: AppSpacing.xs),
-                          // Distance + Tables row
+                          // Distance + Seats row (BR-01: hiển thị số ghế,
+                          // không phải số bàn — totalSeats phản ánh sức
+                          // chứa thực tế của quán).
                           Row(
                             children: [
                               _MetaChip(
@@ -159,12 +160,16 @@ class _CafeCardState extends State<CafeCard>
                               ),
                               const SizedBox(width: AppSpacing.xs),
                               _MetaChip(
-                                icon: Icons.table_restaurant_outlined,
-                                text:
-                                    '${widget.cafe.availableTableCount}/${widget.cafe.totalTableCount} bàn',
-                                color: _tableColor(
-                                  widget.cafe.availableTableCount,
-                                  widget.cafe.totalTableCount,
+                                icon: Icons.event_seat_outlined,
+                                // Chỉ hiển thị tổng sức chứa của quán —
+                                // tránh hiển thị "X/Y" gây nhầm lẫn (vì
+                                // availableSeats từ API là tổng ghế trống
+                                // cộng dồn qua 4 time-slot, không phải ghế
+                                // trống hiện tại trong quán).
+                                text: '${widget.cafe.totalSeats} ghế',
+                                color: _seatColor(
+                                  widget.cafe.availableSeats,
+                                  widget.cafe.totalSeats,
                                 ),
                               ),
                               if (widget.cafe.isWaitingForGame &&
@@ -183,15 +188,6 @@ class _CafeCardState extends State<CafeCard>
                             availability: widget.seatAvailability,
                             showDetailedInfo: widget.showFullDetails,
                           ),
-                          const SizedBox(height: AppSpacing.xs),
-                          if (hasDeposit) ...[
-                            _DepositPill(
-                              amount: _formatDepositBvc(
-                                widget.cafe.depositAmount!,
-                              ),
-                              minutes: widget.cafe.depositMinutesLimit,
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -205,14 +201,11 @@ class _CafeCardState extends State<CafeCard>
     );
   }
 
-  Color _tableColor(int available, int total) {
+  Color _seatColor(int available, int total) {
+    if (total <= 0) return AppColors.success;
     if (available == 0) return AppColors.error;
-    if (available <= total * 0.3) return AppColors.warningDark;
+    if (available <= total * 0.2) return AppColors.warningDark;
     return AppColors.success;
-  }
-
-  String _formatDepositBvc(double amount) {
-    return '${amount.toStringAsFixed(0)} BVC';
   }
 
   String _formatDistance(double meters) {
@@ -421,56 +414,3 @@ class _WaitPill extends StatelessWidget {
   }
 }
 
-class _DepositPill extends StatelessWidget {
-  final String amount;
-  final int? minutes;
-
-  const _DepositPill({required this.amount, this.minutes});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.primary,
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.payments_outlined,
-            size: AppSpacing.sm,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 2),
-          Text(
-            'Cọc $amount',
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-            ),
-          ),
-          if (minutes != null) ...[
-            Text(
-              ' / $minutes phút',
-              style: TextStyle(
-                color: AppColors.primary.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}

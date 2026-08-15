@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/cafe_info_helper.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
-import 'package:boardverse_mobile/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
-import 'package:boardverse_mobile/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/cafe_info_helper.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
+import 'package:boardverse/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../../reservation/domain/entities/entities.dart' as res;
 import '../cubit/member_arrival_cubit.dart';
 import 'confirmation_status_banner.dart';
@@ -58,6 +58,10 @@ class LobbyCheckInSection extends StatefulWidget {
   /// Tổng số players hiện tại trong lobby (cho host checklist).
   final List<LobbyPlayer>? lobbyPlayers;
 
+  /// Callback khi user bấm "Vào phiên chơi" sau khi checked-in.
+  /// Dùng để navigate sang InGameSessionPage.
+  final VoidCallback? onEnterSession;
+
   const LobbyCheckInSection({
     super.key,
     required this.reservation,
@@ -69,6 +73,7 @@ class LobbyCheckInSection extends StatefulWidget {
     required this.currentUserId,
     this.arrivalByUserId,
     this.lobbyPlayers,
+    this.onEnterSession,
   });
 
   @override
@@ -464,6 +469,13 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
                       ),
                     ],
                   ),
+
+                  // Nút "Vào phiên chơi" — chỉ hiện khi staff đã scan/check-in.
+                  if (reservation.status == res.ReservationStatus.checkedIn)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: _EnterSessionButton(onPressed: widget.onEnterSession),
+                    ),
                 ],
               ),
             ),
@@ -856,6 +868,88 @@ class _NeoOutlineButton extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                   fontSize: 13,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút "Vào phiên chơi" — neo-brutalism filled button, hiện sau khi checked-in.
+class _EnterSessionButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _EnterSessionButton({this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.primary,
+                AppColors.primaryDark,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.sports_esports_rounded,
+                  color: AppColors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Text(
+                'Vào phiên chơi',
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppColors.white,
+                size: 18,
               ),
             ],
           ),

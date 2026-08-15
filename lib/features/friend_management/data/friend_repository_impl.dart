@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse/core/error/failures.dart';
 import '../domain/entities/entities.dart';
 import '../domain/repositories/friend_repository.dart';
 import 'datasources/base/friend_remote_datasource.dart';

@@ -11,11 +11,13 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   final DateTime selectedDate;
   final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
+  final TimeOfDay? preferredEndTime;
   final List<TimeSlot> availableSlots;
   final ValueChanged<DateTime> onDateSelected;
   final VoidCallback onOpenDatePicker;
   final ValueChanged<TimeSlot> onTimeSlotChanged;
   final VoidCallback onPreferredTimeTap;
+  final VoidCallback onPreferredEndTimeTap;
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
   final TimeOfDay Function(TimeSlot) getSlotStartTime;
@@ -35,11 +37,13 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.selectedDate,
     required this.selectedTimeSlot,
     required this.preferredStartTime,
+    required this.preferredEndTime,
     required this.availableSlots,
     required this.onDateSelected,
     required this.onOpenDatePicker,
     required this.onTimeSlotChanged,
     required this.onPreferredTimeTap,
+    required this.onPreferredEndTimeTap,
     required this.formatDate,
     required this.formatTime,
     required this.getSlotStartTime,
@@ -256,14 +260,14 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.schedule, color: theme.colorScheme.primary),
+                        Icon(Icons.play_arrow, color: theme.colorScheme.primary),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Giờ dự kiến',
+                                'Giờ bắt đầu',
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -272,6 +276,49 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                                 preferredStartTime != null
                                     ? formatTime(preferredStartTime!)
                                     : 'Chọn giờ (tuỳ chọn)',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.sm),
+
+                // Preferred end time
+                GestureDetector(
+                  onTap: onPreferredEndTimeTap,
+                  child: Container(
+                    padding: AppSpacing.paddingAllMd,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHigh,
+                      borderRadius: AppRadius.radiusMdAll,
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.stop, color: theme.colorScheme.secondary),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Giờ kết thúc (tuỳ chọn)',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              Text(
+                                preferredEndTime != null
+                                    ? formatTime(preferredEndTime!)
+                                    : 'Mặc định theo phiên',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),

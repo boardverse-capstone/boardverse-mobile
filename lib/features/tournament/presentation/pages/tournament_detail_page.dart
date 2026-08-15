@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/utils/current_user_resolver.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_match_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_detail_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_info_tab.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_participants_tab.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/tabs/tournament_matches_tab.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_error_state.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/utils/current_user_resolver.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_state.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_engagement_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_engagement_state.dart';
+import 'package:boardverse/features/tournament/presentation/tabs/tournament_info_tab.dart';
+import 'package:boardverse/features/tournament/presentation/tabs/tournament_participants_tab.dart';
+import 'package:boardverse/features/tournament/presentation/tabs/tournament_matches_tab.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_error_state.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_skeleton.dart';
 
 /// Full-page view of a single tournament with three tabs:
 /// 1) Info + Register/Withdraw
@@ -22,19 +25,28 @@ class TournamentDetailPage extends StatelessWidget {
   final String tournamentId;
   final TournamentEntity? initialTournament;
   final TournamentDetailCubit? cubit;
+  final TournamentEngagementCubit? engagementCubit;
 
   const TournamentDetailPage({
     super.key,
     required this.tournamentId,
     this.initialTournament,
     this.cubit,
+    this.engagementCubit,
   });
 
   @override
   Widget build(BuildContext context) {
     if (cubit != null) {
-      return BlocProvider<TournamentDetailCubit>.value(
-        value: cubit!,
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider<TournamentDetailCubit>.value(value: cubit!),
+          BlocProvider<TournamentEngagementCubit>(
+            create: (_) =>
+                engagementCubit ??
+                getIt<TournamentEngagementCubit>()..load(tournamentId),
+          ),
+        ],
         child: _TournamentDetailView(initialTournament: initialTournament),
       );
     }
@@ -75,15 +87,23 @@ class _TournamentDetailLoaderState extends State<_TournamentDetailLoader> {
       future: _userIdFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            body: SafeArea(child: TournamentSkeleton.detailPage()),
           );
         }
 
-        return BlocProvider<TournamentDetailCubit>(
-          create: (_) =>
-              getIt<TournamentDetailCubit>()
-                ..loadDetail(widget.tournamentId, currentUserId: snapshot.data),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TournamentDetailCubit>(
+              create: (_) => getIt<TournamentDetailCubit>()
+                ..loadDetail(widget.tournamentId,
+                    currentUserId: snapshot.data),
+            ),
+            BlocProvider<TournamentEngagementCubit>(
+              create: (_) => getIt<TournamentEngagementCubit>()
+                ..load(widget.tournamentId),
+            ),
+          ],
           child: _TournamentDetailView(
             initialTournament: widget.initialTournament,
           ),
@@ -158,68 +178,150 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
         final matches = _resolveMatches(state);
         final isRegistering = state is TournamentDetailRegistering;
 
-        final title = tournament?.title ?? 'Chi tiết giải đấu';
-
-        return Scaffold(
-          backgroundColor: theme.colorScheme.surface,
-          appBar: AppBar(
-            title: Text(title),
-            backgroundColor: theme.colorScheme.surface,
-            elevation: 0,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(48),
-              child: Container(
-                color: theme.colorScheme.surface,
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: theme.colorScheme.primary,
-                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                  indicatorColor: theme.colorScheme.primary,
-                  indicatorWeight: 3,
-                  tabs: [
-                    const Tab(text: 'Thông tin'),
-                    Tab(text: 'Người tham gia (${participants.length})'),
-                    Tab(text: 'Bàn đấu (${matches.length})'),
-                  ],
-                ),
-              ),
+        // Listen riêng cho EngagementCubit để show toast cho các action
+        // waitlist / spectator. Đặt trong builder để có context sau khi
+        // provider đã wire xong.
+        return MultiBlocListener(
+          listeners: [
+            BlocListener<TournamentEngagementCubit, TournamentEngagementState>(
+              listenWhen: (prev, curr) =>
+                  curr is TournamentEngagementSuccessNotice ||
+                  curr is TournamentEngagementError,
+              listener: (ctx, engState) {
+                if (engState is TournamentEngagementSuccessNotice) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(AppSpacing.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.radiusSmAll,
+                      ),
+                      content: Text(engState.message),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                } else if (engState is TournamentEngagementError) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(AppSpacing.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.radiusSmAll,
+                      ),
+                      content: Text(engState.message),
+                      backgroundColor: theme.colorScheme.error,
+                    ),
+                  );
+                }
+              },
             ),
+          ],
+          child: _buildScaffold(
+            context: context,
+            theme: theme,
+            state: state,
+            tournament: tournament,
+            participants: participants,
+            matches: matches,
+            isRegistering: isRegistering,
+            title: tournament?.title ?? 'Chi tiết giải đấu',
           ),
-          body: tournament == null
-              ? state is TournamentDetailError
-                    ? TournamentErrorState(
-                        message: state.message,
-                        onRetry: () =>
-                            context.read<TournamentDetailCubit>().refresh(),
-                      )
-                    : const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    TournamentInfoTab(
-                      tournament: tournament,
-                      isRegistering: isRegistering,
-                      onRegister: () => context
-                          .read<TournamentDetailCubit>()
-                          .register(tournament.id),
-                      onUnregister: () => context
-                          .read<TournamentDetailCubit>()
-                          .unregister(tournament.id),
-                    ),
-                    TournamentParticipantsTab(
-                      tournamentId: tournament.id,
-                      participants: participants,
-                    ),
-                    TournamentMatchesTab(
-                      tournamentId: tournament.id,
-                      matches: matches,
-                    ),
-                  ],
-                ),
         );
       },
+    );
+  }
+
+  Widget _buildScaffold({
+    required BuildContext context,
+    required ThemeData theme,
+    required TournamentDetailState state,
+    required TournamentEntity? tournament,
+    required List<TournamentParticipantEntity> participants,
+    required List<TournamentMatchEntity> matches,
+    required bool isRegistering,
+    required String title,
+  }) {
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Làm mới',
+            onPressed: () {
+              final cubit = context.read<TournamentDetailCubit>();
+              if (cubit.currentTournamentId != null) {
+                cubit.loadDetail(
+                  cubit.currentTournamentId!,
+                  currentUserId: _resolveCurrentUserId(state),
+                );
+              }
+              // Đồng thời refresh waitlist + spectator state.
+              final engagementCubit =
+                  context.read<TournamentEngagementCubit>();
+              if (engagementCubit.currentTournamentId != null) {
+                engagementCubit.load(
+                  engagementCubit.currentTournamentId!,
+                );
+              }
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            color: theme.colorScheme.surface,
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: theme.colorScheme.primary,
+              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+              indicatorColor: theme.colorScheme.primary,
+              indicatorWeight: 3,
+              tabs: [
+                const Tab(text: 'Thông tin'),
+                Tab(text: 'Người tham gia (${participants.length})'),
+                Tab(text: 'Bàn đấu (${matches.length})'),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: tournament == null
+          ? state is TournamentDetailError
+              ? TournamentErrorState(
+                  message: state.message,
+                  onRetry: () =>
+                      context.read<TournamentDetailCubit>().refresh(),
+                )
+              : TournamentSkeleton.detailBody()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                TournamentInfoTab(
+                  tournament: tournament,
+                  isRegistering: isRegistering,
+                  onRegister: () => context
+                      .read<TournamentDetailCubit>()
+                      .register(tournament.id),
+                  onUnregister: () => context
+                      .read<TournamentDetailCubit>()
+                      .unregister(tournament.id),
+                ),
+                TournamentParticipantsTab(
+                  tournamentId: tournament.id,
+                  participants: participants,
+                ),
+                TournamentMatchesTab(
+                  tournamentId: tournament.id,
+                  matches: matches,
+                ),
+              ],
+            ),
     );
   }
 
@@ -247,5 +349,11 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
     if (state is TournamentDetailRegistering) return state.matches;
     if (state is TournamentDetailError) return state.matches ?? const [];
     return const [];
+  }
+
+  String? _resolveCurrentUserId(TournamentDetailState state) {
+    if (state is TournamentDetailLoaded) return state.tournament.isUserRegistered ? 'current_user' : null;
+    if (state is TournamentDetailRegistering) return state.tournament.isUserRegistered ? 'current_user' : null;
+    return null;
   }
 }

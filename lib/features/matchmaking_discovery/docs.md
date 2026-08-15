@@ -250,7 +250,6 @@ Navigate to LobbyPage with lobbyId
 | BR-01 | Seat-based cafe management | `CafeEntity`, `SeatAvailabilityEntity` |
 | BR-03 | Wait time for unavailable games | `estimatedWaitMinutes` in `CafeEntity` |
 | BR-05 | Seat availability check before booking | `checkSeatAvailability()` in Cubit |
-| BR-06 | Deposit holding (max 30 min) | `depositMinutesLimit` (default 20 min) |
 | BR-08 | Search radius for lobby | `searchRadiusKm` slider (1-30km) |
 | BR-10 | Karma-based member filtering | `minimumKarma` slider (0-100) |
 

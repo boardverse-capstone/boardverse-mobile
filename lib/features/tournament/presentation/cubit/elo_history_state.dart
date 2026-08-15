@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/elo_history_entity.dart';
 
 /// States for EloHistoryCubit.
 sealed class EloHistoryState extends Equatable {

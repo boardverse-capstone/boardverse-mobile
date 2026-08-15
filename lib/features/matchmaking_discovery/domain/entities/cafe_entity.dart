@@ -33,8 +33,6 @@ class CafeEntity extends Equatable {
   final int totalSeats; // Tổng số ghế của quán
   final int availableSeats; // Ghế trống khả dụng hiện tại
   final CafeSeatStatus seatStatus; // Trạng thái ghế tổng quan
-  final double? depositAmount; // Tiền cọc (VNĐ) - quán tự cấu hình
-  final int? depositMinutesLimit; // Thời hạn giữ chỗ (phút) - max 30 (BR-06)
   final String? openingHours; // Giờ mở cửa
   final String? phoneNumber; // Số điện thoại liên hệ
 
@@ -61,8 +59,6 @@ class CafeEntity extends Equatable {
     required this.totalSeats,
     required this.availableSeats,
     required this.seatStatus,
-    this.depositAmount,
-    this.depositMinutesLimit,
     this.openingHours,
     this.phoneNumber,
     // NearbyCafeDto fields
@@ -114,8 +110,6 @@ class CafeEntity extends Equatable {
         totalSeats,
         availableSeats,
         seatStatus,
-        depositAmount,
-        depositMinutesLimit,
         openingHours,
         phoneNumber,
         // Nearby fields

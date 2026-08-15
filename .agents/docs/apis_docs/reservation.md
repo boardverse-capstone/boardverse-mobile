@@ -24,7 +24,7 @@ Tuân thủ business rules:
 - **BR-NEW-02**: 1 lobby active / `playDate` / user.
 - **BR-NEW-08**: 1 lobby active / `playDate+timeSlot` / `cafe` / user.
 - **BR-NEW-11**: `playDate ≥ DistantThresholdDays` (mặc định 2) + lobby **public** → lobby ở `PendingCafeApproval`, chờ cafe duyệt 24h. Lobby **private** không cần cafe duyệt.
-- **BR-REFUND-02/03**: Cancel theo mốc 24h/6h + grace 15 phút.
+- **BR-REFUND-02**: Cancel theo grace 15 phút + ≥24h / <24h. **Early checkout** dùng `playedRatio`: <50% → 0%, ≥50% → 30%, ≥90% → 0% (treated as on-time).
 - **BR-RESERVATION-01/02**: Giữ `maxPlayers` ghế + 1 game copy.
 
 ---
@@ -39,6 +39,9 @@ Tuân thủ business rules:
 - [POST /confirm](#post-confirm)
 - [POST /{id}/cancel](#post-idcancel)
 - [POST /{id}/cafe-approval](#post-idcafe-approval)
+- [POST /{id}/check-in](#post-idcheck-in)
+- [POST /{id}/end](#post-idend)
+- [POST /{id}/extend](#post-idextend)
 - [Luồng tích hợp](#luồng-tích-hợp)
 - [State machine](#state-machine)
 
@@ -71,7 +74,8 @@ Lấy chi tiết một reservation.
     "playDate": "2026-08-04",
     "timeSlot": "evening",
     "preferredStartTime": "19:30:00",
-    "scheduledTime": "2026-08-04T18:00:00Z",
+    "scheduledStartTime": "2026-08-04T18:00:00Z",
+    "scheduledEndTime": "2026-08-04T23:00:00Z",
     "recruitmentDeadline": "2026-08-04T17:40:00Z",
     "minPlayers": 4,
     "maxPlayers": 6,
@@ -233,7 +237,8 @@ Lấy danh sách lobby đang chờ cafe duyệt (BR-NEW-11). Dùng cho dashboard
         "maxPlayers": 6,
         "currentPlayers": 1,
         "depositAmount": 120000,
-        "scheduledTime": "2026-08-07T18:00:00Z",
+        "scheduledStartTime": "2026-08-07T18:00:00Z",
+        "scheduledEndTime": "2026-08-07T23:00:00Z",
         "cafeApprovalDeadline": "2026-08-05T18:00:00Z",
         "remainingApprovalHours": 24,
         "createdAt": "2026-08-04T10:00:00Z"
@@ -288,7 +293,8 @@ Lấy chi tiết một reservation đang chờ cafe duyệt (BR-NEW-11). Dùng �
     "maxPlayers": 6,
     "currentPlayers": 1,
     "depositAmount": 120000,
-    "scheduledTime": "2026-08-07T18:00:00Z",
+    "scheduledStartTime": "2026-08-07T18:00:00Z",
+    "scheduledEndTime": "2026-08-07T23:00:00Z",
     "cafeApprovalDeadline": "2026-08-05T18:00:00Z",
     "remainingApprovalHours": 24,
     "createdAt": "2026-08-04T10:00:00Z"
@@ -357,7 +363,8 @@ Tạo quote cho reservation. **KHÔNG tạo row DB** — chỉ validate + tính 
     "playDate": "2026-08-04",
     "timeSlot": "evening",
     "preferredStartTime": "19:30:00",
-    "scheduledTime": "2026-08-04T18:00:00Z",
+    "scheduledStartTime": "2026-08-04T18:00:00Z",
+    "scheduledEndTime": "2026-08-04T23:00:00Z",
     "recruitmentDeadline": "2026-08-04T17:40:00Z",
     "minPlayers": 4,
     "maxPlayers": 6,
@@ -455,11 +462,11 @@ Confirm reservation — atomic transaction. Trừ BVC + giữ seat + giữ game 
 
 Lưu ý: `expectedFinalDeposit` phải khớp với `finalDeposit` từ quote. Server validate lại và reject nếu trong lúc chờ xác nhận giá thay đổi (BR §XVII.2).
 
-### Response 200
+### Response 201
 
 ```json
 {
-  "statusCode": 200,
+  "statusCode": 201,
   "message": "ReservationConfirmed",
   "data": {
     "reservationId": "...",
@@ -471,6 +478,8 @@ Lưu ý: `expectedFinalDeposit` phải khớp với `finalDeposit` từ quote. S
   }
 }
 ```
+
+> Server trả `201 Created` (RFC 7231) vì endpoint tạo mới `Reservation` + `Lobby`. Idempotent retry với cùng params + `IdempotencyKey` cũng trả `201` với cùng payload (xem mục Idempotency bên dưới).
 
 Nếu `requiresCafeApproval: true` (public lobby, playDate > 2 ngày), lobby ở `PendingCafeApproval` cho đến khi cafe duyệt hoặc hết 24h (`expiredByCafe` + refund 100% BVC).
 Nếu `isPrivate: true`, lobby không cần cafe duyệt dù playDate cách xa.
@@ -522,9 +531,9 @@ Confirm endpoint **verify tất cả params** trước khi trả kết quả cũ
 
 | Trường hợp | Hành vi |
 |---|---|
-| Retry với **cùng params** | ✅ 200 — trả kết quả cũ |
+| Retry với **cùng params** | ✅ 201 — trả kết quả cũ |
 | Retry với **params khác** | ❌ 409 — `IdempotencyKeyParamsMismatch` |
-| Lobby cũ đã bị hủy | ✅ 200 — vẫn trả kết quả cũ (client cần dùng key mới) |
+| Lobby cũ đã bị hủy | ✅ 201 — vẫn trả kết quả cũ (client cần dùng key mới) |
 
 **Ví dụ lỗi params mismatch:**
 
@@ -551,7 +560,7 @@ Confirm endpoint **verify tất cả params** trước khi trả kết quả cũ
 
 ## POST /{id}/cancel
 
-Host hủy reservation. Refund theo BR-REFUND-02/03.
+Host hủy reservation. Refund theo BR-REFUND-02.
 
 ### Request
 
@@ -565,14 +574,21 @@ Host hủy reservation. Refund theo BR-REFUND-02/03.
 { "reason": "Hủy vì thay đổi kế hoạch" }
 ```
 
-### Refund policy (BR §X.2)
+### Refund policy (BR-REFUND-02)
 
 | Điều kiện | Hoàn BVC | Karma |
 |---|---|---|
 | Trong grace 15p + chưa có member | 100% | Không phạt |
-| ≥ 24 giờ trước giờ chơi | 100% | Không phạt |
-| 6–24 giờ trước giờ chơi | 50% | Giảm nhẹ |
-| < 6 giờ trước giờ chơi | 0% | Giảm đáng kể |
+| ≥ 24 giờ trước `ScheduledStartTime` | 100% | Không phạt |
+| < 24 giờ trước `ScheduledStartTime` | 0% | Giảm đáng kể |
+
+> **Lưu ý:** Không còn bậc 50% (6-24h) nữa. Chỉ có 100% (grace/≥24h) hoặc 0% (<24h).
+
+**H7 Fix (BR-REFUND-03 hasMembers, 2026-08-09):**
+- Điều kiện "chưa có member" check `members.Any(m => !m.IsHost && m.IsActive)` thay vì `members.Count > 1`.
+- Trước fix: đếm tổng row → false positive khi host có 2 row hoặc soft-delete không đúng.
+- Logic chính xác: "thành viên tham gia" = non-host & active.
+- File: `ReservationService.cs` dòng ~933.
 
 ### Response 200
 
@@ -675,6 +691,171 @@ Cafe **chấp nhận** (`approve: true`) hoặc **từ chối** (`approve: false
 | `401` | Thiếu token |
 | `403` | Không phải manager của cafe |
 | `404` | Reservation không tồn tại |
+
+---
+
+## POST /{id}/check-in
+
+POS staff xác nhận khách đã đến quán, scan mã ReservationCode để bắt đầu phiên chơi (BR-CHECKIN-01).
+
+### Request
+
+- Method: `POST`
+- Path: `/api/v1/reservations/{reservationId}/check-in`
+- Auth: Manager hoặc CafeStaff.
+
+### Body
+
+```json
+{
+  "cafeId": "guid",
+  "reservationCode": "8-char-code",
+  "activeSessionId": "guid",
+  "idempotencyKey": "pos-checkin-..."
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| cafeId | Yes | CafeId của POS staff đang quét — validate ownership |
+| reservationCode | Yes | Mã 8-char alphanumeric từ app |
+| activeSessionId | Yes | POS session ID |
+| idempotencyKey | Yes | 8-128 chars; retry trả cùng response |
+
+### Response — 200 OK
+
+```json
+{
+  "reservationId": "guid",
+  "lobbyId": "guid",
+  "activeSessionId": "guid",
+  "reservationStatus": "CheckedIn",
+  "lobbyStatus": "InProgress",
+  "checkedInAt": "2026-08-15T10:30:00Z",
+  "heldBvc": 120
+}
+```
+
+### Errors
+
+| Code | Description |
+|---|---|
+| 400 | Mã reservation không hợp lệ hoặc đã check-in (idempotent) |
+| 404 | Không tìm thấy reservation |
+| 409 | Status không cho phép check-in (ví dụ: đã `Completed` / `Cancelled`) |
+
+---
+
+## POST /{id}/end
+
+POS staff kết thúc phiên chơi (early checkout, on-time, hoặc staff override). BR-END-01..05 + BR-REFUND-05 + EC-09.
+
+### Request
+
+- Method: `POST`
+- Path: `/api/v1/reservations/{reservationId}/end`
+- Auth: Manager hoặc CafeStaff.
+
+### Body
+
+```json
+{
+  "reservationId": "guid",
+  "actualEndAt": "2026-08-15T13:30:00Z",
+  "reason": "staff_manual_close",
+  "skipWalkInWindow": false
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| reservationId | Yes | Reservation cần end |
+| actualEndAt | No | Default = UTC now |
+| reason | No | "early_checkout" / "on_time" / "staff_override" |
+| skipWalkInWindow | No | Skip tạo WalkInWindow khi early checkout |
+
+### Response — 200 OK
+
+```json
+{
+  "reservationId": "guid",
+  "endReason": "EarlyLeave",
+  "playedRatio": 0.43,
+  "originalDeposit": 120,
+  "refundBvc": 0,
+  "forfeitBvc": 120,
+  "refundReason": "EarlyCheckout",
+  "checkedInAt": "2026-08-15T10:00:00Z",
+  "actualEndAt": "2026-08-15T11:30:00Z",
+  "scheduledStartTime": "2026-08-15T10:00:00Z",
+  "scheduledEndTime": "2026-08-15T13:00:00Z",
+  "walkInWindowId": null,
+  "karmaRecorded": true
+}
+```
+
+### Errors
+
+| Code | Description |
+|---|---|
+| 404 | Không tìm thấy reservation |
+| 409 | Status không cho phép end (chưa check-in) |
+
+### Side effects
+
+- Update `Reservation.Status = Completed` (hoặc `EarlyCheckout`)
+- Update `Reservation.ActualEndAt`, `PlayedRatio`, `EndReason`
+- Tính refund theo BR-REFUND-05: ≥90% on-time = 0 refund; ≥50% early = 30% refund; <50% short = 0 refund
+- Nếu `playedRatio < 50%` và `duration >= 30 phút` và `!SkipWalkInWindow` → tạo `WalkInWindow` (EC-09)
+- Nếu `playedRatio < 50%` → ghi `KarmaShortPlayRecord` (-5 karma)
+- Outbox event `SessionEnded`
+
+---
+
+## POST /{id}/extend
+
+Host mở rộng thời gian reservation (BR-EXT-01..05 + EC-05 + EC-08).
+
+### Request
+
+- Method: `POST`
+- Path: `/api/v1/reservations/{reservationId}/extend`
+- Auth: Host.
+
+### Body
+
+```json
+{
+  "extensionMinutes": 30,
+  "idempotencyKey": "extend-..."
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| extensionMinutes | Yes | 1-120 phút (max 2 lần extend) |
+| idempotencyKey | Yes | 8-128 chars |
+
+### Response — 200 OK
+
+```json
+{
+  "reservationId": "guid",
+  "newScheduledEndTime": "2026-08-15T15:30:00Z",
+  "previousEndTime": "2026-08-15T13:00:00Z",
+  "extensionCount": 1,
+  "extensionMinutes": 30,
+  "remainingExtensionMinutes": 90
+}
+```
+
+### Errors
+
+| Code | Description |
+|---|---|
+| 403 | Không phải host |
+| 404 | Không tìm thấy reservation |
+| 409 | Status không phải Confirmed / quá max extension / overlap với WalkInWindow |
 
 ---
 
@@ -786,7 +967,7 @@ Confirm verify **tất cả params** trước khi trả kết quả cũ:
 | Endpoint | Idempotency field | Cùng params | Khác params |
 |---|---|---|---|
 | `POST /quote` | `idempotencyKey` | ✅ 200 (server không cache) | ✅ 200 (quote chỉ tính toán) |
-| `POST /confirm` | `idempotencyKey` | ✅ 200 (trả kết quả cũ) | ❌ 409 (params mismatch) |
+| `POST /confirm` | `idempotencyKey` | ✅ 201 (trả kết quả cũ) | ❌ 409 (params mismatch) |
 | `POST /cancel` | `reservationId` + `updatedAt` | ✅ 200 | ✅ 200 (idempotent by design) |
 | `POST /cafe-approval` | `lobby.status` | ✅ 200 | ✅ 200 (chỉ xử lý 1 lần) |
 

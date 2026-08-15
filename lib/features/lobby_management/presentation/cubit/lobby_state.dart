@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:boardverse_mobile/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../../domain/entities/lobby_chat_message.dart';

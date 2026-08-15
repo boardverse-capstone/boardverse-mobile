@@ -1,11 +1,11 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
 import 'tournament_list_state.dart';
 
 /// Cubit for managing tournament list state.
@@ -15,6 +15,14 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
   TournamentListCubit({required this._repository})
     : super(const TournamentListInitial());
+
+  /// Resets the cubit to its initial state. Called on logout so the
+  /// next user doesn't see cached lists/registrations from the
+  /// previous session.
+  void reset() {
+    if (_isDisposed || isClosed) return;
+    emit(const TournamentListInitial());
+  }
 
   /// Loads open tournaments and the user's active/history lists in parallel.
   ///
@@ -63,6 +71,45 @@ class TournamentListCubit extends Cubit<TournamentListState> {
       results[0] as Either<Failure, List<TournamentEntity>>,
       results[1] as Either<Failure, List<MyRegistrationEntry>>,
       results[2] as Either<Failure, List<MyRegistrationEntry>>,
+    );
+  }
+
+  /// Loads only open tournaments without my-registrations.
+  /// Used by ActivityPage which only displays open tournaments.
+  Future<void> loadOpenTournamentsOnly() async {
+    if (_isDisposed) return;
+    emit(const TournamentListLoading());
+
+    final result = await _repository.getOpenTournaments();
+    if (_isDisposed) return;
+
+    result.fold(
+      (failure) {
+        if (_isDisposed || isClosed) return;
+        emit(TournamentListError(message: failure.message));
+      },
+      (tournaments) {
+        if (_isDisposed || isClosed) return;
+        final open = tournaments
+            .where(
+              (t) =>
+                  t.status == TournamentStatus.registrationOpen &&
+                  !t.isRegistrationDeadlinePassed &&
+                  t.slotsRemaining > 0,
+            )
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+        emit(
+          TournamentListLoaded(
+            openTournaments: open,
+            upcomingTournaments: const [],
+            ongoingTournaments: const [],
+            completedTournaments: const [],
+            totalOpenCount: open.length,
+          ),
+        );
+      },
     );
   }
 

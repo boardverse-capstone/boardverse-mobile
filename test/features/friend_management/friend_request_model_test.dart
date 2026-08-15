@@ -1,5 +1,5 @@
-import 'package:boardverse_mobile/features/friend_management/data/models/friend_request_model.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
+import 'package:boardverse/features/friend_management/data/models/friend_request_model.dart';
+import 'package:boardverse/features/friend_management/domain/entities/entities.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Tests cho [FriendRequestModel] defensive parsing — đảm bảo parse đúng

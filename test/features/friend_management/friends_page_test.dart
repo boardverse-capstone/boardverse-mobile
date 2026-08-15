@@ -8,12 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/entities/entities.dart';
-import 'package:boardverse_mobile/features/friend_management/domain/repositories/friend_repository.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/cubit/friend_list_cubit.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/cubit/states/states.dart';
-import 'package:boardverse_mobile/features/friend_management/presentation/pages/friends_page.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/friend_management/domain/entities/entities.dart';
+import 'package:boardverse/features/friend_management/domain/repositories/friend_repository.dart';
+import 'package:boardverse/features/friend_management/presentation/cubit/friend_list_cubit.dart';
+import 'package:boardverse/features/friend_management/presentation/cubit/states/states.dart';
+import 'package:boardverse/features/friend_management/presentation/pages/friends_page.dart';
 
 class _StubFriendRepository implements FriendRepository {
   Either<Failure, List<FriendEntity>> friendsResult =

@@ -1,5 +1,3 @@
-import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_colors_dark.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_toast_card.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import '../widgets/widgets.dart';
@@ -68,34 +66,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   void _onResetPassword() {
     if (!_formKey.currentState!.validate()) return;
     if (_otpController.text.trim().length != _otpLength) {
-      _showToast('Vui lòng nhập đủ $_otpLength chữ số', isError: true);
+      AppToast.showError(
+        context,
+        null,
+        defaultMessage: 'Vui lòng nhập đủ $_otpLength chữ số',
+      );
       return;
     }
     context.read<AuthCubit>().resetPassword(
           otpCode: _otpController.text.trim(),
           newPassword: _passwordController.text,
         );
-  }
-
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(
-      autoDismiss: true,
-      snackbarDuration: const Duration(seconds: 3),
-      position: DelightSnackbarPosition.top,
-      builder: (context) => AppToastCard(
-        leading: Icon(
-          isError ? Icons.error_outline : Icons.check_circle_outlined,
-          color: isError
-              ? Theme.of(context).colorScheme.error
-              : AppColors.success,
-          size: 28,
-        ),
-        title: Text(
-          message,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ).show(context);
   }
 
   @override
@@ -105,14 +86,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         listener: (context, state) {
           switch (state) {
             case AuthPasswordResetSuccess():
-              _showToast(state.message);
+              AppToast.showSuccess(context, state.message);
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginPage()),
                 (route) => false,
               );
             case AuthFailure():
-              _showToast(state.message, isError: true);
+              AppToast.showError(context, state.message);
             default:
               break;
           }

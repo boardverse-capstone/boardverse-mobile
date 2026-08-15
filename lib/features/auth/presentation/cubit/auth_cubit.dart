@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:get_it/get_it.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 import '../../../../core/network/auth_interceptor.dart';
+import '../../../tournament/presentation/cubit/tournament_list_cubit.dart';
+import '../../../wallet/presentation/cubit/wallet_cubit.dart';
 import '../../data/models/auth_tokens_model.dart';
 import '../../data/models/change_password_request_model.dart';
 import '../../data/models/google_login_request_model.dart';
@@ -222,7 +226,33 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     await _clearTokens();
+
+    // Reset all long-lived singleton cubits so the next login starts
+    // from a clean slate. Without this, cached wallet/tournament
+    // state from the previous user would briefly leak into the UI
+    // of the next user (Bug: stale balance / registrations).
+    _resetSingletonCubits();
+
     emit(const AuthInitial());
+  }
+
+  /// Resets every Cubit registered as a `LazySingleton` in DI.
+  ///
+  /// These cubits are intentionally kept alive across login sessions
+  /// so the UI feels instant on warm starts, but their in-memory
+  /// state still belongs to the *previous* user and must be cleared
+  /// on logout.
+  void _resetSingletonCubits() {
+    try {
+      if (GetIt.I.isRegistered<WalletCubit>()) {
+        GetIt.I<WalletCubit>().reset();
+      }
+    } catch (_) {/* ignore — DI not ready in tests */}
+    try {
+      if (GetIt.I.isRegistered<TournamentListCubit>()) {
+        GetIt.I<TournamentListCubit>().reset();
+      }
+    } catch (_) {/* ignore */}
   }
 
   // ─── Request Password Reset ─────────────────────────────────────────
@@ -290,13 +320,20 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final claims = JwtDecoder.decode(tokens.token);
 
+      // Debug: in ra toàn bộ claims để dễ phát hiện claim thiếu/sai khi
+      // backend thay đổi schema. Có thể xoá sau khi ổn định.
+      debugPrint('[AuthDebug] JWT claims = $claims');
+
       final userId = claims[_JwtClaimKeys.nameIdentifier] as String? ?? '';
       final username = claims[_JwtClaimKeys.name] as String? ?? '';
       final email = claims[_JwtClaimKeys.email] as String? ?? '';
       final role = claims[_JwtClaimKeys.role] as String? ?? '';
 
+      // Nếu `role` rỗng (backend không set Soap claim) thì KHÔNG emit
+      // AuthFailure "không có quyền" — user vẫn được vào app để tránh khoá
+      // account Google hợp lệ. Backend phải luôn set role cho mọi user.
       const allowedRoles = {'User', 'Player'};
-      if (!allowedRoles.contains(role)) {
+      if (role.isNotEmpty && !allowedRoles.contains(role)) {
         emit(const AuthFailure(
           message: 'Tài khoản của bạn không có quyền truy cập trên điện thoại.',
         ));

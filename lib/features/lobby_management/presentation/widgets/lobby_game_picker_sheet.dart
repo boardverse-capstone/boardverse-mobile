@@ -1,171 +1,360 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/theme.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_spacing.dart';
 import '../../../matchmaking_discovery/domain/entities/board_game_entity.dart';
+import '../../../matchmaking_discovery/presentation/widgets/board_game_card.dart';
+import '../../../matchmaking_discovery/presentation/widgets/empty_board_game_illustration.dart';
 
-/// Bottom sheet cho phép chọn game.
-class LobbyGamePickerSheet extends StatelessWidget {
+/// Bottom sheet chọn board game khi tạo lobby — redesign:
+/// - Search bar realtime filter theo `name` (lowercase contains).
+/// - Grid 2 cột với [BoardGameCard] (ảnh + rating + meta) — đồng nhất
+///   với trang Search.
+/// - Skeleton loading khi games rỗng (parent chưa fetch xong).
+/// - Empty state riêng cho "không có kết quả" (sau khi search).
+///
+/// Contract với parent: trả về [BoardGameEntity] qua `Navigator.pop` —
+/// không đổi.
+class LobbyGamePickerSheet extends StatefulWidget {
   final List<BoardGameEntity> games;
 
   const LobbyGamePickerSheet({super.key, required this.games});
 
   @override
+  State<LobbyGamePickerSheet> createState() => _LobbyGamePickerSheetState();
+}
+
+class _LobbyGamePickerSheetState extends State<LobbyGamePickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<BoardGameEntity> get _filteredGames {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.games;
+    return widget.games
+        .where((g) => g.name.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  void _onQueryChanged(String value) {
+    if (value == _query) return;
+    setState(() => _query = value);
+  }
+
+  void _clearQuery() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final media = MediaQuery.of(context);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.outlineVariant,
-                  borderRadius: AppRadius.radiusXxsAll,
-                ),
-              ),
-            ),
-            Text(
-              'Chọn game',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (games.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(
-                    3,
-                    (_) => const Padding(
-                      padding: EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: _GamePickerTileSkeleton(),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: games.length,
-                  itemBuilder: (context, index) {
-                    final game = games[index];
-                    return _GameListTile(game: game, theme: theme);
-                  },
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GameListTile extends StatelessWidget {
-  final BoardGameEntity game;
-  final ThemeData theme;
-
-  const _GameListTile({required this.game, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer,
-          borderRadius: AppRadius.radiusSmAll,
-        ),
-        child: Center(
-          child: Text(
-            game.name.isNotEmpty ? game.name[0] : '?',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
+    // Chỉ render 1 container duy nhất — `showModalBottomSheet` của parent
+    // đã cung cấp lớp BottomSheet + enableDrag + clip content. Không bọc
+    // thêm `DraggableScrollableSheet` để tránh 2 thanh kéo trùng nhau.
+    //
+    // `isScrollControlled: true` ở parent cho phép sheet cao tùy ý, nên
+    // ta giới hạn bằng `SizedBox(height: 85% screen)` để giữ UX cũ.
+    return SizedBox(
+      height: media.size.height * 0.85,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          color: isDark ? AppColors.surfaceDark : AppColors.surface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(theme, isDark),
+              _buildSearchBar(theme, isDark),
+              _buildMetaRow(theme),
+              Expanded(child: _buildBody()),
+            ],
           ),
         ),
       ),
-      title: Text(game.name),
-      subtitle: Text(
-        '${game.category} • ${game.minPlayers}-${game.maxPlayers} người',
-        style: theme.textTheme.bodySmall,
-      ),
-      onTap: () => Navigator.pop(context, game),
     );
   }
-}
 
-/// Skeleton tile cho game picker khi đang load danh sách game.
-class _GamePickerTileSkeleton extends StatelessWidget {
-  const _GamePickerTileSkeleton();
+  // ─── Header: title + subtitle + close ───────────────────────────────
+  // Lưu ý: không vẽ drag handle ở đây — `BottomSheetThemeData.showDragHandle`
+  // của app theme đã tự render handle mặc định ở mép trên (xem
+  // `app_theme.dart`). Vẽ thủ công sẽ tạo 2 thanh kéo trùng nhau.
+  Widget _buildHeader(ThemeData theme, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.extension,
+              size: 20,
+              color: AppColors.white,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chọn board game',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  'Bắt đầu tạo phòng bằng cách chọn tựa game bạn muốn chơi',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Đóng',
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgBase = isDark ? AppColors.surfaceElevatedDark : AppColors.surface;
-
-    return AppShimmer.shimmer(
-      context: context,
+  // ─── Search bar ─────────────────────────────────────────────────────
+  Widget _buildSearchBar(ThemeData theme, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: bgBase,
-          borderRadius: AppRadius.radiusMdAll,
+          color: isDark
+              ? theme.colorScheme.surfaceContainerHighest
+              : theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isDark ? AppColors.borderDark : AppColors.border,
-            width: 1.5,
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
+        child: TextField(
+          controller: _searchController,
+          textInputAction: TextInputAction.search,
+          onChanged: _onQueryChanged,
+          decoration: InputDecoration(
+            hintText: 'Tìm tên game...',
+            hintStyle: TextStyle(
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Container(
-                    width: 140,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ],
-              ),
+            prefixIcon: const Icon(
+              Icons.search,
+              color: AppColors.primary,
             ),
-          ],
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: _clearQuery,
+                  ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.md,
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  // ─── Meta row: số kết quả hiện tại ─────────────────────────────────
+  Widget _buildMetaRow(ThemeData theme) {
+    // Chỉ hiển thị khi đã có game load xong (không phải skeleton).
+    if (widget.games.isEmpty) return const SizedBox.shrink();
+
+    final filtered = _filteredGames;
+    final hasQuery = _query.trim().isNotEmpty;
+    final label = hasQuery
+        ? '${filtered.length}/${widget.games.length} kết quả cho "$_query"'
+        : '${widget.games.length} game có sẵn';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasQuery ? Icons.filter_alt : Icons.sports_esports,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.xxs + 2),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Body: grid / skeleton / empty ─────────────────────────────────
+  // ─── Body: grid / skeleton / empty ─────────────────────────────────
+  Widget _buildBody() {
+    if (widget.games.isEmpty) {
+      // Loading skeleton: parent chưa fetch xong danh sách game.
+      return const _PickerSkeletonGrid();
+    }
+
+    final filtered = _filteredGames;
+    if (filtered.isEmpty) {
+      // User search không ra kết quả.
+      return EmptyBoardGameState(
+        title: 'Không tìm thấy game',
+        message: 'Thử từ khoá khác hoặc xoá bộ lọc để xem tất cả.',
+        actionLabel: 'Xoá tìm kiếm',
+        actionIcon: Icons.clear,
+        onAction: _clearQuery,
+      );
+    }
+
+    // Grid tự quản `ScrollController` của nó — không cần controller từ
+    // ngoài vì đã bỏ `DraggableScrollableSheet` (xem build()).
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: 4 / 5,
+      ),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final game = filtered[index];
+        return BoardGameCard(
+          game: game,
+          onTap: () => Navigator.pop(context, game),
+        );
+      },
+    );
+  }
+}
+
+/// Skeleton grid nội bộ — match tỉ lệ card [BoardGameCard] (4/5).
+/// 6 ô (3 hàng × 2 cột) hiển thị shimmer animation khi parent chưa fetch.
+class _PickerSkeletonGrid extends StatefulWidget {
+  const _PickerSkeletonGrid();
+
+  @override
+  State<_PickerSkeletonGrid> createState() => _PickerSkeletonGridState();
+}
+
+class _PickerSkeletonGridState extends State<_PickerSkeletonGrid>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final base = isDark ? AppColors.surfaceDark : AppColors.surfaceVariant;
+    final highlight = isDark
+        ? AppColors.surfaceElevatedDark
+        : AppColors.surface;
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return GridView.builder(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.lg,
+          ),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: AppSpacing.md,
+            crossAxisSpacing: AppSpacing.md,
+            childAspectRatio: 4 / 5,
+          ),
+          itemCount: 6,
+          itemBuilder: (context, _) {
+            // Di chuyển điểm sáng từ trái → phải theo `_ctrl.value`.
+            final t = _ctrl.value;
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment(-1.0 + t * 2, -0.3),
+                  end: Alignment(1.0 + t * 2, 0.3),
+                  colors: [base, highlight, base],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../features/home/presentation/pages/home_overview_page.dart';
-import '../../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../../../features/profile/presentation/cubit/profile_cubit.dart';
+import '../../../features/profile/presentation/pages/setup_profile_gate.dart';
 import '../lobby_join_signal.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
 import '../widgets/board_verse_nav_bar_neo.dart';
 import '../widgets/lazy_indexed_stack.dart';
+import 'activity_page.dart';
 import 'bookings_page.dart';
-import 'discovery_tab.dart';
+import 'explore_tab.dart';
+import 'lobbies_page.dart';
 import 'profile_page.dart';
-import 'tournament_page.dart';
 
 /// Main scaffold with bottom navigation bar.
 ///
@@ -29,9 +30,26 @@ class MainScaffold extends StatefulWidget {
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  static const _defaultInitialIndex = 0; // Home
+  static const _defaultInitialIndex = 0; // Activity
   late final NavigationCubit _navigationCubit;
   late int _currentIndex;
+
+  /// Counter bumped every time the user taps the Activity tab.
+  ///
+  /// Used as part of the [ActivityPage] widget's [ValueKey] so that
+  /// tapping the tab forces Flutter to dispose the cached widget
+  /// and rebuild a fresh one — which in turn re-runs `initState`
+  /// and re-fetches the profile + tournaments.
+  ///
+  /// Other tabs keep a stable key so the [LazyIndexedStack] can
+  /// continue to cache their state.
+  int _activityKey = 0;
+
+  /// Counter that fires the [ActivityPage.onReselect] callback without
+  /// rebuilding the page from scratch. Bumped every time the user taps
+  /// the Activity tab (including double-tap while already on it) so the
+  /// greeting card always re-fetches `/api/UserProfile`.
+  int _activityReselectTick = 0;
 
   @override
   void initState() {
@@ -43,13 +61,23 @@ class _MainScaffoldState extends State<MainScaffold> {
     LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
     // Listen yêu cầu "navigate đến LobbyPage" sau khi accept invite.
     LobbyJoinSignal.instance.addListener(_handleLobbyJoin);
+
+    // Đảm bảo [ProfileCubit] đã load profile trước khi [SetupProfileGate]
+    // đánh giá `hasProfile`. Tránh trường hợp MainScaffold mount nhưng
+    // cubit vẫn ở `ProfileInitial` → gate không biết phải chặn hay không.
+    // `hydrateFromCache` đồng bộ UI với cache ngay lập tức, rồi
+    // `getProfile` đi network để có data mới nhất.
+    Future.microtask(() {
+      if (!mounted) return;
+      final cubit = context.read<ProfileCubit>();
+      cubit.hydrateFromCache();
+      cubit.getProfile();
+    });
   }
 
   void _handleLobbySuggestion() {
-    // Chuyển sang tab Discovery (index 2). DiscoveryTab sẽ tự switch
-    // sub-tab sang "Phòng chờ" và NearbyLobbiesPage sẽ consume signal để
-    // preselect game.
-    _onTabTapped(NavTab.discovery.tabIndex);
+    // Chuyển sang tab Lobbies (index 3)
+    _onTabTapped(NavTab.lobbies.tabIndex);
   }
 
   /// Navigate to LobbyPage after invite accept.
@@ -88,40 +116,39 @@ class _MainScaffoldState extends State<MainScaffold> {
     }
     setState(() {
       _currentIndex = clamped;
+      // Bump the Activity key so the next time Activity becomes
+      // visible, `ActivityPage` is rebuilt from scratch and its
+      // `initState` re-fetches the profile + tournaments.
+      if (clamped == NavTab.activity.tabIndex) {
+        _activityKey++;
+      }
     });
     _navigationCubit.setTab(clamped);
   }
 
   /// Double-tap logic per tab:
-  /// - Home (0): no-op (scroll-to-top owned by HomeOverviewPage)
-  /// - Bookings (1): no-op (data auto-loads on first build)
-  /// - Discovery (2): reset inner sub-tab to "Khám phá game"
-  /// - Tournament (3): no-op (mock data, no refresh needed yet)
-  /// - Profile (4): no-op (data is already cached)
+  /// - Activity (0): re-fire onReselect so the page re-fetches the
+  ///   profile + tournaments even when the tab is already active.
+  ///   Without this, a previous failed fetch could leave the greeting
+  ///   card skeletonised forever.
+  /// - Other tabs: no-op (each page handles its own refresh).
   void _handleDoubleTap(int tabIndex) {
-    switch (tabIndex) {
-      case 2:
-        DiscoveryTab.requestReset(context);
-        break;
-      case 3:
-        TournamentPage.requestRefresh(context);
-        break;
-      case 0:
-      case 1:
-      case 4:
-        break;
+    if (tabIndex == NavTab.activity.tabIndex) {
+      setState(() {
+        _activityReselectTick++;
+      });
     }
   }
 
-  /// Allows descendants (e.g. HomeOverviewPage quick actions) to request
+  /// Allows descendants (e.g. ActivityPage quick actions) to request
   /// a tab switch.
   void _requestTab(int index) {
     _onTabTapped(index);
   }
 
   void _handleBackNavigation(int currentIndex) {
-    if (currentIndex != NavTab.home.tabIndex) {
-      _requestTab(NavTab.home.tabIndex);
+    if (currentIndex != NavTab.activity.tabIndex) {
+      _requestTab(NavTab.activity.tabIndex);
       return;
     }
     showDialog<void>(
@@ -146,40 +173,64 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider<NavigationCubit>.value(
-      value: _navigationCubit,
-      child: BlocBuilder<NavigationCubit, NavigationState>(
-        buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,
-        builder: (context, state) {
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (didPop, _) {
-              if (didPop) return;
-              _handleBackNavigation(_currentIndex);
-            },
-            child: Scaffold(
-              body: LazyIndexedStack(
+@override
+Widget build(BuildContext context) {
+  return BlocProvider<NavigationCubit>.value(
+    value: _navigationCubit,
+    child: BlocBuilder<NavigationCubit, NavigationState>(
+      buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,
+      builder: (context, state) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            _handleBackNavigation(_currentIndex);
+          },
+          child: Scaffold(
+            // [SetupProfileGate] lắng nghe [ProfileCubit] và push
+            // SetupProfilePage full-screen khi `hasProfile = false`.
+            // Cơ chế push route (thay vì in-place swap) đảm bảo
+            // BottomNav bị che tự động, không cần truyền qua
+            // wrapper.
+            body: SetupProfileGate(
+              child: LazyIndexedStack(
                 index: _currentIndex,
                 children: [
-                  HomeOverviewPage(
-                    matchmakingCubit: context.read<MatchmakingCubit>(),
-                    onSwitchTab: _requestTab,
-                  ),
+                  // Each child is wrapped in a ValueKey keyed by the
+                  // currently-active tab so that switching back to the
+                  // Activity tab causes a new `ActivityPage` instance
+                  // to be built (and therefore its `initState` runs
+                  // again, refetching the profile + tournaments).
+                  //
+                  // For all *other* tabs we keep a stable key so the
+                  // LazyIndexedStack can still cache their state and
+                  // skip their initial fetch on first switch.
+                  if (_currentIndex == NavTab.activity.tabIndex)
+                    ActivityPage(
+                      key: ValueKey(_activityKey),
+                      onSwitchTab: _requestTab,
+                      // Bumping [_activityReselectTick] forces Flutter to
+                      // rebuild the same widget instance, which fires
+                      // [ActivityPage.didUpdateWidget] and triggers a
+                      // refresh without disposing any state.
+                      onReselect: () => _activityReselectTick,
+                    )
+                  else
+                    const ActivityPage(key: ValueKey('activity-cached')),
                   const BookingsPage(),
-                  const DiscoveryTab(),
-                  const TournamentPage(),
+                  const ExploreTab(),
+                  const LobbiesPage(),
                   const ProfilePage(),
                 ],
               ),
-              bottomNavigationBar: BoardVerseNavBarNeo(
-                onTabSelected: _onTabTapped,
-              ),
             ),
-          );
-        },
-      ),
-    );
-  }
+            bottomNavigationBar: BoardVerseNavBarNeo(
+              onTabSelected: _onTabTapped,
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
 }

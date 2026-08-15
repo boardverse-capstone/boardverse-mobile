@@ -60,6 +60,7 @@ class ApiEndpoints {
   static const String cafesNearby = '/api/cafes/nearby';
   static const String cafesNearbyMe = '/api/cafes/nearby/me';
   static const String cafeDetail = '/api/cafes/{id}';
+  static const String cafeSearch = '/api/cafes/search';
   static const String cafeAvailableTables =
       '/api/cafes/{cafeId}/available-tables';
   static const String cafeAvailability = '/api/cafes/{cafeId}/availability';
@@ -72,11 +73,12 @@ class ApiEndpoints {
   static const String healthDbInfo = '/api/health/db-info';
 
   // ──────────────────────────────────────────────
-  //  Bookings & Payments
+  //  Bookings & Payments (DEPRECATED - Use /api/v1/reservations)
   // ──────────────────────────────────────────────
-  // Theo đặc tả `.agents/docs/apis_docs/booking.md` & `payment.md`.
-  // Base /api/bookings áp dụng cho Player flow (lobby → booking → deposit).
-  // Base /api/payments/... là cổng SePay (BR-03, BR-05, BR-06, BR-09).
+  // DEPRECATED: These endpoints are no longer in use.
+  // Use /api/v1/reservations/* for new reservation flow.
+  // Keeping for reference only - will be removed in future.
+  // @deprecated Use ApiEndpointsV2 for new flows
   static const String bookingCreate = '/api/bookings';
   static const String bookingDetail = '/api/bookings/{id}';
   static const String bookingByLobby = '/api/bookings/lobby/{lobbyId}';
@@ -88,7 +90,8 @@ class ApiEndpoints {
       '/api/bookings/{bookingId}/session-status';
   static const String bookingsByCafe = '/api/bookings/cafe/{cafeId}';
 
-  // ─── BookingRatingController (gap #4, #5) ───
+  // ─── BookingRatingController (DEPRECATED) ───
+  // @deprecated Use /api/v1/ratings for new rating flow
   static const String bookingNoShowVotes =
       '/api/bookings/{bookingId}/no-show-votes';
   static const String bookingRatings = '/api/bookings/{bookingId}/ratings';
@@ -285,6 +288,27 @@ class ApiEndpoints {
   static const String matchResultsSubmit = '/api/v1/matches/results';
 
   // ──────────────────────────────────────────────
+  //  Leaderboard (Global — BR §K-06)
+  // ──────────────────────────────────────────────
+  // Base: /api/v1/leaderboard — Karma / Elo / Level rankings.
+  // Theo `.agents/docs/apis_docs/leaderboard.md`:
+  // - Public — ai cũng xem được (auth optional).
+  // - Nếu request có JWT, response kèm `userRank` (top 1000).
+  // - `top` (1-100, default 50) + `offset` (≥ 0, default 0) cho phân trang.
+  // Backend cache 5 phút. **Endpoint cũ** `/api/v1/tournaments/leaderboard`
+  // (BR-10) đã deprecated — không dùng.
+  static const String leaderboard = '/api/v1/leaderboard';
+
+  /// GET /api/v1/leaderboard/karma?top=50&offset=0
+  static const String leaderboardKarma = '/api/v1/leaderboard/karma';
+
+  /// GET /api/v1/leaderboard/elo?top=50&offset=0
+  static const String leaderboardElo = '/api/v1/leaderboard/elo';
+
+  /// GET /api/v1/leaderboard/level?top=50&offset=0
+  static const String leaderboardLevel = '/api/v1/leaderboard/level';
+
+  // ──────────────────────────────────────────────
   //  Tournaments (Player Mobile)
   // ──────────────────────────────────────────────
   // Base: /api/v1/tournaments — Player xem giải, đăng ký, xem kết quả.
@@ -295,11 +319,18 @@ class ApiEndpoints {
   // - KHÔNG tồn tại `/tournaments/upcoming` (404) — bỏ qua.
   // - KHÔNG tồn tại `/tournaments/matches/{id}` (404) — chỉ fetch all rồi
   //   filter client-side.
+  // - `/tournaments/leaderboard` (BR-10) **DEPRECATED** — dùng
+  //   `/api/v1/leaderboard/{karma,elo,level}` ở section "Leaderboard" trên.
   static const String tournamentsOpen = '/api/v1/tournaments/open';
   static const String tournamentsMyRegistrations =
       '/api/v1/tournaments/my-registrations';
   static const String tournamentsMyEloHistory =
       '/api/v1/tournaments/my-elo-history';
+
+  /// `@Deprecated` — dùng [ApiEndpoints.leaderboardKarma] / [leaderboardElo]
+  /// / [leaderboardLevel]. Endpoint cũ chỉ match tournament Elo, không có
+  /// phân trang, không có `userRank`.
+  @Deprecated('Use /api/v1/leaderboard/{karma,elo,level} instead')
   static const String tournamentsLeaderboard =
       '/api/v1/tournaments/leaderboard';
 
@@ -331,6 +362,57 @@ class ApiEndpoints {
   /// POST /tournaments/{id}/unregister
   static String tournamentUnregister(String id) =>
       '/api/v1/tournaments/$id/unregister';
+
+  // ─── T-03: Tournament Waitlist ──────────────────────────────────────────
+  // Docs: `.agents/docs/apis_docs/tournament-waitlist.md`
+  // Khi tournament đầy, player có thể join waitlist để được promote khi
+  // có slot trống. Backend lifecycle: Waiting → Promoted → (Confirm|Decline)
+  // → Cancelled|Expired.
+
+  /// GET /api/v1/tournaments/{id}/waitlist — Danh sách waitlist.
+  static String tournamentWaitlist(String id) =>
+      '/api/v1/tournaments/$id/waitlist';
+
+  /// POST /api/v1/tournaments/{id}/waitlist — Tham gia waitlist.
+  static String tournamentWaitlistJoin(String id) =>
+      '/api/v1/tournaments/$id/waitlist';
+
+  /// DELETE /api/v1/tournaments/{id}/waitlist — Rời khỏi waitlist.
+  static String tournamentWaitlistLeave(String id) =>
+      '/api/v1/tournaments/$id/waitlist';
+
+  /// GET /api/v1/tournaments/{id}/waitlist/me — Trạng thái waitlist của tôi.
+  static String tournamentWaitlistMe(String id) =>
+      '/api/v1/tournaments/$id/waitlist/me';
+
+  /// POST /api/v1/tournaments/{id}/waitlist/confirm — Xác nhận offer từ waitlist.
+  static String tournamentWaitlistConfirm(String id) =>
+      '/api/v1/tournaments/$id/waitlist/confirm';
+
+  /// POST /api/v1/tournaments/{id}/waitlist/decline — Từ chối offer.
+  static String tournamentWaitlistDecline(String id) =>
+      '/api/v1/tournaments/$id/waitlist/decline';
+
+  // ─── T-04: Tournament Spectator ─────────────────────────────────────────
+  // Docs: `.agents/docs/apis_docs/tournament.md` (Spectator Endpoints)
+  // Cho phép user theo dõi tournament mà không cần đăng ký làm participant.
+  // GET `/spectators` là public; các endpoint khác yêu cầu JWT.
+
+  /// GET /api/v1/tournaments/{id}/spectators — Danh sách spectators (public).
+  static String tournamentSpectators(String id) =>
+      '/api/v1/tournaments/$id/spectators';
+
+  /// GET /api/v1/tournaments/{id}/spectators/me — Spectate entry của tôi.
+  static String tournamentSpectatorMe(String id) =>
+      '/api/v1/tournaments/$id/spectators/me';
+
+  /// POST /api/v1/tournaments/{id}/spectators — Bắt đầu spectate.
+  static String tournamentSpectatorJoin(String id) =>
+      '/api/v1/tournaments/$id/spectators';
+
+  /// DELETE /api/v1/tournaments/{id}/spectators — Rời khỏi spectate.
+  static String tournamentSpectatorLeave(String id) =>
+      '/api/v1/tournaments/$id/spectators';
 
   // ─── Reservations (Lobby creation + BVC deposit) ───────────────────
   // Lobby creation is atomic through quote → confirm. Direct POST /lobbies
@@ -365,4 +447,13 @@ class ApiEndpoints {
   /// PATCH /api/v1/wallet/topup/{topUpId} — đổi số tiền đơn top-up Pending.
   static String walletTopupUpdate(String topUpId) =>
       '/api/v1/wallet/topup/$topUpId';
+
+  /// GET /api/v1/wallet/topup/{orderId}/qr-image — fallback endpoint
+  /// trả về ảnh QR PNG (image/png) khi backend không embed `qrImageBase64`
+  /// trong response của POST/PATCH /topup.
+  ///
+  /// Backend proxy từ vietqr.app server-side → bypass CORS trên Flutter Web.
+  /// Cache 10 phút (khớp với expiresAt của QR).
+  static String walletTopupQrImage(String orderId) =>
+      '/api/v1/wallet/topup/$orderId/qr-image';
 }

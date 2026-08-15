@@ -1,13 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/repositories/profile_repository.dart';
-import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/profile/data/models/profile_model.dart';
+import 'package:boardverse/features/profile/data/services/profile_cache_service.dart';
+import 'package:boardverse/features/profile/domain/entities/player_location_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/domain/repositories/profile_repository.dart';
+import 'package:boardverse/features/profile/presentation/cubit/profile_state.dart';
 
-export 'package:boardverse_mobile/features/profile/presentation/cubit/profile_state.dart';
+export 'package:boardverse/features/profile/presentation/cubit/profile_state.dart';
 /// Cubit quản lý state của màn hình Profile.
 ///
 /// Tách nhỏ theo 4 nhóm nghiệp vụ:
@@ -17,8 +19,29 @@ export 'package:boardverse_mobile/features/profile/presentation/cubit/profile_st
 /// - Karma & Progress (getKarmaHistory, updateProgress)
 class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository repository;
+  final ProfileCacheService cache;
 
-  ProfileCubit({required this.repository}) : super(const ProfileInitial());
+  /// In-memory mirror of the last successfully loaded profile.
+  /// This survives lifecycle changes (page switch, app resume) without
+  /// requiring a fresh API call.
+  ProfileEntity? _cachedProfile;
+
+  ProfileCubit({required this.repository, required this.cache})
+      : super(const ProfileInitial());
+
+  /// Public read-only accessor for UI fallback (e.g. when API fails).
+  ProfileEntity? get cachedProfile => _cachedProfile;
+
+  /// Load cached profile on cold start, before the network call returns.
+  Future<void> hydrateFromCache() async {
+    final cached = await cache.load();
+    if (cached == null) return;
+    final entity = cached.toEntity();
+    _cachedProfile = entity;
+    if (state is ProfileInitial) {
+      emit(ProfileLoaded(profile: entity));
+    }
+  }
 
   /// Các câu thông báo backend trả về khi player chưa từng lưu vị trí.
   /// Match theo `message` (lowercase, substring) để chịu được cả
@@ -40,6 +63,9 @@ class ProfileCubit extends Cubit<ProfileState> {
   /// so a fresh profile fetch happens on the next login.
   void reset() {
     if (isClosed) return;
+    _cachedProfile = null;
+    // ignore: discarded_futures
+    cache.clear();
     emit(const ProfileInitial());
   }
 
@@ -47,6 +73,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> getProfile() => _runProfileOperation(
         operation: () => repository.getProfile(),
+        persistToCache: true,
       );
 
   Future<void> createProfile({
@@ -64,6 +91,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           dateOfBirth: dateOfBirth.isEmpty ? null : dateOfBirth,
           phoneNumber: phoneNumber.isEmpty ? null : phoneNumber,
         ),
+        persistToCache: true,
       );
 
   Future<void> updateProfile({
@@ -79,6 +107,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           lastName: lastName,
           dateOfBirth: dateOfBirth,
         ),
+        persistToCache: true,
       );
 
   Future<void> deleteProfile() async {
@@ -94,7 +123,10 @@ class ProfileCubit extends Cubit<ProfileState> {
   // ─── Avatar ─────────────────────────────────────────────────────────────
 
   Future<void> updateAvatar(String avatarUrl) =>
-      _runProfileOperation(operation: () => repository.updateAvatar(avatarUrl));
+      _runProfileOperation(
+        operation: () => repository.updateAvatar(avatarUrl),
+        persistToCache: true,
+      );
 
   // ─── Location ───────────────────────────────────────────────────────────
 
@@ -195,17 +227,51 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   /// Public-facing "full-screen" operations: emit `ProfileLoading` first,
   /// then either `ProfileLoaded` or `ProfileFailure`.
+  ///
+  /// When [persistToCache] is true, the returned profile is also written to
+  /// the local cache for offline fallback.
+  ///
+  /// On failure, if we have a cached profile, we emit a stale
+  /// `ProfileLoaded` so the UI keeps rendering the player's info instead
+  /// of blanking out. The failure message is forwarded so the caller can
+  /// surface a toast/error indicator.
   Future<void> _runProfileOperation({
     required Future<Either<Failure, ProfileEntity>> Function() operation,
+    bool persistToCache = false,
   }) async {
     emit(const ProfileLoading());
 
     final result = await operation();
     if (isClosed) return;
 
-    result.fold(
-      (failure) => emit(ProfileFailure(message: failure.message)),
-      (profile) => emit(ProfileLoaded(profile: profile)),
+    await result.fold(
+      (failure) async {
+        // Try to fall back to the in-memory or persisted cache.
+        ProfileEntity? fallback = _cachedProfile;
+        if (fallback == null) {
+          final cachedModel = await cache.load();
+          if (cachedModel != null) fallback = cachedModel.toEntity();
+        }
+
+        if (fallback != null) {
+          _cachedProfile = fallback;
+          // Surface the failure via `supplementaryError` so the UI
+          // can show a toast but still renders the cached profile.
+          emit(ProfileLoaded(
+            profile: fallback,
+            supplementaryError: failure.message,
+          ));
+        } else {
+          emit(ProfileFailure(message: failure.message));
+        }
+      },
+      (profile) async {
+        _cachedProfile = profile;
+        if (persistToCache) {
+          await cache.save(profile.toModel());
+        }
+        emit(ProfileLoaded(profile: profile));
+      },
     );
   }
 }

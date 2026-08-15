@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_action_button.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_detail_info.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_status_pill.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_tab_header.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_action_button.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_detail_info.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_engagement_panel.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_status_pill.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_tab_header.dart';
 
-/// Tab 1: Tournament info, status, description + action button.
+/// Tab 1: Tournament info, status, description + action button +
+/// Waitlist/Spectator panel (T-03 + T-04).
 class TournamentInfoTab extends StatelessWidget {
   final TournamentEntity tournament;
   final bool isRegistering;
@@ -41,6 +43,11 @@ class TournamentInfoTab extends StatelessWidget {
         if (tournament.description.isNotEmpty) _buildDescription(theme),
         const SizedBox(height: AppSpacing.xl),
         TournamentDetailInfo(tournament: tournament),
+        const SizedBox(height: AppSpacing.xl),
+        // T-03 + T-04: Waitlist + Spectator panels — auto-render dựa trên
+        // TournamentEngagementCubit mà widget cha (TournamentDetailPage)
+        // đã cung cấp.
+        const TournamentEngagementPanel(),
         const SizedBox(height: AppSpacing.xl),
         TournamentActionButton(
           tournament: tournament,

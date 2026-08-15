@@ -1,5 +1,6 @@
 import '../../models/board_game_model.dart';
 import '../../models/cafe_model.dart';
+import '../../models/cafe_detail_model.dart';
 import '../../models/seat_availability_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/board_game_detail_model.dart';
@@ -69,8 +70,13 @@ abstract class MatchmakingDatasource {
   });
 
   /// `GET /api/cafes/nearby?gameTemplateId=...&latitude=...&longitude=...`
+  ///
+  /// Lưu ý: backend **không còn bắt buộc** `gameTemplateId` — nếu vắng,
+  /// endpoint trả về tất cả quán trong bán kính (không filter theo game).
+  /// Vẫn giữ optional để host BoardGameDetail có thể filter theo game cụ
+  /// thể khi cần.
   Future<NearbyCafesSearchResultModel> getNearbyCafesSearch({
-    required String gameTemplateId,
+    String? gameTemplateId,
     required double latitude,
     required double longitude,
     double radiusKm = 15.0,
@@ -79,15 +85,30 @@ abstract class MatchmakingDatasource {
   });
 
   /// `GET /api/cafes/nearby/me?gameTemplateId=...` (cần Bearer token)
+  ///
+  /// Backend đã **bỏ yêu cầu bắt buộc** `gameTemplateId`. Khi vắng, trả
+  /// về tất cả quán trong bán kính (mặc định 15 km) quanh vị trí đã lưu
+  /// trên profile — dùng cho Cafe tab trên SearchPage.
   Future<NearbyCafesSearchResultModel> getNearbyCafesForCurrentUser({
-    required String gameTemplateId,
+    String? gameTemplateId,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  });
+
+  /// `GET /api/cafes/search?name=...&latitude=...&longitude=...` (không cần gameTemplateId)
+  /// Dùng khi player đã biết tên quán, muốn tìm nhanh để đặt chỗ.
+  Future<NearbyCafesSearchResultModel> searchCafes({
+    required String name,
+    double? latitude,
+    double? longitude,
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
   });
 
   /// Lấy thông tin quán theo ID — `GET /api/cafes/{id}`
-  Future<CafeModel?> getCafeById(String id);
+  Future<CafeDetailModel?> getCafeById(String id);
 
   /// Lấy games có sẵn tại quán (legacy, dùng cho Mock)
   Future<List<BoardGameModel>> getCafeGames(String cafeId);

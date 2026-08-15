@@ -1,16 +1,16 @@
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/core/error/exceptions.dart';
-import 'package:boardverse_mobile/core/network/api_response.dart';
-import 'package:boardverse_mobile/features/profile/data/models/create_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/karma_history_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/player_location_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/profile_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_avatar_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_location_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_progress_request_model.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/core/error/exceptions.dart';
+import 'package:boardverse/core/network/api_response.dart';
+import 'package:boardverse/features/profile/data/models/create_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/karma_history_model.dart';
+import 'package:boardverse/features/profile/data/models/player_location_model.dart';
+import 'package:boardverse/features/profile/data/models/profile_model.dart';
+import 'package:boardverse/features/profile/data/models/update_avatar_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_location_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_progress_request_model.dart';
 
 /// Thin abstraction over the REST API for the User Profile feature.
 ///

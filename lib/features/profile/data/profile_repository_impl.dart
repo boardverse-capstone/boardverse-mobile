@@ -1,22 +1,22 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/core/error/exceptions.dart';
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/core/network/api_response.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/karma_history_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/repositories/profile_repository.dart';
-import 'package:boardverse_mobile/features/profile/data/datasources/profile_remote_datasource.dart';
-import 'package:boardverse_mobile/features/profile/data/models/create_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/karma_history_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/player_location_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/profile_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_avatar_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_location_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_profile_request_model.dart';
-import 'package:boardverse_mobile/features/profile/data/models/update_progress_request_model.dart';
+import 'package:boardverse/core/error/exceptions.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/core/network/api_response.dart';
+import 'package:boardverse/features/profile/domain/entities/karma_history_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/player_location_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/domain/repositories/profile_repository.dart';
+import 'package:boardverse/features/profile/data/datasources/profile_remote_datasource.dart';
+import 'package:boardverse/features/profile/data/models/create_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/karma_history_model.dart';
+import 'package:boardverse/features/profile/data/models/player_location_model.dart';
+import 'package:boardverse/features/profile/data/models/profile_model.dart';
+import 'package:boardverse/features/profile/data/models/update_avatar_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_location_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_profile_request_model.dart';
+import 'package:boardverse/features/profile/data/models/update_progress_request_model.dart';
 
 class ProfileRepositoryImpl implements ProfileRepository {
   final ProfileRemoteDatasource remoteDatasource;

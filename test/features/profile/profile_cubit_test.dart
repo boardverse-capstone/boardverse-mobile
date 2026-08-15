@@ -10,12 +10,14 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/karma_history_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/player_location_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/entities/profile_entity.dart';
-import 'package:boardverse_mobile/features/profile/domain/repositories/profile_repository.dart';
-import 'package:boardverse_mobile/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/features/profile/data/models/profile_model.dart';
+import 'package:boardverse/features/profile/data/services/profile_cache_service.dart';
+import 'package:boardverse/features/profile/domain/entities/karma_history_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/player_location_entity.dart';
+import 'package:boardverse/features/profile/domain/entities/profile_entity.dart';
+import 'package:boardverse/features/profile/domain/repositories/profile_repository.dart';
+import 'package:boardverse/features/profile/presentation/cubit/profile_cubit.dart';
 
 class MockProfileRepository implements ProfileRepository {
   final Map<String, dynamic> stubs = {};
@@ -164,11 +166,13 @@ KarmaHistoryEntity get _mockKarma => const KarmaHistoryEntity(
 
 void main() {
   late MockProfileRepository repository;
+  late ProfileCacheService cache;
   late ProfileCubit cubit;
 
   setUp(() {
     repository = MockProfileRepository();
-    cubit = ProfileCubit(repository: repository);
+    cache = MockProfileCacheService();
+    cubit = ProfileCubit(repository: repository, cache: cache);
   });
 
   tearDown(() => cubit.close());
@@ -476,4 +480,24 @@ void main() {
       expect: () => [ProfileLoaded(profile: _mockProfile)],
     );
   });
+}
+
+/// Minimal in-memory fake for ProfileCacheService used by unit tests.
+class MockProfileCacheService implements ProfileCacheService {
+  ProfileModel? cached;
+  bool cleared = false;
+
+  @override
+  Future<void> save(ProfileModel profile) async {
+    cached = profile;
+  }
+
+  @override
+  Future<ProfileModel?> load() async => cached;
+
+  @override
+  Future<void> clear() async {
+    cleared = true;
+    cached = null;
+  }
 }

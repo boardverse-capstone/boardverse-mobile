@@ -78,9 +78,13 @@ abstract class MatchmakingRepository {
 
   /// Tìm quán gần có game — map thẳng vào `GET /api/cafes/nearby?...`
   /// Response bao gồm `emptyResultMessage` + `alternativeSuggestions`.
+  ///
+  /// Backend **không còn bắt buộc** `gameId` — để null sẽ trả tất cả quán
+  /// trong bán kính (không filter theo game). Thường chỉ host
+  /// BoardGameDetail mới cần truyền `gameId`.
   Future<Either<Failure, NearbyCafesSearchResultEntity>>
       getNearbyCafesWithGameSearch({
-    required String gameId,
+    String? gameId,
     required double latitude,
     required double longitude,
     double radiusKm = 15.0,
@@ -90,18 +94,36 @@ abstract class MatchmakingRepository {
 
   /// Tìm quán gần dùng vị trí đã lưu — map vào `GET /api/cafes/nearby/me`
   /// (cần auth token).
+  ///
+  /// Backend đã **bỏ yêu cầu bắt buộc** `gameId`. Cafe tab trên SearchPage
+  /// giờ gọi thẳng không cần gameId — đơn giản hoá flow và loại bỏ việc
+  /// pre-fetch popular game.
   Future<Either<Failure, NearbyCafesSearchResultEntity>>
       getNearbyCafesForCurrentUser({
-    required String gameId,
+    String? gameId,
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
   });
 
-  /// Lấy thông tin quán theo ID.
-  Future<Either<Failure, CafeEntity?>> getCafeById(String id);
+  /// Tìm kiếm quán cafe theo tên — `GET /api/cafes/search?name=...`
+  /// (không cần gameTemplateId, public endpoint).
+  Future<Either<Failure, NearbyCafesSearchResultEntity>> searchCafes({
+    required String name,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 15.0,
+    int pageNumber = 1,
+    int pageSize = 20,
+  });
+
+  /// Lấy thông tin quán theo ID — `GET /api/cafes/{id}`.
+  /// Trả về [CafeDetailEntity] với đầy đủ fields (operationalStatus,
+  /// refund policy, cafe config, …) phục vụ trang chi tiết.
+  Future<Either<Failure, CafeDetailEntity?>> getCafeById(String id);
 
   /// Lấy chi tiết quán theo ID — `GET /api/cafes/{id}`
+  /// (alias của [getCafeById] — giữ để tương thích với code cũ).
   Future<Either<Failure, CafeDetailEntity?>> getCafeDetail(String id);
 
   /// Lấy games có sẵn tại quán (legacy, dùng cho Mock).

@@ -1,4 +1,4 @@
-import 'package:boardverse_mobile/features/friend_management/data/datasources/remote/_api_guard_mixin.dart';
+import 'package:boardverse/features/friend_management/data/datasources/remote/_api_guard_mixin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Tests cho [ApiGuardMixin.unwrapEnvelope] — verify unwrap envelope response

@@ -1,5 +1,5 @@
-import 'package:boardverse_mobile/features/tournament/domain/entities/elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/elo_history_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_elo_history_entity.dart';
 
 /// Model cho response wrapper `GET /tournaments/my-elo-history`.
 ///

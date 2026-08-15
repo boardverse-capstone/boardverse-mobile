@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/core/widgets/shimmer_skeletons.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/tournament_detail_sheet.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/utils/tournament_utils.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/core/widgets/shimmer_skeletons.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/my_registrations_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/my_registrations_state.dart';
+import 'package:boardverse/features/tournament/presentation/pages/tournament_detail_sheet.dart';
+import 'package:boardverse/features/tournament/presentation/utils/tournament_utils.dart';
 
 /// Lists tournaments the current user has registered for.
 ///

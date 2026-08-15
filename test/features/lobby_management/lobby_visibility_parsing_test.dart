@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/models/lobby_model.dart';
+import 'package:boardverse/features/lobby_management/data/models/lobby_model.dart';
 
 /// Verify `LobbyModel.fromJson` correctly handles `isPrivate` field from
 /// the backend reservation/lobby DTO.

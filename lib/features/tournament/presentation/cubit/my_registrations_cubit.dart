@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/repositories/tournament_repository.dart';
+import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
 import 'my_registrations_state.dart';
 
 /// Cubit for managing "My Registrations" list with status filter.

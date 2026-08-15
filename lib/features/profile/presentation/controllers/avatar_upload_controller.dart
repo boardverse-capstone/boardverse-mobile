@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:boardverse_mobile/core/di/injection.dart';
-import 'package:boardverse_mobile/core/services/cloudinary/cloudinary_service.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/services/cloudinary/cloudinary_service.dart';
 
 /// Result returned by the avatar upload pipeline. The caller is responsible
 /// for pushing the resulting URL back via [ProfileCubit.updateAvatar].
@@ -31,8 +29,8 @@ class AvatarUploadException implements Exception {
 /// 2. Upload the file to Cloudinary.
 /// 3. Hand the resulting URL back to the caller.
 ///
-/// Callers should wrap calls in [runWithFeedback] to display loading / error
-/// UI consistently across the app.
+/// Uses [XFile.readAsBytes] (cross-platform) instead of dart:io File,
+/// so it works on mobile, desktop, and web.
 class AvatarUploadController {
   final ImagePicker _picker;
   final CloudinaryService? _cloudinary;
@@ -72,8 +70,10 @@ class AvatarUploadController {
     }
 
     try {
+      final bytes = await picked.readAsBytes();
       final url = await _cloudinary!.uploadImage(
-        file: File(picked.path),
+        bytes: bytes,
+        fileName: picked.name,
         folder: 'boardverse/avatars',
       );
       return AvatarUploadResult(url);

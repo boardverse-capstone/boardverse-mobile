@@ -1,8 +1,8 @@
 enum NavTab {
-  home(0, 'Trang chủ'),
+  activity(0, 'Hoạt động'),
   bookings(1, 'Lịch hẹn'),
-  discovery(2, 'Khám phá'),
-  tournament(3, 'Giải đấu'),
+  explore(2, 'Khám phá'),
+  lobbies(3, 'Phòng chờ'),
   profile(4, 'Cá nhân');
 
   final int tabIndex;

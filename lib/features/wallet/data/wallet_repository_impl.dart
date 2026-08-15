@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../core/error/failures.dart';
@@ -59,14 +61,68 @@ class WalletRepositoryImpl implements WalletRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(String orderId) async {
-    // Gọi transactions để check xem có transaction nào match với orderId
-    final result = await remoteDatasource.getTransactions(page: 1, pageSize: 10);
+  Future<Either<Failure, Uint8List>> getQrImageBytes(String orderId) async {
+    return await remoteDatasource.getQrImageBytes(orderId);
+  }
 
-    return result.map((page) {
-      // Tìm transaction có relatedPaymentRef = orderId
-      // Backend format orderId là "BVC-XXXXXXXXXX"
-      return page.items.any((tx) => tx.relatedPaymentRef == orderId);
+  @override
+  Future<Either<Failure, bool>> checkTopUpSuccessByOrderId(
+    String orderId, {
+    int? previousBalance,
+    int? expectedBvc,
+    DateTime? quoteCreatedAt,
+  }) async {
+    // Lấy transactions + wallet balance song song để tiết kiệm thời gian
+    // polling (mỗi lần 5s).
+    final futures = <Future<dynamic>>[
+      remoteDatasource.getTransactions(page: 1, pageSize: 10),
+    ];
+    if (previousBalance != null) {
+      futures.add(remoteDatasource.getWallet());
+    }
+
+    final txResult = await futures[0];
+    final walletResult = futures.length > 1 ? await futures[1] : null;
+
+    if (txResult is! Either<Failure, dynamic>) {
+      return Left(ServerFailure(message: 'Invalid datasource response'));
+    }
+
+    return txResult.map((txPage) {
+      final txs = (txPage as dynamic).items as List<TransactionEntity>;
+
+      // ── Tier 1: relatedPaymentRef match ─────────────────────────
+      // Backend lý tưởng gắn `relatedPaymentRef` cho transaction SePay
+      // trả về. Nếu có → match và trả true ngay.
+      if (txs.any((tx) => tx.relatedPaymentRef == orderId)) return true;
+
+      // ── Tier 2: TopUp transaction tạo SAU quoteCreatedAt ────────
+      // Backend hiện tại không gắn `relatedPaymentRef` → fallback
+      // phát hiện theo timestamp. Tier này vẫn an toàn vì user thường
+      // chỉ tạo 1 top-up tại 1 thời điểm.
+      if (quoteCreatedAt != null) {
+        final recentTopUp = txs.any((tx) =>
+            tx.type == TransactionType.topUp &&
+            tx.amount > 0 &&
+            !tx.createdAt.isBefore(quoteCreatedAt));
+        if (recentTopUp) return true;
+      }
+
+      // ── Tier 3: Balance delta ────────────────────────────────────
+      // Nếu balance hiện tại tăng >= expectedBvc so với trước khi
+      // nạp → chắc chắn SePay đã webhook.
+      if (previousBalance != null && walletResult is Either<Failure, WalletEntity>) {
+        return walletResult.fold(
+          (_) => false,
+          (wallet) {
+            final delta = wallet.availableBalance - previousBalance;
+            final minDelta = expectedBvc ?? 1;
+            return delta >= minDelta;
+          },
+        );
+      }
+
+      return false;
     });
   }
 }

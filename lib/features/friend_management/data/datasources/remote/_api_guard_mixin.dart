@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse/core/error/failures.dart';
 
 /// Abstract class cung cấp helper để giảm lặp code trong các RemoteDatasource:
 ///

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/navigation/tournament_routes.dart';
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/tournament_list_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_hero.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_filter_section.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_error_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/widgets/tournament_list_card.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/utils/tournament_utils.dart';
+import 'package:boardverse/core/navigation/tournament_routes.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_state.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_hero.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_filter_section.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_error_state.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_list_card.dart';
+import 'package:boardverse/features/tournament/presentation/widgets/tournament_skeleton.dart';
+import 'package:boardverse/features/tournament/presentation/utils/tournament_utils.dart';
 
 /// Tournament tab page.
 ///
@@ -173,7 +174,7 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
 
   Widget _buildBody(BuildContext context, TournamentListState state) {
     if (state is TournamentListLoading || state is TournamentListInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return TournamentSkeleton.list();
     }
 
     if (state is TournamentListError) {

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../lobby_management/presentation/widgets/lobby_game_picker_sheet.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../domain/entities/board_game_entity.dart';
@@ -182,6 +183,73 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
     );
   }
 
+  /// Mở bottom sheet [LobbyGamePickerSheet] để player đổi sang tựa
+  /// game khác — giống flow tạo lobby ở [LobbyHubPage._openCreateLobby].
+  ///
+  /// Flow: Player ấn "Đổi" →
+  ///   1. Đảm bảo cubit đã có danh sách games (nếu chưa cache → fetch).
+  ///   2. Mở bottom sheet picker — player search/chọn game mới.
+  ///   3. Nếu chọn game khác game hiện tại → replace page hiện tại bằng
+  ///      [LobbyCafeSelectionPage] mới với [BoardGameEntity] mới.
+  ///      Player bắt đầu lại từ bước chọn cafe (đúng nghiệp vụ vì
+  ///      game mới có thể chỉ chơi ở cafe khác / khác khoảng cách).
+  ///
+  /// Lưu ý: flow này giữ nguyên pattern cũ (trước khi refactor) — chỉ
+  /// khác ở chỗ player chọn game MỚI ngay trong flow lobby thay vì phải
+  /// back ra tận SearchPage. UX khớp với "Đổi quán" ở LobbyConfigPage
+  /// (chỉ swap field, không reset cả flow).
+  Future<void> _onChangeGamePressed() async {
+    if (!mounted) return;
+    final matchmakingCubit = widget.matchmakingCubit;
+
+    // Đảm bảo cubit có search results để picker hiển thị. Có thể cubit
+    // chưa fetch nếu player mở flow qua BoardGameDetail trực tiếp
+    // (chưa vào Search tab Explore).
+    if (matchmakingCubit.state is! MatchmakingSearchResults) {
+      await matchmakingCubit.searchGames();
+      if (!mounted) return;
+    }
+
+    // Mở bottom sheet picker — contract giống LobbyHubPage:
+    // nhận List<BoardGameEntity> đã được cache trong cubit state, trả
+    // về BoardGameEntity qua Navigator.pop (null nếu player đóng).
+    final picked = await showModalBottomSheet<BoardGameEntity>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        final s = matchmakingCubit.state;
+        final games = s is MatchmakingSearchResults
+            ? s.games
+            : <BoardGameEntity>[];
+        return LobbyGamePickerSheet(games: games);
+      },
+    );
+    if (picked == null || !mounted) return;
+
+    // Bỏ qua nếu player chọn lại chính game hiện tại.
+    if (picked.id == widget.game.id) return;
+
+    // Reset nearby cafes state để cubit fetch lại theo gameId mới
+    // (cache theo gameId cũ không còn hợp lệ).
+    matchmakingCubit.resetNearbyCafesForGameSwitch();
+
+    // Restart flow với game mới: replace page hiện tại bằng
+    // LobbyCafeSelectionPage mới. Player chọn cafe từ đầu → đây là
+    // behavior tự nhiên vì game mới có thể khác về cafes available.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => LobbyCafeSelectionPage(
+          game: picked,
+          matchmakingCubit: matchmakingCubit,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -239,6 +307,11 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                       ),
                     ),
                   ),
+                  // Nút "Đổi game" — cho phép player đổi sang tựa game
+                  // khác nếu lỡ chọn nhầm. Tap sẽ pop về
+                  // BoardGameDetailPage để player back ra ngoài hoặc
+                  // chọn game khác từ SimilarGamesCarousel.
+                  _ChangeGameButton(onTap: _onChangeGamePressed),
                 ],
               ),
             ),
@@ -377,6 +450,64 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
 
             return const SizedBox.shrink();
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill button "Đổi" ở header — neo-brutalism style.
+///
+/// Hiển thị nhãn "ĐỔI" + icon edit để player biết có thể đổi sang game
+/// khác khi lỡ chọn nhầm. Tap sẽ pop [LobbyCafeSelectionPage] về
+/// [BoardGameDetailPage] đã có sẵn trong stack.
+class _ChangeGameButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ChangeGameButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.primary,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.edit_rounded,
+                size: 14,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'ĐỔI',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

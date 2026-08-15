@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
 
 /// Neo-brutalism Status chip widget for displaying friendship status.
 class StatusChip extends StatelessWidget {

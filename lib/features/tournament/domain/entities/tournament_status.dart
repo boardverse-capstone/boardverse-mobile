@@ -92,6 +92,9 @@ extension TournamentStatusX on TournamentStatus {
       this == TournamentStatus.registrationOpen ||
       this == TournamentStatus.ongoing;
 
+  /// Tournament is currently ongoing.
+  bool get isOngoing => this == TournamentStatus.ongoing;
+
   /// Tournament is in a terminal state (cannot transition further).
   bool get isTerminal =>
       this == TournamentStatus.completed ||

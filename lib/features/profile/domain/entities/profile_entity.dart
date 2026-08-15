@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../data/models/profile_model.dart';
+
 /// Clean domain entity representing a user's profile.
 class ProfileEntity extends Equatable {
   final String userId;
@@ -86,4 +88,29 @@ class ProfileEntity extends Equatable {
         acceptFriendRequestsFrom,
         friendLimit,
       ];
+}
+
+extension ProfileEntityX on ProfileEntity {
+  ProfileModel toModel() => ProfileModel(
+        userId: userId,
+        username: username,
+        avatarUrl: avatarUrl,
+        avatarBorderUrl: avatarBorderUrl,
+        bio: bio,
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: dateOfBirth,
+        phoneNumber: phoneNumber,
+        karmaPoints: karmaPoints,
+        gamerTier: gamerTier,
+        globalElo: globalElo,
+        level: level,
+        currentExp: currentExp,
+        lastActiveAt: lastActiveAt,
+        updatedAt: updatedAt,
+        hasProfile: hasProfile,
+        isFriendListPublic: isFriendListPublic,
+        acceptFriendRequestsFrom: acceptFriendRequestsFrom,
+        friendLimit: friendLimit,
+      );
 }

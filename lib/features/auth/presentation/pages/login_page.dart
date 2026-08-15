@@ -1,15 +1,12 @@
-import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/navigation/pages/main_scaffold.dart';
-import '../../../../core/widgets/app_toast_card.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/game_loading_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -36,7 +33,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
-    serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_SERVER_CLIENT_ID'],
+    serverClientId: _serverClientId,
+  );
+
+  /// Trả về serverClientId dùng cho cả Android & iOS.
+  /// - Web: null (không cần)
+  /// - Android/iOS: GOOGLE_SERVER_CLIENT_ID (Web OAuth Client ID)
+  ///
+  /// Lý do dùng Web Client ID cho mobile:
+  /// `google_sign_in` Flutter plugin yêu cầu Web OAuth Client ID làm
+  /// serverClientId để Firebase Auth xác thực idToken phía backend.
+  static String? get _serverClientId {
+    if (kIsWeb) return null;
+    return dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
+  }
+
+  late final GoogleAuthHelper _googleAuthHelper = GoogleAuthHelper(
+    googleSignIn: _googleSignIn,
   );
 
   @override
@@ -76,43 +89,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _onGoogleLogin() async {
-    try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
-
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
-      if (idToken != null && mounted) {
-        setState(() => _isLoggingIn = true);
-        context.read<AuthCubit>().googleLogin(idToken: idToken);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Đăng nhập Google thất bại: ${e.toString()}', isError: true);
-      }
-    }
-  }
-
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(
-      autoDismiss: true,
-      snackbarDuration: const Duration(seconds: 3),
-      position: DelightSnackbarPosition.top,
-      builder: (context) => AppToastCard(
-        leading: Icon(
-          isError ? Icons.error_outline : Icons.check_circle_outlined,
-          color: isError
-              ? Theme.of(context).colorScheme.error
-              : AppColors.success,
-          size: 28,
-        ),
-        title: Text(
-          message,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ).show(context);
+    await _googleAuthHelper.signIn(
+      context: context,
+      onLoadingChanged: (loading) {
+        if (mounted) setState(() => _isLoggingIn = loading);
+      },
+      onError: (msg) {
+        if (mounted) AppToast.showError(context, msg);
+      },
+    );
   }
 
   @override
@@ -121,12 +106,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       listener: (context, state) {
         switch (state) {
           case AuthSuccess():
-            _showToast('Đăng nhập thành công!');
+            AppToast.showSuccess(context, 'Đăng nhập thành công!');
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainScaffold()),
             );
           case AuthFailure():
-            _showToast(state.message, isError: true);
+            // Bắt message từ backend (vd: "Tên đăng nhập/email hoặc mật
+            // khẩu không đúng..."). Nếu message rỗng → AppToast tự fallback.
+            AppToast.showError(context, state.message);
             setState(() => _isLoggingIn = false);
           case AuthInitial():
             setState(() => _isLoggingIn = false);
@@ -150,13 +137,17 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   horizontal: AppSpacing.lg,
                   vertical: AppSpacing.xl,
                 ),
+                // Drag-to-dismiss the keyboard so the user can scroll
+                // the form without first tapping outside a field.
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: SlideTransition(
                     position: _slideAnimation,
                     child: Form(
                       key: _formKey,
-                      child: _buildContent(context, state),
+                      child: _buildContent(context),
                     ),
                   ),
                 ),
@@ -168,13 +159,13 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildContent(BuildContext context, AuthState state) {
+  Widget _buildContent(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: AppSpacing.xxxl),
         const AuthLogo(),
-        const SizedBox(height: AppSpacing.xxxl),
+        const SizedBox(height: AppSpacing.xl),
         AuthFormCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -230,7 +221,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               AuthPrimaryButton(
                 label: 'Đăng nhập',
                 icon: Icons.login,
-                isLoading: state is AuthLoading,
                 onPressed: _onLogin,
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -239,7 +229,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               AuthSocialButton(
                 icon: Icons.g_mobiledata,
                 label: 'Đăng nhập với Google',
-                onPressed: state is AuthLoading ? () {} : _onGoogleLogin,
+                onPressed: _onGoogleLogin,
               ),
               const SizedBox(height: AppSpacing.xl),
               AuthLinkText(

@@ -7,8 +7,8 @@
 //   snake_case của enum.name
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:boardverse_mobile/features/wallet/data/models/transaction_model.dart';
-import 'package:boardverse_mobile/features/wallet/domain/entities/transaction_entity.dart';
+import 'package:boardverse/features/wallet/data/models/transaction_model.dart';
+import 'package:boardverse/features/wallet/domain/entities/transaction_entity.dart';
 
 void main() {
   TransactionEntity make({

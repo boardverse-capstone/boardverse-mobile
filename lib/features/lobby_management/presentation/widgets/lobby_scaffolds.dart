@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse/core/theme/theme.dart';
 
 import 'lobby_page_shimmer.dart';
 

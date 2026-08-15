@@ -6,11 +6,11 @@
 //   - Tournament cards render dữ liệu từ repository.
 //   - Filter chip tap → cubit.applyFilter được gọi.
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/my_registrations_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/my_registrations_page.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/my_registrations_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/my_registrations_state.dart';
+import 'package:boardverse/features/tournament/presentation/pages/my_registrations_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

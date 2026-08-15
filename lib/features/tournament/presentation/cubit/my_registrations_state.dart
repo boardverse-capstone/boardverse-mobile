@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_registration_entity.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
 
 /// Filter for "My Registrations" page.
 enum MyRegistrationsFilter {

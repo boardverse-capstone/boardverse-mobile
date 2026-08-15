@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:boardverse_mobile/core/theme/app_colors.dart';
-import 'package:boardverse_mobile/core/theme/app_icons.dart';
-import 'package:boardverse_mobile/core/theme/app_spacing.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
 
 /// Neo-brutalism bottom sheet hiển thị chi tiết lobby.
 class LobbyDetailsSheet extends StatelessWidget {
@@ -30,21 +30,6 @@ class LobbyDetailsSheet extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Drag handle
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.md),
-              child: Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.borderDark : AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-
             // Header
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),

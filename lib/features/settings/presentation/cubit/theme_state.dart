@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class ThemeState extends Equatable {
   final ThemeMode mode;
 
-  const ThemeState({this.mode = ThemeMode.system});
+  const ThemeState({this.mode = ThemeMode.light});
 
   ThemeState copyWith({ThemeMode? mode}) {
     return ThemeState(mode: mode ?? this.mode);

@@ -183,33 +183,59 @@ class AuthRepositoryImpl implements AuthRepository {
 
   // ─── Helpers ───────────────────────────────────────────────────────
 
-  /// Converts [DioException] to the appropriate [Failure].
-  ///
-  /// Network-level errors (no connectivity, timeout) become [NetworkFailure].
-  /// Server-level errors extract the backend message from the response envelope.
-  Failure _mapDioException(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-      case DioExceptionType.connectionError:
-        return const NetworkFailure();
-      case DioExceptionType.badResponse:
-        final data = e.response?.data;
-        if (data is Map<String, dynamic> && data.containsKey('message')) {
+/// Converts [DioException] to the appropriate [Failure].
+///
+/// Network-level errors (no connectivity, timeout) become [NetworkFailure].
+/// Server-level errors extract the backend message from the response envelope.
+///
+/// **Lưu ý quan trọng về format message**:
+/// Backend trả về envelope chuẩn:
+/// ```json
+/// { "statusCode": 401, "message": "...", "data": null, ... }
+/// ```
+/// Field `message` là text hiển thị cho user (có thể kèm ký tự Unicode).
+///
+/// Nếu Dio trả về `response.data` không phải JSON hợp lệ (vd: HTML error
+/// page từ proxy) → fallback sang `DioException.message` (tiếng Anh từ
+/// Dio). Nếu cả 2 đều rỗng → dùng fallback tiếng Việt thân thiện.
+Failure _mapDioException(DioException e) {
+  switch (e.type) {
+    case DioExceptionType.connectionTimeout:
+    case DioExceptionType.sendTimeout:
+    case DioExceptionType.receiveTimeout:
+    case DioExceptionType.connectionError:
+      return const NetworkFailure();
+    case DioExceptionType.badResponse:
+      final data = e.response?.data;
+      // Case 1: response.data là Map (envelope chuẩn của backend).
+      if (data is Map<String, dynamic>) {
+        final rawMessage = data['message'];
+        final messageStr = rawMessage is String ? rawMessage : null;
+        if (messageStr != null && messageStr.isNotEmpty) {
           return ServerFailure(
-            message: data['message'] as String,
+            message: messageStr,
             statusCode: e.response?.statusCode,
           );
         }
+      }
+      // Case 2: response.data là String (vd: backend trả text thuần).
+      if (data is String && data.isNotEmpty) {
         return ServerFailure(
-          message: e.message ?? 'Đã xảy ra lỗi không mong muốn.',
+          message: data,
           statusCode: e.response?.statusCode,
         );
-      default:
-        return ServerFailure(
-          message: e.message ?? 'Đã xảy ra lỗi không mong muốn.',
-        );
-    }
+      }
+      // Case 3: Không parse được message — fallback Dio exception message
+      // (tiếng Anh) hoặc generic tiếng Việt.
+      return ServerFailure(
+        message: e.message ??
+            'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.',
+        statusCode: e.response?.statusCode,
+      );
+    default:
+      return ServerFailure(
+        message: e.message ?? 'Đã xảy ra lỗi không mong muốn.',
+      );
   }
+}
 }

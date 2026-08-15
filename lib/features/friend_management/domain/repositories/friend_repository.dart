@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse/core/error/failures.dart';
 import '../entities/entities.dart';
 
 /// Repository interface cho Friend Management.

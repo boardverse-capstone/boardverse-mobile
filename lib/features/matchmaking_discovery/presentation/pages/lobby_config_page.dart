@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/navigation/lobby_flow_navigator.dart';
+import '../../../lobby_management/presentation/widgets/lobby_game_picker_sheet.dart';
 import '../../../reservation/domain/entities/entities.dart';
 import '../../../reservation/presentation/cubit/reservation_cubit.dart';
 import '../../../reservation/presentation/cubit/reservation_state.dart';
@@ -58,10 +59,19 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // ----- Mutable state copy của widget.* (cho phép player đổi game) -----
+  // Khi player ấn "Đổi game" ở tab Quán & Game, các field này được
+  // cập nhật thay vì phải navigate lại flow. Cafe (widget.cafe*) giữ
+  // nguyên — player đã chọn cafe rồi, không cần chọn lại.
+  late String _currentGameId;
+  late String _currentGameName;
+  late BoardGameEntity? _currentGameEntity;
+
   // State
   late DateTime _selectedDate;
   TimeSlot _selectedTimeSlot = TimeSlot.morning;
   TimeOfDay? _preferredStartTime;
+  TimeOfDay? _preferredEndTime;
   bool _isPublic = true;
   int _maxPlayers = 4;
   bool _isCreatingLobby = false;
@@ -119,7 +129,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _preferredStartTime = _getSlotStartTime(TimeSlot.morning);
-    widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
+    // Khởi tạo mutable state từ widget values (cho phép đổi game sau).
+    _currentGameId = widget.gameId;
+    _currentGameName = widget.gameName;
+    _currentGameEntity = widget.gameEntity;
+    widget.matchmakingCubit.loadGameDetail(gameId: _currentGameId);
     // Load quote ngay khi mở trang để đảm bảo có data khi vào tab 4
     _loadQuotePreview();
   }
@@ -227,6 +241,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     setState(() {
       _selectedTimeSlot = slot;
       _preferredStartTime = _getSlotStartTime(slot);
+      _preferredEndTime = null; // Reset end time when slot changes
     });
   }
 
@@ -273,6 +288,40 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
           _preferredStartTime = picked;
         }
       });
+    }
+  }
+
+  Future<void> _selectPreferredEndTime(BuildContext context) async {
+    final startTime = _preferredStartTime ?? _getSlotStartTime(_selectedTimeSlot);
+    final slotEndTime = _getSlotEndTime(_selectedTimeSlot);
+
+    // End time must be after start time
+    final initialTime = _preferredEndTime ?? slotEndTime;
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      helpText: 'Chọn giờ kết thúc ưa thích',
+      cancelText: 'Huỷ',
+      confirmText: 'Xác nhận',
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      final pickedMinutes = picked.hour * 60 + picked.minute;
+      final startMinutes = startTime.hour * 60 + startTime.minute;
+
+      // Only allow end time after start time
+      if (pickedMinutes > startMinutes) {
+        setState(() {
+          _preferredEndTime = picked;
+        });
+      }
     }
   }
 
@@ -329,7 +378,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
   }
 
   void _changeCafe() {
-    final game = widget.gameEntity;
+    final game = _currentGameEntity;
     if (game == null) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -339,6 +388,63 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         ),
       ),
     );
+  }
+
+  /// Đổi sang tựa game khác khi đang ở flow cấu hình lobby.
+  ///
+  /// Flow: Player ấn "Đổi game" trên tab Quán & Game →
+  ///   1. Mở bottom sheet [LobbyGamePickerSheet] (giống flow tạo lobby
+  ///      ở [LobbyHubPage]) để player chọn tựa game mới.
+  ///   2. Nếu player chọn → cập nhật [_currentGameId] / [_currentGameName]
+  ///      / [_currentGameEntity] + load game detail mới.
+  ///   3. Cafe đã chọn giữ nguyên (player không phải chọn lại).
+  ///
+  /// Lưu ý: KHÔNG pop flow lobby về MainScaffold. Player vẫn ở trong
+  /// page cấu hình, chỉ thay game. UX khớp với behavior của "Đổi quán"
+  /// — player chỉ swap một field, không reset cả flow.
+  Future<void> _changeGame() async {
+    // Đảm bảo cubit đã có danh sách games để picker hiển thị. Có thể
+    // cubit chưa fetch nếu player mở flow qua BoardGameDetail trực tiếp
+    // (chưa vào Search tab Explore). Lấy state hiện tại trước, nếu chưa
+    // có kết quả → gọi searchGames() để fetch.
+    final matchmakingCubit = widget.matchmakingCubit;
+    if (matchmakingCubit.state is! MatchmakingSearchResults) {
+      await matchmakingCubit.searchGames();
+      if (!mounted) return;
+    }
+
+    // Mở bottom sheet picker — contract giống LobbyHubPage:
+    // nhận List<BoardGameEntity> đã được cache trong cubit state, trả
+    // về BoardGameEntity qua Navigator.pop (null nếu player đóng).
+    final picked = await showModalBottomSheet<BoardGameEntity>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        final s = matchmakingCubit.state;
+        final games = s is MatchmakingSearchResults
+            ? s.games
+            : <BoardGameEntity>[];
+        return LobbyGamePickerSheet(games: games);
+      },
+    );
+    if (picked == null || !mounted) return;
+
+    // Bỏ qua nếu player chọn lại chính game hiện tại.
+    if (picked.id == _currentGameId) return;
+
+    setState(() {
+      _currentGameId = picked.id;
+      _currentGameName = picked.name;
+      _currentGameEntity = picked;
+    });
+
+    // Load game detail mới + reload quote preview vì gameId đã đổi.
+    matchmakingCubit.loadGameDetail(gameId: picked.id);
+    _loadQuotePreview();
   }
 
   void _goToTab(int tabIndex) {
@@ -400,12 +506,16 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     reservationCubit.reset();
     reservationCubit.createQuote(
       cafeId: widget.cafeId,
-      gameId: widget.gameId,
+      gameId: _currentGameId,
       playDate: _selectedDate,
       timeSlot: _selectedTimeSlot,
       preferredStartTime: _preferredStartTime != null
           ? '${_preferredStartTime!.hour.toString().padLeft(2, '0')}:'
               '${_preferredStartTime!.minute.toString().padLeft(2, '0')}:00'
+          : null,
+      preferredEndTime: _preferredEndTime != null
+          ? '${_preferredEndTime!.hour.toString().padLeft(2, '0')}:'
+              '${_preferredEndTime!.minute.toString().padLeft(2, '0')}:00'
           : null,
       minPlayers: 2,
       maxPlayers: _maxPlayers,
@@ -418,10 +528,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       context: context,
       builder: (_) => LobbyConfigConfirmDialog(
         cafeName: widget.cafeName,
-        gameName: widget.gameName,
+        gameName: _currentGameName,
         selectedDate: _selectedDate,
         selectedTimeSlot: _selectedTimeSlot,
         preferredStartTime: _preferredStartTime,
+        preferredEndTime: _preferredEndTime,
         maxPlayers: _maxPlayers,
         isPublic: _isPublic,
         minimumKarma: _minimumKarma,
@@ -443,12 +554,16 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     reservationCubit.reset();
     reservationCubit.createQuote(
       cafeId: widget.cafeId,
-      gameId: widget.gameId,
+      gameId: _currentGameId,
       playDate: _selectedDate,
       timeSlot: _selectedTimeSlot,
       preferredStartTime: _preferredStartTime != null
           ? '${_preferredStartTime!.hour.toString().padLeft(2, '0')}:'
               '${_preferredStartTime!.minute.toString().padLeft(2, '0')}:00'
+          : null,
+      preferredEndTime: _preferredEndTime != null
+          ? '${_preferredEndTime!.hour.toString().padLeft(2, '0')}:'
+              '${_preferredEndTime!.minute.toString().padLeft(2, '0')}:00'
           : null,
       minPlayers: 2,
       maxPlayers: _maxPlayers,
@@ -492,9 +607,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                   final BoardGameDetailEntity? gameDetail =
                       state is MatchmakingGameDetail ? state.game : null;
                   final maxPlayers = gameDetail?.maxPlayers ??
-                      widget.gameEntity?.maxPlayers ?? 6;
+                      _currentGameEntity?.maxPlayers ?? 6;
                   final minPlayers = gameDetail?.minPlayers ??
-                      widget.gameEntity?.minPlayers ?? 2;
+                      _currentGameEntity?.minPlayers ?? 2;
 
                   return TabBarView(
                     controller: _tabController,
@@ -503,10 +618,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                       LobbyConfigTabQuanVaGame(
                         cafeName: widget.cafeName,
                         cafeEntity: widget.cafeEntity,
-                        gameName: widget.gameName,
-                        gameEntity: widget.gameEntity,
+                        gameName: _currentGameName,
+                        gameEntity: _currentGameEntity,
                         gameDetail: gameDetail,
                         onChangeCafe: _changeCafe,
+                        onChangeGame: _changeGame,
                         onNext: () => _goToTab(1),
                       ),
 
@@ -515,11 +631,13 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         selectedDate: _selectedDate,
                         selectedTimeSlot: _selectedTimeSlot,
                         preferredStartTime: _preferredStartTime,
+                        preferredEndTime: _preferredEndTime,
                         availableSlots: _availableSlots,
                         onDateSelected: _onDateSelected,
                         onOpenDatePicker: () => _openDatePicker(context),
                         onTimeSlotChanged: _onTimeSlotChanged,
                         onPreferredTimeTap: () => _selectPreferredTime(context),
+                        onPreferredEndTimeTap: () => _selectPreferredEndTime(context),
                         formatDate: _formatDate,
                         formatTime: _formatTimeOfDay,
                         getSlotStartTime: _getSlotStartTime,
@@ -558,10 +676,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                       // Tab 4: Đặt cọc
                       LobbyConfigTabDatCoc(
                         cafeName: widget.cafeName,
-                        gameName: widget.gameName,
+                        gameName: _currentGameName,
                         selectedDate: _selectedDate,
                         selectedTimeSlot: _selectedTimeSlot,
                         preferredStartTime: _preferredStartTime,
+                        preferredEndTime: _preferredEndTime,
                         maxPlayers: _maxPlayers,
                         isPublic: _isPublic,
                         minimumKarma: _minimumKarma,

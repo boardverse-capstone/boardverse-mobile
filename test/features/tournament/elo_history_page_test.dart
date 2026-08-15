@@ -6,12 +6,12 @@
 //   - Render chart title + lịch sử chi tiết items.
 //   - Error state có nút retry.
 
-import 'package:boardverse_mobile/core/error/failures.dart';
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/tournament/domain/entities/my_elo_history_entity.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_cubit.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/cubit/elo_history_state.dart';
-import 'package:boardverse_mobile/features/tournament/presentation/pages/elo_history_page.dart';
+import 'package:boardverse/core/error/failures.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/tournament/domain/entities/my_elo_history_entity.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/elo_history_cubit.dart';
+import 'package:boardverse/features/tournament/presentation/cubit/elo_history_state.dart';
+import 'package:boardverse/features/tournament/presentation/pages/elo_history_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

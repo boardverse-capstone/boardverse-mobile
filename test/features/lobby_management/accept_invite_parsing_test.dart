@@ -14,8 +14,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:boardverse_mobile/core/constants/api_endpoints.dart';
-import 'package:boardverse_mobile/features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
+import 'package:boardverse/core/constants/api_endpoints.dart';
+import 'package:boardverse/features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -86,10 +86,10 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
               if (state is MatchmakingGpsDisabled) {
                 return _buildGpsDisabledView(context, state);
               }
-              if (state is MatchmakingOutOfRadius) {
-                return _buildOutOfRadiusView(context, state);
-              }
 
+              // Thống nhất UI cho cả case "không có quán nào" và "có quán
+              // nhưng quá xa": cả 2 đều dùng `MatchmakingGameDetail` với
+              // `isOutOfRadius: true`. Xem cubit comment để biết lý do.
               if (state is MatchmakingGameDetail) {
                 _lastDetailState = state;
                 return _buildGameDetailView(context, state);
@@ -198,78 +198,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     );
   }
 
-  Widget _buildOutOfRadiusView(
-    BuildContext context,
-    MatchmakingOutOfRadius state,
-  ) {
-    return CustomScrollView(
-      slivers: [
-        GameDetailHeader(game: state.selectedGame),
-        SliverToBoxAdapter(
-          child: Container(
-            margin: AppSpacing.paddingAllMd,
-            padding: AppSpacing.paddingAllMd,
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.error,
-                width: NeoBrutalismTheme.borderWidthBold,
-              ),
-              boxShadow: NeoBrutalismTheme.lightShadow(
-                shadowColor: AppColors.error.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.location_off,
-                  size: AppSpacing.huge,
-                  color: AppColors.error,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Không có quán nào trong bán kính 15km',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  'Dưới đây là các game tương tự mà bạn có thể thích:',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: GameInfoSection.fromEntity(state.selectedGame),
-        ),
-        if (state.similarGames.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.md),
-              child: SimilarGamesCarousel(
-                games: state.similarGames,
-                onGameTap: (game) => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BoardGameDetailPage(
-                      gameId: game.id,
-                      matchmakingCubit: widget.matchmakingCubit,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildGameDetailView(
     BuildContext context,
     MatchmakingGameDetail state,
@@ -279,6 +207,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     final isResolving = widget.matchmakingCubit.state
         is MatchmakingPlayNavigationResolving;
     final supportsSolo = state.game.minPlayers == 1;
+    final hasAlternatives = state.alternativeSuggestions.isNotEmpty;
 
     return Stack(
       children: [
@@ -289,27 +218,36 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             SliverToBoxAdapter(
               child: GameInfoSection.fromDetail(state.game),
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.md),
+            // Section "QUÁN CAFE GẦN BẠN" — đổi tiêu đề theo trường hợp:
+            // - Có quán trong bán kính → "QUÁN CAFE GẦN BẠN" (mặc định).
+            // - Có quán nhưng xa (out-of-radius) → "QUÁN CAFE TRONG KHU VỰC"
+            //   để user biết quán này xa hơn bán kính ưu tiên.
+            // - Không có quán nào → ẩn section này (UI empty state đã
+            //   thông báo rồi).
+            if (state.nearbyCafes.isNotEmpty)
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: AppSpacing.paddingHorizontalMd,
-                  child: Text(
-                    'QUÁN CAFE GẦN BẠN',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
+                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  child: Padding(
+                    padding: AppSpacing.paddingHorizontalMd,
+                    child: Text(
+                      state.isOutOfRadius
+                          ? 'QUÁN CAFE TRONG KHU VỰC'
+                          : 'QUÁN CAFE GẦN BẠN',
+                      style:
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                    ),
                   ),
                 ),
               ),
-            ),
             if (state.nearbyCafes.isEmpty)
               SliverToBoxAdapter(
                 child: _buildNearbyEmptyState(
                   context,
                   emptyMessage: state.emptyResultMessage,
-                  alternatives: state.alternativeSuggestions,
                 ),
               )
             else
@@ -340,8 +278,28 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                   childCount: state.nearbyCafes.length,
                 ),
               ),
+            // Khi out-of-radius (kể cả có hoặc không có quán) mà backend
+            // có gợi ý game tương tự → hiển thị carousel ngay dưới.
+            // Nếu backend trả `alternativeSuggestions = []` (không gợi ý)
+            // → hiển thị notice "Hiện chưa có gợi ý game tương tự" để user
+            // biết là backend không phải frontend bug, thay vì để carousel
+            // rỗng (gây hiểu nhầm UI không hoạt động).
+            if (state.isOutOfRadius)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  child: _buildAlternativesSection(
+                    context,
+                    alternatives: state.alternativeSuggestions,
+                    hasAlternatives: hasAlternatives,
+                  ),
+                ),
+              ),
+                        // Bottom padding đủ lớn để user có thể scroll xuống xem hết
+            // alternatives content mà không bị sticky CTA che khuất.
+            // huge(48) + massive(64) = 112px buffer dưới alternatives.
             const SliverToBoxAdapter(
-              child: SizedBox(height: AppSpacing.huge + AppSpacing.lg),
+              child: SizedBox(height: AppSpacing.huge + AppSpacing.massive),
             ),
           ],
         ),
@@ -351,6 +309,118 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
           isResolving: isResolving,
           supportsSolo: supportsSolo,
         ),
+      ],
+    );
+  }
+
+  /// Section game tương tự — thống nhất cho 2 case:
+  /// - `hasAlternatives = true` (backend có gợi ý) → `SimilarGamesCarousel`.
+  /// - `hasAlternatives = false` (backend trả rỗng) → notice giải thích.
+  Widget _buildAlternativesSection(
+    BuildContext context, {
+    required List<AlternativeGameSuggestionEntity> alternatives,
+    required bool hasAlternatives,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor =
+        isDark ? AppColors.borderDark : AppColors.border;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+          ).copyWith(top: AppSpacing.xs),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.recommend_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'GỢI Ý GAME TƯƠNG TỰ',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (hasAlternatives)
+          SimilarGamesCarousel(
+            games: alternatives
+                .map<BoardGameEntity>((s) => s.toBoardGameEntity())
+                .toList(),
+            onGameTap: (game) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BoardGameDetailPage(
+                    gameId: game.id,
+                    matchmakingCubit: widget.matchmakingCubit,
+                  ),
+                ),
+              );
+            },
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+            ),
+            child: Container(
+              padding: AppSpacing.paddingAllMd,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: borderColor,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.info,
+                      size: AppSpacing.xl,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Hiện chưa có gợi ý game tương tự. Bạn có thể thử '
+                      'tìm game khác ở tab Khám phá.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -448,7 +518,6 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   Widget _buildNearbyEmptyState(
     BuildContext context, {
     required String? emptyMessage,
-    required List<AlternativeGameSuggestionEntity> alternatives,
   }) {
     final theme = Theme.of(context);
     final message = emptyMessage ??
@@ -460,65 +529,43 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         AppSpacing.md,
         AppSpacing.md,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: AppSpacing.paddingAllMd,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: theme.brightness == Brightness.dark
-                    ? AppColors.borderDark
-                    : AppColors.border,
-                width: NeoBrutalismTheme.borderWidth,
+      child: Container(
+        padding: AppSpacing.paddingAllMd,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: theme.brightness == Brightness.dark
+                ? AppColors.borderDark
+                : AppColors.border,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.location_off,
+                color: AppColors.error,
+                size: AppSpacing.xl,
               ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.location_off,
-                    color: AppColors.error,
-                    size: AppSpacing.xl,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (alternatives.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            SimilarGamesCarousel(
-              games: alternatives
-                  .map<BoardGameEntity>((s) => s.toBoardGameEntity())
-                  .toList(),
-              onGameTap: (game) => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BoardGameDetailPage(
-                    gameId: game.id,
-                    matchmakingCubit: widget.matchmakingCubit,
-                  ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -667,14 +714,20 @@ class _NeoCtaButtonState extends State<_NeoCtaButton>
               ] else ...[
                 Icon(widget.icon, size: 20, color: widget.textColor),
               ],
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.textColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: widget.textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ],

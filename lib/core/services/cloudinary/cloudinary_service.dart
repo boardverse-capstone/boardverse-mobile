@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloudinary_flutter/cloudinary_object.dart';
 import 'package:cloudinary_flutter/image/cld_image.dart';
@@ -56,16 +56,20 @@ class CloudinaryService {
 
   /// Upload an image file to Cloudinary.
   ///
+  /// [bytes]    – raw file content (cross-platform, works on web too).
+  /// [fileName] – original file name (e.g. `avatar.jpg`).
   /// Returns the **secure URL** ready to be sent to the backend
   /// (e.g. `PUT /api/userprofile/me/avatar { avatarUrl: url }`).
   Future<String> uploadImage({
-    required File file,
+    required Uint8List bytes,
+    required String fileName,
     String? folder,
     String? publicId,
     void Function(double progress)? onProgress,
   }) async {
     final result = await _uploader.upload(
-      file: file,
+      bytes: bytes,
+      fileName: fileName,
       folder: folder ?? CloudinaryConfig.defaultFolder,
       publicId: publicId,
       onProgress: onProgress,
@@ -77,13 +81,15 @@ class CloudinaryService {
   /// (URL + publicId + dimensions). Use this when you also need
   /// the public_id to derive further delivery URLs later.
   Future<CloudinaryUploadResult> uploadImageDetailed({
-    required File file,
+    required Uint8List bytes,
+    required String fileName,
     String? folder,
     String? publicId,
     void Function(double progress)? onProgress,
   }) =>
       _uploader.upload(
-        file: file,
+        bytes: bytes,
+        fileName: fileName,
         folder: folder ?? CloudinaryConfig.defaultFolder,
         publicId: publicId,
         onProgress: onProgress,

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
-import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../reservation/domain/entities/entities.dart';
 import '../../../../reservation/presentation/cubit/reservation_cubit.dart';
 import '../../../../reservation/presentation/cubit/reservation_state.dart';
@@ -14,12 +15,18 @@ import 'quote_preview_card.dart';
 import 'summary_row.dart';
 
 /// Tab 4 của LobbyConfigPage — đặt cọc + xác nhận.
+///
+/// Style: Neo-brutalism theo design system v4.0 (`.agents/docs/design_system.md`).
+/// - Section headers: titleLarge w900, subtitle bodyMedium.
+/// - Card: border 3px, hard offset shadow (5, 5), icon badge màu semantic.
+/// - Status containers (error / warning / empty): border đậm + shadow màu.
 class LobbyConfigTabDatCoc extends StatefulWidget {
   final String cafeName;
   final String gameName;
   final DateTime selectedDate;
   final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
+  final TimeOfDay? preferredEndTime;
   final int maxPlayers;
   final bool isPublic;
   final double minimumKarma;
@@ -45,7 +52,8 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
     required this.gameName,
     required this.selectedDate,
     required this.selectedTimeSlot,
-    required this.preferredStartTime,
+    this.preferredStartTime,
+    this.preferredEndTime,
     required this.maxPlayers,
     required this.isPublic,
     required this.minimumKarma,
@@ -145,173 +153,121 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Page Header ───────────────────────────────────────
                 Text(
-                  'Thông tin đặt cọc',
+                  'Xác nhận đặt cọc',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  'Xem lại thông tin trước khi đặt cọc',
+                  'Kiểm tra thông tin lobby và chi tiết cọc trước khi xác nhận',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: NeoBrutalismTheme.textSecondaryColor(context),
                   ),
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Summary card
+                // ── Section 1: Tổng quan ──────────────────────────────
                 LobbyConfigInfoCard(
-                  icon: Icons.event_note,
-                  iconColor: theme.colorScheme.primary,
-                  title: 'Tổng quan',
+                  icon: Icons.event_note_rounded,
+                  iconColor: AppColors.primary,
+                  title: 'Tổng quan lobby',
+                  useNeoStyle: true,
                   child: Column(
                     children: [
-                      LobbyConfigSummaryRow(icon: Icons.extension, label: 'Game', value: widget.gameName),
-                      LobbyConfigSummaryRow(icon: Icons.local_cafe, label: 'Quán', value: widget.cafeName),
                       LobbyConfigSummaryRow(
-                        icon: Icons.calendar_today,
+                          icon: Icons.extension_rounded,
+                          label: 'Game',
+                          value: widget.gameName),
+                      _NeoDivider(),
+                      LobbyConfigSummaryRow(
+                          icon: Icons.local_cafe_rounded,
+                          label: 'Quán',
+                          value: widget.cafeName),
+                      _NeoDivider(),
+                      LobbyConfigSummaryRow(
+                        icon: Icons.calendar_today_rounded,
                         label: 'Ngày',
                         value: widget.formatDate(widget.selectedDate),
                       ),
+                      _NeoDivider(),
                       LobbyConfigSummaryRow(
                         icon: widget.getSlotIcon(widget.selectedTimeSlot),
                         label: 'Phiên',
-                        value: widget.getSlotShortLabel(widget.selectedTimeSlot),
+                        value: widget.getSlotShortLabel(
+                            widget.selectedTimeSlot),
                       ),
-                      if (widget.preferredStartTime != null)
+                      if (widget.preferredStartTime != null) ...[
+                        _NeoDivider(),
                         LobbyConfigSummaryRow(
-                          icon: Icons.schedule,
-                          label: 'Giờ',
-                          value: widget.formatTime(widget.preferredStartTime!),
+                          icon: Icons.play_arrow_rounded,
+                          label: 'Giờ bắt đầu',
+                          value:
+                              widget.formatTime(widget.preferredStartTime!),
                         ),
+                      ],
+                      if (widget.preferredEndTime != null) ...[
+                        _NeoDivider(),
+                        LobbyConfigSummaryRow(
+                          icon: Icons.stop_rounded,
+                          label: 'Giờ kết thúc',
+                          value: widget.formatTime(widget.preferredEndTime!),
+                        ),
+                      ],
+                      _NeoDivider(),
                       LobbyConfigSummaryRow(
-                        icon: Icons.people,
-                        label: 'Người',
+                        icon: Icons.group_rounded,
+                        label: 'Số người',
                         value: '${widget.maxPlayers} người',
                       ),
+                      _NeoDivider(),
                       LobbyConfigSummaryRow(
-                        icon: widget.isPublic ? Icons.public : Icons.lock,
+                        icon: widget.isPublic
+                            ? Icons.public_rounded
+                            : Icons.lock_rounded,
                         label: 'Chế độ',
                         value: widget.isPublic ? 'Công khai' : 'Riêng tư',
                       ),
-                      if (widget.minimumKarma > 0)
+                      if (widget.minimumKarma > 0) ...[
+                        _NeoDivider(),
                         LobbyConfigSummaryRow(
-                          icon: Icons.star,
-                          label: 'Karma',
+                          icon: Icons.star_rounded,
+                          label: 'Karma tối thiểu',
                           value: '${widget.minimumKarma.toInt()} điểm',
                         ),
+                      ],
                     ],
                   ),
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Quote preview
-                if (isLoading)
-                  const LobbyConfigQuoteShimmer()
-                else if (errorMsg != null)
-                  Container(
-                    padding: AppSpacing.paddingAllMd,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.radiusMdAll,
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 36),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Lỗi khi tải cọc',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          errorMsg,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        OutlinedButton.icon(
-                          onPressed: widget.onRefreshQuote,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Thử lại'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (liveQuote != null)
-                  LobbyConfigQuotePreviewCard(quote: liveQuote, formatBuffer: widget.formatBuffer)
-                else
-                  Container(
-                    padding: AppSpacing.paddingAllMd,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHigh,
-                      borderRadius: AppRadius.radiusMdAll,
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 48,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          'Chưa có thông tin cọc',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Nhấn "Làm mới" để xem chi tiết cọc',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        OutlinedButton.icon(
-                          onPressed: widget.onRefreshQuote,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Làm mới'),
-                        ),
-                      ],
-                    ),
+                // ── Section 2: Quote / Status ─────────────────────────
+                LobbyConfigInfoCard(
+                  icon: Icons.payments_rounded,
+                  iconColor: AppColors.success,
+                  title: 'Chi tiết cọc',
+                  useNeoStyle: true,
+                  neoShadowColor: AppColors.success.withValues(alpha: 0.2),
+                  child: _buildQuoteSection(
+                    context,
+                    theme,
+                    isLoading,
+                    errorMsg,
+                    liveQuote,
                   ),
+                ),
 
-                const SizedBox(height: AppSpacing.lg),
-
-                // Buffer warning
-                if (widget.hasBufferWarning)
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.radiusMdAll,
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning, color: Colors.orange),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Buffer chỉ ${widget.formatBuffer(widget.bufferMinutes)}. '
-                            'Khuyến nghị chọn ngày xa hơn.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.orange,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                if (widget.hasBufferWarning) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  _BufferWarningBanner(
+                    formatBuffer: widget.formatBuffer,
+                    bufferMinutes: widget.bufferMinutes,
                   ),
+                ],
               ],
             ),
           ),
@@ -327,6 +283,316 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
           isLoading: widget.isCreatingLobby,
         ),
       ],
+    );
+  }
+
+  Widget _buildQuoteSection(
+    BuildContext context,
+    ThemeData theme,
+    bool isLoading,
+    String? errorMsg,
+    ReservationQuoteEntity? liveQuote,
+  ) {
+    if (isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: LobbyConfigQuoteShimmer(),
+      );
+    }
+    if (errorMsg != null) {
+      return _ErrorState(
+        message: errorMsg,
+        onRetry: widget.onRefreshQuote,
+      );
+    }
+    if (liveQuote != null) {
+      return LobbyConfigQuotePreviewCard(
+        quote: liveQuote,
+        formatBuffer: widget.formatBuffer,
+      );
+    }
+    return _EmptyState(onRefresh: widget.onRefreshQuote);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// HELPER WIDGETS
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Divider mỏng theo style neo-brutalism: thay vì `Divider` Flutter mặc định
+/// (thickness 1px mờ), dùng container 1.5px với màu border.
+class _NeoDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      height: 1.5,
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      color: isDark ? AppColors.borderDark : AppColors.border,
+    );
+  }
+}
+
+/// Error state khi không tải được quote. Border + hard shadow đỏ nhạt,
+/// icon badge màu error, action button retry theo style neo.
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: AppSpacing.paddingAllMd,
+      decoration: NeoBrutalismTheme.brutalBox(
+        backgroundColor: AppColors.error.withValues(alpha: 0.08),
+        borderColor: AppColors.error,
+        bold: false,
+        borderRadius: 12,
+        shadowColor: AppColors.error.withValues(alpha: 0.3),
+      ),
+      child: Column(
+        children: [
+          // Icon badge
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.border,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+            ),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Lỗi khi tải cọc',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: AppColors.error,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.errorDark,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _NeoOutlineButton(
+            label: 'Thử lại',
+            icon: Icons.refresh_rounded,
+            color: AppColors.error,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Empty state khi chưa có quote (lần đầu mở tab). Icon badge + text +
+/// button refresh.
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onRefresh;
+
+  const _EmptyState({required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.border,
+              width: NeoBrutalismTheme.borderWidth,
+            ),
+          ),
+          child: Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.primary,
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Chưa có thông tin cọc',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          'Nhấn "Làm mới" để xem chi tiết cọc',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: NeoBrutalismTheme.textSecondaryColor(context),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _NeoOutlineButton(
+          label: 'Làm mới',
+          icon: Icons.refresh_rounded,
+          color: AppColors.primary,
+          onPressed: onRefresh,
+        ),
+      ],
+    );
+  }
+}
+
+/// Buffer warning banner khi buffer quá ngắn. Border + hard shadow cam nhạt.
+class _BufferWarningBanner extends StatelessWidget {
+  final String Function(int) formatBuffer;
+  final int bufferMinutes;
+
+  const _BufferWarningBanner({
+    required this.formatBuffer,
+    required this.bufferMinutes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: AppSpacing.paddingAllMd,
+      decoration: NeoBrutalismTheme.brutalBox(
+        backgroundColor: AppColors.warning.withValues(alpha: 0.1),
+        borderColor: AppColors.warning,
+        bold: false,
+        borderRadius: 14,
+        shadowColor: AppColors.warning.withValues(alpha: 0.3),
+      ),
+      child: Row(
+        children: [
+          // Icon badge
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.border,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+            ),
+            child: const Icon(
+              Icons.warning_rounded,
+              color: AppColors.black,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Buffer ngắn',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.warningDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Buffer chỉ ${formatBuffer(bufferMinutes)}. '
+                  'Khuyến nghị chọn ngày xa hơn để có đủ thời gian tuyển người.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.warningDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Outline button theo neo-brutalism: nền trắng/surface, border màu semantic,
+/// hard shadow (3, 3). Dùng cho retry/refresh trong error/empty state.
+class _NeoOutlineButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  const _NeoOutlineButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: isDark ? AppColors.surfaceDark : AppColors.white,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: color,
+          width: NeoBrutalismTheme.borderWidthBold,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 0,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: NeoBrutalismTheme.lightShadow(
+              shadowColor: color.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

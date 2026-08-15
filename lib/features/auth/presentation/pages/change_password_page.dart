@@ -1,12 +1,10 @@
-import 'package:delightful_toast/delight_toast.dart';
-import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_toast_card.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -52,10 +50,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage>
     context.read<AuthCubit>().changePassword(currentPassword: _currentPasswordController.text, newPassword: _newPasswordController.text);
   }
 
-  void _showToast(String message, {bool isError = false}) {
-    DelightToastBar(autoDismiss: true, snackbarDuration: const Duration(seconds: 3), position: DelightSnackbarPosition.top, builder: (context) => AppToastCard(leading: Icon(isError ? Icons.error_outline : Icons.check_circle_outlined, color: isError ? AppColors.error : AppColors.success, size: 28), title: Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))).show(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,10 +62,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage>
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthPasswordChanged) {
-            _showToast(state.message);
+            AppToast.showSuccess(context, state.message);
             Navigator.pop(context);
           } else if (state is AuthFailure) {
-            _showToast(state.message, isError: true);
+            AppToast.showError(context, state.message);
           }
         },
         builder: (context, state) {

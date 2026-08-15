@@ -6,10 +6,10 @@
 //   - LobbyDetailsSheet render 3 sections (Tổng quan / Lịch trình /
 //     Thành viên) với grid 2 cột.
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
-import 'package:boardverse_mobile/features/lobby_management/domain/entities/lobby_entity.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_friends_shimmer.dart';
-import 'package:boardverse_mobile/features/lobby_management/presentation/widgets/lobby_sheets.dart';
+import 'package:boardverse/core/theme/theme.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_friends_shimmer.dart';
+import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_sheets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

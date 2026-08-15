@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:boardverse_mobile/core/theme/theme.dart';
+import 'package:boardverse/core/theme/theme.dart';
 
 /// Shimmer skeleton cho LobbyPage — thay thế `LobbyLoadingScaffold`
 /// (spinner đơn giản) bằng skeleton mô phỏng layout thật để có cảm giác

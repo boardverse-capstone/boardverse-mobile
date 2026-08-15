@@ -1,564 +1,281 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../widgets/leaderboard_card.dart';
+import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/features/leaderboard/domain/entities/leaderboard_kind.dart';
+import 'package:boardverse/features/leaderboard/domain/entities/leaderboard_result_entity.dart';
+import 'package:boardverse/features/leaderboard/presentation/cubit/leaderboard_cubit.dart';
+import 'package:boardverse/features/leaderboard/presentation/cubit/leaderboard_state.dart';
+import 'package:boardverse/features/leaderboard/presentation/widgets/leaderboard_podium.dart';
+import 'package:boardverse/features/leaderboard/presentation/widgets/leaderboard_row_tile.dart';
+import 'package:boardverse/features/leaderboard/presentation/widgets/leaderboard_skeleton.dart';
+import 'package:boardverse/features/leaderboard/presentation/widgets/leaderboard_state_views.dart';
+import 'package:boardverse/features/leaderboard/presentation/widgets/user_rank_card.dart';
 
-/// Trang Leaderboard mock (đang dùng data giả).
+/// Trang leaderboard public — dùng dữ liệu THẬT từ
+/// `/api/v1/leaderboard/{karma,elo,level}`.
 ///
-/// KHÔNG tạo `BlocProvider<ProfileCubit>` ở đây — `ProfileCubit` đã
-/// được provide ở app root. Việc tạo provider trong `build()` gây
-/// vòng lặp vô tận khi page rebuild (xem bug `HomeOverviewPage`).
-/// Khi chuyển sang dùng data thật, hãy dùng cubit từ root qua
-/// `context.read<ProfileCubit>()`.
+/// Mapping tab theo quyết định với user:
+/// - Tab 1: **ELO**   → `/api/v1/leaderboard/elo`
+/// - Tab 2: **Level** → `/api/v1/leaderboard/level`
+/// - Tab 3: **Karma** → `/api/v1/leaderboard/karma`
 class LeaderboardPage extends StatelessWidget {
   const LeaderboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _LeaderboardPageContent();
+    return BlocProvider<LeaderboardCubit>(
+      create: (_) => getIt<LeaderboardCubit>()..load(LeaderboardKind.elo),
+      child: const _LeaderboardView(),
+    );
   }
 }
 
-class _LeaderboardPageContent extends StatefulWidget {
-  const _LeaderboardPageContent();
+class _LeaderboardView extends StatefulWidget {
+  const _LeaderboardView();
 
   @override
-  State<_LeaderboardPageContent> createState() => _LeaderboardPageContentState();
+  State<_LeaderboardView> createState() => _LeaderboardViewState();
 }
 
-class _LeaderboardPageContentState extends State<_LeaderboardPageContent>
+class _LeaderboardViewState extends State<_LeaderboardView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _selectedTimeframe = 0;
+  Timer? _autoRefreshTimer;
 
-  final List<Map<String, dynamic>> _mockLeaderboard = [
-    {
-      'rank': 1,
-      'username': 'MasterCatan',
-      'elo': 2150,
-      'level': 42,
-      'wins': 156,
-      'avatar': 'M',
-      'isCurrentUser': false,
-      'tier': 'Diamond',
-    },
-    {
-      'rank': 2,
-      'username': 'DiceRoller99',
-      'elo': 2080,
-      'level': 38,
-      'wins': 142,
-      'avatar': 'D',
-      'isCurrentUser': false,
-      'tier': 'Platinum',
-    },
-    {
-      'rank': 3,
-      'username': 'BoardKing',
-      'elo': 2050,
-      'level': 35,
-      'wins': 138,
-      'avatar': 'B',
-      'isCurrentUser': false,
-      'tier': 'Platinum',
-    },
-    {
-      'rank': 4,
-      'username': 'StrategyMaster',
-      'elo': 2020,
-      'level': 33,
-      'wins': 130,
-      'avatar': 'S',
-      'isCurrentUser': false,
-      'tier': 'Gold',
-    },
-    {
-      'rank': 5,
-      'username': 'GameNightHero',
-      'elo': 1980,
-      'level': 30,
-      'wins': 125,
-      'avatar': 'G',
-      'isCurrentUser': true,
-      'tier': 'Gold',
-    },
-    {
-      'rank': 6,
-      'username': 'CardShark',
-      'elo': 1950,
-      'level': 28,
-      'wins': 118,
-      'avatar': 'C',
-      'isCurrentUser': false,
-      'tier': 'Gold',
-    },
-    {
-      'rank': 7,
-      'username': 'TokenCollector',
-      'elo': 1920,
-      'level': 26,
-      'wins': 112,
-      'avatar': 'T',
-      'isCurrentUser': false,
-      'tier': 'Silver',
-    },
-    {
-      'rank': 8,
-      'username': 'RollHigh',
-      'elo': 1890,
-      'level': 24,
-      'wins': 108,
-      'avatar': 'R',
-      'isCurrentUser': false,
-      'tier': 'Silver',
-    },
-    {
-      'rank': 9,
-      'username': 'PieceMover',
-      'elo': 1860,
-      'level': 22,
-      'wins': 102,
-      'avatar': 'P',
-      'isCurrentUser': false,
-      'tier': 'Silver',
-    },
-    {
-      'rank': 10,
-      'username': 'HexExplorer',
-      'elo': 1830,
-      'level': 20,
-      'wins': 98,
-      'avatar': 'H',
-      'isCurrentUser': false,
-      'tier': 'Bronze',
-    },
+  static const _kinds = <LeaderboardKind>[
+    LeaderboardKind.elo,
+    LeaderboardKind.level,
+    LeaderboardKind.karma,
   ];
+
+  static const _autoRefreshInterval = Duration(minutes: 5);
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _kinds.length, vsync: this);
+    _tabController.addListener(_onTabChange);
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(_autoRefreshInterval, (_) {
+      if (mounted) {
+        context.read<LeaderboardCubit>().refresh();
+      }
+    });
+  }
+
+  void _onTabChange() {
+    if (_tabController.indexIsChanging) return;
+    final kind = _kinds[_tabController.index];
+    context.read<LeaderboardCubit>().switchKind(kind);
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
+    _tabController.removeListener(_onTabChange);
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Bảng xếp hạng'),
+        title: const Text(
+          'Bảng xếp hạng',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         centerTitle: true,
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(110),
-          child: Column(
-            children: [
-              _buildTimeframeSelector(context),
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'ELO'),
-                  Tab(text: 'Thắng'),
-                  Tab(text: 'Karma'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          _buildTopThree(context),
-          Expanded(
-            child: TabBarView(
+          preferredSize: const Size.fromHeight(56),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.all(4),
+            decoration: NeoBrutalismTheme.autoBox(
+              context,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              borderColor: theme.colorScheme.outlineVariant,
+              borderRadius: 14,
+            ),
+            child: TabBar(
               controller: _tabController,
-              children: [
-                _buildRankingList(context, 'elo'),
-                _buildRankingList(context, 'wins'),
-                _buildRankingList(context, 'karma'),
-              ],
+              tabs: _kinds.map((k) => Tab(text: k.label)).toList(),
+              dividerColor: Colors.transparent,
+              indicator: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                ),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelColor: Colors.white,
+              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                letterSpacing: 0.5,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+              onTap: (_) {},
             ),
           ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildTimeframeSelector(BuildContext context) {
-    final theme = Theme.of(context);
-    final timeframes = ['Hôm nay', 'Tuần này', 'Tháng này', 'Mọi lúc'];
-
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: timeframes.length,
-        itemBuilder: (context, index) {
-          final isSelected = _selectedTimeframe == index;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(timeframes[index]),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedTimeframe = index);
-                }
-              },
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurface,
-              ),
+      body: BlocBuilder<LeaderboardCubit, LeaderboardState>(
+        builder: (context, state) {
+          if (state is LeaderboardInitial || state is LeaderboardLoading) {
+            return const LeaderboardPageSkeleton();
+          }
+          if (state is LeaderboardError) {
+            return LeaderboardErrorState(
+              message: state.message,
+              onRetry: () => context.read<LeaderboardCubit>().refresh(),
+            );
+          }
+          final loaded = state as LeaderboardLoaded;
+          return RefreshIndicator(
+            onRefresh: () => context.read<LeaderboardCubit>().refresh(),
+            child: _LeaderboardBody(
+              result: loaded.result,
+              kind: loaded.kind,
             ),
           );
         },
       ),
     );
-  }
-
-  Widget _buildTopThree(BuildContext context) {
-    final theme = Theme.of(context);
-    final topThree = _mockLeaderboard.take(3).toList();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-            theme.colorScheme.surface,
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (topThree.length > 1)
-            _buildTopPlayerCard(context, topThree[1], 2, 80),
-          if (topThree.isNotEmpty)
-            _buildTopPlayerCard(context, topThree[0], 1, 100),
-          if (topThree.length > 2)
-            _buildTopPlayerCard(context, topThree[2], 3, 80),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopPlayerCard(
-    BuildContext context,
-    Map<String, dynamic> player,
-    int rank,
-    double height,
-  ) {
-    final theme = Theme.of(context);
-    final isFirst = rank == 1;
-
-    return GestureDetector(
-      onTap: () => _showPlayerDetails(context, player),
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              Container(
-                width: isFirst ? 72 : 60,
-                height: isFirst ? 72 : 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: _getRankColors(rank),
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _getRankColors(rank)[0].withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    player['avatar'],
-                    style: TextStyle(
-                      fontSize: isFirst ? 28 : 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getRankColors(rank)[0],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getRankIcon(rank),
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '$rank',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 80,
-            child: Text(
-              player['username'],
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: player['isCurrentUser'] ? FontWeight.bold : null,
-                color: player['isCurrentUser']
-                    ? theme.colorScheme.primary
-                    : null,
-              ),
-            ),
-          ),
-          Text(
-            '${player['elo']} ELO',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: _getTierColor(player['tier']).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              player['tier'],
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: _getTierColor(player['tier']),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankingList(BuildContext context, String sortBy) {
-    final sortedList = List<Map<String, dynamic>>.from(_mockLeaderboard);
-    
-    if (sortBy == 'elo') {
-      sortedList.sort((a, b) => b['elo'].compareTo(a['elo']));
-    } else if (sortBy == 'wins') {
-      sortedList.sort((a, b) => b['wins'].compareTo(a['wins']));
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        await Future.delayed(const Duration(milliseconds: 500));
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: sortedList.length,
-        itemBuilder: (context, index) {
-          final player = sortedList[index];
-          final displayRank = index + 1;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: LeaderboardCard(
-              player: player,
-              rank: displayRank,
-              sortBy: sortBy,
-              onTap: () => _showPlayerDetails(context, player),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showPlayerDetails(BuildContext context, Map<String, dynamic> player) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Text(
-                player['avatar'],
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              player['username'],
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: _getTierColor(player['tier']).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                player['tier'],
-                style: TextStyle(
-                  color: _getTierColor(player['tier']),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _StatItem(label: 'ELO', value: '${player['elo']}'),
-                _StatItem(label: 'Level', value: '${player['level']}'),
-                _StatItem(label: 'Thắng', value: '${player['wins']}'),
-              ],
-            ),
-            const SizedBox(height: 24),
-            if (!player['isCurrentUser'])
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã gửi lời mời kết bạn!'),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Kết bạn'),
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(
-                  child: Text('Đây là bạn!'),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Color> _getRankColors(int rank) {
-    switch (rank) {
-      case 1:
-        return [Colors.amber.shade700, Colors.amber.shade400];
-      case 2:
-        return [Colors.grey.shade600, Colors.grey.shade400];
-      case 3:
-        return [Colors.brown.shade600, Colors.brown.shade400];
-      default:
-        return [Colors.grey, Colors.grey.shade400];
-    }
-  }
-
-  IconData _getRankIcon(int rank) {
-    switch (rank) {
-      case 1:
-        return Icons.workspace_premium;
-      case 2:
-        return Icons.military_tech;
-      case 3:
-        return Icons.emoji_events;
-      default:
-        return Icons.tag;
-    }
-  }
-
-  Color _getTierColor(String tier) {
-    switch (tier) {
-      case 'Diamond':
-        return Colors.blue;
-      case 'Platinum':
-        return Colors.teal;
-      case 'Gold':
-        return Colors.amber.shade700;
-      case 'Silver':
-        return Colors.grey.shade600;
-      case 'Bronze':
-        return Colors.brown;
-      default:
-        return Colors.grey;
-    }
   }
 }
 
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
+class _LeaderboardBody extends StatelessWidget {
+  final LeaderboardResultEntity result;
+  final LeaderboardKind kind;
 
-  const _StatItem({required this.label, required this.value});
+  const _LeaderboardBody({required this.result, required this.kind});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = result.entries;
+    if (entries.isEmpty) {
+      return const LeaderboardEmptyState();
+    }
+
+    // Sortable copy — backend đã DESC theo metric, nhưng đảm bảo thứ tự.
+    final sorted = [...entries]..sort((a, b) => a.rank.compareTo(b.rank));
+    final top3 = sorted.take(3).toList();
+    final rest = sorted.skip(3).toList();
+
+    return ListView(
+      padding: const EdgeInsets.only(
+        top: AppSpacing.md,
+        bottom: AppSpacing.xl,
+      ),
+      children: [
+        LeaderboardPodium(top: top3, kind: kind),
+        if (result.userRank != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          UserRankCard(userRank: result.userRank!, kind: kind),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        _SectionHeader(
+          icon: Icons.format_list_numbered_rounded,
+          title: 'Bảng xếp hạng',
+          subtitle: kind.description,
+        ),
+        for (final entry in rest) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
+            child: LeaderboardRowTile(
+              entry: entry,
+              kind: kind,
+              showUserRankHint: result.userRank?.userId == entry.userId,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        Text(
-          value,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primary,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+            ),
+            child: Icon(icon, size: 16, color: AppColors.primary),
           ),
-        ),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.outline,
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

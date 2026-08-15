@@ -4,7 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse_mobile/core/error/failures.dart';
+import 'package:boardverse/core/error/failures.dart';
 import '../../data/lobby_persistence_service.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
