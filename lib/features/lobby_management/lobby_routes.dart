@@ -4,12 +4,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/navigation/lobby_join_signal.dart';
 import 'package:boardverse/features/in_game_experience/presentation/pages/in_game_session_page.dart';
+import 'package:boardverse/features/player_check_in/presentation/pages/player_qr_check_in_page.dart';
+import 'presentation/cubit/lobby_cubit.dart';
 import 'presentation/cubit/lobby_invite_cubit.dart';
 import 'presentation/cubit/match_result_cubit.dart';
 import 'presentation/pages/join_by_code_page.dart';
 import 'presentation/pages/lobby_invites_page.dart';
 import 'presentation/pages/lobby_invites_sent_page.dart';
 import 'presentation/pages/lobby_invites_history_page.dart';
+import 'presentation/pages/lobby_page.dart';
 import 'presentation/pages/match_result_page.dart';
 import 'data/datasources/base/lobby_remote_datasource.dart';
 
@@ -29,6 +32,10 @@ class LobbyRoutes {
       '/lobby/pending-cafe-approval';
   static const String lobbyPage = '/lobby/page';
   static const String inGameSession = '/lobby/in-game-session';
+
+  /// Player tự check-in bằng cách nhập token QR do POS cung cấp
+  /// (BR §21A.7 — chiều 2 của check-in 2 chiều).
+  static const String playerQrCheckIn = '/lobby/player-qr-check-in';
 
   static const String shareCodeDeepLink = 'boardverse://lobby/join';
   static const String lobbyDeepLink = 'boardverse://lobby';
@@ -99,6 +106,27 @@ class InGameSessionPageArgs {
   });
 }
 
+/// Page arguments cho [PlayerQrCheckInPage] — chiều 2 check-in (BR §21A.7).
+///
+/// - [reservationId]: id của reservation player đang muốn check-in. Dùng để
+///   navigate sang `InGameSessionPage` khi thành công (vì backend trả về
+///   cùng reservationId trong response).
+/// - [cafeName], [gameName], [tableNumber]: cần thiết để truyền vào
+///   `InGameSessionPageArgs` sau khi check-in thành công.
+class PlayerQrCheckInPageArgs {
+  final String reservationId;
+  final String cafeName;
+  final String gameName;
+  final int tableNumber;
+
+  const PlayerQrCheckInPageArgs({
+    required this.reservationId,
+    required this.cafeName,
+    required this.gameName,
+    this.tableNumber = 1,
+  });
+}
+
 /// Helper to build routes for lobby-related pages.
 /// Call `setupLobbyRoutes()` in MaterialApp.onGenerateRoute.
 Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
@@ -146,6 +174,33 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
         ),
       );
 
+    case LobbyRoutes.lobbyPage:
+      // Route target của `LobbyJoinSignal.request(lobbyId)` được fire từ
+      // `MainScaffold._handleLobbyJoin`. Arguments là `{'lobbyId': String}`
+      // (set bởi signal consumer).
+      //
+      // Trước đây case này bị THIẾU → named-route lookup rơi xuống default
+      // của `main.dart` → build một `MainScaffold()` mới → user thấy "bị
+      // văng" về Lobby Hub. Fix: build `LobbyPage` thật, dùng `LobbyCubit`
+      // từ DI và wrap trong `BlocProvider.value` (vì context push từ root
+      // navigator không có provider cha).
+      final args = settings.arguments;
+      final lobbyId = args is Map
+          ? (args['lobbyId'] as String?) ?? ''
+          : '';
+      if (lobbyId.isEmpty) {
+        return MaterialPageRoute(
+          builder: (_) => const _MissingLobbyIdScaffold(),
+        );
+      }
+      final lobbyCubit = getIt<LobbyCubit>();
+      return MaterialPageRoute(
+        builder: (_) => BlocProvider<LobbyCubit>.value(
+          value: lobbyCubit,
+          child: LobbyPage(lobbyId: lobbyId, lobbyCubit: lobbyCubit),
+        ),
+      );
+
     case LobbyRoutes.matchResult:
       final args = settings.arguments as MatchResultPageArgs;
       final cubit = getIt<MatchResultCubit>();
@@ -169,6 +224,17 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
           gameName: args.gameName,
           tableNumber: args.tableNumber,
           skipCheckIn: args.skipCheckIn,
+        ),
+      );
+
+    case LobbyRoutes.playerQrCheckIn:
+      final args = settings.arguments as PlayerQrCheckInPageArgs;
+      return MaterialPageRoute(
+        builder: (_) => PlayerQrCheckInPage(
+          reservationId: args.reservationId,
+          cafeName: args.cafeName,
+          gameName: args.gameName,
+          tableNumber: args.tableNumber,
         ),
       );
 
@@ -227,4 +293,33 @@ enum DeepLinkType {
   lobbyInvites,
   friends,
   friendRequests,
+}
+
+/// Scaffold fallback khi [LobbyRoutes.lobbyPage] được push mà thiếu
+/// `lobbyId` trong arguments — lỗi hiếm nhưng an toàn để user không bị
+/// crash vào màn hình đen. Nút "Quay lại" pop về MainScaffold.
+class _MissingLobbyIdScaffold extends StatelessWidget {
+  const _MissingLobbyIdScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Lỗi'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Không tìm thấy mã lobby. Vui lòng thử lại.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
 }

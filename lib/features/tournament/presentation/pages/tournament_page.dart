@@ -37,17 +37,16 @@ class _TournamentPageState extends State<TournamentPage> {
     // `PostFrameCallback` đảm bảo `BlocProvider` cha (app root) đã sẵn sàng
     // trước khi `read<TournamentListCubit>()` chạy.
     //
-    // Thêm guard `state is TournamentListInitial`: nếu cubit đã có data
-    // (đã load trước đó, ví dụ user đã mở tab Tournament trước đó rồi
-    // switch đi switch lại) thì không fetch lại. LazyIndexedStack đảm
-    // bảo `initState` chỉ chạy 1 lần khi tab lần đầu được mount, nhưng
-    // guard này vẫn an toàn nếu widget được rebuild lại vì lý do khác.
+    // KHÔNG dùng guard `state is TournamentListInitial` vì:
+    // ActivityPage gọi `loadOpenTournamentsOnly()` khi mount → state thành
+    // `TournamentListLoaded`. Khi user bấm "Giải đấu" vào TournamentPage,
+    // guard check → condition FAIL → loadTournaments() không bao giờ chạy.
+    // Giải pháp: LUÔN gọi loadTournaments() khi TournamentPage mount.
+    // Cubit có thể fetch trùng (nếu đã load trước) nhưng đây là trade-off
+    // an toàn — đảm bảo user luôn thấy data mới nhất khi vào trang.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final cubit = context.read<TournamentListCubit>();
-      if (cubit.state is TournamentListInitial) {
-        cubit.loadTournaments();
-      }
+      context.read<TournamentListCubit>().loadTournaments();
     });
   }
 
@@ -173,27 +172,29 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
   }
 
   Widget _buildBody(BuildContext context, TournamentListState state) {
+    // Pull-to-refresh phải hoạt động ở MỌI trạng thái của list, không chỉ
+    // khi đã load xong và có data. Wrap toàn bộ body trong một
+    // [RefreshIndicator] duy nhất với child luôn là scrollable widget
+    // (physics: AlwaysScrollableScrollPhysics) để gesture kéo xuống từ
+    // mọi vị trí đều kích hoạt được — kể cả khi list rỗng, đang loading
+    // hay đang error.
+    final cubit = context.read<TournamentListCubit>();
+
+    Widget child;
     if (state is TournamentListLoading || state is TournamentListInitial) {
-      return TournamentSkeleton.list();
-    }
-
-    if (state is TournamentListError) {
-      return TournamentErrorState(
+      child = TournamentSkeleton.list();
+    } else if (state is TournamentListError) {
+      child = TournamentErrorState(
         message: state.message,
-        onRetry: () => context.read<TournamentListCubit>().loadTournaments(),
+        onRetry: () => cubit.loadTournaments(),
       );
-    }
-
-    if (state is TournamentListLoaded) {
+    } else if (state is TournamentListLoaded) {
       final filtered = TournamentUtils.filterTournaments(state, _selectedFilter);
 
       if (filtered.isEmpty) {
-        return const _TournamentEmptyPlaceholder();
-      }
-
-      return RefreshIndicator(
-        onRefresh: () => context.read<TournamentListCubit>().refresh(),
-        child: ListView.builder(
+        child = const _TournamentEmptyPlaceholder();
+      } else {
+        child = ListView.builder(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
@@ -212,11 +213,16 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
               ),
             );
           },
-        ),
-      );
+        );
+      }
+    } else {
+      child = const SizedBox.shrink();
     }
 
-    return const SizedBox.shrink();
+    return RefreshIndicator(
+      onRefresh: () => cubit.refresh(),
+      child: _AlwaysScrollable(child: child),
+    );
   }
 
   void _showTournamentDetail(BuildContext context, TournamentEntity tournament) {
@@ -282,6 +288,58 @@ class _TournamentEmptyPlaceholder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Wrapper để đảm bảo [RefreshIndicator] cha luôn nhận được pull gesture —
+/// kể cả khi child không phải scrollable widget (ví dụ `Center` placeholder
+/// rỗng hay `TournamentErrorState` không cuộn được).
+///
+/// Cách hoạt động:
+/// - Với child đã là scrollable widget (vd: `ListView`, `GridView`),
+///   truyền thẳng qua — tránh nested scroll gây giật và tránh double
+///   physics conflict.
+/// - Với child KHÔNG scrollable (Center, Column), wrap trong
+///   `SingleChildScrollView` với `AlwaysScrollableScrollPhysics` để gesture
+///   kéo xuống vẫn bắt được, kể cả khi nội dung ngắn.
+class _AlwaysScrollable extends StatelessWidget {
+  const _AlwaysScrollable({required this.child});
+
+  final Widget child;
+
+  bool _isAlreadyScrollable(Widget widget) {
+    // Heuristic: các widget thường gặp đã cuộn được. Không thể introspect
+    // runtime type generic nên ta check qua type chain.
+    return widget is ListView ||
+        widget is GridView ||
+        widget is SingleChildScrollView ||
+        widget is NestedScrollView ||
+        widget is CustomScrollView;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isAlreadyScrollable(child)) {
+      return child;
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Đảm bảo child chiếm đủ chiều cao để RefreshIndicator nhận gesture
+        // kéo xuống từ bất kỳ vị trí nào, kể cả khi nội dung ngắn hơn
+        // viewport.
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : 0,
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

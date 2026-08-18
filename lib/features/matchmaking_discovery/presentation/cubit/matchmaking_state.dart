@@ -3,6 +3,7 @@ import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
+import '../../domain/entities/default_time_slot_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/game_play_navigation_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
@@ -349,4 +350,19 @@ class MatchmakingCafeSearchResults extends MatchmakingState {
         alternativeSuggestions,
         fallbackGameName,
       ];
+}
+
+// ─── Time Slots Defaults ──────────────────────────────────────────
+
+/// State mang 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
+/// LateNight) được resolve từ `GET /api/v1/manager/time-slots/defaults`.
+/// LobbyConfigPage lắng nghe state này để render chip chọn phiên — thay
+/// vì hardcode `morning=9h, evening=18h` ở client (dễ lệch với backend).
+class MatchmakingTimeSlotsLoaded extends MatchmakingState {
+  final List<DefaultTimeSlotEntity> slots;
+
+  const MatchmakingTimeSlotsLoaded({required this.slots});
+
+  @override
+  List<Object?> get props => [slots];
 }

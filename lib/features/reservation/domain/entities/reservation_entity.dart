@@ -244,36 +244,62 @@ enum RiskLevel {
 }
 
 /// Entity cho Reservation (BR §2, §6)
+///
+/// Parse đúng các field từ API response thực tế.
 class ReservationEntity extends Equatable {
   final String id;
   final String hostId;
 
-  /// Tên hiển thị của host (từ backend).
+  /// Tên hiển thị của host (từ backend field 'hostName').
   final String? hostDisplayName;
 
   final String cafeId;
   final String cafeName;
+
+  /// Địa chỉ quán (từ backend field 'cafeAddress').
+  final String? cafeAddress;
+
   final String gameId;
   final String gameName;
   final DateTime playDate;
   final TimeSlot timeSlot;
   final String? preferredStartTime;
+  final String? preferredEndTime;
+
+  /// Thời gian bắt đầu reservation (từ field 'scheduledStartTime' API).
   final DateTime scheduledTime;
-  final DateTime recruitmentDeadline;
+
+  /// Thời gian kết thúc reservation (từ field 'scheduledEndTime' API).
+  final DateTime? scheduledEndTime;
+
+  /// Thời gian hết hạn tuyển người.
+  final DateTime? recruitmentDeadline;
+
   final int minPlayers;
   final int maxPlayers;
-  final int depositRatePerPerson;
-  final int baseDeposit;
-  final double riskMultiplier;
-  final int minDepositApplied;
+
+  /// Số tiền cọc cuối cùng (từ field 'depositAmount' API).
   final int finalDeposit;
+
+  /// Phí cọc/người (tính toán).
+  final int depositRatePerPerson;
+
+  /// Cọc base (tính toán).
+  final int baseDeposit;
+
+  /// Hệ số rủi ro (từ field 'riskMultiplier' API).
+  final double riskMultiplier;
+
+  /// Cọc tối thiểu áp dụng.
+  final int minDepositApplied;
+
   final ReservationStatus status;
   final int currentPlayers;
   final String? lobbyId;
 
-  /// Mã share code 8 ký tự của lobby (vd: K7H3NP9X).
-  /// Trong list API, backend trả dưới field `reservationCode`.
+  /// Mã share code của lobby (từ field 'reservationCode' API).
   final String? lobbyShareCode;
+
   final LobbyStatus? lobbyStatus;
   final bool isPrivate;
   final bool requiresCafeApproval;
@@ -283,8 +309,32 @@ class ReservationEntity extends Equatable {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  /// User hiện tại có phải host của reservation này không (chỉ có ở list API).
+  /// User hiện tại có phải host của reservation này không.
   final bool? isHost;
+
+  /// Có thể hủy reservation không (từ field 'canCancel' API).
+  final bool? canCancel;
+
+  /// Thời điểm check-in (từ field 'checkedInAt' API).
+  final DateTime? checkedInAt;
+
+  /// Thời điểm kết thúc thực tế (từ field 'actualEndAt' API).
+  final DateTime? actualEndAt;
+
+  /// Tỷ lệ đã chơi (từ field 'playedRatio' API).
+  final double? playedRatio;
+
+  /// Lý do kết thúc (từ field 'endReason' API).
+  final String? endReason;
+
+  /// Số bàn (từ field 'tableNumber' API).
+  final String? tableNumber;
+
+  /// Người đã hủy (từ field 'cancelledBy' API).
+  final String? cancelledBy;
+
+  /// Lý do hủy (từ field 'cancelReason' API).
+  final String? cancelReason;
 
   /// Còn lại bao nhiêu giờ đến cafe approval deadline (tính từ server).
   final int? remainingApprovalHours;
@@ -292,8 +342,7 @@ class ReservationEntity extends Equatable {
   /// Còn lại bao nhiêu phút đến cafe approval deadline (tính từ server).
   final int? remainingApprovalMinutes;
 
-  /// Cafe đã duyệt chưa. Một số endpoint chỉ trả status nhưng UI cần biết
-  /// chính xác để hiển thị banner.
+  /// Cafe đã duyệt chưa.
   final bool? isCafeApproved;
 
   /// Thời điểm cafe duyệt (nếu có).
@@ -305,33 +354,44 @@ class ReservationEntity extends Equatable {
     this.hostDisplayName,
     required this.cafeId,
     required this.cafeName,
+    this.cafeAddress,
     required this.gameId,
     required this.gameName,
     required this.playDate,
     required this.timeSlot,
     this.preferredStartTime,
+    this.preferredEndTime,
     required this.scheduledTime,
-    required this.recruitmentDeadline,
+    this.scheduledEndTime,
+    this.recruitmentDeadline,
     required this.minPlayers,
     required this.maxPlayers,
-    required this.depositRatePerPerson,
-    required this.baseDeposit,
-    required this.riskMultiplier,
-    required this.minDepositApplied,
     required this.finalDeposit,
+    this.depositRatePerPerson = 0,
+    this.baseDeposit = 0,
+    this.riskMultiplier = 1.0,
+    this.minDepositApplied = 0,
     required this.status,
     required this.currentPlayers,
     this.lobbyId,
     this.lobbyShareCode,
     this.lobbyStatus,
     this.isPrivate = false,
-    required this.requiresCafeApproval,
+    this.requiresCafeApproval = false,
     this.cafeApprovalDeadline,
     this.cafeRejectionReason,
     this.refundPolicyApplied,
     required this.createdAt,
     this.updatedAt,
     this.isHost,
+    this.canCancel,
+    this.checkedInAt,
+    this.actualEndAt,
+    this.playedRatio,
+    this.endReason,
+    this.tableNumber,
+    this.cancelledBy,
+    this.cancelReason,
     this.remainingApprovalHours,
     this.remainingApprovalMinutes,
     this.isCafeApproved,
@@ -348,11 +408,15 @@ class ReservationEntity extends Equatable {
   bool get hasReachedMinPlayers => currentPlayers >= minPlayers;
 
   /// Tính thời gian còn lại đến recruitment deadline
-  Duration get timeToDeadline => recruitmentDeadline.difference(DateTime.now());
+  Duration get timeToDeadline {
+    if (recruitmentDeadline == null) return Duration.zero;
+    return recruitmentDeadline!.difference(DateTime.now());
+  }
 
   /// Kiểm tra còn trong recruitment window không
   bool get isWithinRecruitmentWindow =>
-      DateTime.now().isBefore(recruitmentDeadline);
+      recruitmentDeadline != null &&
+      DateTime.now().isBefore(recruitmentDeadline!);
 
   /// Tính buffer time (thời gian từ now đến deadline)
   int get bufferMinutes => timeToDeadline.inMinutes;
@@ -363,25 +427,44 @@ class ReservationEntity extends Equatable {
         hostId,
         hostDisplayName,
         cafeId,
+        cafeName,
+        cafeAddress,
         gameId,
+        gameName,
         playDate,
         timeSlot,
         preferredStartTime,
+        preferredEndTime,
         scheduledTime,
+        scheduledEndTime,
         recruitmentDeadline,
         minPlayers,
         maxPlayers,
         finalDeposit,
+        depositRatePerPerson,
+        baseDeposit,
+        riskMultiplier,
+        minDepositApplied,
         status,
         currentPlayers,
         lobbyId,
         lobbyShareCode,
         lobbyStatus,
+        isPrivate,
         requiresCafeApproval,
+        cafeApprovalDeadline,
+        cafeRejectionReason,
+        refundPolicyApplied,
         createdAt,
         updatedAt,
         isHost,
-      remainingApprovalHours,
+        canCancel,
+        checkedInAt,
+        actualEndAt,
+        playedRatio,
+        endReason,
+        tableNumber,
+        remainingApprovalHours,
         remainingApprovalMinutes,
         isCafeApproved,
         approvedAt,

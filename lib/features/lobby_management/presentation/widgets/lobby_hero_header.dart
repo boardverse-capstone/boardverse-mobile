@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
 
 /// Hero header cho LobbyPage — layout mới (2026-08):
 ///
 /// - Cafe info (avatar + tên + địa điểm) ở hàng trên cùng
-/// - Tiêu đề game nổi bật + nút "Xem chi tiết" ở góc phải
+/// - Tiêu đề game nổi bật + **QR mini code của lobby** ở góc phải (khi
+///   lobby ready + có reservation) — thay cho nút "Xem chi tiết" cũ để
+///   UX liền mạch: player thấy QR ngay trên hero, không cần scroll xuống.
+///   Khi lobby chưa ready (open), vẫn hiển thị icon info như cũ.
 /// - 3 stat card (Thành viên / Chế độ / Mã mời) ở dưới
 ///
 /// Style neo-brutalism với border đậm + hard shadow nhưng **ít chen chúc**
@@ -18,13 +23,22 @@ class LobbyHeroHeader extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
 
-  /// Callback khi user bấm nút "Xem chi tiết" (icon info ở góc phải).
-  /// Trước đây là IconButton nhỏ trên AppBar → giờ chuyển vào đây cho
-  /// dễ thấy hơn.
+  /// Reservation hiện tại của player trong lobby (optional). Khi lobby đã
+  /// ready (viable/full) mà reservation đã `Confirmed`/`CheckedIn`, header
+  /// sẽ hiển thị QR mini của `reservation.id` thay cho icon "Xem chi tiết"
+  /// — POS staff có thể quét QR này trực tiếp trên hero header.
+  final res.ReservationEntity? reservation;
+
+  /// Callback khi user bấm icon "Xem chi tiết" (chỉ dùng khi lobby chưa
+  /// ready, hoặc reservation null).
   final VoidCallback onShowDetails;
 
   /// Callback khi user bấm copy share code.
   final VoidCallback onShareInviteCode;
+
+  /// Callback khi user bấm vào QR mini (mở full screen QR để staff dễ
+  /// quét hơn — vẫn dùng `reservation.id`).
+  final VoidCallback? onShowFullScreenQr;
 
   const LobbyHeroHeader({
     super.key,
@@ -32,7 +46,56 @@ class LobbyHeroHeader extends StatelessWidget {
     required this.theme,
     required this.onShowDetails,
     required this.onShareInviteCode,
+    this.reservation,
+    this.onShowFullScreenQr,
   });
+
+  /// Lobby đã ready để hiển thị QR mini ở hero header.
+  ///
+  /// Điều kiện (theo yêu cầu):
+  /// 1. **Lobby ready** — `lobby.status.canCheckIn` (viable/full/inProgress)
+  ///    HOẶC tất cả player đã nhấn "Sẵn sàng" (`players.every(isReady)`).
+  /// 2. **Có dữ liệu encode QR** — xem [_qrPayload] (ưu tiên
+  ///    `reservation.id` đã Confirmed/CheckedIn, fallback
+  ///    `lobby.reservationId`, cuối cùng `lobby.id`).
+  ///
+  /// Khi lobby chưa ready (open/pending cafe approval/vv.) → vẫn hiển
+  /// thị icon info cũ, không phá UX.
+  ///
+  /// Vì sao KHÔNG bắt buộc `reservation != null`:
+  ///   Khi user vừa vào LobbyPage, `LobbyReservationCubit` đang ở
+  ///   `Loading`/`Initial` → `reservation` trong BlocBuilder là null. UI
+  ///   sẽ flash "Xem chi tiết" → đợi 200-500ms → flash QR. Bằng cách
+  ///   fallback về `lobby.reservationId` (đã có trong entity), QR hiện
+  ///   ngay frame đầu, UX liền mạch. POS scanner flow `lookup by
+  ///   reservationId` đã chấp nhận dạng UUID này.
+  bool get _showQrInsteadOfInfo {
+    final players = lobby.players;
+    final allPlayersReady =
+        players.isNotEmpty && players.every((p) => p.isReady);
+    final lobbyReady = lobby.status.canCheckIn || allPlayersReady;
+    if (!lobbyReady) return false;
+    return _qrPayload != null;
+  }
+
+  /// Payload encode vào QR mini — ưu tiên reservation ID, fallback về
+  /// `lobby.reservationId`, cuối cùng là `lobby.id`.
+  ///
+  /// ReservationEntity status Confirmed/CheckedIn được ưu tiên hơn
+  /// `lobby.reservationId` vì ReservationEntity là source of truth cho
+  /// POS check-in (lobby.reservationId chỉ là reference).
+  String? get _qrPayload {
+    if (reservation != null &&
+        (reservation!.status == res.ReservationStatus.confirmed ||
+            reservation!.status == res.ReservationStatus.checkedIn)) {
+      return reservation!.id;
+    }
+    if (lobby.reservationId != null && lobby.reservationId!.isNotEmpty) {
+      return lobby.reservationId;
+    }
+    if (lobby.id.isNotEmpty) return lobby.id;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,12 +187,24 @@ class LobbyHeroHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Nút "Xem chi tiết" — thay cho icon nhỏ trên AppBar.
-                _HeroIconButton(
-                  icon: AppIcons.info,
-                  tooltip: 'Xem chi tiết',
-                  onTap: onShowDetails,
-                ),
+                // QR mini code khi lobby ready — thay cho "Xem chi tiết".
+                // Lý do: khi lobby đã viable/full, điều player quan tâm nhất
+                // là show QR cho staff quét, không phải xem chi tiết. Đặt
+                // QR ngay tại hero header giúp liền mạch với flow check-in
+                // (vẫn có QR đầy đủ ở LobbyCheckInSection bên dưới).
+                //
+                // Payload lấy từ [_qrPayload] — reservation.id nếu đã
+                // Confirmed/CheckedIn, fallback lobby.reservationId / lobby.id.
+                if (_showQrInsteadOfInfo)
+                  _HeroQrBadge(
+                    reservationId: _qrPayload!,
+                    onTap: onShowFullScreenQr,
+                  )
+                else
+                  _HeroIconButton(
+                    icon: AppIcons.info,
+                    onTap: onShowDetails,
+                  ),
               ],
             ),
           ),
@@ -205,21 +280,26 @@ class LobbyHeroHeader extends StatelessWidget {
 }
 
 /// Nút icon tròn trong hero header (neo-brutalism mini).
+///
+/// Lưu ý: KHÔNG wrap trong [Tooltip] — Tooltip trên Chrome/Web trigger
+/// `mouse_tracker.dart:199:12` assertion khi widget rebuild trong
+/// `CustomScrollView` (mỗi frame Flutter đều re-evaluate Tooltip's
+/// mouse region, gây "An annotation already exists for device X").
+/// Nếu cần tooltip, dùng semanticLabel + showDialog thay thế.
 class _HeroIconButton extends StatelessWidget {
   final IconData icon;
-  final String tooltip;
   final VoidCallback onTap;
 
   const _HeroIconButton({
     required this.icon,
-    required this.tooltip,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
+    return Semantics(
+      button: true,
+      label: 'Xem chi tiết',
       child: Material(
         color: AppColors.white.withValues(alpha: 0.2),
         shape: const CircleBorder(),
@@ -239,6 +319,64 @@ class _HeroIconButton extends StatelessWidget {
               ),
             ),
             child: Icon(icon, size: 20, color: AppColors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// QR mini badge hiển thị ở góc phải hero header khi lobby ready.
+///
+/// Kích thước 56×56 px (compact) — đủ để staff scanner bắt được trên
+/// thiết bị POS di động, đồng thời không chiếm quá nhiều diện tích
+/// hero header. Bấm vào sẽ mở full-screen QR để staff dễ scan.
+///
+/// Encode `reservation.id` (UUID 36-char) — POS scanner sẽ đọc được UUID
+/// này và gọi `/api/v1/reservations/{reservationId}/check-in` để staff
+/// check-in player (BR §21A.7).
+class _HeroQrBadge extends StatelessWidget {
+  final String reservationId;
+  final VoidCallback? onTap;
+
+  const _HeroQrBadge({
+    required this.reservationId,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Mã QR check-in cho staff quét',
+      child: Material(
+        color: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 56,
+            height: 56,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.white,
+                width: 1.5,
+              ),
+            ),
+            child: QrImageView(
+              data: reservationId,
+              version: QrVersions.auto,
+              size: 48,
+              backgroundColor: AppColors.white,
+              errorCorrectionLevel: QrErrorCorrectLevel.M,
+              padding: EdgeInsets.zero,
+            ),
           ),
         ),
       ),

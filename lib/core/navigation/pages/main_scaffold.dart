@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/setup_profile_gate.dart';
+import '../../../features/lobby_management/lobby_routes.dart';
 import '../lobby_join_signal.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
@@ -91,7 +92,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     Navigator.of(context)
         .popUntil((route) => route.isFirst);
     Navigator.of(context).pushNamed(
-      '/lobby/page',
+      LobbyRoutes.lobbyPage,
       arguments: {'lobbyId': lobbyId},
     );
   }

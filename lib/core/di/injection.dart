@@ -68,6 +68,10 @@ import '../../features/wallet/data/wallet_repository_impl.dart';
 import '../../features/wallet/domain/repositories/wallet_repository.dart';
 import '../../features/wallet/presentation/cubit/wallet_cubit.dart';
 import '../../features/wallet/presentation/cubit/topup_cubit.dart';
+import '../../features/player_check_in/data/datasources/player_check_in_remote_datasource.dart';
+import '../../features/player_check_in/data/player_check_in_repository_impl.dart';
+import '../../features/player_check_in/domain/repositories/player_check_in_repository.dart';
+import '../../features/player_check_in/presentation/cubit/player_check_in_cubit.dart';
 import '../../features/reservation/data/datasources/reservation_remote_datasource.dart';
 import '../../features/reservation/data/reservation_repository_impl.dart';
 import '../../features/reservation/domain/repositories/reservation_repository.dart';
@@ -368,6 +372,20 @@ void setupDependencies() {
     () => LobbyReservationCubit(repository: sl<ReservationRepository>()),
   );
 
+  // ─── Feature: Player Check-In (BR §21A.7) ──────────────────────────────
+  // Player self check-in via POS QR token (chiều 2 của check-in 2 chiều).
+  // Backend: /api/check-in/scan-qr — chỉ register khi backend live;
+  // các device that chưa cấu hình endpoint vẫn boot được app bình thường.
+  sl.registerLazySingleton<PlayerCheckInRemoteDatasource>(
+    () => PlayerCheckInRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+  sl.registerLazySingleton<PlayerCheckInRepository>(
+    () => PlayerCheckInRepositoryImpl(remote: sl<PlayerCheckInRemoteDatasource>()),
+  );
+  // Factory — mỗi page mount (PlayerCheckInPage) sẽ có cubit riêng.
+  sl.registerFactory<PlayerCheckInCubit>(
+    () => PlayerCheckInCubit(repository: sl<PlayerCheckInRepository>()),
+  );
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────
   sl.registerLazySingleton<CurrentUserResolver>(
     () => CurrentUserResolver(sl<FlutterSecureStorage>()),

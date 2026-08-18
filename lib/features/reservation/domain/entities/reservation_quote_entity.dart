@@ -161,7 +161,7 @@ class ReservationConfirmResult extends Equatable {
       ];
 }
 
-/// Kết quả cancel reservation
+/// Kết quả cancel reservation (trước khi check-in)
 class ReservationCancelResult extends Equatable {
   final String reservationId;
   final String lobbyId;
@@ -185,4 +185,168 @@ class ReservationCancelResult extends Equatable {
         forfeitBvc,
         refundPolicyApplied,
       ];
+}
+
+/// Kết quả cancel-after-checkin (BR-REFUND-04/05)
+class ReservationCancelAfterCheckinResult extends Equatable {
+  final String reservationId;
+  final String previousStatus;
+  final String newStatus;
+  final int playDurationMinutes;
+  final double playedRatio;
+  final int refundBvc;
+  final int forfeitBvc;
+  final String refundReason;
+  final String cancellationType;
+  final DateTime cancelledAt;
+
+  const ReservationCancelAfterCheckinResult({
+    required this.reservationId,
+    required this.previousStatus,
+    required this.newStatus,
+    required this.playDurationMinutes,
+    required this.playedRatio,
+    required this.refundBvc,
+    required this.forfeitBvc,
+    required this.refundReason,
+    required this.cancellationType,
+    required this.cancelledAt,
+  });
+
+  /// Kiểm tra có được hoàn tiền không
+  bool get hasRefund => refundBvc > 0;
+
+  /// Kiểm tra có bị phạt không
+  bool get hasForfeit => forfeitBvc > 0;
+
+  @override
+  List<Object?> get props => [
+        reservationId,
+        previousStatus,
+        newStatus,
+        playDurationMinutes,
+        playedRatio,
+        refundBvc,
+        forfeitBvc,
+        refundReason,
+        cancellationType,
+        cancelledAt,
+      ];
+}
+
+/// Kết quả extend availability check (BR-EXT-01..05)
+class ExtendAvailabilityResult extends Equatable {
+  final String reservationId;
+  final DateTime currentScheduledEndTime;
+  final int requestedExtensionMinutes;
+  final DateTime newScheduledEndTime;
+  final bool isAvailable;
+  final int remainingExtensionMinutes;
+  final int extensionCount;
+  final int maxExtensionMinutes;
+  final String? reason;
+
+  const ExtendAvailabilityResult({
+    required this.reservationId,
+    required this.currentScheduledEndTime,
+    required this.requestedExtensionMinutes,
+    required this.newScheduledEndTime,
+    required this.isAvailable,
+    required this.remainingExtensionMinutes,
+    required this.extensionCount,
+    required this.maxExtensionMinutes,
+    this.reason,
+  });
+
+  /// Kiểm tra còn có thể extend không
+  bool get canExtend => isAvailable && remainingExtensionMinutes > 0;
+
+  /// Kiểm tra đã đạt max chưa
+  bool get isMaxedOut => extensionCount >= 2;
+
+  @override
+  List<Object?> get props => [
+        reservationId,
+        currentScheduledEndTime,
+        requestedExtensionMinutes,
+        newScheduledEndTime,
+        isAvailable,
+        remainingExtensionMinutes,
+        extensionCount,
+        maxExtensionMinutes,
+        reason,
+      ];
+}
+
+/// Kết quả check-in bằng QR code (POS)
+class CheckInByCodeResult extends Equatable {
+  final String reservationId;
+  final String lobbyId;
+  final String activeSessionId;
+  final String reservationStatus;
+  final String lobbyStatus;
+  final DateTime checkedInAt;
+  final int heldBvc;
+
+  const CheckInByCodeResult({
+    required this.reservationId,
+    required this.lobbyId,
+    required this.activeSessionId,
+    required this.reservationStatus,
+    required this.lobbyStatus,
+    required this.checkedInAt,
+    required this.heldBvc,
+  });
+
+  @override
+  List<Object?> get props => [
+        reservationId,
+        lobbyId,
+        activeSessionId,
+        reservationStatus,
+        lobbyStatus,
+        checkedInAt,
+        heldBvc,
+      ];
+}
+
+/// Request model cho cancel-after-checkin
+class CancelAfterCheckinRequest {
+  final String reservationId;
+  final String? reason;
+  final String idempotencyKey;
+
+  const CancelAfterCheckinRequest({
+    required this.reservationId,
+    this.reason,
+    required this.idempotencyKey,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'reservationId': reservationId,
+        if (reason != null) 'reason': reason,
+        'idempotencyKey': idempotencyKey,
+      };
+}
+
+/// Request model cho check-in bằng QR code (POS)
+class CheckInByCodeRequest {
+  final String cafeId;
+  final String reservationCode;
+  final String activeSessionId;
+  final String idempotencyKey;
+
+  const CheckInByCodeRequest({
+    required this.cafeId,
+    required this.reservationCode,
+    required this.activeSessionId,
+    required this.idempotencyKey,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'cafeId': cafeId,
+        'reservationCode': reservationCode,
+        'activeSessionId': activeSessionId,
+        'idempotencyKey': idempotencyKey,
+      };
 }

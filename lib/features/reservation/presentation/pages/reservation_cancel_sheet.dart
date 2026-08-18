@@ -1,29 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
 import '../../domain/entities/entities.dart';
-import '../cubit/reservation_cubit.dart';
-import '../cubit/reservation_state.dart';
+import '../../domain/repositories/reservation_repository.dart';
 
 /// Bottom sheet cho phép user nhập lý do hủy + xem preview refund/forfeit
-/// theo policy backend. Sau khi cancel xong sẽ hiển thị kết quả policy.
-class ReservationCancelSheet extends StatelessWidget {
+/// theo policy backend.
+class ReservationCancelSheet extends StatefulWidget {
   final String reservationId;
+  final VoidCallback? onCancelled;
 
   const ReservationCancelSheet({
     super.key,
     required this.reservationId,
+    this.onCancelled,
   });
 
-  static Future<void> show(BuildContext context, String reservationId) {
+  static Future<void> show(
+    BuildContext context,
+    String reservationId, {
+    VoidCallback? onCancelled,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => BlocProvider.value(
-        value: context.read<ReservationCubit>(),
-        child: ReservationCancelSheet(reservationId: reservationId),
+      builder: (_) => ReservationCancelSheet(
+        reservationId: reservationId,
+        onCancelled: onCancelled,
       ),
+    );
+  }
+
+  @override
+  State<ReservationCancelSheet> createState() => _CancelSheetState();
+}
+
+class _CancelSheetState extends State<ReservationCancelSheet> {
+  final _repository = sl<ReservationRepository>();
+  
+  CancelState _state = CancelState.idle;
+  String? _errorMessage;
+  ReservationCancelResult? _cancelResult;
+
+  Future<void> _submit(String? reason) async {
+    setState(() => _state = CancelState.cancelling);
+
+    final idempotencyKey = DateTime.now().millisecondsSinceEpoch.toString();
+    final result = await _repository.cancelReservation(
+      reservationId: widget.reservationId,
+      reason: reason,
+      idempotencyKey: idempotencyKey,
+    );
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) {
+        setState(() {
+          _state = CancelState.error;
+          _errorMessage = failure.message;
+        });
+      },
+      (cancelResult) {
+        setState(() {
+          _state = CancelState.success;
+          _cancelResult = cancelResult;
+        });
+      },
     );
   }
 
@@ -37,29 +81,39 @@ class ReservationCancelSheet extends StatelessWidget {
           top: AppSpacing.md,
           bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
         ),
-        child: BlocConsumer<ReservationCubit, ReservationState>(
-          listener: (context, state) {},
-          builder: (context, state) {
-            if (state is ReservationCancelling) {
-              return const _CenteredLoading();
-            }
-            if (state is ReservationCancelled) {
-              return _CancelledView(result: state.result);
-            }
-            if (state is ReservationCancelError) {
-              return _CancelErrorView(message: state.message);
-            }
-            return _ReasonForm(reservationId: reservationId);
-          },
-        ),
+        child: switch (_state) {
+          CancelState.idle => _ReasonForm(
+              reservationId: widget.reservationId,
+              onSubmit: _submit,
+            ),
+          CancelState.cancelling => const _CenteredLoading(),
+          CancelState.success => _CancelledView(
+              result: _cancelResult!,
+              onDismiss: () {
+                widget.onCancelled?.call();
+                Navigator.of(context).pop();
+              },
+            ),
+          CancelState.error => _CancelErrorView(
+              message: _errorMessage ?? 'Đã xảy ra lỗi',
+              onRetry: () => setState(() => _state = CancelState.idle),
+            ),
+        },
       ),
     );
   }
 }
 
+enum CancelState { idle, cancelling, success, error }
+
 class _ReasonForm extends StatefulWidget {
   final String reservationId;
-  const _ReasonForm({required this.reservationId});
+  final void Function(String?) onSubmit;
+
+  const _ReasonForm({
+    required this.reservationId,
+    required this.onSubmit,
+  });
 
   @override
   State<_ReasonForm> createState() => _ReasonFormState();
@@ -83,17 +137,10 @@ class _ReasonFormState extends State<_ReasonForm> {
     super.dispose();
   }
 
-  void _submit(BuildContext context) {
-    final reason =
-        _selectedReason == 'other' ? _controller.text.trim() : _selectedReason;
-    context
-        .read<ReservationCubit>()
-        .cancelReservation(widget.reservationId, reason: reason.isEmpty ? null : reason);
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +192,12 @@ class _ReasonFormState extends State<_ReasonForm> {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: () => _submit(context),
+            onPressed: () {
+              final reason = _selectedReason == 'other'
+                  ? _controller.text.trim()
+                  : _selectedReason;
+              widget.onSubmit(reason.isEmpty ? null : reason);
+            },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.redAccent,
             ),
@@ -159,11 +211,17 @@ class _ReasonFormState extends State<_ReasonForm> {
 
 class _CancelledView extends StatelessWidget {
   final ReservationCancelResult result;
-  const _CancelledView({required this.result});
+  final VoidCallback onDismiss;
+
+  const _CancelledView({
+    required this.result,
+    required this.onDismiss,
+  });
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -176,7 +234,7 @@ class _CancelledView extends StatelessWidget {
         _kv('Policy', result.refundPolicyApplied),
         const SizedBox(height: AppSpacing.md),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: onDismiss,
           child: const Text('Đóng'),
         ),
       ],
@@ -194,7 +252,12 @@ class _CancelledView extends StatelessWidget {
 
 class _CancelErrorView extends StatelessWidget {
   final String message;
-  const _CancelErrorView({required this.message});
+  final VoidCallback onRetry;
+
+  const _CancelErrorView({
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -205,9 +268,22 @@ class _CancelErrorView extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         Text(message, textAlign: TextAlign.center),
         const SizedBox(height: AppSpacing.md),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Đóng'),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Đóng'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: FilledButton(
+                onPressed: onRetry,
+                child: const Text('Thử lại'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -216,6 +292,7 @@ class _CancelErrorView extends StatelessWidget {
 
 class _CenteredLoading extends StatelessWidget {
   const _CenteredLoading();
+
   @override
   Widget build(BuildContext context) =>
       const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));

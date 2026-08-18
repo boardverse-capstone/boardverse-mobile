@@ -152,4 +152,48 @@ class ReservationRepositoryImpl implements ReservationRepository {
 
     return await remoteDatasource.cafeApproval(reservationId, request);
   }
+
+  @override
+  Future<Either<Failure, ReservationCancelAfterCheckinResult>>
+      cancelAfterCheckin({
+    required String reservationId,
+    String? reason,
+    required String idempotencyKey,
+  }) async {
+    final request = CancelAfterCheckinRequest(
+      reservationId: reservationId,
+      reason: reason,
+      idempotencyKey: idempotencyKey,
+    );
+
+    return await remoteDatasource.cancelAfterCheckin(request);
+  }
+
+  @override
+  Future<Either<Failure, ExtendAvailabilityResult>> checkExtendAvailability({
+    required String reservationId,
+    required int extensionMinutes,
+  }) async {
+    return await remoteDatasource.checkExtendAvailability(
+      reservationId,
+      extensionMinutes,
+    );
+  }
+
+  @override
+  Future<Either<Failure, CheckInByCodeResult>> checkInByCode({
+    required String reservationCode,
+    required String cafeId,
+    required String activeSessionId,
+    required String idempotencyKey,
+  }) async {
+    final request = CheckInByCodeRequest(
+      cafeId: cafeId,
+      reservationCode: reservationCode,
+      activeSessionId: activeSessionId,
+      idempotencyKey: idempotencyKey,
+    );
+
+    return await remoteDatasource.checkInByCode(reservationCode, request);
+  }
 }

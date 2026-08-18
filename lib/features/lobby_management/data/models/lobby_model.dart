@@ -1,6 +1,28 @@
 import '../../domain/entities/lobby_entity.dart';
 import '../../../reservation/domain/entities/entities.dart' as res;
 
+/// Parse datetime string mà KHÔNG coi 'Z' suffix là UTC.
+///
+/// Backend Việt Nam thường gửi ISO string kèm 'Z' nhưng thực chất là
+/// giờ local (VN+7). Nếu để `DateTime.parse` parse đúng UTC rồi `.toLocal()`
+/// sẽ bị lệch 7 tiếng.
+///
+/// Fix: strip 'Z' suffix trước khi parse để Flutter coi đó là local time.
+DateTime _parseDateTime(String? s) {
+  if (s == null || s.isEmpty) return DateTime.now();
+  // Strip trailing 'Z' để parse thành local time thay vì UTC
+  final normalized = s.endsWith('Z') ? s.substring(0, s.length - 1) : s;
+  return DateTime.parse(normalized);
+}
+
+/// Nullable version of _parseDateTime.
+DateTime? _parseDateTimeNullable(String? s) {
+  if (s == null || s.isEmpty) return null;
+  // Strip trailing 'Z' để parse thành local time thay vì UTC
+  final normalized = s.endsWith('Z') ? s.substring(0, s.length - 1) : s;
+  return DateTime.tryParse(normalized);
+}
+
 /// Mapping cho model layer → entity layer.
 /// Enum này tách biệt với `LobbyStatus` của entity để có thể map khi backend
 /// trả về string khác (e.g. "Open", "open", "OPEN"). Khi deserialize JSON,
@@ -128,7 +150,7 @@ class LobbyPlayerModel {
     DateTime? parsedReady;
     if (readyAt != null && readyAt!.isNotEmpty) {
       try {
-        parsedReady = DateTime.parse(readyAt!);
+        parsedReady = _parseDateTime(readyAt);
       } catch (_) {
         parsedReady = null;
       }
@@ -139,7 +161,7 @@ class LobbyPlayerModel {
       name: name,
       avatarUrl: avatarUrl,
       isHost: isHost,
-      joinedAt: DateTime.parse(joinedAt),
+      joinedAt: _parseDateTime(joinedAt),
       readyAt: parsedReady,
       karma: karma,
     );
@@ -234,6 +256,7 @@ class LobbyModel {
     );
 
     // scheduledTime: bắt buộc trong cả 2 schema, nhưng đặt tên khác nhau.
+    // Strip 'Z' suffix để parse thành local time thay vì UTC.
     final scheduledTimeRaw = (json['scheduledTime'] ??
             json['scheduledStartTime'] ??
             DateTime.now().toIso8601String())
@@ -298,7 +321,7 @@ class LobbyModel {
       // `hostName` optional ở schema mới — fallback 'Chủ phòng' để UI không
       // hiển thị ô trống. cubit có thể merge với cached lobby để lấy tên thật.
       hostName: (json['hostName'] ?? '') as String,
-      scheduledTime: DateTime.parse(scheduledTimeRaw),
+      scheduledTime: _parseDateTime(scheduledTimeRaw),
       currentPlayers: derivedCurrentPlayers,
       maxPlayers: maxPlayers,
       // `/discoverable` không trả `minPlayers` — fallback = 2 (BR-07 min).
@@ -309,8 +332,8 @@ class LobbyModel {
       inviteCode: (json['inviteCode'] ?? json['shareCode']) as String?,
       status: LobbyStatusModel.fromWire(json['status'] as String?),
       players: players,
-      createdAt: DateTime.parse(createdAtRaw),
-      timeoutAt: DateTime.parse(timeoutAtRaw),
+      createdAt: _parseDateTime(createdAtRaw),
+      timeoutAt: _parseDateTime(timeoutAtRaw),
       bookingId: json['bookingId'] as String?,
       reservationId: json['reservationId'] as String?,
       // `minKarmaScore` (PascalCase) ≈ `minKarma` (camelCase) — fallback cả 2.
@@ -321,14 +344,10 @@ class LobbyModel {
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       cafeLat: (json['cafeLat'] as num?)?.toDouble(),
       cafeLng: (json['cafeLng'] as num?)?.toDouble(),
-      closedAt: json['closedAt'] != null
-          ? DateTime.tryParse(json['closedAt'] as String)
-          : null,
+      closedAt: _parseDateTimeNullable(json['closedAt'] as String?),
       closedReason: json['closedReason'] as String?,
       cancellationLeadTimeMinutes: (json['cancellationLeadTimeMinutes'] as num?)?.toInt(),
-      playStartedAt: json['playStartedAt'] != null
-          ? DateTime.tryParse(json['playStartedAt'] as String)
-          : null,
+      playStartedAt: _parseDateTimeNullable(json['playStartedAt'] as String?),
       reservationStatus: _parseReservationStatus(
         json['reservationStatus'] as String?,
       ),

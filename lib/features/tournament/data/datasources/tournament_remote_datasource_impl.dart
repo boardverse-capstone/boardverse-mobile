@@ -33,6 +33,24 @@ class TournamentRemoteDatasourceImpl implements TournamentRemoteDatasource {
   TournamentRemoteDatasourceImpl({required this._dio});
 
   @override
+  Future<List<TournamentModel>> getTournamentsByStatus(String? status) async {
+    try {
+      final queryParams =
+          status != null && status.isNotEmpty ? {'status': status} : null;
+
+      final response = await _dio.get(
+        ApiEndpoints.tournaments,
+        queryParameters: queryParams,
+      );
+
+      final list = _unwrapList(response.data);
+      return list.map((json) => TournamentModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
   Future<List<TournamentModel>> getOpenTournaments({
     String? gameTemplateId,
   }) async {

@@ -64,6 +64,11 @@ class _HomePageState extends State<HomePage> {
   PlayerLocationEntity? _lastLocation;
   KarmaHistoryEntity? _lastKarma;
 
+  /// `true` trong khi PUT location đang bay — dùng để disable nút
+  /// "Cập nhật vị trí hiện tại", tránh player spam tap nhiều lần khi
+  /// thấy app chưa phản hồi ngay.
+  bool _isUpdatingLocation = false;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +115,12 @@ class _HomePageState extends State<HomePage> {
 
       case ProfileLocationLoaded():
         _lastLocation = state.location;
+        // Nếu state mang theo `message` từ backend thì hiển thị luôn —
+        // chỉ PUT mới có message, GET không có nên sẽ tự skip.
+        if (state.message != null) {
+          _showToast(state.message!);
+          setState(() => _isUpdatingLocation = false);
+        }
 
       case ProfileLocationDeleted():
         _lastLocation = null;
@@ -118,6 +129,10 @@ class _HomePageState extends State<HomePage> {
         _lastKarma = state.karma;
 
       case ProfileFailure():
+        // Khi update location fail, bật lại nút để user retry.
+        if (_isUpdatingLocation) {
+          setState(() => _isUpdatingLocation = false);
+        }
         _showToast(state.message, isError: true);
 
       case ProfileDeleted():
@@ -204,10 +219,10 @@ class _HomePageState extends State<HomePage> {
         location: location,
         karma: karma,
         horizontalPadding: _horizontalPadding,
+        isUpdatingLocation: _isUpdatingLocation,
         onAvatarTap: _changeAvatar,
         onEditPressed: () => _showEditProfileSheet(profile),
         onUpdateGpsPressed: _updateLocationGps,
-        onDeleteLocation: () => context.read<ProfileCubit>().deleteLocation(),
         onOpenLeaderboard: _openLeaderboard,
         onOpenFriends: _openFriendsPage,
         onOpenWallet: _openWalletPage,
@@ -328,7 +343,15 @@ class _HomePageState extends State<HomePage> {
   /// Read device GPS rồi PUT lên backend. Trước đây hardcode
   /// `(10.7769, 106.7008)` → backend reverse-geocode trả về "Quận 1"
   /// dù player thực sự ở chỗ khác. Đã đổi sang `LocationService`.
+  ///
+  /// Set `_isUpdatingLocation = true` để disable nút trong UI — player
+  /// không thể spam tap trong khi request đang bay. Toast thành công sẽ
+  /// được show từ `_onStateChanged` khi nhận `ProfileLocationLoaded`
+  /// mang theo `message` từ backend.
   Future<void> _updateLocationGps() async {
+    if (_isUpdatingLocation) return; // chặn double-tap trước khi vào async
+
+    setState(() => _isUpdatingLocation = true);
     try {
       final loc = await const LocationService().getCurrentLocation();
       if (!mounted) return;
@@ -337,15 +360,13 @@ class _HomePageState extends State<HomePage> {
             longitude: loc.longitude,
             source: 0,
           );
-      _showToast(
-        'Đã cập nhật vị trí hiện tại '
-        '(${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}).',
-      );
     } on LocationFailure catch (e) {
       if (!mounted) return;
+      setState(() => _isUpdatingLocation = false);
       _showToast(e.userMessage, isError: true);
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isUpdatingLocation = false);
       _showToast('Không thể cập nhật vị trí: $e', isError: true);
     }
   }
@@ -460,10 +481,10 @@ class _DashboardShell extends StatelessWidget {
     required this.location,
     required this.karma,
     required this.horizontalPadding,
+    required this.isUpdatingLocation,
     required this.onAvatarTap,
     required this.onEditPressed,
     required this.onUpdateGpsPressed,
-    required this.onDeleteLocation,
     required this.onOpenLeaderboard,
     required this.onOpenFriends,
     required this.onOpenWallet,
@@ -476,10 +497,10 @@ class _DashboardShell extends StatelessWidget {
   final PlayerLocationEntity? location;
   final KarmaHistoryEntity? karma;
   final double horizontalPadding;
+  final bool isUpdatingLocation;
   final VoidCallback onAvatarTap;
   final VoidCallback onEditPressed;
   final VoidCallback onUpdateGpsPressed;
-  final VoidCallback onDeleteLocation;
   final VoidCallback onOpenLeaderboard;
   final VoidCallback onOpenFriends;
   final VoidCallback onOpenWallet;
@@ -532,8 +553,8 @@ class _DashboardShell extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 LocationCardNeo(
                   location: location,
+                  isUpdating: isUpdatingLocation,
                   onUpdateGpsPressed: onUpdateGpsPressed,
-                  onDeletePressed: onDeleteLocation,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 QuickActionsGridNeo(

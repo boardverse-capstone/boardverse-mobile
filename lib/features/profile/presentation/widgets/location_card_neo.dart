@@ -11,7 +11,10 @@ import 'package:boardverse/features/profile/domain/entities/player_location_enti
 ///
 /// Trạng thái:
 /// - Chưa có vị trí: text "Chưa cập nhật vị trí" + button "Cập nhật vị trí hiện tại"
-/// - Đã có vị trí: hiển thị tọa độ + 2 icon button (refresh + delete)
+/// - Đã có vị trí: hiển thị tên khu vực + nút refresh (icon)
+///
+/// `isUpdating` disable nút cập nhật trong khi PUT location đang bay,
+/// tránh player spam tap vì tưởng app bị lag.
 ///
 /// Callback thuần UI — side-effect xử lý ở parent (HomePage gọi
 /// `ProfileCubit.updateLocation(...)`).
@@ -19,13 +22,13 @@ class LocationCardNeo extends StatelessWidget {
   const LocationCardNeo({
     super.key,
     required this.location,
+    required this.isUpdating,
     required this.onUpdateGpsPressed,
-    required this.onDeletePressed,
   });
 
   final PlayerLocationEntity? location;
+  final bool isUpdating;
   final VoidCallback onUpdateGpsPressed;
-  final VoidCallback onDeletePressed;
 
   bool get _hasLocation =>
       location != null &&
@@ -80,11 +83,14 @@ class LocationCardNeo extends StatelessWidget {
           if (_hasLocation)
             _LoadedLocationNeo(
               location: location!,
+              isUpdating: isUpdating,
               onUpdatePressed: onUpdateGpsPressed,
-              onDeletePressed: onDeletePressed,
             )
           else
-            _EmptyLocationNeo(onUpdatePressed: onUpdateGpsPressed),
+            _EmptyLocationNeo(
+              onUpdatePressed: onUpdateGpsPressed,
+              isUpdating: isUpdating,
+            ),
         ],
       ),
     );
@@ -94,13 +100,13 @@ class LocationCardNeo extends StatelessWidget {
 class _LoadedLocationNeo extends StatelessWidget {
   const _LoadedLocationNeo({
     required this.location,
+    required this.isUpdating,
     required this.onUpdatePressed,
-    required this.onDeletePressed,
   });
 
   final PlayerLocationEntity location;
+  final bool isUpdating;
   final VoidCallback onUpdatePressed;
-  final VoidCallback onDeletePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -155,17 +161,12 @@ class _LoadedLocationNeo extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.xs),
             _CompactIconButton(
-              icon: Icons.refresh,
+              icon: isUpdating ? Icons.hourglass_top : Icons.refresh,
               color: AppColors.secondary,
-              tooltip: 'Cập nhật vị trí hiện tại',
-              onPressed: onUpdatePressed,
-            ),
-            const SizedBox(width: AppSpacing.xxs),
-            _CompactIconButton(
-              icon: AppIcons.delete,
-              color: AppColors.error,
-              tooltip: 'Xóa vị trí',
-              onPressed: onDeletePressed,
+              tooltip: isUpdating
+                  ? 'Đang cập nhật...'
+                  : 'Cập nhật vị trí hiện tại',
+              onPressed: isUpdating ? null : onUpdatePressed,
             ),
           ],
         ),
@@ -335,9 +336,13 @@ class _CoordinatesRowNeo extends StatelessWidget {
 }
 
 class _EmptyLocationNeo extends StatelessWidget {
-  const _EmptyLocationNeo({required this.onUpdatePressed});
+  const _EmptyLocationNeo({
+    required this.onUpdatePressed,
+    required this.isUpdating,
+  });
 
   final VoidCallback onUpdatePressed;
+  final bool isUpdating;
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +376,7 @@ class _EmptyLocationNeo extends StatelessWidget {
           width: double.infinity,
           child: _UpdateLocationButton(
             onPressed: onUpdatePressed,
+            isUpdating: isUpdating,
             label: 'Cập nhật vị trí hiện tại',
           ),
         ),
@@ -380,10 +386,15 @@ class _EmptyLocationNeo extends StatelessWidget {
 }
 
 class _UpdateLocationButton extends StatefulWidget {
-  const _UpdateLocationButton({required this.onPressed, required this.label});
+  const _UpdateLocationButton({
+    required this.onPressed,
+    required this.label,
+    required this.isUpdating,
+  });
 
   final VoidCallback onPressed;
   final String label;
+  final bool isUpdating;
 
   @override
   State<_UpdateLocationButton> createState() => _UpdateLocationButtonState();
@@ -413,6 +424,7 @@ class _UpdateLocationButtonState extends State<_UpdateLocationButton>
   }
 
   void _onTapDown(TapDownDetails details) {
+    if (widget.isUpdating) return;
     _pressCtrl.forward();
     HapticFeedback.lightImpact();
   }
@@ -423,12 +435,18 @@ class _UpdateLocationButtonState extends State<_UpdateLocationButton>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final disabled = widget.isUpdating;
+    // Làm mờ cả nền + chữ + icon khi đang gọi API để player không tap.
+    final bgColor =
+        disabled ? AppColors.secondary.withValues(alpha: 0.5) : AppColors.secondary;
+    final fgColor = isDark ? AppColors.textPrimaryDark : Colors.white;
+    final label = disabled ? 'Đang cập nhật...' : widget.label;
 
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
-      onTap: widget.onPressed,
+      onTap: disabled ? null : widget.onPressed,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
@@ -444,7 +462,7 @@ class _UpdateLocationButtonState extends State<_UpdateLocationButton>
           ),
           decoration: NeoBrutalismTheme.autoBox(
             context,
-            backgroundColor: AppColors.secondary,
+            backgroundColor: bgColor,
             borderRadius: 12,
           ),
           child: Row(
@@ -452,18 +470,18 @@ class _UpdateLocationButtonState extends State<_UpdateLocationButton>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.my_location,
-                color: isDark ? AppColors.textPrimaryDark : Colors.white,
+                disabled ? Icons.hourglass_top : Icons.my_location,
+                color: fgColor,
                 size: 18,
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                widget.label,
+                label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
-                  color: isDark ? AppColors.textPrimaryDark : Colors.white,
+                  color: fgColor,
                 ),
               ),
             ],
@@ -484,7 +502,9 @@ class _CompactIconButton extends StatefulWidget {
 
   final IconData icon;
   final Color color;
-  final VoidCallback onPressed;
+
+  /// `null` = disabled (button sẽ grey-out và không phản hồi tap).
+  final VoidCallback? onPressed;
   final String? tooltip;
 
   @override
@@ -495,6 +515,8 @@ class _CompactIconButtonState extends State<_CompactIconButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pressCtrl;
   late Animation<double> _scaleAnimation;
+
+  bool get _isEnabled => widget.onPressed != null;
 
   @override
   void initState() {
@@ -515,6 +537,7 @@ class _CompactIconButtonState extends State<_CompactIconButton>
   }
 
   void _onTapDown(TapDownDetails details) {
+    if (!_isEnabled) return;
     _pressCtrl.forward();
     HapticFeedback.lightImpact();
   }
@@ -525,6 +548,9 @@ class _CompactIconButtonState extends State<_CompactIconButton>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveColor =
+        _isEnabled ? widget.color : widget.color.withValues(alpha: 0.35);
+
     final button = GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
@@ -541,7 +567,7 @@ class _CompactIconButtonState extends State<_CompactIconButton>
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: 0.1),
+            color: effectiveColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isDark ? AppColors.borderDark : AppColors.border,
@@ -550,7 +576,7 @@ class _CompactIconButtonState extends State<_CompactIconButton>
           ),
           child: Icon(
             widget.icon,
-            color: widget.color,
+            color: effectiveColor,
             size: 20,
           ),
         ),

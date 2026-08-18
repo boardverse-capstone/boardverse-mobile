@@ -1,6 +1,7 @@
 import '../../models/board_game_model.dart';
 import '../../models/cafe_model.dart';
 import '../../models/cafe_detail_model.dart';
+import '../../models/default_time_slot_model.dart';
 import '../../models/seat_availability_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/board_game_detail_model.dart';
@@ -51,6 +52,15 @@ abstract class MatchmakingDatasource {
     required String gameId,
     required PlayMode mode,
   });
+
+  /// `GET /api/v1/manager/time-slots/defaults`
+  ///
+  /// Trả về 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
+  /// LateNight). Tài liệu gắn tag "Manager" nhưng dữ liệu là metadata
+  /// chung — Player mobile cũng dùng để hiển thị khung giờ ở LobbyConfig.
+  /// Nếu backend reject với 403 thì chỉ cần nâng cấp role của player token
+  /// hoặc đổi endpoint; abstraction này giữ cho UI không phụ thuộc.
+  Future<List<DefaultTimeSlotModel>> getDefaultTimeSlots();
 
   // ─── Cafes ─────────────────────────────────────────────────────────
 

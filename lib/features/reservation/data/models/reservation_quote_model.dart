@@ -115,7 +115,8 @@ class QuoteRequestModel {
       // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
-      'preferredEndTime': preferredEndTime,
+      // NOT sending preferredEndTime — backend tự tính giờ kết thúc dựa
+      // trên timeSlot. Gửi field này sẽ gây lỗi 400.
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -191,7 +192,7 @@ class ConfirmRequestModel {
       // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
       'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
       'preferredStartTime': preferredStartTime,
-      'preferredEndTime': preferredEndTime,
+      // NOT sending preferredEndTime — backend tự tính giờ kết thúc.
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -239,5 +240,105 @@ class CafeApprovalRequestModel {
       'approve': approve,
       'reason': reason,
     };
+  }
+}
+
+/// Model cho cancel-after-checkin result
+class ReservationCancelAfterCheckinResultModel
+    extends ReservationCancelAfterCheckinResult {
+  const ReservationCancelAfterCheckinResultModel({
+    required super.reservationId,
+    required super.previousStatus,
+    required super.newStatus,
+    required super.playDurationMinutes,
+    required super.playedRatio,
+    required super.refundBvc,
+    required super.forfeitBvc,
+    required super.refundReason,
+    required super.cancellationType,
+    required super.cancelledAt,
+  });
+
+  factory ReservationCancelAfterCheckinResultModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    return ReservationCancelAfterCheckinResultModel(
+      reservationId: data['reservationId'] as String? ?? '',
+      previousStatus: data['previousStatus'] as String? ?? '',
+      newStatus: data['newStatus'] as String? ?? '',
+      playDurationMinutes: data['playDurationMinutes'] as int? ?? 0,
+      playedRatio: (data['playedRatio'] as num?)?.toDouble() ?? 0.0,
+      refundBvc: data['refundBvc'] as int? ?? 0,
+      forfeitBvc: data['forfeitBvc'] as int? ?? 0,
+      refundReason: data['refundReason'] as String? ?? '',
+      cancellationType: data['cancellationType'] as String? ?? '',
+      cancelledAt: DateTime.tryParse(data['cancelledAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
+/// Model cho extend availability result
+class ExtendAvailabilityResultModel extends ExtendAvailabilityResult {
+  const ExtendAvailabilityResultModel({
+    required super.reservationId,
+    required super.currentScheduledEndTime,
+    required super.requestedExtensionMinutes,
+    required super.newScheduledEndTime,
+    required super.isAvailable,
+    required super.remainingExtensionMinutes,
+    required super.extensionCount,
+    required super.maxExtensionMinutes,
+    super.reason,
+  });
+
+  factory ExtendAvailabilityResultModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    return ExtendAvailabilityResultModel(
+      reservationId: data['reservationId'] as String? ?? '',
+      currentScheduledEndTime: DateTime.tryParse(
+        data['currentScheduledEndTime'] as String? ?? '',
+      ) ?? DateTime.now(),
+      requestedExtensionMinutes:
+          data['requestedExtensionMinutes'] as int? ?? 0,
+      newScheduledEndTime: DateTime.tryParse(
+        data['newScheduledEndTime'] as String? ?? '',
+      ) ?? DateTime.now(),
+      isAvailable: data['isAvailable'] as bool? ?? false,
+      remainingExtensionMinutes:
+          data['remainingExtensionMinutes'] as int? ?? 0,
+      extensionCount: data['extensionCount'] as int? ?? 0,
+      maxExtensionMinutes: data['maxExtensionMinutes'] as int? ?? 120,
+      reason: data['reason'] as String?,
+    );
+  }
+}
+
+/// Model cho check-in by code result
+class CheckInByCodeResultModel extends CheckInByCodeResult {
+  const CheckInByCodeResultModel({
+    required super.reservationId,
+    required super.lobbyId,
+    required super.activeSessionId,
+    required super.reservationStatus,
+    required super.lobbyStatus,
+    required super.checkedInAt,
+    required super.heldBvc,
+  });
+
+  factory CheckInByCodeResultModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    return CheckInByCodeResultModel(
+      reservationId: data['reservationId'] as String? ?? '',
+      lobbyId: data['lobbyId'] as String? ?? '',
+      activeSessionId: data['activeSessionId'] as String? ?? '',
+      reservationStatus: data['reservationStatus'] as String? ?? '',
+      lobbyStatus: data['lobbyStatus'] as String? ?? '',
+      checkedInAt: DateTime.tryParse(
+        data['checkedInAt'] as String? ?? '',
+      ) ?? DateTime.now(),
+      heldBvc: data['heldBvc'] as int? ?? 0,
+    );
   }
 }

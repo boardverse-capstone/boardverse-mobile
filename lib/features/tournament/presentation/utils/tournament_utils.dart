@@ -1,5 +1,4 @@
 import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
-import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_state.dart';
 
 class TournamentUtils {
@@ -26,32 +25,40 @@ class TournamentUtils {
   ///
   /// Filter indices correspond to labels in `TournamentFilterSection`:
   ///   0 = Tất cả
-  ///   1 = Đang mở
-  ///   2 = Đang diễn ra
-  ///   3 = Đã kết thúc
+  ///   1 = Đang mở           (RegistrationOpen — chưa đăng ký + đã đăng ký)
+  ///   2 = Đã đóng đăng ký   (RegistrationClosed — player đã đăng ký, đang
+  ///                          chờ manager bấm Start, vẫn có thể rút lui)
+  ///   3 = Đang diễn ra     (OnGoing — player đã đăng ký)
+  ///   4 = Đã kết thúc      (Completed — player đã tham gia)
+  ///   5 = Đã hủy           (Cancelled — player đã đăng ký)
   ///
-  /// "Sắp diễn ra" (index 2 in the old 5-label layout) was removed because
-  /// the player API does not expose `/tournaments/upcoming`. Upcoming
-  /// tournaments that arrive via `/tournaments/open` are still surfaced
-  /// under the "Tất cả" view.
+  /// Mục đích của việc tách "Đã đóng đăng ký" / "Đã hủy" thành filter
+  /// riêng: player đã đăng ký nhưng giải đã chuyển trạng thái vẫn phải
+  /// hiển thị để player xem thông tin / rút lui. Trước đây các giải này
+  /// "biến mất" khỏi tab Tournament vì `loadTournaments()` chỉ fetch
+  /// OnGoing + Completed từ `/my-registrations`.
   static List<TournamentEntity> filterTournaments(
     TournamentListLoaded state,
     int selectedFilter,
   ) {
     switch (selectedFilter) {
       case 1:
-        return state.openTournaments
-            .where((t) => t.status == TournamentStatus.registrationOpen)
-            .toList();
+        return state.openTournaments;
       case 2:
-        return state.ongoingTournaments;
+        return state.closedTournaments;
       case 3:
+        return state.ongoingTournaments;
+      case 4:
         return state.completedTournaments;
+      case 5:
+        return state.cancelledTournaments;
       default:
         return [
           ...state.openTournaments,
+          ...state.closedTournaments,
           ...state.ongoingTournaments,
           ...state.completedTournaments,
+          ...state.cancelledTournaments,
         ];
     }
   }

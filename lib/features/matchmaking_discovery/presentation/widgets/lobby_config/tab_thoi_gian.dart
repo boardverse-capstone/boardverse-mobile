@@ -6,13 +6,53 @@ import '../../../../reservation/domain/entities/entities.dart';
 import 'bottom_button.dart';
 import 'buffer_info_card.dart';
 
+/// Một option phiên chơi — được build từ server data
+/// (`GET /api/v1/manager/time-slots/defaults`) hoặc từ fallback hardcoded
+/// khi API lỗi / mạng chậm.
+///
+/// Trước đây các giá trị `startTime` / `endTime` / `label` / `icon` /
+/// `color` được hardcode trong `LobbyConfigPage._getSlotStartTime(...)`
+/// — dễ lệch với backend. Sau refactor, các giá trị này được lookup
+/// từ server response (qua `DefaultTimeSlotEntity`) và truyền vào widget
+/// qua `TimeSlotOption` để UI không phụ thuộc logic cứng.
+@immutable
+class TimeSlotOption {
+  /// Local enum dùng để gọi `reservation/quote` API (PascalCase map sang
+  /// backend `Morning/Afternoon/Evening/LateNight` qua `toApiName()`).
+  final TimeSlot slot;
+
+  /// Nhãn tiếng Việt ngắn: "Sáng", "Chiều", "Tối", "Khuya".
+  final String shortLabel;
+
+  /// Range giờ để hiển thị ở chip, ví dụ: "06:00 - 12:00".
+  final String timeRangeLabel;
+
+  /// Icon đại diện cho phiên (sun/cloud/moon/bedtime).
+  final IconData icon;
+
+  /// Màu chủ đạo cho phiên (chip border khi chọn).
+  final Color color;
+
+  const TimeSlotOption({
+    required this.slot,
+    required this.shortLabel,
+    required this.timeRangeLabel,
+    required this.icon,
+    required this.color,
+  });
+}
+
 /// Tab 2 của LobbyConfigPage — chọn ngày + phiên chơi + giờ dự kiến.
+///
+/// Tab này nhận danh sách [TimeSlotOption] đã được build sẵn từ
+/// `LobbyConfigPage` (data từ server + fallback). Widget chỉ render UI,
+/// không tự quyết định slot nào hiển thị.
 class LobbyConfigTabThoiGian extends StatelessWidget {
   final DateTime selectedDate;
   final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
   final TimeOfDay? preferredEndTime;
-  final List<TimeSlot> availableSlots;
+  final List<TimeSlotOption> slotOptions;
   final ValueChanged<DateTime> onDateSelected;
   final VoidCallback onOpenDatePicker;
   final ValueChanged<TimeSlot> onTimeSlotChanged;
@@ -22,10 +62,6 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   final String Function(TimeOfDay) formatTime;
   final TimeOfDay Function(TimeSlot) getSlotStartTime;
   final TimeOfDay Function(TimeSlot) getSlotEndTime;
-  final String Function(TimeSlot) getSlotLabel;
-  final String Function(TimeSlot) getSlotShortLabel;
-  final IconData Function(TimeSlot) getSlotIcon;
-  final Color Function(TimeSlot, ColorScheme) getSlotColor;
   final int bufferMinutes;
   final bool isScheduledInPast;
   final bool hasBufferWarning;
@@ -38,7 +74,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.selectedTimeSlot,
     required this.preferredStartTime,
     required this.preferredEndTime,
-    required this.availableSlots,
+    required this.slotOptions,
     required this.onDateSelected,
     required this.onOpenDatePicker,
     required this.onTimeSlotChanged,
@@ -48,14 +84,10 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.formatTime,
     required this.getSlotStartTime,
     required this.getSlotEndTime,
-    required this.getSlotLabel,
-    required this.getSlotShortLabel,
-    required this.getSlotIcon,
-    required this.getSlotColor,
+    required this.formatBuffer,
     required this.bufferMinutes,
     required this.isScheduledInPast,
     required this.hasBufferWarning,
-    required this.formatBuffer,
     required this.onNext,
   });
 
@@ -188,63 +220,75 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
 
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: availableSlots.map((slot) {
-                    final isSelected = slot == selectedTimeSlot;
-                    final color = getSlotColor(slot, theme.colorScheme);
+                if (slotOptions.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md),
+                    child: Text(
+                      'Đang tải khung giờ...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: slotOptions.map((option) {
+                      final isSelected = option.slot == selectedTimeSlot;
+                      final color = option.color;
 
-                    return GestureDetector(
-                      onTap: () => onTimeSlotChanged(slot),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.md,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? color.withValues(alpha: 0.15)
-                              : theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: AppRadius.radiusMdAll,
-                          border: Border.all(
-                            color: isSelected ? color : theme.colorScheme.outlineVariant,
-                            width: isSelected ? 2 : 1,
+                      return GestureDetector(
+                        onTap: () => onTimeSlotChanged(option.slot),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.md,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? color.withValues(alpha: 0.15)
+                                : theme.colorScheme.surfaceContainerHigh,
+                            borderRadius: AppRadius.radiusMdAll,
+                            border: Border.all(
+                              color: isSelected ? color : theme.colorScheme.outlineVariant,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                option.icon,
+                                color: isSelected ? color : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    option.shortLabel,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected ? color : theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    option.timeRangeLabel,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              getSlotIcon(slot),
-                              color: isSelected ? color : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  getSlotShortLabel(slot),
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected ? color : theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                                Text(
-                                  _getSlotTimeRange(slot),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                      );
+                    }).toList(),
+                  ),
 
                 const SizedBox(height: AppSpacing.md),
 
@@ -359,11 +403,5 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   String _getWeekdayShort(int weekday) {
     const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     return days[weekday % 7];
-  }
-
-  String _getSlotTimeRange(TimeSlot slot) {
-    final start = formatTime(getSlotStartTime(slot));
-    final end = formatTime(getSlotEndTime(slot));
-    return '$start - $end';
   }
 }

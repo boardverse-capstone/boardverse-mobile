@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:boardverse/core/error/failures.dart';
 import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse/features/tournament/domain/entities/tournament_status.dart';
-import 'package:boardverse/features/tournament/domain/entities/my_registration_entity.dart';
 import 'package:boardverse/features/tournament/domain/repositories/tournament_repository.dart';
 import 'tournament_list_state.dart';
 
@@ -26,28 +25,37 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
   /// Loads open tournaments and the user's active/history lists in parallel.
   ///
-  /// The current Swagger contract exposes `GET /tournaments/open` without a
-  /// required game filter. Upcoming/draft tournaments are not exposed to the
-  /// player API, so the main page only offers filters backed by real data.
+  /// Gọi 1 endpoint `/tournaments/open` (giải đang mở, server lọc deadline
+  /// + slots) + 5 endpoint `/tournaments?status=` (RegistrationClosed,
+  /// OnGoing, Completed, Cancelled) song song. Endpoint mới trả về đầy đủ
+  /// `TournamentEntity` thay vì flat shape như `/my-registrations`.
   Future<void> loadTournaments() async {
     if (_isDisposed) return;
     emit(const TournamentListLoading());
 
     final results = await Future.wait<Object>([
       _repository.getOpenTournaments(),
-      _repository.getMyRegistrations(
+      _repository.getTournamentsByStatus(
+        status: TournamentStatus.registrationClosed.toBackendStatus(),
+      ),
+      _repository.getTournamentsByStatus(
         status: TournamentStatus.ongoing.toBackendStatus(),
       ),
-      _repository.getMyRegistrations(
+      _repository.getTournamentsByStatus(
         status: TournamentStatus.completed.toBackendStatus(),
+      ),
+      _repository.getTournamentsByStatus(
+        status: TournamentStatus.cancelled.toBackendStatus(),
       ),
     ]);
     if (_isDisposed) return;
 
     _emitFromResults(
       results[0] as Either<Failure, List<TournamentEntity>>,
-      results[1] as Either<Failure, List<MyRegistrationEntry>>,
-      results[2] as Either<Failure, List<MyRegistrationEntry>>,
+      results[1] as Either<Failure, List<TournamentEntity>>,
+      results[2] as Either<Failure, List<TournamentEntity>>,
+      results[3] as Either<Failure, List<TournamentEntity>>,
+      results[4] as Either<Failure, List<TournamentEntity>>,
     );
   }
 
@@ -58,19 +66,27 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
     final results = await Future.wait<Object>([
       _repository.getOpenTournaments(gameTemplateId: gameTemplateId),
-      _repository.getMyRegistrations(
+      _repository.getTournamentsByStatus(
+        status: TournamentStatus.registrationClosed.toBackendStatus(),
+      ),
+      _repository.getTournamentsByStatus(
         status: TournamentStatus.ongoing.toBackendStatus(),
       ),
-      _repository.getMyRegistrations(
+      _repository.getTournamentsByStatus(
         status: TournamentStatus.completed.toBackendStatus(),
+      ),
+      _repository.getTournamentsByStatus(
+        status: TournamentStatus.cancelled.toBackendStatus(),
       ),
     ]);
     if (_isDisposed) return;
 
     _emitFromResults(
       results[0] as Either<Failure, List<TournamentEntity>>,
-      results[1] as Either<Failure, List<MyRegistrationEntry>>,
-      results[2] as Either<Failure, List<MyRegistrationEntry>>,
+      results[1] as Either<Failure, List<TournamentEntity>>,
+      results[2] as Either<Failure, List<TournamentEntity>>,
+      results[3] as Either<Failure, List<TournamentEntity>>,
+      results[4] as Either<Failure, List<TournamentEntity>>,
     );
   }
 
@@ -104,8 +120,10 @@ class TournamentListCubit extends Cubit<TournamentListState> {
           TournamentListLoaded(
             openTournaments: open,
             upcomingTournaments: const [],
+            closedTournaments: const [],
             ongoingTournaments: const [],
             completedTournaments: const [],
+            cancelledTournaments: const [],
             totalOpenCount: open.length,
           ),
         );
@@ -115,61 +133,89 @@ class TournamentListCubit extends Cubit<TournamentListState> {
 
   void _emitFromResults(
     Either<Failure, List<TournamentEntity>> openResult,
-    Either<Failure, List<MyRegistrationEntry>> myOngoingResult,
-    Either<Failure, List<MyRegistrationEntry>> myCompletedResult,
+    Either<Failure, List<TournamentEntity>> closedResult,
+    Either<Failure, List<TournamentEntity>> ongoingResult,
+    Either<Failure, List<TournamentEntity>> completedResult,
+    Either<Failure, List<TournamentEntity>> cancelledResult,
   ) {
-    // Guard: don't emit if cubit is disposed
     if (_isDisposed || isClosed) return;
 
     List<TournamentEntity> open = const [];
+    List<TournamentEntity> closed = const [];
     List<TournamentEntity> ongoing = const [];
     List<TournamentEntity> completed = const [];
+    List<TournamentEntity> cancelled = const [];
     final errors = <String>[];
 
-    openResult.fold((failure) => errors.add('open: ${failure.message}'), (
-      tournaments,
-    ) {
-      open =
-          tournaments
-              .where(
-                (t) =>
-                    t.status == TournamentStatus.registrationOpen &&
-                    !t.isRegistrationDeadlinePassed &&
-                    t.slotsRemaining > 0,
-              )
-              .toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-    });
+    openResult.fold(
+      (failure) => errors.add('open: ${failure.message}'),
+      (tournaments) {
+        // `/tournaments/open` server đã lọc deadline + slots, nhưng client
+        // vẫn check lại để an toàn (tránh race condition khi deadline
+        // pass ngay lúc đang fetch).
+        open = tournaments
+            .where(
+              (t) =>
+                  t.status == TournamentStatus.registrationOpen &&
+                  !t.isRegistrationDeadlinePassed &&
+                  t.slotsRemaining > 0,
+            )
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      },
+    );
 
-    myOngoingResult.fold(
+    closedResult.fold(
+      (failure) => errors.add('closed: ${failure.message}'),
+      (tournaments) {
+        closed = tournaments
+            .where(
+              (t) => t.status == TournamentStatus.registrationClosed,
+            )
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      },
+    );
+
+    ongoingResult.fold(
       (failure) => errors.add('ongoing: ${failure.message}'),
-      (entries) {
-        ongoing =
-            entries
-                .map(_projectToEntity)
-                .where((t) => t.status == TournamentStatus.ongoing)
-                .toList()
-              ..sort((a, b) => b.startTime.compareTo(a.startTime));
+      (tournaments) {
+        ongoing = tournaments
+            .where((t) => t.status == TournamentStatus.ongoing)
+            .toList()
+          ..sort((a, b) => b.startTime.compareTo(a.startTime));
       },
     );
 
-    myCompletedResult.fold(
+    completedResult.fold(
       (failure) => errors.add('completed: ${failure.message}'),
-      (entries) {
-        completed =
-            entries
-                .map(_projectToEntity)
-                .where((t) => t.status == TournamentStatus.completed)
-                .toList()
-              ..sort((a, b) => b.startTime.compareTo(a.startTime));
+      (tournaments) {
+        completed = tournaments
+            .where((t) => t.status == TournamentStatus.completed)
+            .toList()
+          ..sort((a, b) => b.startTime.compareTo(a.startTime));
       },
     );
 
-    // Double-check before emitting
+    cancelledResult.fold(
+      (failure) => errors.add('cancelled: ${failure.message}'),
+      (tournaments) {
+        cancelled = tournaments
+            .where((t) => t.status == TournamentStatus.cancelled)
+            .toList()
+          ..sort((a, b) => b.startTime.compareTo(a.startTime));
+      },
+    );
+
     if (_isDisposed || isClosed) return;
 
     final hasAnyData =
-        open.isNotEmpty || ongoing.isNotEmpty || completed.isNotEmpty;
+        open.isNotEmpty ||
+        closed.isNotEmpty ||
+        ongoing.isNotEmpty ||
+        completed.isNotEmpty ||
+        cancelled.isNotEmpty;
+
     if (!hasAnyData && errors.isNotEmpty) {
       emit(TournamentListError(message: errors.first));
       return;
@@ -178,45 +224,13 @@ class TournamentListCubit extends Cubit<TournamentListState> {
     emit(
       TournamentListLoaded(
         openTournaments: open,
-        upcomingTournaments: const [], // backend không expose /upcoming
+        upcomingTournaments: const [],
+        closedTournaments: closed,
         ongoingTournaments: ongoing,
         completedTournaments: completed,
+        cancelledTournaments: cancelled,
         totalOpenCount: open.length,
       ),
-    );
-  }
-
-  /// Project `MyRegistrationEntry` (flat shape) sang `TournamentEntity` tối
-  /// thiểu để hiển thị card list. Vì API `/my-registrations` không trả
-  /// `registrationDeadline`, `maxParticipants`, `gameName`, … ta dùng
-  /// giá trị mặc định hợp lý (registrationDeadline = end of startTime day,
-  /// maxParticipants = 0, currentParticipants = 0) — chỉ dùng cho tab
-  /// "Đang diễn ra" / "Hoàn thành" nên các field này không ảnh hưởng UX.
-  TournamentEntity _projectToEntity(MyRegistrationEntry entry) {
-    final startTime = entry.startTime;
-    final registrationDeadline = entry.registeredAt.isAfter(startTime)
-        ? startTime
-        : entry.registeredAt;
-    return TournamentEntity(
-      id: entry.tournamentId,
-      title: entry.title,
-      cafeName: entry.cafeName,
-      gameTemplateName: '',
-      startTime: startTime,
-      registrationDeadline: registrationDeadline,
-      status: TournamentStatus.fromBackendStatus(entry.tournamentStatus),
-      currentParticipants: 0,
-      maxParticipants: 0,
-      minKarmaRequirement: 0,
-      registrationFee: null,
-      prizePool: 0,
-      description: '',
-      organizerName: null,
-      roundDurationMinutes: 60,
-      preliminaryRounds: 3,
-      currentRound: null,
-      isUserRegistered: true,
-      isUserCheckedIn: entry.checkedInAt != null,
     );
   }
 

@@ -124,6 +124,31 @@ class _StubReservationRepository implements ReservationRepository {
     String? reason,
   }) async =>
       const Left(NotFoundFailure(message: 'Not implemented'));
+
+  @override
+  Future<Either<Failure, ReservationCancelAfterCheckinResult>>
+      cancelAfterCheckin({
+    required String reservationId,
+    String? reason,
+    required String idempotencyKey,
+  }) async =>
+      const Left(NotFoundFailure(message: 'Not implemented'));
+
+  @override
+  Future<Either<Failure, ExtendAvailabilityResult>> checkExtendAvailability({
+    required String reservationId,
+    required int extensionMinutes,
+  }) async =>
+      const Left(NotFoundFailure(message: 'Not implemented'));
+
+  @override
+  Future<Either<Failure, CheckInByCodeResult>> checkInByCode({
+    required String reservationCode,
+    required String cafeId,
+    required String activeSessionId,
+    required String idempotencyKey,
+  }) async =>
+      const Left(NotFoundFailure(message: 'Not implemented'));
 }
 
 ReservationEntity _makeReservation({

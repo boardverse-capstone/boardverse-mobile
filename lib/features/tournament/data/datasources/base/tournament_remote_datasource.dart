@@ -16,6 +16,15 @@ import '../../models/tournament_spectator_model.dart';
 /// - `GET /tournaments/leaderboard?topCount=...` — bảng xếp hạng.
 /// - KHÔNG có `/tournaments/upcoming` và `/tournaments/matches/{id}` (404).
 abstract class TournamentRemoteDatasource {
+  /// `GET /tournaments?status=RegistrationOpen` (hoặc status khác).
+  ///
+  /// Backend trả về `TournamentResponseDto` — cùng shape với `/tournaments/open`.
+  /// Dùng thay thế cho `/my-registrations?status=` vì trả về đầy đủ thông
+  /// tin giải đấu (không phải flat shape thiếu `gameName`, `maxParticipants`...).
+  ///
+  /// Query param `status` case-insensitive. Để trống hoặc `"all"` → tất cả.
+  Future<List<TournamentModel>> getTournamentsByStatus(String? status);
+
   /// `GET /tournaments/open?gameTemplateId=...`
   ///
   /// Backend yêu cầu `gameTemplateId` bắt buộc (Splendor = UUID

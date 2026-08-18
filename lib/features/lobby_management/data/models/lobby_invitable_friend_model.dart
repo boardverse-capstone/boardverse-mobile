@@ -39,7 +39,10 @@ class LobbyInvitableFriendModel {
     DateTime? parseDate(dynamic v) {
       if (v == null) return null;
       if (v is DateTime) return v;
-      return DateTime.tryParse(v.toString());
+      // Strip trailing 'Z' để parse thành local time thay vì UTC
+      final s = v.toString();
+      final normalized = s.endsWith('Z') ? s.substring(0, s.length - 1) : s;
+      return DateTime.tryParse(normalized);
     }
 
     return LobbyInvitableFriendModel(

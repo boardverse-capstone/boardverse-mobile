@@ -9,6 +9,7 @@ import '../../models/board_game_model.dart';
 import '../../models/board_game_detail_model.dart';
 import '../../models/cafe_model.dart';
 import '../../models/cafe_detail_model.dart';
+import '../../models/default_time_slot_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/game_play_configuration_model.dart';
 import '../../models/game_play_navigation_model.dart';
@@ -198,6 +199,33 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
         throw ServerException(message: 'Empty play-navigation response');
       }
       return envelope.data!;
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  // ─── Time Slot Defaults ────────────────────────────────────────────
+
+  @override
+  Future<List<DefaultTimeSlotModel>> getDefaultTimeSlots() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.timeSlotDefaults);
+      // Backend trả mảng trực tiếp `[...]` ở body (không wrap trong
+      // envelope `{data: [...]}` như các API khác). Parser dưới đây chấp
+      // nhận cả 2 shape để phòng backend đổi convention sau này.
+      final body = response.data;
+      final List<dynamic> rawList;
+      if (body is List) {
+        rawList = body;
+      } else if (body is Map<String, dynamic> && body['data'] is List) {
+        rawList = body['data'] as List<dynamic>;
+      } else {
+        rawList = const <dynamic>[];
+      }
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map(DefaultTimeSlotModel.fromJson)
+          .toList();
     } on DioException catch (e) {
       throw _mapDioError(e);
     }

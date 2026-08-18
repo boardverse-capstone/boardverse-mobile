@@ -712,8 +712,13 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
 
   /// Map JSON đơn giản → LobbySummary (không kèm members).
   LobbySummary _summaryFromJson(Map<String, dynamic> json) {
-    DateTime parseDate(dynamic v) =>
-        v == null ? DateTime.now() : DateTime.parse(v.toString());
+    DateTime parseDate(dynamic v) {
+      if (v == null) return DateTime.now();
+      // Strip trailing 'Z' để parse thành local time thay vì UTC
+      final s = v.toString();
+      final normalized = s.endsWith('Z') ? s.substring(0, s.length - 1) : s;
+      return DateTime.parse(normalized);
+    }
     return LobbySummary(
       id: (json['id'] ?? json['lobbyId'] ?? '').toString(),
       gameId: (json['gameId'] ?? json['gameTemplateId'] ?? '').toString(),

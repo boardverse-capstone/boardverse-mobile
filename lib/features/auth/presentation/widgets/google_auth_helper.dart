@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -30,8 +30,8 @@ import '../cubit/auth_cubit.dart';
 /// ```
 class GoogleAuthHelper {
   GoogleAuthHelper({required GoogleSignIn googleSignIn})
-      // ignore: prefer_initializing_formals
-      : _googleSignIn = googleSignIn;
+    // ignore: prefer_initializing_formals
+    : _googleSignIn = googleSignIn;
 
   final GoogleSignIn _googleSignIn;
 
@@ -62,13 +62,43 @@ class GoogleAuthHelper {
       return;
     }
 
+    // DEBUG: in ra Client ID thật sự mà google_sign_in plugin nhận được,
+    // cùng platform & mode runtime để xác nhận cấu hình đúng trước khi gọi
+    // Google Play Services.
+    debugPrint('=== [GoogleAuthHelper] DEBUG ===');
+    debugPrint('  kIsWeb               : $kIsWeb');
+    debugPrint(
+      '  GOOGLE_SERVER_CLIENT_ID (.env)        : '
+      '${dotenv.env['GOOGLE_SERVER_CLIENT_ID']}',
+    );
+    debugPrint(
+      '  GOOGLE_WEB_CLIENT_ID   (.env)         : '
+      '${dotenv.env['GOOGLE_WEB_CLIENT_ID']}',
+    );
+    debugPrint(
+      '  → google_sign_in.signIn() sẽ dùng '
+      '${kIsWeb ? 'clientId (web)' : 'serverClientId (android/ios)'}'
+      ' = ${kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : dotenv.env['GOOGLE_SERVER_CLIENT_ID']}',
+    );
+
     try {
       final googleUser = await _googleSignIn.signIn();
       // User đóng popup → thoát im lặng.
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        debugPrint('  [GoogleAuthHelper] signIn() → null (user đóng popup)');
+        return;
+      }
+
+      debugPrint('  [GoogleAuthHelper] googleUser.email : ${googleUser.email}');
+      debugPrint('  [GoogleAuthHelper] googleUser.id    : ${googleUser.id}');
 
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
+
+      debugPrint(
+        '  [GoogleAuthHelper] idToken '
+        '${idToken == null ? 'NULL' : 'OK (${idToken.length} chars, starts with: ${idToken.substring(0, idToken.length < 20 ? idToken.length : 20)}...)'}',
+      );
 
       if (idToken == null) {
         onError('Không nhận được idToken từ Google. Vui lòng thử lại.');
@@ -78,7 +108,14 @@ class GoogleAuthHelper {
       onLoadingChanged(true);
       if (!context.mounted) return;
       context.read<AuthCubit>().googleLogin(idToken: idToken);
-    } catch (e) {
+    } catch (e, st) {
+      // DEBUG: in raw exception + stack trace đầy đủ. Quan trọng vì
+      // google_sign_in 6.x thường nuốt message gốc của Google Play Services
+      // (vd: `ApiException: 10` = DEVELOPER_ERROR).
+      debugPrint('!!! [GoogleAuthHelper] signIn() THREW !!!');
+      debugPrint('  error.toString() : ${e.toString()}');
+      debugPrint('  error.runtimeType: ${e.runtimeType}');
+      debugPrint('  stack trace      :\n$st');
       onLoadingChanged(false);
       onError(_formatError(e));
     }

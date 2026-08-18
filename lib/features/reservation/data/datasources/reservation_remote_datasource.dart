@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/error/failures.dart';
 import '../../../../../core/network/paginated_response.dart';
+import '../../domain/entities/reservation_quote_entity.dart';
 import '../models/models.dart';
 
 /// Base interface cho reservation remote datasource
@@ -40,6 +41,23 @@ abstract class ReservationRemoteDatasource {
   Future<Either<Failure, void>> cafeApproval(
     String reservationId,
     CafeApprovalRequestModel request,
+  );
+
+  /// Cancel reservation sau khi đã check-in (BR-REFUND-04/05)
+  Future<Either<Failure, ReservationCancelAfterCheckinResultModel>> cancelAfterCheckin(
+    CancelAfterCheckinRequest request,
+  );
+
+  /// Check extend availability (BR-EXT-01..05)
+  Future<Either<Failure, ExtendAvailabilityResultModel>> checkExtendAvailability(
+    String reservationId,
+    int extensionMinutes,
+  );
+
+  /// Check-in bằng QR code (POS)
+  Future<Either<Failure, CheckInByCodeResultModel>> checkInByCode(
+    String reservationCode,
+    CheckInByCodeRequest request,
   );
 }
 
@@ -233,6 +251,92 @@ class ReservationRemoteDatasourceImpl implements ReservationRemoteDatasource {
 
       return Left(ServerFailure(
           message: 'Failed to approve reservation: ${response.statusCode}'));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ReservationCancelAfterCheckinResultModel>>
+      cancelAfterCheckin(CancelAfterCheckinRequest request) async {
+    try {
+      final response = await dio.post(
+        ApiEndpoints.reservationCancelAfterCheckin(request.reservationId),
+        data: request.toJson(),
+      );
+
+      if (response.statusCode == 200) {
+        return Right(
+          ReservationCancelAfterCheckinResultModel.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
+        );
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to cancel after checkin: ${response.statusCode}',
+      ));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ExtendAvailabilityResultModel>>
+      checkExtendAvailability(
+    String reservationId,
+    int extensionMinutes,
+  ) async {
+    try {
+      final response = await dio.get(
+        ApiEndpoints.reservationExtendAvailability(reservationId),
+        queryParameters: {'extensionMinutes': extensionMinutes},
+      );
+
+      if (response.statusCode == 200) {
+        return Right(
+          ExtendAvailabilityResultModel.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
+        );
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to check extend availability: ${response.statusCode}',
+      ));
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CheckInByCodeResultModel>> checkInByCode(
+    String reservationCode,
+    CheckInByCodeRequest request,
+  ) async {
+    try {
+      final response = await dio.post(
+        ApiEndpoints.reservationCheckInByCode(reservationCode),
+        data: request.toJson(),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Right(
+          CheckInByCodeResultModel.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
+        );
+      }
+
+      return Left(ServerFailure(
+        message: 'Failed to check in by code: ${response.statusCode}',
+      ));
     } on DioException catch (e) {
       return Left(_handleDioError(e));
     } catch (e) {

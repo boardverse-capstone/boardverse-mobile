@@ -46,7 +46,10 @@ class LobbyInviteModel {
     DateTime parseDate(dynamic v) {
       if (v == null) return DateTime.now();
       if (v is DateTime) return v;
-      return DateTime.parse(v.toString());
+      // Strip trailing 'Z' để parse thành local time thay vì UTC
+      final s = v.toString();
+      final normalized = s.endsWith('Z') ? s.substring(0, s.length - 1) : s;
+      return DateTime.parse(normalized);
     }
 
     // Server DTO mới (LobbyInviteResponseDto) trả về các field dạng

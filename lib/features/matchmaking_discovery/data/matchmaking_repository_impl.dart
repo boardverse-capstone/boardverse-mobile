@@ -6,6 +6,7 @@ import '../domain/entities/board_game_detail_entity.dart';
 import '../domain/entities/board_game_entity.dart';
 import '../domain/entities/cafe_detail_entity.dart';
 import '../domain/entities/cafe_entity.dart';
+import '../domain/entities/default_time_slot_entity.dart';
 import '../domain/entities/game_play_configuration_entity.dart';
 import '../domain/entities/game_play_navigation_entity.dart';
 import '../domain/entities/nearby_cafes_search_result_entity.dart';
@@ -15,6 +16,7 @@ import '../domain/entities/game_category_entity.dart';
 import '../domain/repositories/matchmaking_repository.dart';
 import 'datasources/base/matchmaking_datasource.dart';
 import 'models/board_game_model.dart';
+import 'models/default_time_slot_model.dart';
 import 'models/nearby_cafes_search_result_model.dart';
 
 /// Repository implementation sử dụng DataSource Abstraction Pattern
@@ -382,6 +384,25 @@ class MatchmakingRepositoryImpl extends CacheableRepository
     } catch (e) {
       return Left(ServerFailure(
           message: 'Lỗi điều hướng chế độ chơi: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<DefaultTimeSlotEntity>>>
+      getDefaultTimeSlots() async {
+    try {
+      // Cache ngắn — metadata gần như tĩnh (chỉ đổi khi backend rollout
+      // version mới). 5 phút là đủ để tránh gọi lại khi user navigate
+      // qua lobby config nhiều lần trong 1 phiên.
+      final models = await cache<List<DefaultTimeSlotModel>>(
+        'time-slot-defaults',
+        () => datasource.getDefaultTimeSlots(),
+        ttl: const Duration(minutes: 5),
+      );
+      return Right(models);
+    } catch (e) {
+      return Left(ServerFailure(
+          message: 'Lỗi lấy khung giờ mặc định: ${e.toString()}'));
     }
   }
 }

@@ -60,10 +60,15 @@ class ProfileDeleted extends ProfileState {
 class ProfileLocationLoaded extends ProfileState {
   final PlayerLocationEntity location;
 
-  const ProfileLocationLoaded({required this.location});
+  /// Thông báo backend trả về kèm theo (VD: "Cập nhật vị trí hiện tại
+  /// thành công."). `null` khi state được emit từ `getLocation` — chỉ
+  /// `updateLocation` mới có message vì API spec chỉ trả về sau PUT.
+  final String? message;
+
+  const ProfileLocationLoaded({required this.location, this.message});
 
   @override
-  List<Object?> get props => [location];
+  List<Object?> get props => [location, message];
 }
 
 class ProfileLocationDeleted extends ProfileState {

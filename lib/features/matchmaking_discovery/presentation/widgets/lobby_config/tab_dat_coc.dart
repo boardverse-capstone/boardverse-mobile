@@ -131,19 +131,47 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
     // Đang hoạt động: cubit đang xử lý (Initial/Loading) → KHÔNG dùng
     // widget.quoteError cũ để tránh flash lỗi thoáng chốc khi parent vừa
     // reset state để trigger load mới.
-    final cubitIsBusy = isLoading || isInitial;
+    //
+    // Phân biệt 2 trường hợp `Initial`:
+    //   - Parent đang trigger load (widget.isQuoteLoading = true) → cubit
+    //     vừa `reset()` nên đang ở Initial → đây là bước trung gian của 1
+    //     lần load mới → KHÔNG coi là settled. UI phải show shimmer.
+    //   - Parent CHƯA từng trigger load (lần đầu mở tab, widget.isQuoteLoading
+    //     = false) → cubit vẫn ở Initial từ trước → settled state → show
+    //     empty state cho user bấm "Làm mới".
+    final cubitIsBusy = isLoading || (isInitial && widget.isQuoteLoading);
 
-    // Chỉ hiển thị lỗi khi:
-    //  - cubit hiện tại đang ở QuoteError (không phải state trung gian), VÀ
-    //  - CHƯA từng có quote nào (liveQuote == null) — nếu đã có quote thì
-    //    giữ nguyên content, vì lỗi chỉ liên quan tới lần load mới nhất và
-    //    sẽ tự được thay bằng shimmer khi người dùng bấm "Thử lại".
-    //  - cubit không đang busy (đã settle ở error).
-    final errorMsg = !cubitIsBusy &&
-            hasErrorState &&
-            liveQuote == null
-        ? reservationState.message
-        : (!cubitIsBusy && liveQuote == null ? widget.quoteError : null);
+    // Hiển thị error message — ưu tiên message trực tiếp từ cubit state
+    // (nếu cubit đã settled ở QuoteError). Ngược lại fallback về parent
+    // error (`widget.quoteError`) — parent set giá trị này qua stream
+    // listener ở LobbyConfigPage.
+    //
+    // Lưu ý quan trọng: skip parent error khi `cubitIsBusy` (đang load
+    // lại) để tránh flash lỗi cũ. Còn khi cubit ở Initial nhưng parent
+    // đã có error từ lần load trước đó (chưa reset xong) → VẪN hiển thị
+    // error vì user cần thấy lỗi để biết action cần làm.
+    String? computedError;
+    if (!cubitIsBusy && hasErrorState && liveQuote == null) {
+      computedError = reservationState.message;
+    } else if (!cubitIsBusy && liveQuote == null && widget.quoteError != null) {
+      // Fallback: dùng parent error. Đây là trường hợp phổ biến vì:
+      //   - Listener của parent capture `ReservationQuoteError.message`
+      //     vào `_quoteError` → widget rebuild với `widget.quoteError`.
+      //   - Sau đó user bấm "Làm mới" → parent gọi `_loadQuotePreview()`
+      //     → `reservationCubit.reset()` làm cubit emit `ReservationInitial`
+      //     → BlocBuilder của tab 4 build với state=Initial, parentError=vẫn
+      //     có message cũ (parent chưa clear `_quoteError` vì stream listener
+      //     đã cancel). Lúc này cần dùng parentError để user biết lỗi.
+      computedError = widget.quoteError;
+    }
+    // Debug: log trạng thái để chẩn đoán nếu error không hiển thị.
+    debugPrint(
+      '[TabDatCoc] state=${reservationState.runtimeType} '
+      'isLoading=$isLoading isInitial=$isInitial '
+      'hasErrorState=$hasErrorState liveQuote=${liveQuote != null} '
+      'parentError=${widget.quoteError} computedError=$computedError',
+    );
+    final errorMsg = computedError;
 
     return Column(
       children: [

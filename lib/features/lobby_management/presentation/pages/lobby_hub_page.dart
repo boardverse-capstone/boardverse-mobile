@@ -18,6 +18,7 @@ import '../../data/realtime/lobby_realtime_service.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../cubit/lobby_cubit.dart';
+import '../cubit/lobby_reservation_cubit.dart';
 import '../cubit/lobby_search_cubit.dart';
 import '../cubit/my_lobbies_cubit.dart';
 import '../widgets/lobby_game_filter_bar.dart';
@@ -274,9 +275,22 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
   Future<void> _openMyLobby(LobbyEntity lobby) async {
     if (!mounted) return;
+    // Wrap [BlocProvider] ngay tại route — đảm bảo [LobbyReservationCubit]
+    // + [LobbyCubit] có sẵn trong widget tree trước khi [LobbyPage] build.
+    // Trước đây [LobbyPage] tự wrap trong `build()` — nhưng nếu user tap
+    // card trước khi widget mount xong, hoặc sử dụng một route generator
+    // không có provider cha, sẽ ném "Provider<LobbyReservationCubit> not
+    // found above this LobbyPage" + render assertion loop (Chrome/Web).
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => LobbyPage(lobbyId: lobby.id, lobbyCubit: _lobbyCubit),
+        builder: (_) => BlocProvider<LobbyReservationCubit>(
+          create: (_) => getIt<LobbyReservationCubit>()
+            ..startWatching(reservationId: lobby.reservationId),
+          child: BlocProvider.value(
+            value: _lobbyCubit,
+            child: LobbyPage(lobbyId: lobby.id, lobbyCubit: _lobbyCubit),
+          ),
+        ),
       ),
     );
   }
@@ -309,6 +323,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
       if (msg.contains('đã là thành viên') || msg.contains('already')) {
         if (!mounted) return;
+        // Player đã join từ trước — cũng loại khỏi Explore list để nhất
+        // quán UX (tránh hiển thị lobby user đã tham gia).
+        _searchCubit.removeLobbyAfterJoin(lobbyId);
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) =>
@@ -329,9 +346,23 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     }
 
     if (!mounted) return;
+    // Optimistic update — bỏ lobby vừa join khỏi Explore list. Backend
+    // vẫn trả về lobby đó (vì status=Open + public) nhưng UX cần player
+    // không thấy lại. Realtime `NearbyLobbyRemovedEvent` chưa được emit
+    // (backend chưa expose SignalR hub → đang dùng mock no-op service).
+    _searchCubit.removeLobbyAfterJoin(lobbyId);
+    // Wrap đầy đủ providers ngay tại route — xem [_openMyLobby] để biết
+    // lý do cần wrap ở đây thay vì để LobbyPage tự wrap trong build().
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+        builder: (_) => BlocProvider<LobbyReservationCubit>(
+          create: (_) => getIt<LobbyReservationCubit>()
+            ..startWatching(reservationId: lobbyId),
+          child: BlocProvider.value(
+            value: _lobbyCubit,
+            child: LobbyPage(lobbyId: lobbyId, lobbyCubit: _lobbyCubit),
+          ),
+        ),
       ),
     );
   }

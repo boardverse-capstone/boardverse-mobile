@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
+import '../../domain/entities/default_time_slot_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/nearby_cafes_search_result_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
@@ -832,4 +833,33 @@ Future<MatchmakingCafeSearchResults?> _resolveWithFallback({
     ),
   );
 }
+
+  // ─── Time Slot Defaults ──────────────────────────────────────────────
+
+  /// Lấy 4 khung giờ cố định từ `GET /api/v1/manager/time-slots/defaults`
+  /// và phát ra [MatchmakingTimeSlotsLoaded].
+  ///
+  /// Hàm **không** trước đó emit `MatchmakingLoading` — vì load này chạy
+  /// song song với các flow khác (game detail, quote preview). Nếu emit
+  /// loading sẽ đè các state đang hiển thị UI.
+  ///
+  /// Trả về thẳng list slot (nếu success) hoặc `null` (failure) để caller
+  /// quyết định fallback. UI nên luôn có hardcoded fallback cho trường hợp
+  /// API lỗi / mạng chậm, vì tab chọn phiên cần render ngay khi mở trang.
+  Future<List<DefaultTimeSlotEntity>?> loadDefaultTimeSlots() async {
+    final result = await repository.getDefaultTimeSlots();
+    if (isClosed) return null;
+
+    return result.fold(
+      (failure) {
+        // Không emit failure để tránh phá state hiện tại — chỉ trả về null
+        // cho caller tự quyết định fallback UI.
+        return null;
+      },
+      (slots) {
+        emit(MatchmakingTimeSlotsLoaded(slots: slots));
+        return slots;
+      },
+    );
+  }
 }

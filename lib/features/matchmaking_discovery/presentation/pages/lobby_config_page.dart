@@ -14,6 +14,7 @@ import '../../../reservation/presentation/pages/reservation_quote_page.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
+import '../../domain/entities/default_time_slot_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
 import '../widgets/lobby_config/confirm_lobby_dialog.dart';
@@ -119,13 +120,54 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
   bool get _hasBufferWarning =>
       !_isScheduledInPast && _bufferMinutes >= 0 && _bufferMinutes < 60;
 
-  // Chỉ 3 slots: morning, afternoon, evening (không có night)
-  static const _availableSlots = [TimeSlot.morning, TimeSlot.afternoon, TimeSlot.evening];
+  /// Khung giờ load từ `GET /api/v1/manager/time-slots/defaults`. Nếu API
+  /// lỗi / mạng chậm thì fallback về [_fallbackSlotOptions] (hardcode
+  /// khớp với default backend) — UI vẫn render được ngay khi mở trang.
+  List<TimeSlotOption> _slotOptions = _fallbackSlotOptions;
+
+  /// Hardcode khớp với `DefaultTimeSlotDto` trong backend (morning=06-12,
+  /// afternoon=12-17, evening=17-23, lateNight=23-06). Chỉ dùng khi API
+  /// không trả data — không phải single source of truth.
+  ///
+  /// Bao gồm cả `lateNight` (khớp với backend) — UI hiển thị 4 slot giống
+  /// quán mở 24/24. Khi user chọn `lateNight`, mapping sang `TimeSlot.night`
+  /// (local enum) để gọi reservation API.
+  static const List<TimeSlotOption> _fallbackSlotOptions = [
+    TimeSlotOption(
+      slot: TimeSlot.morning,
+      shortLabel: 'Sáng',
+      timeRangeLabel: '06:00 - 12:00',
+      icon: Icons.wb_sunny,
+      color: Colors.orange,
+    ),
+    TimeSlotOption(
+      slot: TimeSlot.afternoon,
+      shortLabel: 'Chiều',
+      timeRangeLabel: '12:00 - 17:00',
+      icon: Icons.wb_cloudy,
+      color: Colors.amber,
+    ),
+    TimeSlotOption(
+      slot: TimeSlot.evening,
+      shortLabel: 'Tối',
+      timeRangeLabel: '17:00 - 23:00',
+      icon: Icons.nights_stay,
+      color: Colors.indigo,
+    ),
+    TimeSlotOption(
+      slot: TimeSlot.night,
+      shortLabel: 'Khuya',
+      timeRangeLabel: '23:00 - 06:00',
+      icon: Icons.bedtime,
+      color: Colors.deepPurple,
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_onTabChanged);
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _preferredStartTime = _getSlotStartTime(TimeSlot.morning);
@@ -136,16 +178,47 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     widget.matchmakingCubit.loadGameDetail(gameId: _currentGameId);
     // Load quote ngay khi mở trang để đảm bảo có data khi vào tab 4
     _loadQuotePreview();
+    // Load 4 khung giờ cố định từ backend. Nếu thất bại → vẫn dùng
+    // `_fallbackSlotOptions` (UI render ngay được).
+    _loadDefaultTimeSlots();
+  }
+
+  /// Khi user chuyển sang tab Đặt cọc (index 3) và cubit đang ở state
+  /// settled (Initial / QuoteError / QuoteLoaded) — tức không phải đang
+  /// load — thì trigger reload quote để lấy dữ liệu mới nhất (tránh
+  /// trường hợp user mở trang từ session trước, cubit còn giữ state
+  /// cũ từ session trước đó).
+  ///
+  /// Dùng `indexIsChanging` để tránh trigger khi tab chưa thực sự đổi.
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) return;
+    if (_tabController.index != 3) return;
+    final cubit = GetIt.instance<ReservationCubit>();
+    if (cubit.state is ReservationInitial ||
+        cubit.state is ReservationQuoteError ||
+        cubit.state is ReservationQuoteLoaded ||
+        cubit.state is ReservationInsufficientBalance ||
+        cubit.state is ReservationQuoteExpired) {
+      // Đã settle → reload để có data mới nhất.
+      debugPrint('[LobbyConfig] tab3 activated → reload quote');
+      _loadQuotePreview();
+    }
   }
 
   @override
   void dispose() {
     _quoteSubscription?.cancel();
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
 
   TimeOfDay _getSlotStartTime(TimeSlot slot) {
+    // Ưu tiên giá trị từ server (load trong `_loadDefaultTimeSlots`). Nếu
+    // chưa load xong / API lỗi thì rơi về hardcode fallback bên dưới — đảm
+    // bảo UI luôn có giá trị dùng được ngay từ frame đầu tiên.
+    final serverValue = _serverSlotStartTimes[slot];
+    if (serverValue != null) return serverValue;
     switch (slot) {
       case TimeSlot.morning:
         return const TimeOfDay(hour: 9, minute: 0);
@@ -159,6 +232,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
   }
 
   TimeOfDay _getSlotEndTime(TimeSlot slot) {
+    final serverValue = _serverSlotEndTimes[slot];
+    if (serverValue != null) return serverValue;
     switch (slot) {
       case TimeSlot.morning:
         return const TimeOfDay(hour: 13, minute: 0);
@@ -170,6 +245,87 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return const TimeOfDay(hour: 24, minute: 0);
     }
   }
+
+  /// Parse `HH:mm:ss` (hoặc `HH:mm`) thành [TimeOfDay]. Trả về null nếu
+  /// format lỗi — caller dùng fallback.
+  TimeOfDay? _parseServerTime(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final parts = raw.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    // `24:00` tương đương `00:00` ngày hôm sau — encode thành `00:00`.
+    // Không xử lý special ở đây, chỉ clamp về TimeOfDay hợp lệ (0–23).
+    final clampedHour = h == 24 ? 0 : h.clamp(0, 23);
+    return TimeOfDay(hour: clampedHour, minute: m);
+  }
+
+  /// Map `TimeSlotKey` (server) sang `TimeSlot` (local enum).
+  ///
+  /// Lưu ý: backend dùng `lateNight` (khuya) còn local enum dùng `night`.
+  /// Hai tên khác nhau nhưng cùng đại diện 1 slot thực tế — mapping này
+  /// đảm bảo reservation API nhận đúng `Night` (PascalCase) khi gửi quote.
+  TimeSlot _toLocalSlot(TimeSlotKey key) {
+    switch (key) {
+      case TimeSlotKey.morning:
+        return TimeSlot.morning;
+      case TimeSlotKey.afternoon:
+        return TimeSlot.afternoon;
+      case TimeSlotKey.evening:
+        return TimeSlot.evening;
+      case TimeSlotKey.lateNight:
+        return TimeSlot.night;
+    }
+  }
+
+  /// Format `HH:mm:ss` thành `HH:mm` (bỏ phần giây) cho UI.
+  String _formatServerTimeLabel(String raw) {
+    final parts = raw.split(':');
+    if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
+    return raw;
+  }
+
+  Future<void> _loadDefaultTimeSlots() async {
+    final slots = await widget.matchmakingCubit.loadDefaultTimeSlots();
+    if (!mounted || slots == null) return;
+    // Server có thể trả 4 slot theo bất kỳ thứ tự nào — sort theo thứ tự
+    // BR-NEW-15 (morning → afternoon → evening → lateNight) để UI hiển thị
+    // ổn định.
+    final ordered = [...slots]..sort((a, b) {
+        return a.slot.index.compareTo(b.slot.index);
+      });
+    final options = <TimeSlotOption>[];
+    for (final dto in ordered) {
+      final localSlot = _toLocalSlot(dto.slot);
+      final start = _parseServerTime(dto.defaultStartTime) ??
+          _getSlotStartTime(localSlot);
+      final end = _parseServerTime(dto.defaultEndTime) ??
+          _getSlotEndTime(localSlot);
+      // Override `_getSlotStartTime` / `_getSlotEndTime` cho slot này —
+      // dùng giá trị server khi parse được, fallback local nếu lỗi.
+      _serverSlotStartTimes[localSlot] = start;
+      _serverSlotEndTimes[localSlot] = end;
+
+      options.add(TimeSlotOption(
+        slot: localSlot,
+        shortLabel: dto.displayName,
+        timeRangeLabel:
+            '${_formatServerTimeLabel(dto.defaultStartTime)} - '
+            '${_formatServerTimeLabel(dto.defaultEndTime)}',
+        icon: _getSlotIcon(localSlot),
+        color: _getSlotColor(localSlot, null),
+      ));
+    }
+    if (!mounted) return;
+    setState(() => _slotOptions = options);
+  }
+
+  /// Cache startTime / endTime do server trả về, key theo `TimeSlot`.
+  /// `_getSlotStartTime` / `_getSlotEndTime` sẽ ưu tiên giá trị ở đây
+  /// trước khi rơi về hardcode fallback.
+  final Map<TimeSlot, TimeOfDay> _serverSlotStartTimes = {};
+  final Map<TimeSlot, TimeOfDay> _serverSlotEndTimes = {};
 
   /// Trả về DateTime giờ chơi thực tế:
   /// - Ưu tiên [_preferredStartTime] nếu user đã chọn (giờ chính xác
@@ -245,11 +401,32 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     });
   }
 
+  /// Phát hiện `TimeSlot` chứa giờ user vừa chọn. Dùng server data nếu
+  /// đã load (qua `_serverSlotStartTimes` / `_serverSlotEndTimes`), nếu
+  /// không thì rơi về heuristic 9/13/18/23.
   TimeSlot _detectTimeSlotFromTime(TimeOfDay time) {
-    final hour = time.hour + time.minute / 60;
-    if (hour >= 9 && hour < 13) return TimeSlot.morning;
-    if (hour >= 13 && hour < 18) return TimeSlot.afternoon;
-    if (hour >= 18 && hour < 23) return TimeSlot.evening;
+    final pickedHour = time.hour + time.minute / 60;
+
+    // Ưu tiên match với server slot — sort theo start time để kiểm tra
+    // từ "sớm" đến "muộn".
+    final candidates = _serverSlotStartTimes.entries.toList()
+      ..sort((a, b) => a.value.hour.compareTo(b.value.hour));
+    for (final entry in candidates) {
+      final start = entry.value.hour + entry.value.minute / 60;
+      final end = _serverSlotEndTimes[entry.key];
+      if (end == null) continue;
+      // End có thể là 0 (LateNight overnight) — xử lý bằng cách coi 0 là 24.
+      final endHour =
+          end.hour == 0 ? 24.0 : end.hour + end.minute / 60;
+      if (pickedHour >= start && pickedHour < endHour) {
+        return entry.key;
+      }
+    }
+
+    // Fallback heuristic khi server data chưa load / API lỗi.
+    if (pickedHour >= 9 && pickedHour < 13) return TimeSlot.morning;
+    if (pickedHour >= 13 && pickedHour < 18) return TimeSlot.afternoon;
+    if (pickedHour >= 18 && pickedHour < 23) return TimeSlot.evening;
     return TimeSlot.night;
   }
 
@@ -274,9 +451,20 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     if (picked != null && mounted) {
       final pickedHour = picked.hour + picked.minute / 60;
       final startHour = startTime.hour + startTime.minute / 60;
-      final endHour = endTime.hour == 24 ? 24.0 : endTime.hour + endTime.minute / 60;
-
-      final isWithinCurrentSlot = pickedHour >= startHour && pickedHour < endHour;
+      // End có thể là 0 (sau khi clamp từ `24:00:00`) hoặc > start (overnight).
+      // Để kiểm tra "picked có trong slot không", so sánh theo 2 case:
+      // - Slot không qua đêm (end > start): picked trong [start, end).
+      // - Slot qua đêm (end < start, vd LateNight 23→06): picked thuộc
+      //   [start, 24) hoặc [0, end).
+      final endHour = endTime.hour + endTime.minute / 60;
+      final isOvernight = endHour < startHour;
+      bool isWithinCurrentSlot;
+      if (isOvernight) {
+        isWithinCurrentSlot =
+            pickedHour >= startHour || pickedHour < endHour;
+      } else {
+        isWithinCurrentSlot = pickedHour >= startHour && pickedHour < endHour;
+      }
       final detectedSlot = _detectTimeSlotFromTime(picked);
 
       setState(() {
@@ -315,9 +503,17 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     if (picked != null && mounted) {
       final pickedMinutes = picked.hour * 60 + picked.minute;
       final startMinutes = startTime.hour * 60 + startTime.minute;
+      final endMinutes = slotEndTime.hour * 60 + slotEndTime.minute;
+      // Slot qua đêm (LateNight): endMinutes < startMinutes (vd 23:00 → 06:00).
+      // Trong trường hợp này, end "thuộc ngày hôm sau" → accept khi
+      // pickedMinutes > startMinutes HOẶC pickedMinutes < endMinutes
+      // (vì user có thể chọn 02:00 vẫn muốn kết thúc 06:00).
+      final isOvernight = endMinutes < startMinutes;
+      final isValidEnd = isOvernight
+          ? (pickedMinutes > startMinutes || pickedMinutes < endMinutes)
+          : (pickedMinutes > startMinutes);
 
-      // Only allow end time after start time
-      if (pickedMinutes > startMinutes) {
+      if (isValidEnd) {
         setState(() {
           _preferredEndTime = picked;
         });
@@ -364,7 +560,12 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     }
   }
 
-  Color _getSlotColor(TimeSlot slot, ColorScheme colorScheme) {
+  Color _getSlotColor(TimeSlot slot, ColorScheme? colorScheme) {
+    // Màu sắc là hardcode theo slot — không phụ thuộc theme vì đã được
+    // chọn tay để phân biệt trực quan giữa morning/afternoon/evening/late
+    // night trên cả light/dark mode. Theme chỉ truyền vào nếu caller muốn
+    // override (không dùng ở thời điểm hiện tại — giữ null-safe để gọi được
+    // từ `_loadDefaultTimeSlots` lúc build xong options).
     switch (slot) {
       case TimeSlot.morning:
         return Colors.orange;
@@ -632,7 +833,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         selectedTimeSlot: _selectedTimeSlot,
                         preferredStartTime: _preferredStartTime,
                         preferredEndTime: _preferredEndTime,
-                        availableSlots: _availableSlots,
+                        slotOptions: _slotOptions,
                         onDateSelected: _onDateSelected,
                         onOpenDatePicker: () => _openDatePicker(context),
                         onTimeSlotChanged: _onTimeSlotChanged,
@@ -642,10 +843,6 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         formatTime: _formatTimeOfDay,
                         getSlotStartTime: _getSlotStartTime,
                         getSlotEndTime: _getSlotEndTime,
-                        getSlotLabel: _getSlotLabel,
-                        getSlotShortLabel: _getSlotShortLabel,
-                        getSlotIcon: _getSlotIcon,
-                        getSlotColor: _getSlotColor,
                         bufferMinutes: _bufferMinutes,
                         isScheduledInPast: _isScheduledInPast,
                         hasBufferWarning: _hasBufferWarning,

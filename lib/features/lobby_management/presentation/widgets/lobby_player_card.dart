@@ -502,8 +502,10 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Tính `isFull` nhưng KHÔNG dùng làm guard ẩn banner.
+    // User có thể bấm "Sẵn sàng" kể cả khi phòng chưa đầy (BR-LOBBY-READY-01:
+    // player có thể ready từ sớm, không cần đợi đủ maxPlayers).
     final isFull = widget.lobby.currentPlayers >= widget.lobby.maxPlayers;
-    if (!isFull) return const SizedBox.shrink();
 
     // Không show nếu lobby đã kết thúc → tránh gây nhiễu.
     final endedStatuses = {
@@ -535,12 +537,18 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
     final isCurrentUserHost = currentPlayer?.isHost ?? false;
 
     // Trạng thái lobby đặc biệt: inProgress / pendingCafeApproval → copy khác.
-    final showReadySection = widget.lobby.status == LobbyStatus.full ||
-        widget.lobby.status == LobbyStatus.inProgress;
+    // Mở rộng ready section cho TẤT CẢ lobby active: open, viable, full, inProgress
+    // — player có thể bấm "Sẵn sàng" ngay khi tham gia, không cần đợi đủ người.
+    final showReadySection =
+        widget.lobby.status == LobbyStatus.open ||
+        widget.lobby.status == LobbyStatus.viable ||
+        widget.lobby.status == LobbyStatus.full ||
+        widget.lobby.status == LobbyStatus.inProgress ||
+        widget.lobby.status == LobbyStatus.pendingCafeApproval;
 
     return Semantics(
       container: true,
-      label: 'Phòng đã đầy. ${showReadySection ? "Sẵn sàng: $readyCount/$totalMembers" : "Đang chờ quán duyệt."}',
+      label: 'Phòng ${isFull ? "đã đầy" : "đang tuyển"}. ${showReadySection ? "Sẵn sàng: $readyCount/$totalMembers" : ""}',
       child: Container(
         margin: const EdgeInsets.only(top: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -586,7 +594,9 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Phòng đã đầy • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
+                    isFull
+                        ? 'Phòng đã đầy • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}'
+                        : 'Phòng đang tuyển • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       color: isDark
@@ -603,6 +613,8 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
             // ── Body copy theo trạng thái ───────────────────────────
             if (widget.lobby.status == LobbyStatus.inProgress)
               _bodyInProgress(isDark)
+            else if (widget.lobby.status == LobbyStatus.pendingCafeApproval)
+              _bodyPendingCafeApproval(isDark)
             else if (showReadySection)
               _bodyReadySection(
                 isDark: isDark,
@@ -861,6 +873,19 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
       'Lobby đã chuyển sang "Đang chơi". Đến quán đúng giờ và bấm "Đã tới '
       'quán" để nhận mã QR check-in. Đừng quên đánh giá Karma sau khi chơi '
       'xong!',
+      style: TextStyle(
+        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+        fontSize: 13,
+        height: 1.4,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  Widget _bodyPendingCafeApproval(bool isDark) {
+    return Text(
+      'Chủ phòng đang chờ quán duyệt. Bạn có thể bấm "Sẵn sàng" từ '
+      'giờ để báo đã sẵn sàng chơi — quán sẽ được duyệt sớm thôi!',
       style: TextStyle(
         color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
         fontSize: 13,

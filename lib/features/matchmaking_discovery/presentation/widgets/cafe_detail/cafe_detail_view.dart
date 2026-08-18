@@ -5,10 +5,13 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../../core/widgets/safe_network_image.dart';
+import '../../../../lobby_management/presentation/widgets/lobby_game_picker_sheet.dart';
 import '../../../domain/entities/board_game_entity.dart';
 import '../../../domain/entities/cafe_detail_entity.dart';
-import '../../pages/lobby_cafe_selection_page.dart';
+import '../../../domain/entities/cafe_entity.dart';
+import '../../pages/lobby_config_page.dart';
 import '../../cubit/matchmaking_cubit.dart';
+import '../../cubit/matchmaking_state.dart';
 import 'amenities_card.dart';
 import 'book_cta_button.dart';
 import 'cafe_info_row.dart';
@@ -27,12 +30,14 @@ import 'time_slot_grid.dart';
 class CafeDetailView extends StatelessWidget {
   final CafeDetailEntity cafe;
   final BoardGameEntity? selectedGame;
+  final CafeEntity? cafeEntity;
   final MatchmakingCubit matchmakingCubit;
 
   const CafeDetailView({
     super.key,
     required this.cafe,
-    required this.selectedGame,
+    this.selectedGame,
+    this.cafeEntity,
     required this.matchmakingCubit,
   });
 
@@ -316,9 +321,9 @@ class CafeDetailView extends StatelessWidget {
         ),
 
         // ─── Sticky bottom CTA — luôn hiển thị ─────────────────────
-        // Trước đây chỉ render khi `selectedGame != null`. Sau refactor
-        // CTA luôn stick ở bottom để user đặt chỗ từ cafe detail (kể cả
-        // khi mở thẳng từ tab Cafe, không qua boardgame).
+        // Player có thể chọn quán trước (từ tab Cafe) → ấn "Đặt chỗ"
+        // → hiện game picker để chọn game. Hoặc chọn game trước → chọn cafe
+        // → đi thẳng sang LobbyCafeSelectionPage.
         Positioned(
           left: 0,
           right: 0,
@@ -351,16 +356,26 @@ class CafeDetailView extends StatelessWidget {
               child: BookCtaButton(
                 gameName: selectedGame?.name,
                 onPressed: selectedGame == null
-                    ? () => _showSelectGamePrompt(context)
-                    : () => Navigator.pushReplacement(
+                    ? () => _showGamePicker(context)
+                    : () {
+                        // Dùng push (không phải pushReplacement) để giữ
+                        // CafeDetailPage trong stack — khi player ấn back
+                        // từ LobbyConfigPage sẽ quay lại đây.
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => LobbyCafeSelectionPage(
-                              game: selectedGame!,
+                            builder: (_) => LobbyConfigPage(
+                              gameId: selectedGame!.id,
+                              gameName: selectedGame!.name,
+                              cafeId: cafe.id,
+                              cafeName: cafe.name,
+                              cafeEntity: cafeEntity,
                               matchmakingCubit: matchmakingCubit,
+                              gameEntity: selectedGame,
                             ),
                           ),
-                        ),
+                        );
+                      },
               ),
             ),
           ),
@@ -369,30 +384,60 @@ class CafeDetailView extends StatelessWidget {
     );
   }
 
-  /// Khi user mở cafe detail nhưng chưa chọn game, hiện dialog nhắc chọn
-  /// game trước khi đặt chỗ.
-  Future<void> _showSelectGamePrompt(BuildContext context) async {
-    return showDialog<void>(
+  /// Hiện bottom sheet chọn game khi player ấn "Đặt chỗ" mà chưa chọn game.
+  ///
+  /// Sau khi chọn game → đi thẳng sang [LobbyConfigPage] với cafe đã có.
+  /// Không cần qua [LobbyCafeSelectionPage] vì player đã ở trong cafe rồi.
+  ///
+  /// Stack navigation: dùng `Navigator.push` (không phải pushReplacement)
+  /// để giữ CafeDetailPage trong stack — khi player ấn back từ
+  /// LobbyConfigPage sẽ quay lại trang chi tiết cafe thay vì thoát ra
+  /// SearchPage.
+  Future<void> _showGamePicker(BuildContext context) async {
+    // Đảm bảo cubit có search results để picker hiển thị. Pattern này
+    // giống [LobbyCafeSelectionPage._onChangeGamePressed] — chỉ fetch nếu
+    // state chưa có, tránh gọi API thừa.
+    if (matchmakingCubit.state is! MatchmakingSearchResults) {
+      await matchmakingCubit.searchGames();
+      if (!context.mounted) return;
+    }
+
+    final state = matchmakingCubit.state;
+    final games = state is MatchmakingSearchResults
+        ? state.games
+        : const <BoardGameEntity>[];
+
+    if (!context.mounted) return;
+
+    // Mở bottom sheet chọn game
+    final picked = await showModalBottomSheet<BoardGameEntity>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.black, width: 2),
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => LobbyGamePickerSheet(games: games),
+    );
+
+    if (picked == null || !context.mounted) return;
+
+    // Đi thẳng sang LobbyConfigPage với cafe đã chọn.
+    // Dùng push (không phải pushReplacement) để giữ CafeDetailPage trong
+    // stack — khi player ấn back từ LobbyConfigPage sẽ quay lại trang chi
+    // tiết cafe.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LobbyConfigPage(
+          gameId: picked.id,
+          gameName: picked.name,
+          cafeId: cafe.id,
+          cafeName: cafe.name,
+          cafeEntity: cafeEntity,
+          matchmakingCubit: matchmakingCubit,
+          gameEntity: picked,
         ),
-        title: const Text(
-          'Chọn tựa game trước',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: const Text(
-          'Để đặt chỗ tại quán, bạn cần chọn tựa game muốn chơi.\n\n'
-          'Vào tab Boardgame để chọn game, hoặc tìm theo tên ở thanh tìm kiếm.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đã hiểu'),
-          ),
-        ],
       ),
     );
   }

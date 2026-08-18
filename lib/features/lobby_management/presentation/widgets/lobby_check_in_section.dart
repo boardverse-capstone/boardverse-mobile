@@ -9,6 +9,7 @@ import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/theme/theme.dart';
 import 'package:boardverse/core/utils/cafe_info_helper.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/lobby_routes.dart';
 import 'package:boardverse/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
 import 'package:boardverse/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../../reservation/domain/entities/entities.dart' as res;
@@ -75,6 +76,30 @@ class LobbyCheckInSection extends StatefulWidget {
     this.lobbyPlayers,
     this.onEnterSession,
   });
+
+  /// Mở full-screen QR cho một reservation — dùng cho [LobbyPage] mở
+  /// QR từ QR mini badge ở hero header (khi lobby ready + đã confirm).
+  ///
+  /// Khác với internal `_showQrFullScreen(String code)` — public API
+  /// nhận vào `ReservationEntity` để lấy cả `reservation.id` (UUID, dùng
+  /// cho POS scanner) + `lobbyShareCode` (8-char hiển thị dưới QR).
+  ///
+  /// Lưu ý: Phải gọi qua `LobbyCheckInSection.showQrFullScreen(...)` thay
+  /// vì gọi trực tiếp `_showQrFullScreen` của instance vì method đó
+  /// là private + chỉ là 1 dòng. Helper này chỉ làm thin wrapper.
+  static Future<void> showQrFullScreenPublic({
+    required BuildContext context,
+    required res.ReservationEntity reservation,
+  }) async {
+    final code = reservation.lobbyShareCode ?? reservation.id;
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        pageBuilder: (_, _, _) => _QrFullScreen(code: code),
+      ),
+    );
+  }
 
   @override
   State<LobbyCheckInSection> createState() => _LobbyCheckInSectionState();
@@ -176,11 +201,45 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
     );
   }
 
+  /// Navigate sang [PlayerQrCheckInPage] — chiều 2 check-in BR §21A.7.
+  ///
+  /// Cho phép player self check-in bằng cách nhập/paste token 16-char
+  /// hiển thị trên POS. Sau khi thành công → tự động navigate sang
+  /// `InGameSessionPage` (vì PlayerQrCheckInPage làm navigate thay).
+  void _openPlayerQrCheckIn() {
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      LobbyRoutes.playerQrCheckIn,
+      arguments: PlayerQrCheckInPageArgs(
+        reservationId: widget.reservation.id,
+        cafeName: widget.reservation.cafeName,
+        gameName: widget.reservation.gameName,
+        tableNumber: 1, // tableNumber sẽ được backend/SignalR cập nhật realtime
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final reservation = widget.reservation;
-    final code = reservation.lobbyShareCode ?? reservation.id;
+    // Lưu ý về QR data encoding:
+//
+// QR chứa `reservation.id` (UUID 36-char) — POS scanner sẽ đọc ra UUID
+// này và dùng làm path param cho endpoint BR §21A.7:
+//   POST /api/v1/reservations/{reservationId}/check-in
+//
+// Dưới QR hiển thị `lobbyShareCode` (8-char ReservationCode, vd
+// "ABC234XY") — staff nhập thủ công vào body field `reservationCode`
+// của DTO `ReservationCheckInRequestDto` (cùng với cafeId/activeSessionId/
+// idempotencyKey mà POS UI tự sin).
+//
+// Endpoint POS canonical khác (`/api/cafes/{cafeId}/pos/check-in`) chỉ
+// cần `code: "ABC234XY"` là đủ — staff có thể gõ tay nếc POS scanner
+// không tự fill body từ QR.
+//
+// QR UUID nằm trong QR code (machine-readable); ReservationCode 8-char
+// hiển thị bên dưới để staff dễ đọc khi cần nhập tay.
+final code = reservation.lobbyShareCode ?? reservation.id;
 
     final isInProgress = widget.lobbyStatus == res.LobbyStatus.inProgress;
 
@@ -391,7 +450,18 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
 
                   const SizedBox(height: AppSpacing.md),
 
-                  // QR + code
+                  // Row 1: Nút "Đã tới quán" (action chính khi player ở quán
+                  // và muốn staff biết đã đến — BR §21A.7 chiều 2 hỗ trợ).
+                  // Spans full-width vì đây là CTA chính của section.
+                  _ArrivedAtCafeButton(
+                    onPressed: () =>
+                        _arrivalCubit.markArrived(),
+                    visible: !widget.isHost,
+                  ),
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // Row 2: QR + code
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
@@ -448,7 +518,7 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
 
                   const SizedBox(height: AppSpacing.md),
 
-                  // Action row
+                  // Action row: Sao chép mã + Hiện QR
                   Row(
                     children: [
                       Expanded(
@@ -469,6 +539,18 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
                       ),
                     ],
                   ),
+
+                  // Nút "Quét QR từ POS" — chiều 2 check-in BR §21A.7.
+                  // Hiển thị khi reservation còn ở trạng thái confirmed (player
+                  // chưa được staff check-in). Sau khi checkedIn, ẩn đi để
+                  // tránh duplicate / token đã consumed.
+                  if (reservation.status == res.ReservationStatus.confirmed)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: _ScanPosQrButton(
+                        onPressed: _openPlayerQrCheckIn,
+                      ),
+                    ),
 
                   // Nút "Vào phiên chơi" — chỉ hiện khi staff đã scan/check-in.
                   if (reservation.status == res.ReservationStatus.checkedIn)
@@ -868,6 +950,198 @@ class _NeoOutlineButton extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                   fontSize: 13,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút "Đã tới quán" — player self-report đã đến quán (BR §21A.7 khuyến
+/// nghị self-report trước khi staff scan/check-in). Hidden cho host vì host
+/// không cần tự báo (staff đã có view checklist riêng từ
+/// `MembersArrivalChecklist`). Drives [MemberArrivalCubit.markArrived].
+class _ArrivedAtCafeButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final bool visible;
+
+  const _ArrivedAtCafeButton({
+    required this.onPressed,
+    this.visible = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: BlocBuilder<MemberArrivalCubit, MemberArrivalState>(
+        builder: (context, state) {
+          final alreadyReported =
+              state is MemberArrivalArrived || state is MemberArrivalEnRoute;
+          return InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: alreadyReported ? null : onPressed,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.md,
+                horizontal: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: alreadyReported
+                    ? (isDark
+                        ? AppColors.surfaceDark
+                        : AppColors.surfaceVariant)
+                    : AppColors.success,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.borderDark
+                      : AppColors.border,
+                  width: 2.5,
+                ),
+                boxShadow: alreadyReported
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: AppColors.black.withValues(alpha: 0.4),
+                          blurRadius: 0,
+                          offset: const Offset(3, 3),
+                        ),
+                      ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: alreadyReported
+                          ? AppColors.textTertiary
+                          : AppColors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      alreadyReported
+                          ? Icons.check_circle_rounded
+                          : Icons.location_on_rounded,
+                      color: AppColors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    alreadyReported
+                        ? 'Đã báo tới quán'
+                        : 'Tôi đã tới quán',
+                    style: TextStyle(
+                      color: alreadyReported
+                          ? (isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary)
+                          : AppColors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (!alreadyReported) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppColors.white,
+                      size: 18,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Nút "Quét QR từ POS" — neo-brutalism filled button, chiều 2 check-in
+/// BR §21A.7. Mở `PlayerQrCheckInPage` để player paste token 16-char
+/// hiển thị trên POS.
+class _ScanPosQrButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  const _ScanPosQrButton({this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.secondary, AppColors.info],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(3, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: AppColors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Flexible(
+                child: Text(
+                  'Quét QR từ POS',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    letterSpacing: 0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppColors.white,
+                size: 18,
               ),
             ],
           ),

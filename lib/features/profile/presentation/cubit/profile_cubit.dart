@@ -172,7 +172,12 @@ class ProfileCubit extends Cubit<ProfileState> {
         if (_isNoLocationFailure(failure)) return;
         emit(ProfileFailure(message: failure.message));
       },
-      (location) => emit(ProfileLocationLoaded(location: location)),
+      (result) => emit(
+        ProfileLocationLoaded(
+          location: result.$1,
+          message: result.$2,
+        ),
+      ),
     );
   }
 

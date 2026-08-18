@@ -202,6 +202,12 @@ class LobbyMemberKicked extends LobbyState {
 }
 
 /// Member đã thay đổi ready status.
+///
+/// Đây là state SEMANTIC riêng biệt với `LobbyUpdatedRealtime` (update
+/// từ server-side websocket) — emit khi chính user hiện tại bấm
+/// Ready/Unready (qua `LobbyCubit.setReady`). State này được UI dùng để
+/// extract lobby data từ `state.lobby` (tránh shimmer bug) đồng thời
+/// giữ cache fallback cho lần `LobbyFailure` tiếp theo.
 class LobbyReadyStatusChanged extends LobbyState {
   final LobbyEntity lobby;
   final String memberId;

@@ -5,6 +5,7 @@ import '../entities/board_game_detail_entity.dart';
 import '../entities/board_game_entity.dart';
 import '../entities/cafe_detail_entity.dart';
 import '../entities/cafe_entity.dart';
+import '../entities/default_time_slot_entity.dart';
 import '../entities/game_play_configuration_entity.dart';
 import '../entities/game_play_navigation_entity.dart';
 import '../entities/nearby_cafes_search_result_entity.dart';
@@ -155,4 +156,15 @@ abstract class MatchmakingRepository {
     required String gameId,
     required PlayMode mode,
   });
+
+  /// `GET /api/v1/manager/time-slots/defaults`
+  ///
+  /// Trả về 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
+  /// LateNight). LobbyConfigPage dùng danh sách này để hiển thị chip chọn
+  /// phiên — trước đây thông tin này hardcode trong `LobbyConfigState`
+  /// (morning=9h, evening=18h…) dễ lệch với backend sau khi manager override
+  /// hoặc backend chỉnh default. Xem doc
+  /// `.agents/docs/apis_docs/time-slot.md`.
+  Future<Either<Failure, List<DefaultTimeSlotEntity>>>
+      getDefaultTimeSlots();
 }

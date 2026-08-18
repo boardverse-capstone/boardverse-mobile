@@ -88,155 +88,144 @@ class _JoinByCodePageState extends State<JoinByCodePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nhập mã phòng'),
+        title: const Text('Tham gia phòng'),
         leading: IconButton(
           icon: const Icon(Icons.close),
+          tooltip: 'Đóng',
           onPressed: widget.onCancel ?? () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header illustration
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.link,
-                    size: 60,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Title
-              Center(
-                child: Text(
-                  'Tham gia bằng mã phòng',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Center(
-                child: Text(
-                  'Nhập mã chia sẻ 8 ký tự để tham gia phòng chờ',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // Code input
-              TextFormField(
-                controller: _codeController,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 4,
-                ),
-                textCapitalization: TextCapitalization.characters,
-                maxLength: 8,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-                  UpperCaseTextFormatter(),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'K7H3NP9X',
-                  hintStyle: theme.textTheme.headlineMedium?.copyWith(
-                    color: colors.outline,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4,
-                  ),
-                  errorText: _errorMessage,
-                  counterText: '',
-                  filled: true,
-                  fillColor: colors.surfaceContainerHighest,
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.radiusMdAll,
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.radiusMdAll,
-                    borderSide: BorderSide(
-                      color: colors.primary,
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.radiusMdAll,
-                    borderSide: BorderSide(
-                      color: colors.error,
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.lg,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Vui lòng nhập mã phòng';
-                  }
-                  if (value.trim().length != 8) {
-                    return 'Mã phòng phải có 8 ký tự';
-                  }
-                  return null;
-                },
-                onFieldSubmitted: (_) => _joinLobby(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Example
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: AppRadius.radiusSmAll,
-                ),
-                child: Row(
+      // SafeArea + padding gọn — chỉ chiếm phần giữa màn hình, không
+      // phình to header illustration như bản cũ (icon 120×120 + 3 dòng
+      // title/subtitle khiến UI chiếm hết viewport).
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Compact header — icon nhỏ + title ngắn gọn trên 1 dòng.
+                Row(
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: AppIcons.md,
-                      color: colors.onSurfaceVariant,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.12),
+                        borderRadius: AppRadius.radiusMdAll,
+                      ),
+                      child: Icon(
+                        Icons.link,
+                        size: 20,
+                        color: AppColors.accent,
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Text(
-                        'Ví dụ: K7H3NP9X. Mã này được chia sẻ bởi chủ phòng qua tin nhắn, Zalo, hoặc Messenger.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Nhập mã phòng 8 ký tự',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Mã do chủ phòng chia sẻ qua Zalo, Messenger, …',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
 
-              // Join button
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
+                const SizedBox(height: AppSpacing.md),
+
+                // Code input — font vừa phải (titleLarge thay vì headlineMedium)
+                // + contentPadding nhỏ để input cao vừa tay, không phình to.
+                TextFormField(
+                  controller: _codeController,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 8,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                    UpperCaseTextFormatter(),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'K7H3NP9X',
+                    hintStyle: theme.textTheme.titleLarge?.copyWith(
+                      color: colors.outline,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3,
+                    ),
+                    errorText: _errorMessage,
+                    counterText: '',
+                    filled: true,
+                    fillColor: colors.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.radiusMdAll,
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.radiusMdAll,
+                      borderSide: BorderSide(
+                        color: colors.primary,
+                        width: 2,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.radiusMdAll,
+                      borderSide: BorderSide(
+                        color: colors.error,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Vui lòng nhập mã phòng';
+                    }
+                    if (value.trim().length != 8) {
+                      return 'Mã phòng phải có 8 ký tự';
+                    }
+                    return null;
+                  },
+                  onFieldSubmitted: (_) => _joinLobby(),
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                // Join button — primary CTA. Đã bỏ button "Hủy" vì trên
+                // AppBar đã có nút close (X) — UX tiêu chuẩn mobile, tránh
+                // duplicate CTA cùng chức năng gây phình UI.
+                FilledButton(
                   onPressed: _isLoading ? null : _joinLobby,
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -247,23 +236,10 @@ class _JoinByCodePageState extends State<JoinByCodePage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Tham gia phòng'),
+                      : const Text('Tham gia'),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Cancel button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: widget.onCancel ?? () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  ),
-                  child: const Text('Hủy'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/realtime/lobby_realtime_service.dart';
+import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../../domain/repositories/lobby_repository.dart';
 import 'lobby_state.dart';
@@ -186,6 +187,34 @@ class LobbySearchCubit extends Cubit<LobbyState> {
         }
       },
     );
+  }
+
+  /// Optimistic update — bỏ 1 lobby khỏi list khi player vừa join.
+  ///
+  /// Lý do: sau khi join, theo UX player không nên thấy lobby đó nữa
+  /// trong Browse. Tuy nhiên server vẫn trả lobby đó (vì status vẫn là
+  /// Open + IsPrivate=false cho đến khi đủ MaxMembers / lock). Realtime
+  /// `NearbyLobbyRemovedEvent` được spec trong `lobby.md` nhưng backend
+  /// chưa expose SignalR hub → mock realtime không emit event. Vì vậy
+  /// phải làm client-side: sau khi join thành công, loại lobby đó ra khỏi
+  /// cached list và giữ nguyên trên các lần loadDiscoverable tiếp theo
+  /// (cho tới khi user pull-to-refresh).
+  void removeLobbyAfterJoin(String lobbyId) {
+    final current = state;
+    if (current is! LobbyListLoaded) return;
+    final remaining =
+        current.entities.where((l) => l.id != lobbyId).toList(growable: false);
+    if (remaining.length == current.entities.length) return; // không có lobby này
+    if (remaining.isEmpty) {
+      emit(
+        const LobbyListEmpty(
+          message:
+              'Hiện không có phòng chờ đang hoạt động. Hãy quay lại sau hoặc tạo phòng mới.',
+        ),
+      );
+      return;
+    }
+    emit(LobbyListLoaded(lobbies: const [], entities: remaining));
   }
 
   void clear() {

@@ -314,13 +314,29 @@ class ApiEndpoints {
   // Base: /api/v1/tournaments — Player xem giải, đăng ký, xem kết quả.
   // Docs: .agents/docs/tournament_docs/tournament.md
   //
+  // Các endpoint:
+  // - `/tournaments` — base, filter theo `?status=` (RegistrationOpen,
+  //   RegistrationClosed, OnGoing, Completed, Cancelled). Dùng thay thế
+  //   cho 5 lần gọi `/my-registrations?status=`.
+  // - `/tournaments/open` — giải đang mở đăng ký (filter thêm deadline +
+  //   slots server-side). Dùng cho ActivityPage highlight.
+  // - `/tournaments/{id}` — chi tiết giải.
+  // - `/tournaments/{id}/participants` — danh sách người chơi.
+  // - `/tournaments/{id}/matches` — bàn đấu.
+  // - `/tournaments/{id}/register` — đăng ký.
+  // - `/tournaments/{id}/unregister` — hủy đăng ký.
+  // - `/tournaments/my-registrations?status=` — giải của tôi (cũ, thay
+  //   bằng `/tournaments?status=`).
+  // - `/tournaments/my-elo-history` — lịch sử Elo.
+  // - `/tournaments/leaderboard` **DEPRECATED** — dùng
+  //   `/api/v1/leaderboard/{karma,elo,level}`.
+  //
   // Lưu ý:
-  // - `/tournaments/open?gameTemplateId=...` bắt buộc `gameTemplateId`.
+  // - `/tournaments/open` bắt buộc `gameTemplateId` query param.
   // - KHÔNG tồn tại `/tournaments/upcoming` (404) — bỏ qua.
   // - KHÔNG tồn tại `/tournaments/matches/{id}` (404) — chỉ fetch all rồi
   //   filter client-side.
-  // - `/tournaments/leaderboard` (BR-10) **DEPRECATED** — dùng
-  //   `/api/v1/leaderboard/{karma,elo,level}` ở section "Leaderboard" trên.
+  static const String tournaments = '/api/v1/tournaments';
   static const String tournamentsOpen = '/api/v1/tournaments/open';
   static const String tournamentsMyRegistrations =
       '/api/v1/tournaments/my-registrations';
@@ -423,11 +439,37 @@ class ApiEndpoints {
   static const String reservationsPendingCafeApproval =
       '/api/v1/reservations/pending-cafe-approval';
 
+  // ─── TimeSlot (defaults metadata) ─────────────────────────────────
+  // Theo `.agents/docs/apis_docs/time-slot.md`.
+  // Tài liệu gốc gắn tag "Manager" cho toàn bộ `/api/v1/manager/time-slots/...`
+  // nhưng endpoint `/defaults` chỉ trả metadata 4 slot cố định của hệ thống
+  // (Morning/Afternoon/Evening/LateNight) — không phụ thuộc cafe cụ thể.
+  // Player mobile cũng cần các khung giờ này để hiển thị ở LobbyConfigPage,
+  // vì vậy endpoint được mount cho cả role Player. Nếu backend về sau
+  // yêu cầu role đặc biệt thì chỉ cần đổi đường dẫn + role ở đây, không
+  // phải sửa UI.
+  static const String timeSlotDefaults = '/api/v1/manager/time-slots/defaults';
+
   static String reservationDetail(String id) => '/api/v1/reservations/$id';
   static String reservationCancel(String id) =>
       '/api/v1/reservations/$id/cancel';
   static String reservationCafeApproval(String id) =>
       '/api/v1/reservations/$id/cafe-approval';
+
+  /// POST /api/v1/reservations/{id}/cancel-after-checkin
+  /// Host hủy reservation sau khi đã check-in (BR-REFUND-04/05)
+  static String reservationCancelAfterCheckin(String id) =>
+      '/api/v1/reservations/$id/cancel-after-checkin';
+
+  /// GET /api/v1/reservations/{id}/extend/availability
+  /// Kiểm tra xem có thể extend reservation không (BR-EXT-01..05)
+  static String reservationExtendAvailability(String id) =>
+      '/api/v1/reservations/$id/extend/availability';
+
+  /// POST /api/v1/reservations/by-code/{reservationCode}/check-in
+  /// POS quét QR theo ReservationCode (8-char)
+  static String reservationCheckInByCode(String reservationCode) =>
+      '/api/v1/reservations/by-code/$reservationCode/check-in';
 
   // ─── Wallet (Player BVC) ────────────────────────────────────────────
   // Base: /api/v1/wallet — ví BVC + sổ cái ledger.
@@ -447,6 +489,15 @@ class ApiEndpoints {
   /// PATCH /api/v1/wallet/topup/{topUpId} — đổi số tiền đơn top-up Pending.
   static String walletTopupUpdate(String topUpId) =>
       '/api/v1/wallet/topup/$topUpId';
+
+  // ─── Player Check-In (BR §21A.7) ───────────────────────────────────────────
+  // Theo `.agents/docs/apis_docs/player-check-in.md`. Player quét QR do POS
+  // cấp (chiều thứ 2 của check-in 2 chiều) → tự check-in vào reservation.
+  // Endpoint nằm ngoài /api/v1/* group để match backend controller route.
+
+  /// POST /api/check-in/scan-qr — Player gửi 16-char token cho backend, nhận
+  /// về ActiveSession đã khởi tạo. Idempotent với cùng (player, token).
+  static const String playerCheckInScanQr = '/api/check-in/scan-qr';
 
   /// GET /api/v1/wallet/topup/{orderId}/qr-image — fallback endpoint
   /// trả về ảnh QR PNG (image/png) khi backend không embed `qrImageBase64`

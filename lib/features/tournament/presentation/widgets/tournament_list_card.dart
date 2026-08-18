@@ -57,7 +57,17 @@ class _TournamentListCardState extends State<TournamentListCard>
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
     final dateFmt = DateFormat('dd/MM/yyyy');
     final timeFmt = DateFormat('HH:mm');
-    final statusColor = _statusColor(theme, widget.tournament.status);
+    final status = widget.tournament.status;
+    final statusColor = _statusColor(theme, status);
+    final isCancelled = status == TournamentStatus.cancelled;
+
+    // Cancelled tournaments vẫn cho phép tap (để xem thông tin lịch sử),
+    // nhưng giảm độ tương phản để truyền tải trạng thái terminal.
+    final effectiveBorderColor =
+        isCancelled ? theme.colorScheme.outlineVariant : borderColor;
+    final effectiveShadowColor = isCancelled
+        ? AppColors.black.withValues(alpha: 0.02)
+        : AppColors.black.withValues(alpha: 0.06);
 
     return AnimatedBuilder(
       animation: _scaleAnimation,
@@ -76,13 +86,17 @@ class _TournamentListCardState extends State<TournamentListCard>
           decoration: BoxDecoration(
             color: isDark ? AppColors.surfaceDark : AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
+            border: Border.all(color: effectiveBorderColor, width: NeoBrutalismTheme.borderWidth),
             boxShadow: NeoBrutalismTheme.lightShadow(
-              shadowColor: AppColors.black.withValues(alpha: 0.06),
+              shadowColor: effectiveShadowColor,
             ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Padding(
+          // Giảm opacity cho giải đã hủy để UI phản ánh đúng trạng thái terminal
+          // nhưng vẫn cho phép player tap vào xem chi tiết.
+          child: Opacity(
+            opacity: isCancelled ? 0.65 : 1.0,
+            child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,6 +268,7 @@ class _TournamentListCardState extends State<TournamentListCard>
               ],
             ),
           ),
+        ),
         ),
       ),
     );

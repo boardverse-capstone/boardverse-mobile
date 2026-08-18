@@ -1,6 +1,6 @@
 enum NavTab {
   activity(0, 'Hoạt động'),
-  bookings(1, 'Lịch hẹn'),
+  bookings(1, 'Lịch đặt'),
   explore(2, 'Khám phá'),
   lobbies(3, 'Phòng chờ'),
   profile(4, 'Cá nhân');

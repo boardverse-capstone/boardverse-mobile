@@ -11,6 +11,7 @@ import 'package:boardverse/features/lobby_management/data/datasources/base/lobby
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
 import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_chat_message.dart';
 import '../cubit/lobby_cubit.dart';
@@ -50,6 +51,10 @@ class _LobbyPageState extends State<LobbyPage> {
   final List<LobbyChatMessage> _chatMessages = [];
   String? _currentUserId;
   bool _chatLoaded = false;
+
+  /// Reservation ID lần cuối đã trigger auto-redirect sang InGameSessionPage.
+  /// Tránh navigate nhiều lần khi LobbyReservationCubit poll liên tục.
+  String? _autoRedirectReservationId;
 
   /// Set các friendId đã gửi lời mời thành công trong session hiện tại
   /// — dùng để disable nút "Mời" trong FriendsSheet (đổi thành "Đã mời")
@@ -253,6 +258,11 @@ class _LobbyPageState extends State<LobbyPage> {
     // Đây là fire-and-forget — không block việc show sheet; UI sẽ
     // re-render khi set mới được build xong.
     _loadServerPendingInvites();
+
+    // GlobalKey để access FriendsSheet state từ _LobbyPageState
+    // → gọi markAsInvited() khi invite thành công để update UI ngay lập tức.
+    final sheetKey = GlobalKey<FriendsSheetState>();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -275,9 +285,14 @@ class _LobbyPageState extends State<LobbyPage> {
                   ..._serverInvitedFriendIds,
                 };
                 return FriendsSheet(
+                  key: sheetKey,
                   state: state,
                   invitedFriendIds: allInvited,
-                  onInvite: (friend) => _completeFriendAction(friend, lobby),
+                  onInvite: (friend) => _completeFriendAction(
+                    friend,
+                    lobby,
+                    sheetKey: sheetKey,
+                  ),
                   onAdd: (friend) => _completeAddFriendAction(friend, lobby),
                   onClose: () => Navigator.pop(sheetCtx),
                   showDevBadge: false,
@@ -333,10 +348,19 @@ class _LobbyPageState extends State<LobbyPage> {
     );
   }
 
+  /// Handler khi user bấm "Mời" một friend.
+  ///
+  /// Khi invite thành công:
+  /// 1. Gọi `sheetKey.currentState?.markAsInvited()` để update UI của
+  ///    FriendsSheet ngay lập tức (thay đổi nút "Mời" → "Đã mời").
+  /// 2. Gọi `setState()` để cập nhật `_invitedFriendIds` (backup state).
+  /// 3. Show success toast.
+  /// 4. Refresh pending invites để LobbyShareSection hiển thị invite mới.
   Future<void> _completeFriendAction(
     FriendEntity friend,
-    LobbyEntity lobby,
-  ) async {
+    LobbyEntity lobby, {
+    GlobalKey<FriendsSheetState>? sheetKey,
+  }) async {
     final result = await widget.lobbyCubit.inviteFriend(
       widget.lobbyId,
       friend.odId,
@@ -358,14 +382,19 @@ class _LobbyPageState extends State<LobbyPage> {
       },
       (_) {
         if (!mounted) return;
-        // Đánh dấu friend này đã mời → tile sẽ disable nút "Mời"
-        // (đổi thành "Đã mời" + icon check) mà user vẫn còn trong sheet.
+
+        // 1. Cập nhật UI FriendsSheet NGAY — tile chuyển từ "Mời" → "Đã mời".
+        sheetKey?.currentState?.markAsInvited(friend.odId);
+
+        // 2. Backup vào local state (phòng trường hợp parent rebuild).
         setState(() => _invitedFriendIds.add(friend.odId));
+
+        // 3. Toast thông báo.
         overlayContext.showTopSnackBar(
           'Đã gửi lời mời đến ${friend.username}',
         );
-        // Refresh sent pending invites để LobbyShareSection hiển thị
-        // invite vừa gửi.
+
+        // 4. Refresh pending invites để LobbyShareSection hiển thị invite mới.
         _loadPendingInvites();
       },
     );
@@ -485,10 +514,7 @@ class _LobbyPageState extends State<LobbyPage> {
                 ).showSnackBar(SnackBar(content: Text(state.message)));
               }
               if (state is LobbyFailure) {
-                debugPrint(
-                  '[LobbyPage] LobbyFailure received: ${state.message} '
-                  '(ignored in build; UI already handled in action handler)',
-                );
+                context.showTopSnackBar(state.message, isError: true);
               }
 
               // Cache last good lobby state + sync share code (cho
@@ -499,6 +525,13 @@ class _LobbyPageState extends State<LobbyPage> {
                 _lastGoodLobbyState = state;
                 _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyUpdatedRealtime) {
+                _lastGoodLobbyState = state;
+                _syncShareCodeFromLobby(state.lobby);
+              } else if (state is LobbyReadyStatusChanged) {
+                // Cache state ready-status để dùng làm fallback khi
+                // LobbyFailure xảy ra ngay sau khi user bấm ready (vd
+                // network drop). Đồng thời sync share code vì lobby
+                // vẫn là entity đầy đủ.
                 _lastGoodLobbyState = state;
                 _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyEnded) {
@@ -522,7 +555,16 @@ class _LobbyPageState extends State<LobbyPage> {
           ),
           BlocListener<LobbyReservationCubit, LobbyReservationState>(
             listener: (context, state) {
-              // Reservation watching is handled in LobbyCubit listener
+              if (state is! LobbyReservationLoaded) return;
+              final reservation = state.reservation;
+
+              // Auto-redirect sang InGameSessionPage khi reservation chuyển
+              // sang `checkedIn` (staff scan QR ở POS, hoặc player self
+              // scan ở PlayerQrCheckInPage). Chỉ redirect 1 lần / ID để
+              // tránh navigate nhiều lần khi cubit poll.
+              if (reservation.status == res.ReservationStatus.checkedIn) {
+                _maybeAutoRedirectToInGame(reservation);
+              }
             },
           ),
         ],
@@ -552,6 +594,11 @@ class _LobbyPageState extends State<LobbyPage> {
               return _buildLobbyView(context, cached.lobby);
             }
             if (cached is LobbyUpdatedRealtime) {
+              return _buildLobbyView(context, cached.lobby);
+            }
+            if (cached is LobbyReadyStatusChanged) {
+              // Cache fallback cho trường hợp LobbyFailure sau khi user đã
+              // bấm ready → vẫn giữ lobby data cũ để hiển thị thay vì shimmer.
               return _buildLobbyView(context, cached.lobby);
             }
             if (cached is LobbyEnded) {
@@ -593,7 +640,9 @@ class _LobbyPageState extends State<LobbyPage> {
               ? state.lobby
               : state is LobbyUpdatedRealtime
                   ? state.lobby
-                  : null;
+                  : state is LobbyReadyStatusChanged
+                      ? state.lobby
+                      : null;
 
           if (lobby == null) return const LobbyLoadingScaffold();
           _loadChatMessages();
@@ -713,6 +762,72 @@ class _LobbyPageState extends State<LobbyPage> {
     await widget.lobbyCubit.dissolveLobby(lobby.id);
   }
 
+  /// Auto-redirect sang [InGameSessionPage] khi reservation chuyển sang
+  /// trạng thái `checkedIn` (BR §21A.7).
+  ///
+  /// Mỗi reservation ID chỉ redirect tối đa 1 lần để tránh navigate
+  /// nhiều lần khi `LobbyReservationCubit` poll liên tục mỗi 15s.
+  ///
+  /// Nếu user đã rời page (không còn mounted), bỏ qua.
+  void _maybeAutoRedirectToInGame(res.ReservationEntity reservation) {
+    if (_autoRedirectReservationId == reservation.id) return;
+    if (reservation.id.isEmpty) return;
+    if (reservation.status != res.ReservationStatus.checkedIn) return;
+
+    _autoRedirectReservationId = reservation.id;
+
+    if (!mounted) return;
+
+    // Lấy lobby hiện tại từ state để truyền `cafeName`/`gameName`/`tableNumber`
+    // vào InGameSessionPageArgs. Fallback về reservation fields nếu state
+    // chưa sẵn sàng.
+    final lobbyEntity = (_lastGoodLobbyState is LobbyCreated)
+        ? (_lastGoodLobbyState as LobbyCreated).lobby
+        : (_lastGoodLobbyState is LobbyUpdatedRealtime)
+            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby
+            : null;
+
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      LobbyRoutes.inGameSession,
+      arguments: InGameSessionPageArgs(
+        bookingId: reservation.id,
+        cafeName: lobbyEntity?.cafeName ?? reservation.cafeName,
+        gameName: lobbyEntity?.gameName ?? reservation.gameName,
+        tableNumber: 1, // tableNumber gán từ POS khi staff check-in
+        // skipCheckIn = true vì reservation đã ở trạng thái checkedIn.
+        // Nếu để false, InGameCubit.checkIn sẽ re-trigger API không cần
+        // thiết — gây latency + chance duplicate session.
+        skipCheckIn: true,
+      ),
+    );
+  }
+
+  /// Navigate sang InGameSessionPage khi user bấm sticky banner
+  /// "Mở màn hình đang chơi" (chỉ hiện khi lobby.status == inProgress).
+  ///
+  /// Ưu tiên dùng `reservation.id` từ `LobbyReservationLoaded` (nếu có)
+  /// — đây là cái gốc được backend dùng cho ActiveSession lookup.
+  void _navigateToInGameFromBanner(LobbyEntity lobby) {
+    final reservationCubit = context.read<LobbyReservationCubit>();
+    final reservationState = reservationCubit.state;
+    final reservation = reservationState is LobbyReservationLoaded
+        ? reservationState.reservation
+        : null;
+
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      LobbyRoutes.inGameSession,
+      arguments: InGameSessionPageArgs(
+        bookingId: reservation?.id ?? lobby.reservationId ?? lobby.id,
+        cafeName: lobby.cafeName,
+        gameName: lobby.gameName,
+        tableNumber: 1,
+        // Skip check-in API — reservation đã checkedIn hoặc backend sẽ
+        // tự xử lý nếu chưa.
+        skipCheckIn: true,
+      ),
+    );
+  }
+
   Widget _buildLobbyView(BuildContext context, LobbyEntity lobby) {
     final theme = Theme.of(context);
     final isHost = lobby.hostId == (_currentUserId ?? '');
@@ -734,16 +849,41 @@ class _LobbyPageState extends State<LobbyPage> {
             ),
           ),
 
-          // ── Hero Header (đã có nút "Xem chi tiết" + mã mời) ────
+          // ── Hero Header ────────────────────────────────────────────────
+          // Khi lobby ready (viable/full), header hiển thị QR mini của
+          // reservation ở góc phải (thay cho nút "Xem chi tiết") — liền
+          // mạch với flow check-in. Wrap trong BlocBuilder để QR cập nhật
+          // ngay khi reservation state đổi (vd: từ Holding → Confirmed).
           SliverToBoxAdapter(
-            child: LobbyHeroHeader(
-              lobby: lobby,
-              theme: theme,
-              onShowDetails: () => _showLobbyDetails(context, lobby),
-              onShareInviteCode: () =>
-                  _shareInviteCode(context, lobby.inviteCode),
+            child: BlocBuilder<LobbyReservationCubit, LobbyReservationState>(
+              builder: (context, reservationState) {
+                final reservation = reservationState is LobbyReservationLoaded
+                    ? reservationState.reservation
+                    : null;
+                return LobbyHeroHeader(
+                  lobby: lobby,
+                  theme: theme,
+                  reservation: reservation,
+                  onShowDetails: () => _showLobbyDetails(context, lobby),
+                  onShareInviteCode: () =>
+                      _shareInviteCode(context, lobby.inviteCode),
+                  onShowFullScreenQr: () => _showQrFullScreen(context, reservation),
+                );
+              },
             ),
           ),
+
+          // ── In-Progress CTA Banner (BR §21A.7) ─────────────────────
+          // Khi lobby.status == inProgress và reservation.status ==
+          // checkedIn, hiển thị sticky banner "Mở màn hình đang chơi" để
+          // user 1 chạm vào phiên chơi thay vì phải scroll tìm button.
+          if (lobby.status == LobbyStatus.inProgress)
+            SliverToBoxAdapter(
+              child: _InProgressEnterCtaBanner(
+                lobby: lobby,
+                onTap: () => _navigateToInGameFromBanner(lobby),
+              ),
+            ),
 
           // ── Phase A: Status strip (badge + check-in section) ─────
           // Đã bỏ countdown `ScheduledTimeCountdown` — lobby giờ chỉ
@@ -853,6 +993,122 @@ class _LobbyPageState extends State<LobbyPage> {
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => LobbyDetailsSheet(lobby: lobby),
+    );
+  }
+
+  /// Mở full-screen QR code của reservation — dùng khi user bấm vào
+  /// QR mini badge ở hero header. Delegate xuống [LobbyCheckInSection]
+  /// helper để tránh duplicate logic.
+  void _showQrFullScreen(
+    BuildContext context,
+    res.ReservationEntity? reservation,
+  ) {
+    // Tính payload ở đây fallback giống [_qrPayload] của LobbyHeroHeader —
+    // ưu tiên reservation.id, fallback lobby.reservationId, cuối cùng
+    // lobby.id. Đảm bảo full-screen QR luôn mở được kể cả khi
+    // LobbyReservationCubit chưa load xong.
+    final reservationId = _lastGoodLobbyState is LobbyCreated
+        ? (_lastGoodLobbyState as LobbyCreated).lobby.reservationId
+        : _lastGoodLobbyState is LobbyUpdatedRealtime
+            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby.reservationId
+            : null;
+    final fallback = _lastGoodLobbyState is LobbyCreated
+        ? (_lastGoodLobbyState as LobbyCreated).lobby
+        : _lastGoodLobbyState is LobbyUpdatedRealtime
+            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby
+            : null;
+    final code = reservation?.lobbyShareCode ??
+        reservation?.id ??
+        reservationId ??
+        fallback?.id ??
+        '';
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa có mã QR — vui lòng đợi lobby load xong.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (reservation != null) {
+      LobbyCheckInSection.showQrFullScreenPublic(
+        context: context,
+        reservation: reservation,
+      );
+    } else {
+      // Inline full-screen QR khi reservation detail chưa load.
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          opaque: false,
+          barrierColor: Colors.black87,
+          pageBuilder: (_, _, _) => _FallbackQrFullScreen(code: code),
+        ),
+      );
+    }
+  }
+}
+
+class _FallbackQrFullScreen extends StatelessWidget {
+  final String code;
+  const _FallbackQrFullScreen({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      QrImageView(
+                        data: code,
+                        version: QrVersions.auto,
+                        size: 280,
+                        backgroundColor: Colors.white,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        code,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Chạm vào màn hình để đóng',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -990,6 +1246,178 @@ class InviteButton extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sticky banner "Mở màn hình đang chơi" — BR §21A.7 + UX spec.
+///
+/// Hiển thị ngay dưới LobbyHeroHeader khi `lobby.status == inProgress`.
+/// Mục tiêu: giảm friction — user không phải scroll xuống cuối trang
+/// để tìm nút "Vào phiên chơi" trong LobbyCheckInSection. Một chạm là
+/// vào phiên chơi.
+///
+/// Style: neo-brutalism filled gradient (primary → primaryLight) với
+/// pulse animation nhẹ ở dot indicator để báo "active".
+class _InProgressEnterCtaBanner extends StatefulWidget {
+  final LobbyEntity lobby;
+  final VoidCallback onTap;
+
+  const _InProgressEnterCtaBanner({
+    required this.lobby,
+    required this.onTap,
+  });
+
+  @override
+  State<_InProgressEnterCtaBanner> createState() =>
+      _InProgressEnterCtaBannerState();
+}
+
+class _InProgressEnterCtaBannerState extends State<_InProgressEnterCtaBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.55, end: 1.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary, AppColors.primaryLight],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.5),
+                  blurRadius: 0,
+                  offset: const Offset(4, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.sports_esports_rounded,
+                      color: AppColors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          FadeTransition(
+                            opacity: _pulse,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppColors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          const Text(
+                            'ĐANG CHƠI',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Mở màn hình đang chơi',
+                        style: TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${widget.lobby.cafeName} • Bàn của bạn',
+                        style: TextStyle(
+                          color: AppColors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: AppColors.white,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

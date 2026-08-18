@@ -19,6 +19,21 @@ class TournamentRepositoryImpl implements TournamentRepository {
   TournamentRepositoryImpl({required this._remoteDatasource});
 
   @override
+  Future<Either<Failure, List<TournamentEntity>>> getTournamentsByStatus({
+    String? status,
+  }) async {
+    try {
+      final models = await _remoteDatasource.getTournamentsByStatus(status);
+      final entities = models.map((m) => m.toEntity()).toList();
+      return Right(entities);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Unexpected error: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<TournamentEntity>>> getOpenTournaments({
     String? gameTemplateId,
   }) async {

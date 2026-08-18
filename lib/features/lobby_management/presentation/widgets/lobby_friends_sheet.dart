@@ -6,7 +6,7 @@ import 'package:boardverse/features/lobby_management/presentation/widgets/lobby_
 import 'package:boardverse/features/lobby_management/presentation/widgets/online_friends_list.dart';
 
 /// Bottom sheet mời bạn bè vào lobby.
-class FriendsSheet extends StatelessWidget {
+class FriendsSheet extends StatefulWidget {
   final LobbyState state;
   final void Function(FriendEntity) onInvite;
   final void Function(FriendEntity) onAdd;
@@ -30,10 +30,28 @@ class FriendsSheet extends StatelessWidget {
     this.invitedFriendIds = const <String>{},
   });
 
-  List<FriendEntity> get _friends => state is LobbyFriendsLoaded
-      ? (state as LobbyFriendsLoaded).friends
-      : state is LobbySimulateFriendsLoaded
-          ? (state as LobbySimulateFriendsLoaded).friends
+  @override
+  State<FriendsSheet> createState() => FriendsSheetState();
+}
+
+class FriendsSheetState extends State<FriendsSheet> {
+  /// Local state để track các friendId đã mời trong session hiện tại.
+  /// Dùng setState để rebuild UI ngay lập tức khi invite thành công
+  /// thay vì phải reload từ parent.
+  final Set<String> _localInvitedIds = {};
+
+  /// Merge giữa initial invitedFriendIds (từ server/state) và local session invites.
+  Set<String> get allInvitedIds => {...widget.invitedFriendIds, ..._localInvitedIds};
+
+  /// Gọi khi invite thành công — cập nhật local state và rebuild UI.
+  void markAsInvited(String friendId) {
+    setState(() => _localInvitedIds.add(friendId));
+  }
+
+  List<FriendEntity> get _friends => widget.state is LobbyFriendsLoaded
+      ? (widget.state as LobbyFriendsLoaded).friends
+      : widget.state is LobbySimulateFriendsLoaded
+          ? (widget.state as LobbySimulateFriendsLoaded).friends
           : const <FriendEntity>[];
 
   @override
@@ -64,7 +82,7 @@ class FriendsSheet extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  if (showDevBadge) ...[
+                  if (widget.showDevBadge) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.xs,
@@ -86,7 +104,7 @@ class FriendsSheet extends StatelessWidget {
                   ],
                   Expanded(
                     child: Text(
-                      showDevBadge
+                      widget.showDevBadge
                           ? 'Thêm bạn bè (Giả lập)'
                           : 'Mời bạn bè vào phòng',
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -97,7 +115,7 @@ class FriendsSheet extends StatelessWidget {
                   IconButton(
                     tooltip: 'Đóng',
                     icon: const Icon(AppIcons.close),
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                   ),
                 ],
               ),
@@ -107,8 +125,11 @@ class FriendsSheet extends StatelessWidget {
               child: OnlineFriendsList(
                 friends: _friends,
                 controller: controller,
-                invitedFriendIds: invitedFriendIds,
-                onInvite: onInvite,
+                invitedFriendIds: allInvitedIds,
+                onInvite: (friend) {
+                  // Gọi callback gốc để xử lý API
+                  widget.onInvite(friend);
+                },
               ),
             ),
           ],

@@ -11,6 +11,18 @@ import '../entities/tournament_spectator_entity.dart';
 
 /// Abstract repository interface for tournament operations.
 abstract class TournamentRepository {
+  /// Lấy giải theo status.
+  ///
+  /// Gọi `GET /tournaments?status=X`. Dùng để fetch từng nhóm giải
+  /// (RegistrationClosed, OnGoing, Completed, Cancelled) thay thế cho
+  /// `/my-registrations?status=`. Endpoint này trả về đầy đủ thông tin
+  /// giải (`TournamentEntity`) thay vì flat shape.
+  ///
+  /// Để trống `status` hoặc truyền `"all"` → tất cả giải.
+  Future<Either<Failure, List<TournamentEntity>>> getTournamentsByStatus({
+    String? status,
+  });
+
   /// Lấy danh sách giải Splendor đang mở đăng ký.
   /// Backend filter theo `Status = RegistrationOpen`, deadline chưa qua,
   /// còn slot. Theo docs chỉ có endpoint `/open` (không có `/upcoming`).

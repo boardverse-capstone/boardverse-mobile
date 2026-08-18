@@ -116,11 +116,11 @@ class CafeDetailModel {
       // Pricing
       billingModel: _parseBillingModel(json['billingModel'] as String?),
       basePrice: ((json['basePrice'] as num?) ?? 0).toDouble(),
-      tieredBlockMinutes: json['tieredBlockMinutes'] as int?,
+      tieredBlockMinutes: _parseInt(json['tieredBlockMinutes']),
       isPricingLocked: json['isPricingLocked'] as bool? ?? false,
       hasSePayConfigured: json['hasSePayConfigured'] as bool? ?? false,
       // Capacity
-      totalSeats: json['totalSeats'] as int?,
+      totalSeats: _parseInt(json['totalSeats']),
       // Operational
       operationalStatus: _parseOperationalStatus(
           json['operationalStatus'] as String?),
@@ -132,12 +132,12 @@ class CafeDetailModel {
       // Deposit
       depositPercentage:
           ((json['depositPercentage'] as num?) ?? 0).toDouble(),
-      depositRatePerPerson: (json['depositRatePerPerson'] as int?) ?? 0,
-      minDeposit: json['minDeposit'] as int?,
+      depositRatePerPerson: _parseInt(json['depositRatePerPerson']) ?? 0,
+      minDeposit: _parseInt(json['minDeposit']),
       // Capacity (live)
-      availableSeats: (json['availableSeats'] as int?) ?? 0,
-      heldSeats: (json['heldSeats'] as int?) ?? 0,
-      inUseSeats: (json['inUseSeats'] as int?) ?? 0,
+      availableSeats: _parseInt(json['availableSeats']) ?? 0,
+      heldSeats: _parseInt(json['heldSeats']) ?? 0,
+      inUseSeats: _parseInt(json['inUseSeats']) ?? 0,
       availableSeatsByTimeSlot: _parseTimeSlots(
           json['availableSeatsByTimeSlot'] as Map<String, dynamic>?),
       // Config
@@ -146,13 +146,28 @@ class CafeDetailModel {
       scheduleOverrides:
           (json['scheduleOverrides'] as List?)?.cast<String>() ?? const [],
       // Amenities
-      numberOfTables: (json['numberOfTables'] as int?) ?? 0,
-      numberOfPrivateRooms: (json['numberOfPrivateRooms'] as int?) ?? 0,
-      numberOfGamesOwned: (json['numberOfGamesOwned'] as int?) ?? 0,
+      numberOfTables: _parseInt(json['numberOfTables']) ?? 0,
+      numberOfPrivateRooms: _parseInt(json['numberOfPrivateRooms']) ?? 0,
+      numberOfGamesOwned: _parseInt(json['numberOfGamesOwned']) ?? 0,
       hasGameMaster: json['hasGameMaster'] as bool? ?? false,
       // Distance
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
+  }
+
+  /// Safely parse an int from any JSON value, returning null if the value
+  /// is not a valid int (e.g., a Map, List, or unexpected type).
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    // Handle case where backend returns a Map instead of int (API mismatch)
+    if (value is Map) return null;
+    if (value is List) return null;
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 
   static BillingModel _parseBillingModel(String? raw) {
@@ -197,9 +212,8 @@ class CafeDetailModel {
         .whereType<Map<String, dynamic>>()
         .map(
           (m) => RefundTierEntity(
-            minHoursBeforeScheduled:
-                (m['minHoursBeforeScheduled'] as int?) ?? 0,
-            refundPercent: (m['refundPercent'] as int?) ?? 0,
+            minHoursBeforeScheduled: _parseInt(m['minHoursBeforeScheduled']) ?? 0,
+            refundPercent: _parseInt(m['refundPercent']) ?? 0,
           ),
         )
         .toList();
@@ -218,28 +232,28 @@ class CafeDetailModel {
   static CafeConfigEntity? _parseCafeConfig(Map<String, dynamic>? raw) {
     if (raw == null) return null;
     return CafeConfigEntity(
-      capacity: (raw['capacity'] as int?) ?? 0,
+      capacity: _parseInt(raw['capacity']) ?? 0,
       maxLobbiesPerUserPerDay:
-          (raw['maxLobbiesPerUserPerDay'] as int?) ?? 1,
+          _parseInt(raw['maxLobbiesPerUserPerDay']) ?? 1,
       maxPlayersPerLobbySameDay:
-          (raw['maxPlayersPerLobbySameDay'] as int?) ?? 0,
-      maxPlayersPerLobby1Day: (raw['maxPlayersPerLobby1Day'] as int?) ?? 0,
+          _parseInt(raw['maxPlayersPerLobbySameDay']) ?? 0,
+      maxPlayersPerLobby1Day: _parseInt(raw['maxPlayersPerLobby1Day']) ?? 0,
       maxPlayersPerLobby2Days:
-          (raw['maxPlayersPerLobby2Days'] as int?) ?? 0,
+          _parseInt(raw['maxPlayersPerLobby2Days']) ?? 0,
       maxPlayersPerLobby3To4Days:
-          (raw['maxPlayersPerLobby3To4Days'] as int?) ?? 0,
+          _parseInt(raw['maxPlayersPerLobby3To4Days']) ?? 0,
       maxPlayersPerLobby5To7Days:
-          (raw['maxPlayersPerLobby5To7Days'] as int?) ?? 0,
+          _parseInt(raw['maxPlayersPerLobby5To7Days']) ?? 0,
       requireApprovalForDistant:
           raw['requireApprovalForDistant'] as bool? ?? false,
-      distantThresholdDays: (raw['distantThresholdDays'] as int?) ?? 0,
-      approvalTimeoutHours: (raw['approvalTimeoutHours'] as int?) ?? 0,
+      distantThresholdDays: _parseInt(raw['distantThresholdDays']) ?? 0,
+      approvalTimeoutHours: _parseInt(raw['approvalTimeoutHours']) ?? 0,
       maxTotalDepositPerUser:
-          (raw['maxTotalDepositPerUser'] as int?) ?? 0,
+          _parseInt(raw['maxTotalDepositPerUser']) ?? 0,
       recruitmentDeadlineBufferMinutes:
-          (raw['recruitmentDeadlineBufferMinutes'] as int?) ?? 0,
+          _parseInt(raw['recruitmentDeadlineBufferMinutes']) ?? 0,
       cancellationGraceMinutes:
-          (raw['cancellationGraceMinutes'] as int?) ?? 0,
+          _parseInt(raw['cancellationGraceMinutes']) ?? 0,
     );
   }
 

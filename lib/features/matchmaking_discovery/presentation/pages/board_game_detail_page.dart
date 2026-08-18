@@ -36,7 +36,12 @@ class BoardGameDetailPage extends StatefulWidget {
 }
 
 class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
-  MatchmakingState? _lastDetailState;
+  /// Cached snapshot của state detail gần nhất — dùng làm fallback khi
+  /// cubit chuyển sang state không thuộc trách nhiệm của trang này (VD:
+  /// [MatchmakingNearbyCafesLoaded] do người dùng vừa pop về từ
+  /// [LobbyCafeSelectionPage]). Trước đây trang rơi vào `SizedBox.shrink()`
+  /// → màn hình trắng; giờ render lại UI dùng data cached để UX mượt hơn.
+  MatchmakingGameDetail? _lastDetailState;
   late final ScrollController _scrollController;
 
   @override
@@ -95,31 +100,39 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                 return _buildGameDetailView(context, state);
               }
 
-              if (state is MatchmakingPlayNavigationResolving &&
-                  _lastDetailState != null) {
-                final lastDetail =
-                    _lastDetailState as MatchmakingGameDetail;
-                return Stack(
-                  children: [
-                    _buildGameDetailView(context, lastDetail),
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: AppColors.black.withValues(alpha: 0.4),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: CircularProgressIndicator(strokeWidth: 3),
+              if (state is MatchmakingPlayNavigationResolving) {
+                if (_lastDetailState != null) {
+                  return Stack(
+                    children: [
+                      _buildGameDetailView(context, _lastDetailState!),
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: AppColors.black.withValues(alpha: 0.4),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
+                    ],
+                  );
+                }
+                return const BoardGameDetailShimmer();
               }
 
-              if (state is MatchmakingPlayNavigationResolving) {
-                return const BoardGameDetailShimmer();
+              // Fallback cho các state cubit không thuộc trách nhiệm của
+              // trang này (VD: player vừa pop về từ
+              // [LobbyCafeSelectionPage] mà cubit vẫn giữ
+              // [MatchmakingNearbyCafesLoaded]). Trước đây trang rơi vào
+              // `SizedBox.shrink()` → màn hình trắng. Giờ dùng lại data
+              // detail đã cache để render lại UI đúng ngữ cảnh "đang xem
+              // boardgame X" thay vì flash màn hình trắng.
+              final cachedDetail = _lastDetailState;
+              if (cachedDetail != null && state is! MatchmakingInitial) {
+                return _buildGameDetailView(context, cachedDetail);
               }
 
               return const SizedBox.shrink();

@@ -102,4 +102,38 @@ abstract class ReservationRepository {
     required bool approve,
     String? reason,
   });
+
+  /// Cancel reservation sau khi đã check-in (BR-REFUND-04/05)
+  ///
+  /// Áp dụng refund theo playedRatio:
+  /// - playedRatio < 50%: 0% hoàn (forfeit 100%)
+  /// - playedRatio >= 50%: 30% hoàn
+  /// - playedRatio >= 90%: treated as on-time (0% hoàn)
+  Future<Either<Failure, ReservationCancelAfterCheckinResult>>
+      cancelAfterCheckin({
+    required String reservationId,
+    String? reason,
+    required String idempotencyKey,
+  });
+
+  /// Kiểm tra xem có thể extend reservation không (BR-EXT-01..05)
+  ///
+  /// [extensionMinutes] - số phút muốn extend (1-120)
+  /// Trả về thông tin về khả năng extend và thời gian mới
+  Future<Either<Failure, ExtendAvailabilityResult>> checkExtendAvailability({
+    required String reservationId,
+    required int extensionMinutes,
+  });
+
+  /// Check-in bằng QR code (POS)
+  ///
+  /// [reservationCode] - mã 8-char alphanumeric từ QR code
+  /// [cafeId] - CafeId của POS staff đang quét
+  /// [activeSessionId] - POS session ID
+  Future<Either<Failure, CheckInByCodeResult>> checkInByCode({
+    required String reservationCode,
+    required String cafeId,
+    required String activeSessionId,
+    required String idempotencyKey,
+  });
 }

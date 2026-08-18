@@ -46,9 +46,10 @@ class MockProfileRepository implements ProfileRepository {
     stubs['getLocation'] = result;
   }
 
-  void stubUpdateLocation(Either<Failure, PlayerLocationEntity> result) {
-    stubs['updateLocation'] = result;
-  }
+void stubUpdateLocation(
+    Either<Failure, (PlayerLocationEntity, String?)> result) {
+  stubs['updateLocation'] = result;
+}
 
   void stubDeleteLocation(Either<Failure, void> result) {
     stubs['deleteLocation'] = result;
@@ -104,12 +105,13 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<Either<Failure, PlayerLocationEntity>> updateLocation({
+  Future<Either<Failure, (PlayerLocationEntity, String?)>> updateLocation({
     required double latitude,
     required double longitude,
     required int source,
   }) async {
-    return stubs['updateLocation'] as Either<Failure, PlayerLocationEntity>;
+    return stubs['updateLocation']
+        as Either<Failure, (PlayerLocationEntity, String?)>;
   }
 
   @override
@@ -345,14 +347,34 @@ void main() {
 
   group('updateLocation', () {
     blocTest<ProfileCubit, ProfileState>(
-      'emits [ProfileLocationLoaded] on success',
+      'emits [ProfileLocationLoaded] on success với message từ backend',
       build: () {
-        repository.stubUpdateLocation(Right(_mockLocation));
+        repository.stubUpdateLocation(
+          Right((_mockLocation, 'Cập nhật vị trí hiện tại thành công.')),
+        );
         return cubit;
       },
       act: (c) =>
           c.updateLocation(latitude: 10.7769, longitude: 106.7008, source: 0),
-      expect: () => [ProfileLocationLoaded(location: _mockLocation)],
+      expect: () => [
+        ProfileLocationLoaded(
+          location: _mockLocation,
+          message: 'Cập nhật vị trí hiện tại thành công.',
+        ),
+      ],
+    );
+
+    blocTest<ProfileCubit, ProfileState>(
+      'emits [ProfileLocationLoaded] thành công nhưng message = null vẫn OK',
+      build: () {
+        repository.stubUpdateLocation(Right((_mockLocation, null)));
+        return cubit;
+      },
+      act: (c) =>
+          c.updateLocation(latitude: 10.7769, longitude: 106.7008, source: 0),
+      expect: () => [
+        ProfileLocationLoaded(location: _mockLocation, message: null),
+      ],
     );
   });
 

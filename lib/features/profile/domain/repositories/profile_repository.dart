@@ -40,7 +40,11 @@ abstract class ProfileRepository {
   Future<Either<Failure, PlayerLocationEntity>> getLocation();
 
   /// PUT /api/userprofile/me/location
-  Future<Either<Failure, PlayerLocationEntity>> updateLocation({
+  ///
+  /// Trả về cặp `(entity, successMessage)` — `successMessage` là message
+  /// backend kèm theo (VD: "Cập nhật vị trí hiện tại thành công.") để UI
+  /// hiển thị thẳng toast cho user, tránh tự hardcode text ở client.
+  Future<Either<Failure, (PlayerLocationEntity, String?)>> updateLocation({
     required double latitude,
     required double longitude,
     required int source,

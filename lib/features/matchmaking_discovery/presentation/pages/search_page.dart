@@ -554,15 +554,32 @@ class _SearchPageState extends State<SearchPage>
                           const EdgeInsets.only(bottom: AppSpacing.md),
                       child: CafeSearchCard(
                         cafe: cafe,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CafeDetailPage(
-                              cafeId: cafe.id,
-                              matchmakingCubit: widget.matchmakingCubit,
+                        onTap: () async {
+                          // Truyền query hiện tại để restore kết quả search
+                          // sau khi player back từ flow đặt chỗ.
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CafeDetailPage(
+                                cafeId: cafe.id,
+                                cafeEntity: cafe,
+                                matchmakingCubit: widget.matchmakingCubit,
+                                searchQuery: query.isEmpty ? null : query,
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                          // Khi player back từ CafeDetailPage (sau khi đã
+                          // đi vào LobbyConfigPage), cubit state đã bị đổi
+                          // sang SearchResults cho games. Nếu trước đó
+                          // player đang search cafe, cần re-trigger để UI
+                          // hiển thị lại danh sách cafe.
+                          if (!mounted) return;
+                          if (_activeTab == SearchTab.cafes &&
+                              widget.matchmakingCubit.state
+                                  is! MatchmakingCafeSearchResults) {
+                            _triggerCafeSearch();
+                          }
+                        },
                       ),
                     );
                   },

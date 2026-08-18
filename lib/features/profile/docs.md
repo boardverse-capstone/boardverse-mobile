@@ -81,7 +81,7 @@ Toàn bộ state changes đi qua 3 pipelines:
 | `deleteProfile()` | `ProfileLoading → ProfileDeleted / ProfileFailure` | Soft-delete (logout) |
 | `updateAvatar(url)` | `ProfileLoading → ProfileLoaded / ProfileFailure` | Sau khi URL sinh ra từ Cloudinary |
 | `getLocation()` | `ProfileLocationLoaded / ProfileFailure` | Không emit Loading |
-| `updateLocation(...)` | `ProfileLocationLoaded / ProfileFailure` | Không emit Loading |
+| `updateLocation(...)` | `ProfileLocationLoaded(message từ backend) / ProfileFailure` | `message` từ `ApiResponse.message` được forward lên UI để show toast verbatim |
 | `deleteLocation()` | `ProfileLocationDeleted / ProfileFailure` | Không emit Loading |
 | `getKarmaHistory()` | `ProfileKarmaLoaded / ProfileFailure` | Không emit Loading |
 | `updateProgress(...)` | `ProfileLoaded / ProfileFailure` | Không emit Loading |

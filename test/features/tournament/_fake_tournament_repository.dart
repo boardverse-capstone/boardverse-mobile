@@ -162,6 +162,14 @@ class FakeTournamentRepository implements TournamentRepository {
   }
 
   @override
+  Future<Either<Failure, List<TournamentEntity>>> getTournamentsByStatus({
+    String? status,
+  }) async {
+    if (failure != null) return Left(failure!);
+    return Right(openTournaments);
+  }
+
+  @override
   Future<Either<Failure, List<MyRegistrationEntry>>> getMyRegistrations({
     String? status,
   }) async {

@@ -143,6 +143,7 @@ class ReservationListView extends StatelessWidget {
       );
     }
 
+    // Wrap với RefreshIndicator để pull-to-refresh
     if (!scrollable) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,20 +151,31 @@ class ReservationListView extends StatelessWidget {
           if (showHeader) header(),
           if (showHeader) const SizedBox(height: AppSpacing.sm),
           Expanded(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: content(),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await context.read<ReservationListCubit>().refresh();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: content(),
+              ),
             ),
           ),
         ],
       );
     }
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       children: [
         if (showHeader) header(),
         if (showHeader) const SizedBox(height: AppSpacing.sm),
-        content(),
+        RefreshIndicator(
+          onRefresh: () async {
+            await context.read<ReservationListCubit>().refresh();
+          },
+          child: content(),
+        ),
         const SizedBox(height: AppSpacing.xl),
       ],
     );

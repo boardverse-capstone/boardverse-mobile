@@ -2790,6 +2790,152 @@
         }
       }
     },
+    "/api/v1/admin/configs/bypass-time-window": {
+      "post": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Bật bypass time-window toàn cục. Áp dụng trong vòng 10 giây cho mọi instance.\r\nDev/QA dùng để test các flow check-in / lobby / cancel / no-show mà không bị chặn bởi ràng buộc thời gian. [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Bypass đã bật."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Tắt bypass time-window toàn cục. Áp dụng trong vòng 10 giây cho mọi instance. [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Bypass đã tắt."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Xem trạng thái bypass time-window hiện tại. [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Trạng thái bypass hiện tại."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/configs/demo-loosen-lobby-constraints": {
+      "post": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Bật demo mode toàn cục: nới lỏng BR-USER-LIMIT-01/04/05, BR-LOBBY-01a/b (buffer 60/120 phút), BR-NEW-05 (max 5 tạo/hủy / playDate), BR-CHECKIN-01 (early grace 15 phút).\r\nCache invalidate ngay, áp dụng cho mọi instance trong vòng 10 giây.\r\nCHỈ bật trên Neon testing branch (`br-sparkling-salad-aota3n5d`), KHÔNG bật production (`br-hidden-shadow-aoqtn6su`). [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Demo mode đã bật."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Tắt demo mode toàn cục. Trở về hành vi production (áp dụng đầy đủ BR-USER-LIMIT / BR-LOBBY-01 / BR-NEW-05 / BR-CHECKIN-01). [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Demo mode đã tắt."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Xem trạng thái demo mode hiện tại. [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Trạng thái demo mode hiện tại."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/configs/invalidate-cache": {
+      "post": {
+        "tags": [
+          "AdminConfiguration"
+        ],
+        "summary": "Invalidate cache cấu hình hệ thống ngay lập tức — áp dụng thay đổi cho mọi instance không cần đợi TTL 10s. [Role: Admin]",
+        "responses": {
+          "200": {
+            "description": "Cache đã được invalidate."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không có quyền Admin."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/admin/friend-reports": {
       "get": {
         "tags": [
@@ -7182,6 +7328,142 @@
         }
       }
     },
+    "/api/cafes/{cafeId}/reservations": {
+      "get": {
+        "tags": [
+          "Cafe"
+        ],
+        "summary": "Lấy danh sách reservation của 1 cafe cho Manager. [Role: Manager, CafeStaff]\r\nFilter theo status, playDate, có phân trang.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Statuses",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ReservationStatus"
+              }
+            }
+          },
+          {
+            "name": "PlayDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách reservation của cafe (phân trang)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager/staff của cafe."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/lobbies": {
+      "get": {
+        "tags": [
+          "Cafe"
+        ],
+        "summary": "Lấy danh sách lobby của 1 cafe cho Manager. [Role: Manager, CafeStaff]\r\nFilter theo status, playDate, có phân trang.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LobbyStatuses",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/LobbyStatus"
+              }
+            }
+          },
+          {
+            "name": "PlayDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách lobby của cafe (phân trang)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải manager/staff của cafe."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/cafes/{cafeId}/available-tables": {
       "get": {
         "tags": [
@@ -10525,7 +10807,7 @@
         "tags": [
           "DebugSessionPayment"
         ],
-        "summary": "Mock SePay webhook success cho 1 session — đẩy status Unpaid → Paid.\r\nSau khi gọi endpoint này, GET /api/v1/pos/sessions/{sessionId} sẽ thấy status=Paid.",
+        "summary": "Mock SePay webhook success cho 1 session — đẩy status Unpaid → Paid.\r\nSau khi gọi endpoint này, GET /api/v1/pos/sessions/{sessionId} sẽ thấy status=Paid.\r\n\r\nGAP-09 Fix: Gọi qua PaymentService.HandleSePayWebhookAsync thay vì update DB trực tiếp.\r\nTrước đây chỉ update Status → thiếu 6 side-effects (capture BVC, WalkInWindow,\r\nrelease table/box, close lobby, member invoices). Giờ giống flow thật 100%.",
         "parameters": [
           {
             "name": "sessionId",
@@ -11917,7 +12199,7 @@
         "tags": [
           "Lobby"
         ],
-        "summary": "Host giải tán lobby — hard delete toàn bộ records (Lobby + Members + Messages + Invites + Reports).\r\nChỉ host mới được gọi. Không áp dụng khi lobby đã check-in tại quán hoặc đã đóng/rating.\r\nGiải phóng reservation về Holding để host tạo lobby mới cùng slot. [Role: Player — chỉ Host]",
+        "summary": "Host giải tán lobby — soft delete (row vẫn còn để phục vụ audit + risk signals).\r\nTính refund BVC theo BR-REFUND-02/03 (grace 15p / 24h / 6h trước giờ chơi) + giải phóng\r\nSeatInventory/GameInventory atomic với status flip. Chỉ host mới được gọi. Không áp dụng\r\nkhi lobby đã check-in tại quán, đã đóng, hoặc đã terminal. [Role: Player — chỉ Host]",
         "parameters": [
           {
             "name": "lobbyId",
@@ -11952,7 +12234,7 @@
         },
         "responses": {
           "200": {
-            "description": "Phòng chờ đã giải tán."
+            "description": "Phòng chờ đã giải tán. Response có kèm RefundBvc/ForfeitBvc/RefundPolicyApplied."
           },
           "401": {
             "description": "Thiếu token."
@@ -11967,7 +12249,7 @@
             "description": "Phòng đã đóng hoặc đang trong phiên chơi, không thể giải tán."
           },
           "500": {
-            "description": "Lỗi hệ thống."
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       },
@@ -15368,6 +15650,68 @@
         }
       }
     },
+    "/api/v1/reservations/by-code/{reservationCode}/check-in": {
+      "post": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "BR §21A.7: POS scan QR check-in theo ReservationCode. [Role: Cafe Staff]\r\nEndpoint thay thế cho FE không biết reservationId, chỉ cần ReservationCode từ QR.\r\nAtomic transition Reservation.Status = Confirmed → CheckedIn, Lobby.Status = InProgress.\r\nIdempotent theo ReservationCode.",
+        "parameters": [
+          {
+            "name": "reservationCode",
+            "in": "path",
+            "description": "Mã 8-char alphanumeric từ QR code.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "CafeId, ActiveSessionId, TableNumber, IdempotencyKey.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInByCodeRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInByCodeRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInByCodeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Check-in thành công."
+          },
+          "400": {
+            "description": "Request không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải staff của cafe."
+          },
+          "404": {
+            "description": "Không tìm thấy reservation."
+          },
+          "409": {
+            "description": "Reservation không thuộc cafe hoặc đã check-in rồi."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/v1/reservations/{reservationId}/end": {
       "post": {
         "tags": [
@@ -16559,6 +16903,42 @@
         }
       }
     },
+    "/api/v1/system-configs/{key}": {
+      "get": {
+        "tags": [
+          "SystemConfigurationPublic"
+        ],
+        "summary": "Lấy 1 system config theo key. Trả về raw string value + parsed value (bool/int/double/string).\r\nAdmin endpoint — yêu cầu role Admin. Dùng để Admin/Dev/QA verify nhanh các flag runtime. [Role: Admin]",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Config key, ví dụ: `demo_loosen_lobby_constraints`, `elo_k_factor`, `bypass_time_window_validations`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về raw value + parsed value + inferred type."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Đã đăng nhập nhưng không có role Admin."
+          },
+          "404": {
+            "description": "Key không tồn tại trong DB."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/manager/time-slots/defaults": {
       "get": {
         "tags": [
@@ -17331,6 +17711,38 @@
         "responses": {
           "200": {
             "description": "Danh sách giải đang mở đăng ký."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/tournaments": {
+      "get": {
+        "tags": [
+          "Tournament"
+        ],
+        "summary": "Lấy danh sách tournament với filter status optional. [Role: Player]\r\nNếu không truyền status hoặc truyền \"all\" → trả tất cả tournament (mọi status).\r\nFrontend dùng query param để tự hiển thị theo filter (Đang mở / Đang diễn ra / Đã kết thúc / Đã hủy, v.v.).",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Lọc theo TournamentStatus (Draft, RegistrationOpen, RegistrationClosed, OnGoing, Completed, Cancelled). Case-insensitive. Để trống hoặc \"all\" để lấy tất cả.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách tournament (đã filter nếu có status)."
+          },
+          "400": {
+            "description": "Status không hợp lệ."
           },
           "401": {
             "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
@@ -19172,6 +19584,69 @@
           },
           "409": {
             "description": "Round đã có matches — không thể reset."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/pos/tournaments/{tournamentId}/pairings/swap": {
+      "post": {
+        "tags": [
+          "TournamentPos"
+        ],
+        "summary": "Hoán đổi vị trí 2 người chơi giữa 2 bàn trong cùng round. [Role: Manager]",
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "path",
+            "description": "Mã giải đấu.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "RoundNumber: vòng cần hoán đổi (1-4).\r\nFromMatchNumber: số bàn chứa Player A.\r\nToMatchNumber: số bàn chứa Player B.\r\nPlayerAId, PlayerBId: UserId của 2 người cần hoán đổi.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapPairingRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapPairingRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapPairingRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hoán đổi thành công, trả về danh sách pairings mới."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Không phải chủ quán tạo tournament."
+          },
+          "404": {
+            "description": "Không tìm thấy giải đấu."
+          },
+          "409": {
+            "description": "Người chơi không có trong bàn được chỉ định."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -21460,6 +21935,12 @@
           "username": {
             "type": "string",
             "nullable": true
+          },
+          "phoneNumber": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -22454,6 +22935,10 @@
             "type": "integer",
             "format": "int32"
           },
+          "dissolvedFailures": {
+            "type": "integer",
+            "format": "int32"
+          },
           "generatedAt": {
             "type": "string",
             "format": "date-time"
@@ -22715,6 +23200,10 @@
             "format": "int32"
           },
           "expiredByCafeCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dissolvedCount": {
             "type": "integer",
             "format": "int32"
           }
@@ -24788,6 +25277,35 @@
         },
         "additionalProperties": false
       },
+      "CheckInByCodeRequestDto": {
+        "required": [
+          "activeSessionId",
+          "cafeId"
+        ],
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activeSessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tableNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CheckInRequestDto": {
         "required": [
           "barcode",
@@ -25999,7 +26517,8 @@
           "PendingCafeApproval",
           "RejectedByCafe",
           "ExpiredByCafe",
-          "Viable"
+          "Viable",
+          "Dissolved"
         ],
         "type": "string"
       },
@@ -27998,6 +28517,42 @@
         },
         "additionalProperties": false
       },
+      "SwapPairingRequestDto": {
+        "required": [
+          "playerAId",
+          "playerBId"
+        ],
+        "type": "object",
+        "properties": {
+          "roundNumber": {
+            "maximum": 4,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "fromMatchNumber": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "toMatchNumber": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "playerAId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playerBId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "SyncCafeTablesRequestDto": {
         "type": "object",
         "properties": {
@@ -29385,6 +29940,10 @@
     {
       "name": "Reservation",
       "description": "**FLOW A — RESERVATION (MỚI, BVC wallet)**. KHÔNG dùng IBookingRepository.\r\nAPI Reservation flow mới — Phase 2/3 (BR §21A.2..21A.6, §XXI-B.1).\r\nTheo rule `lobby-booking-deposit-bvc.mdc`:\r\n- POST /quote            : validate eligibility + tính cọc (idempotent, KHÔNG tạo row).\r\n- POST /confirm          : atomic transaction hold BVC + seat + game + tạo Reservation + Lobby.\r\n- POST /{id}/cancel      : host hủy theo BR-REFUND-02/03.\r\n- POST /{id}/cafe-approval: cafe duyệt lobby pending (BR-NEW-11).\r\n            \r\nEndpoint `POST /api/v1/lobbies` (LobbyController.CreateLobby) cũ đã bị chặn —\r\nlobby chỉ được tạo thông qua reservation flow."
+    },
+    {
+      "name": "SystemConfigurationPublic",
+      "description": "Admin endpoint để xem 1 system config theo key (read-only).\r\nHữu ích cho Admin/Dev/QA verify demo mode, bypass flag, elo_k_factor, v.v.\r\nKHÔNG expose write operations — đã có `AdminConfigurationController` cho PUT/DELETE.\r\nKHÔNG expose sensitive config (passwords, API keys, webhooks secret) ở production."
     },
     {
       "name": "TimeSlot",

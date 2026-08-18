@@ -155,6 +155,10 @@ class LobbyCardItem {
   /// Số BVC đã cọc — optional, chỉ bên reservation. > 0 mới hiện pill.
   final int depositBvc;
 
+  /// Mã reservation/lobby code 8 ký tự cho POS check-in.
+  /// Từ API response: `reservationCode` hoặc `lobbyShareCode`.
+  final String? code;
+
   const LobbyCardItem({
     required this.gameName,
     required this.cafeName,
@@ -166,6 +170,7 @@ class LobbyCardItem {
     required this.maxPlayers,
     this.timeSlotLabel,
     this.depositBvc = 0,
+    this.code,
   });
 }
 
@@ -313,23 +318,24 @@ class LobbyCardBase extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
 
-                  // Footer: Status pill + Players badge + (optional) Deposit
-                  Row(
+                  // Footer: Status pill + Players badge + (optional) Deposit + Code
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
                     children: [
                       LobbyStatusBadge(
                         variant: _toBadgeVariant(item.variant),
                         dense: true,
                       ),
-                      const SizedBox(width: AppSpacing.xs),
                       _PlayersBadge(
                         current: item.currentPlayers,
                         max: item.maxPlayers,
                         accent: accent,
                       ),
-                      if (item.depositBvc > 0) ...[
-                        const SizedBox(width: AppSpacing.xs),
+                      if (item.depositBvc > 0)
                         _DepositPill(deposit: item.depositBvc),
-                      ],
+                      if (item.code != null && item.code!.isNotEmpty)
+                        _CodePill(code: item.code!),
                     ],
                   ),
                 ],
@@ -752,6 +758,55 @@ class _DepositPill extends StatelessWidget {
   }
 }
 
+/// Code pill hiển thị mã reservation (8-char) cho POS check-in.
+class _CodePill extends StatelessWidget {
+  final String code;
+
+  const _CodePill({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.black,
+            blurRadius: 0,
+            offset: Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.qr_code,
+            size: 13,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            code,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: AppColors.primary,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Adapter factories ────────────────────────────────────────────────────
 
 /// Build `LobbyCardItem` từ LobbyEntity (cho tab Explore + tab Của tôi).
@@ -793,6 +848,9 @@ LobbyCardItem lobbyItemFromReservation(res.ReservationEntity r) {
     reservationStatus: r.status,
   );
 
+  // Lấy mã code từ lobbyShareCode hoặc reservationCode
+  final code = r.lobbyShareCode;
+
   return LobbyCardItem(
     gameName: r.gameName,
     cafeName: r.cafeName,
@@ -804,6 +862,7 @@ LobbyCardItem lobbyItemFromReservation(res.ReservationEntity r) {
     maxPlayers: r.maxPlayers,
     timeSlotLabel: r.timeSlot.displayName,
     depositBvc: r.finalDeposit,
+    code: code,
   );
 }
 

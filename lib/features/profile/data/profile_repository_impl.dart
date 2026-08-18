@@ -90,12 +90,12 @@ class ProfileRepositoryImpl implements ProfileRepository {
       );
 
   @override
-  Future<Either<Failure, PlayerLocationEntity>> updateLocation({
+  Future<Either<Failure, (PlayerLocationEntity, String?)>> updateLocation({
     required double latitude,
     required double longitude,
     required int source,
   }) =>
-      _guardEntity(
+      _guardEntityWithMessage(
         remoteDatasource.updateLocation(
           UpdateLocationRequestModel(
             latitude: latitude,
@@ -153,6 +153,36 @@ class ProfileRepositoryImpl implements ProfileRepository {
         );
       }
       return Right(extract(model));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on DioException catch (e) {
+      return Left(_mapDioException(e));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Lỗi đồng bộ dữ liệu: $e'));
+    }
+  }
+
+  /// Same as `_guardEntity` but also returns the backend's success message
+  /// from the `ApiResponse` envelope. Used by PUT endpoints where the
+  /// human-readable `message` should be shown verbatim to the user.
+  Future<Either<Failure, (T, String?)>> _guardEntityWithMessage<M, T>(
+    Future<ApiResponse<M>> remoteCall,
+    T Function(M model) extract,
+  ) async {
+    try {
+      final response = await remoteCall;
+      final model = response.data;
+      if (model == null) {
+        return const Left(
+          ServerFailure(message: 'API trả về dữ liệu rỗng.'),
+        );
+      }
+      // Backend luôn có `message` cho mọi response thành công. Trả về
+      // raw để UI dùng nguyên văn — không nhân bản / ràng buộc lại.
+      final successMessage = response.message.isNotEmpty
+          ? response.message
+          : null;
+      return Right((extract(model), successMessage));
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } on DioException catch (e) {
