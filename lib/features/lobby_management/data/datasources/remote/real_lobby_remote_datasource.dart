@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:boardverse/core/constants/api_endpoints.dart';
 import 'package:boardverse/core/error/failures.dart';
@@ -756,6 +757,10 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
         return LobbyStatus.open;
       case 'full':
         return LobbyStatus.full;
+      case 'waitingcheckin':
+      case 'waiting_check_in':
+      case 'waiting-check-in':
+        return LobbyStatus.waitingCheckIn;
       case 'inprogress':
       case 'in_progress':
       case 'in-progress':
@@ -932,6 +937,54 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
           .toList();
       return Right<Failure, List<LobbyEntity>>(items);
     } on DioException catch (e) {
+      return Left<Failure, List<LobbyEntity>>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, List<LobbyEntity>>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async {
+    try {
+      // BR-MEMBER-CLEANUP-01: backend `/my` đã tự filter lobby đã
+      // terminal (Closed / TimeoutFailed / HostCancelled / RejectedByCafe
+      // / ExpiredByCafe / Dissolved) khỏi response — không cần filter
+      // thêm client-side. Nếu backend trả 404 (chưa deploy endpoint),
+      // fallback về `getHostedLobbies + getJoinedLobbies` và filter tại
+      // client (defensive).
+      final res = await _dio.get<Map<String, dynamic>>(ApiEndpoints.lobbyMy);
+      final items = _unwrapList(res.data)
+          .whereType<Map<String, dynamic>>()
+          .map((json) => LobbyModel.fromJson(json).toEntity())
+          .toList();
+      return Right<Failure, List<LobbyEntity>>(items);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Endpoint chưa deploy — fallback sang hosted + joined.
+        debugPrint(
+          '[RealLobbyRemoteDS] /lobbies/my 404 → fallback hosted+joined',
+        );
+        try {
+          final hostedRes = await getHostedLobbies();
+          final joinedRes = await getJoinedLobbies();
+          final hosted = hostedRes.fold((_) => <LobbyEntity>[], (l) => l);
+          final joined = joinedRes.fold((_) => <LobbyEntity>[], (l) => l);
+          // Filter client-side defensive — chỉ giữ lobby còn active.
+          final filtered = [...hosted, ...joined]
+              .where((l) => l.status.isActive)
+              .toList();
+          // Dedup by id.
+          final byId = <String, LobbyEntity>{};
+          for (final l in filtered) {
+            byId[l.id] = l;
+          }
+          return Right<Failure, List<LobbyEntity>>(byId.values.toList());
+        } catch (_) {
+          return Left<Failure, List<LobbyEntity>>(_mapDioError(e));
+        }
+      }
       return Left<Failure, List<LobbyEntity>>(_mapDioError(e));
     } catch (e) {
       return Left<Failure, List<LobbyEntity>>(

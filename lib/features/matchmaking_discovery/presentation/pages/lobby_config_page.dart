@@ -130,7 +130,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
   /// không trả data — không phải single source of truth.
   ///
   /// Bao gồm cả `lateNight` (khớp với backend) — UI hiển thị 4 slot giống
-  /// quán mở 24/24. Khi user chọn `lateNight`, mapping sang `TimeSlot.night`
+  /// quán mở 24/24. Khi user chọn `lateNight`, mapping sang `TimeSlot.lateNight`
   /// (local enum) để gọi reservation API.
   static const List<TimeSlotOption> _fallbackSlotOptions = [
     TimeSlotOption(
@@ -155,7 +155,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       color: Colors.indigo,
     ),
     TimeSlotOption(
-      slot: TimeSlot.night,
+      slot: TimeSlot.lateNight,
       shortLabel: 'Khuya',
       timeRangeLabel: '23:00 - 06:00',
       icon: Icons.bedtime,
@@ -226,8 +226,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return const TimeOfDay(hour: 13, minute: 0);
       case TimeSlot.evening:
         return const TimeOfDay(hour: 18, minute: 0);
-      case TimeSlot.night:
-        return const TimeOfDay(hour: 19, minute: 0);
+      case TimeSlot.lateNight:
+        return const TimeOfDay(hour: 23, minute: 0);
     }
   }
 
@@ -241,8 +241,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return const TimeOfDay(hour: 18, minute: 0);
       case TimeSlot.evening:
         return const TimeOfDay(hour: 23, minute: 0);
-      case TimeSlot.night:
-        return const TimeOfDay(hour: 24, minute: 0);
+      case TimeSlot.lateNight:
+        return const TimeOfDay(hour: 6, minute: 0);
     }
   }
 
@@ -263,9 +263,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
 
   /// Map `TimeSlotKey` (server) sang `TimeSlot` (local enum).
   ///
-  /// Lưu ý: backend dùng `lateNight` (khuya) còn local enum dùng `night`.
-  /// Hai tên khác nhau nhưng cùng đại diện 1 slot thực tế — mapping này
-  /// đảm bảo reservation API nhận đúng `Night` (PascalCase) khi gửi quote.
+  /// BR-NEW-15: backend dùng `lateNight` (khuya). Local enum `TimeSlot` đã
+  /// được đổi từ `night` → `lateNight` để đồng bộ với backend —
+  /// mapping này giờ trả thẳng cùng tên.
   TimeSlot _toLocalSlot(TimeSlotKey key) {
     switch (key) {
       case TimeSlotKey.morning:
@@ -275,7 +275,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       case TimeSlotKey.evening:
         return TimeSlot.evening;
       case TimeSlotKey.lateNight:
-        return TimeSlot.night;
+        return TimeSlot.lateNight;
     }
   }
 
@@ -358,6 +358,18 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
+  /// Format `TimeOfDay` thành chuỗi `HH:mm:ss` theo ISO-8601 time format
+  /// mà `ReservationQuoteRequestDto` yêu cầu (swagger.json line 27829).
+  ///
+  /// BR-NEW-15 (2026-08-18): backend giờ parse giờ chơi từ
+  /// `preferredStartTime`/`preferredEndTime` (HH:mm:ss) thay vì enum
+  /// TimeSlot.
+  String _formatTimeOfDayAsHHMMSS(TimeOfDay time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
+
   String _formatBuffer(int minutes) {
     // Trường hợp ngày đã chọn nằm trong quá khứ
     if (minutes < 0) {
@@ -427,7 +439,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     if (pickedHour >= 9 && pickedHour < 13) return TimeSlot.morning;
     if (pickedHour >= 13 && pickedHour < 18) return TimeSlot.afternoon;
     if (pickedHour >= 18 && pickedHour < 23) return TimeSlot.evening;
-    return TimeSlot.night;
+    return TimeSlot.lateNight;
   }
 
   Future<void> _selectPreferredTime(BuildContext context) async {
@@ -529,8 +541,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return 'Chiều (13:00-18:00)';
       case TimeSlot.evening:
         return 'Tối (18:00-23:00)';
-      case TimeSlot.night:
-        return 'Khuya (19:00-24:00)';
+      case TimeSlot.lateNight:
+        return 'Khuya (23:00-06:00)';
     }
   }
 
@@ -542,7 +554,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return 'Chiều';
       case TimeSlot.evening:
         return 'Tối';
-      case TimeSlot.night:
+      case TimeSlot.lateNight:
         return 'Khuya';
     }
   }
@@ -555,17 +567,17 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return Icons.wb_cloudy;
       case TimeSlot.evening:
         return Icons.nights_stay;
-      case TimeSlot.night:
+      case TimeSlot.lateNight:
         return Icons.bedtime;
     }
   }
 
   Color _getSlotColor(TimeSlot slot, ColorScheme? colorScheme) {
     // Màu sắc là hardcode theo slot — không phụ thuộc theme vì đã được
-    // chọn tay để phân biệt trực quan giữa morning/afternoon/evening/late
-    // night trên cả light/dark mode. Theme chỉ truyền vào nếu caller muốn
-    // override (không dùng ở thời điểm hiện tại — giữ null-safe để gọi được
-    // từ `_loadDefaultTimeSlots` lúc build xong options).
+    // chọn tay để phân biệt trực quan giữa morning/afternoon/evening/
+    // lateNight trên cả light/dark mode. Theme chỉ truyền vào nếu caller
+    // muốn override (không dùng ở thời điểm hiện tại — giữ null-safe để
+    // gọi được từ `_loadDefaultTimeSlots` lúc build xong options).
     switch (slot) {
       case TimeSlot.morning:
         return Colors.orange;
@@ -573,7 +585,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
         return Colors.amber;
       case TimeSlot.evening:
         return Colors.indigo;
-      case TimeSlot.night:
+      case TimeSlot.lateNight:
         return Colors.deepPurple;
     }
   }
@@ -709,15 +721,13 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       cafeId: widget.cafeId,
       gameId: _currentGameId,
       playDate: _selectedDate,
-      timeSlot: _selectedTimeSlot,
-      preferredStartTime: _preferredStartTime != null
-          ? '${_preferredStartTime!.hour.toString().padLeft(2, '0')}:'
-              '${_preferredStartTime!.minute.toString().padLeft(2, '0')}:00'
-          : null,
-      preferredEndTime: _preferredEndTime != null
-          ? '${_preferredEndTime!.hour.toString().padLeft(2, '0')}:'
-              '${_preferredEndTime!.minute.toString().padLeft(2, '0')}:00'
-          : null,
+      // BR-NEW-15 (2026-08-18): backend chỉ nhận `preferredStartTime` +
+      // `preferredEndTime` (HH:mm:ss), KHÔNG nhận `timeSlot` nữa. Server
+      // tự resolve `timeSlot` từ cặp giờ này.
+      preferredStartTime: _formatTimeOfDayAsHHMMSS(_preferredStartTime ??
+          _getSlotStartTime(_selectedTimeSlot)),
+      preferredEndTime: _formatTimeOfDayAsHHMMSS(_preferredEndTime ??
+          _getSlotEndTime(_selectedTimeSlot)),
       minPlayers: 2,
       maxPlayers: _maxPlayers,
       isPrivate: !_isPublic,
@@ -757,15 +767,10 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       cafeId: widget.cafeId,
       gameId: _currentGameId,
       playDate: _selectedDate,
-      timeSlot: _selectedTimeSlot,
-      preferredStartTime: _preferredStartTime != null
-          ? '${_preferredStartTime!.hour.toString().padLeft(2, '0')}:'
-              '${_preferredStartTime!.minute.toString().padLeft(2, '0')}:00'
-          : null,
-      preferredEndTime: _preferredEndTime != null
-          ? '${_preferredEndTime!.hour.toString().padLeft(2, '0')}:'
-              '${_preferredEndTime!.minute.toString().padLeft(2, '0')}:00'
-          : null,
+      preferredStartTime: _formatTimeOfDayAsHHMMSS(_preferredStartTime ??
+          _getSlotStartTime(_selectedTimeSlot)),
+      preferredEndTime: _formatTimeOfDayAsHHMMSS(_preferredEndTime ??
+          _getSlotEndTime(_selectedTimeSlot)),
       minPlayers: 2,
       maxPlayers: _maxPlayers,
       isPrivate: !_isPublic,

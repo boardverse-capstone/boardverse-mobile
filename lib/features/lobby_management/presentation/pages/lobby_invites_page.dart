@@ -8,7 +8,7 @@ import '../cubit/lobby_invite_state.dart';
 import '../widgets/lobby_invite_card.dart';
 import '../widgets/lobby_list_shimmer.dart';
 
-class LobbyInvitesPage extends StatelessWidget {
+class LobbyInvitesPage extends StatefulWidget {
   final LobbyInviteCubit lobbyInviteCubit;
   final void Function(String lobbyId)? onJoinLobby;
 
@@ -19,29 +19,46 @@ class LobbyInvitesPage extends StatelessWidget {
   });
 
   @override
+  State<LobbyInvitesPage> createState() => _LobbyInvitesPageState();
+}
+
+class _LobbyInvitesPageState extends State<LobbyInvitesPage> {
+  /// Mỗi lần widget mount:
+  /// - Nếu cubit state đang là `LobbyInviteInitial` (chưa load lần nào) →
+  ///   trigger `loadPendingInvites()` để hiển thị danh sách ngay khi mở
+  ///   trang.
+  /// - Nếu state khác Initial (đã load từ trước — vd khi user back vào từ
+  ///   lobby detail rồi mở lại inbox) → giữ nguyên data, không refetch để
+  ///   tránh flash loading không cần thiết.
+  ///
+  /// Vì `BlocProvider.create: ... ..loadPendingInvites()` ở router chỉ
+  /// cascade gọi 1 lần duy nhất khi widget được mount, nhưng cubit singleton
+  /// có thể đã emit `Initial` do state bị reset khi 1 widget scope khác
+  /// (`LobbyHubActions` chẳng hạn) cũng trigger rebuild BlocProvider cùng
+  /// key → bloc vẫn provide cùng cubit instance với state Initial → user
+  /// phải bấm nút reload. Fix bằng cách check state ngay tại `initState`
+  /// của page để bảo đảm luôn fetch khi mở lần đầu.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Chỉ trigger khi cubit chưa có dữ liệu (state khác Loaded/ActionLoading
+      // thực sự có data). Tránh gọi lại khi state là Loaded thực sự (user đã
+      // load từ trước qua hub) → tránh flash shimmer không cần thiết.
+      final current = widget.lobbyInviteCubit.state;
+      if (current is LobbyInviteInitial || current is LobbyInviteEmpty) {
+        widget.lobbyInviteCubit.loadPendingInvites();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: lobbyInviteCubit,
+      value: widget.lobbyInviteCubit,
       child: BlocConsumer<LobbyInviteCubit, LobbyInviteState>(
-        listener: (context, state) {
-          // Tất cả thông báo accept/decline/cancel/error dùng top snackbar
-          // (slide-in từ đầu màn hình) để đồng bộ với design system + các
-          // flow khác trong app (vd: BookingRealtime, LobbyReservation,
-          // lobby share invite). Bottom SnackBar mặc định hay che nội
-          // dung quan trọng trong các sheet có scroll dọc.
-          if (state is LobbyInviteAccepted) {
-            context.showTopSnackBar('Đã tham gia phòng!');
-            onJoinLobby?.call(state.lobbyId);
-          } else if (state is LobbyInviteDeclined) {
-            context.showTopSnackBar('Đã từ chối lời mời');
-            lobbyInviteCubit.loadPendingInvites();
-          } else if (state is LobbyInviteCancelled) {
-            context.showTopSnackBar('Đã hủy lời mời');
-            lobbyInviteCubit.loadAllInvites();
-          } else if (state is LobbyInviteError) {
-            context.showTopSnackBar(state.message, isError: true);
-          }
-        },
+        listener: _onStateChanged,
         builder: (context, state) {
           return Scaffold(
             appBar: AppBar(
@@ -49,7 +66,7 @@ class LobbyInvitesPage extends StatelessWidget {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: () => lobbyInviteCubit.refresh(),
+                  onPressed: () => widget.lobbyInviteCubit.refresh(),
                 ),
               ],
             ),
@@ -58,6 +75,26 @@ class LobbyInvitesPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _onStateChanged(BuildContext context, LobbyInviteState state) {
+    // Tất cả thông báo accept/decline/cancel/error dùng top snackbar
+    // (slide-in từ đầu màn hình) để đồng bộ với design system + các
+    // flow khác trong app (vd: BookingRealtime, LobbyReservation,
+    // lobby share invite). Bottom SnackBar mặc định hay che nội
+    // dung quan trọng trong các sheet có scroll dọc.
+    if (state is LobbyInviteAccepted) {
+      context.showTopSnackBar('Đã tham gia phòng!');
+      widget.onJoinLobby?.call(state.lobbyId);
+    } else if (state is LobbyInviteDeclined) {
+      context.showTopSnackBar('Đã từ chối lời mời');
+      widget.lobbyInviteCubit.loadPendingInvites();
+    } else if (state is LobbyInviteCancelled) {
+      context.showTopSnackBar('Đã hủy lời mời');
+      widget.lobbyInviteCubit.loadAllInvites();
+    } else if (state is LobbyInviteError) {
+      context.showTopSnackBar(state.message, isError: true);
+    }
   }
 
   Widget _buildBody(BuildContext context, LobbyInviteState state) {
@@ -72,8 +109,15 @@ class LobbyInvitesPage extends StatelessWidget {
     if (state is LobbyInviteError && state.pendingInvites.isEmpty) {
       return _ErrorState(
         message: state.message,
-        onRetry: () => lobbyInviteCubit.loadPendingInvites(),
+        onRetry: () => widget.lobbyInviteCubit.loadPendingInvites(),
       );
+    }
+
+    // Xử lý `LobbyInviteInitial`: nếu cubit chưa load lần nào → hiển thị
+    // shimmer (chứ không phải EmptyState) để báo cho user biết đang load.
+    // Tránh trường hợp "lần đầu mở thấy trống trơn" gây hiểu nhầm.
+    if (state is LobbyInviteInitial) {
+      return const LobbyInvitesShimmer();
     }
 
     // Get invites from state
@@ -84,7 +128,7 @@ class LobbyInvitesPage extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () => lobbyInviteCubit.refresh(),
+      onRefresh: () => widget.lobbyInviteCubit.refresh(),
       child: ListView.builder(
         padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: invites.length,
@@ -92,7 +136,7 @@ class LobbyInvitesPage extends StatelessWidget {
           final invite = invites[index];
           final isLoading =
               state is LobbyInviteActionLoading &&
-              state.inviteId == invite.inviteId;
+                  state.inviteId == invite.inviteId;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -100,8 +144,10 @@ class LobbyInvitesPage extends StatelessWidget {
               invite: invite,
               isInvitee: true,
               isLoading: isLoading,
-              onAccept: () => lobbyInviteCubit.acceptInvite(invite.inviteId),
-              onDecline: () => lobbyInviteCubit.declineInvite(invite.inviteId),
+              onAccept: () =>
+                  widget.lobbyInviteCubit.acceptInvite(invite.inviteId),
+              onDecline: () =>
+                  widget.lobbyInviteCubit.declineInvite(invite.inviteId),
             ),
           );
         },

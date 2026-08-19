@@ -434,6 +434,24 @@ class _LoadedBody extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // BR-RISK-09 / BR-NEW-10: render riskMultiplier + warnings[] từ
+            // backend. UI chỉ hiển thị riskLevel (low/medium/high/critical),
+            // không hiển thị riskScore.
+            if (quote.riskMultiplier > 1.0 ||
+                quote.warnings.isNotEmpty) ...[
+              _WarningBanner(
+                riskLevel: quote.riskLevel,
+                riskMultiplier: quote.riskMultiplier,
+                warnings: quote.warnings,
+                baseDeposit: quote.baseDeposit,
+                depositRatePerPerson: quote.depositRatePerPerson,
+                minDepositApplied: quote.minDepositApplied,
+                bufferMinutes: quote.bufferMinutes,
+                bufferWarning: quote.bufferWarning,
+                bufferWarningText: quote.bufferWarningLevel.message,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -449,6 +467,17 @@ class _LoadedBody extends StatelessWidget {
                       'Cọc cần trừ: ${quote.finalDeposit} BVC',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
+                    if (quote.riskMultiplier > 1.0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
+                        child: Text(
+                          'Hệ số rủi ro: ×${quote.riskMultiplier.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.warning,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
                     const SizedBox(height: AppSpacing.xs),
                     Text('Số dư hiện tại: ${quote.currentBalance} BVC'),
                     if (quote.isPrivate)
@@ -498,6 +527,137 @@ class _LoadedBody extends StatelessWidget {
     final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '${d.inHours.toString().padLeft(2, '0')}:$mm:$ss';
+  }
+}
+
+/// Banner cảnh báo BR-NEW-15 — render `warnings[]` từ backend kèm risk
+/// info. Show trước panel quote chính để user biết tại sao cọc cao / có
+/// buffer / sắp chạm cap, v.v.
+class _WarningBanner extends StatelessWidget {
+  final RiskLevel riskLevel;
+  final double riskMultiplier;
+  final List<String> warnings;
+  final int baseDeposit;
+  final int depositRatePerPerson;
+  final int minDepositApplied;
+  final int bufferMinutes;
+  final bool bufferWarning;
+  final String? bufferWarningText;
+
+  const _WarningBanner({
+    required this.riskLevel,
+    required this.riskMultiplier,
+    required this.warnings,
+    required this.baseDeposit,
+    required this.depositRatePerPerson,
+    required this.minDepositApplied,
+    required this.bufferMinutes,
+    required this.bufferWarning,
+    this.bufferWarningText,
+  });
+
+  String _riskLabel(RiskLevel l) {
+    switch (l) {
+      case RiskLevel.low:
+        return 'Bình thường';
+      case RiskLevel.medium:
+        return 'Trung bình';
+      case RiskLevel.high:
+        return 'Cao';
+      case RiskLevel.critical:
+        return 'Rất cao';
+    }
+  }
+
+  Color _riskColor() {
+    switch (riskLevel) {
+      case RiskLevel.low:
+        return AppColors.success;
+      case RiskLevel.medium:
+        return AppColors.warning;
+      case RiskLevel.high:
+        return AppColors.warning;
+      case RiskLevel.critical:
+        return AppColors.error;
+    }
+  }
+
+  String? _warningMessage(String code) {
+    switch (code) {
+      case 'BUFFER_60_120':
+        return 'Còn từ 60 – 120 phút tới giờ chơi — buffer cao ('
+            '$bufferMinutes phút).';
+      case 'NEAR_CAPACITY':
+        return 'Quán sắp đầy chỗ — cọc có thể tăng theo cung cầu.';
+      case 'RISK_MEDIUM':
+        return 'Tài khoản bạn đang ở mức rủi ro trung bình (×$riskMultiplier).';
+      case 'RISK_HIGH':
+        return 'Tài khoản bạn đang ở mức rủi ro cao (×$riskMultiplier).';
+      case 'NEAR_MAX_LOBBIES':
+        return 'Bạn sắp chạm giới hạn số lobby/ngày.';
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _riskColor();
+    final reasonText = warnings
+        .map(_warningMessage)
+        .whereType<String>()
+        .toList(growable: false);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: color, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Mức rủi ro: ${_riskLabel(riskLevel)}'
+                  '${riskMultiplier > 1.0 ? ' (×${riskMultiplier.toStringAsFixed(2)})' : ''}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          if (reasonText.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            ...reasonText.map(
+              (msg) => Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '• $msg',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ],
+          if (bufferWarning && bufferWarningText != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              bufferWarningText!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontStyle: FontStyle.italic,
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

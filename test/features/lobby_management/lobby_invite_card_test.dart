@@ -39,7 +39,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Test User'), findsOneWidget);
+      expect(find.text('Test User mời bạn'), findsOneWidget);
       expect(find.text('Catan'), findsOneWidget);
       expect(find.text('Board Game Cafe'), findsOneWidget);
       expect(find.text('Chơi Catan nhé!'), findsOneWidget);

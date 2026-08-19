@@ -87,6 +87,150 @@ class BookingConfirmedEvent extends LobbyRealtimeEvent {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// Host Action & Lifecycle Events — BVC v2 (BR-NEW-13/14 + lobby.md §SignalR)
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Server phát khi lobby chuyển từ `PendingActivation` → `Open`/`Viable`
+/// (sau khi `confirm` reservation thành công). Mobile emit state để navigate
+/// sang `LobbyPage`.
+///
+/// Spec: `lobby-hub.md` §LobbyActivated.
+class LobbyActivatedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String reservationId;
+  final String message;
+  final DateTime timestamp;
+
+  const LobbyActivatedEvent({
+    required this.lobbyId,
+    required this.reservationId,
+    required this.message,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo reservation cần cafe duyệt (BR-NEW-11). Hiện polling
+/// đã cover; event này giúp update UI tức thì khi host vừa tạo lobby.
+class LobbyApprovalRequiredEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String reservationId;
+  final DateTime deadline;
+  final DateTime timestamp;
+
+  const LobbyApprovalRequiredEvent({
+    required this.lobbyId,
+    required this.reservationId,
+    required this.deadline,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo cafe đã DUYỆT lobby → lobby chuyển sang `Open`. Mobile
+/// pop page pending và chuyển sang `LobbyPage` thật.
+class LobbyApprovedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String reservationId;
+  final DateTime timestamp;
+
+  const LobbyApprovedEvent({
+    required this.lobbyId,
+    required this.reservationId,
+    required this.timestamp,
+  });
+}
+
+/// Server thông báo cafe TỪ CHỐI lobby. Mobile show dialog lý do và pop.
+class LobbyRejectedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String reservationId;
+  final String reason;
+  final DateTime timestamp;
+
+  const LobbyRejectedEvent({
+    required this.lobbyId,
+    required this.reservationId,
+    required this.reason,
+    required this.timestamp,
+  });
+}
+
+/// BR-NEW-13: User sắp chạm ngưỡng giữ tiền (`heldBalance`), cooling-off,
+/// hoặc overlap reservation. UI show banner cảnh báo.
+class LobbyAtRiskWarningEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String riskType; // 'NEAR_HELD_CAP' | 'COOLING_OFF' | 'OVERLAP'
+  final String message;
+  final DateTime timestamp;
+
+  const LobbyAtRiskWarningEvent({
+    required this.lobbyId,
+    required this.riskType,
+    required this.message,
+    required this.timestamp,
+  });
+}
+
+/// BR-08 / nhắc trước deadline recruitment (24h/2h/30p). Mobile countdown.
+class LobbyMilestoneNotificationEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String milestone; // '24h' | '2h' | '30min'
+  final DateTime timestamp;
+
+  const LobbyMilestoneNotificationEvent({
+    required this.lobbyId,
+    required this.milestone,
+    required this.timestamp,
+  });
+}
+
+/// BR-LOBBY-READY-01: Member đã bấm Ready. UI update status real-time.
+class MemberReadyEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String memberId;
+  final bool isReady;
+  final DateTime timestamp;
+
+  const MemberReadyEvent({
+    required this.lobbyId,
+    required this.memberId,
+    required this.isReady,
+    required this.timestamp,
+  });
+}
+
+/// BR-LOBBY-TRANSFER-01: Host đã chuyển host role. UI update host info.
+class HostChangedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String previousHostId;
+  final String newHostId;
+  final DateTime timestamp;
+
+  const HostChangedEvent({
+    required this.lobbyId,
+    required this.previousHostId,
+    required this.newHostId,
+    required this.timestamp,
+  });
+}
+
+/// BR-LOBBY-KICK-01: Member đã bị host kick. User bị kick navigate ra lobby.
+class MemberKickedEvent extends LobbyRealtimeEvent {
+  final String lobbyId;
+  final String kickedUserId;
+  final String kickedByUserId;
+  final String? reason;
+  final DateTime timestamp;
+
+  const MemberKickedEvent({
+    required this.lobbyId,
+    required this.kickedUserId,
+    required this.kickedByUserId,
+    this.reason,
+    required this.timestamp,
+  });
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // Invite Events - cho Lobby Invite System
 // ════════════════════════════════════════════════════════════════════════════

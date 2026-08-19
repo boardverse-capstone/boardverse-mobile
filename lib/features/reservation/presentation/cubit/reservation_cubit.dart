@@ -26,7 +26,12 @@ class ReservationCubit extends Cubit<ReservationState> {
   String? _quoteIdempotencyKey;
   String? _confirmIdempotencyKey;
   String? _lastInputsFingerprint;
-  String? _preferredEndTime; // Stored from createQuote call for use in confirmReservation
+  // Cache preferredStartTime / preferredEndTime từ lần createQuote gần nhất
+  // để dùng cho confirm. Trước đây code lưu `_preferredEndTime` — khi fix
+  // BR-NEW-15 tôi đã bỏ sót dòng gán → dẫn đến bug "End time phải lớn hơn
+  // start time" vì fallback về '00:00:00'. (2026-08-18)
+  String? _preferredStartTime;
+  String? _preferredEndTime;
 
   ReservationCubit({
     required this.repository,
@@ -37,18 +42,18 @@ class ReservationCubit extends Cubit<ReservationState> {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
   }) {
+    // BR-NEW-15 (2026-08-18): bỏ `timeSlot` khỏi fingerprint — server xác
+    // định timeSlot hoàn toàn từ `preferredStartTime`/`preferredEndTime`.
     return jsonEncode({
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T').first,
-      'timeSlot': timeSlot.name,
       'preferredStartTime': preferredStartTime,
       'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
@@ -83,13 +88,17 @@ class ReservationCubit extends Cubit<ReservationState> {
   }
 
   /// Tạo quote cho reservation.
+///
+/// BR-NEW-15 (2026-08-18): backend đã BỎ `timeSlot` khỏi request body. FE
+/// chỉ cần gửi `preferredStartTime` + `preferredEndTime` (HH:mm:ss) để
+/// xác định khung giờ chơi (xem `ReservationRepository.createQuote` và
+/// swagger.json `ReservationQuoteRequestDto` line 27806).
   Future<void> createQuote({
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     bool isPrivate = false,
@@ -100,7 +109,6 @@ class ReservationCubit extends Cubit<ReservationState> {
       cafeId: cafeId,
       gameId: gameId,
       playDate: playDate,
-      timeSlot: timeSlot,
       preferredStartTime: preferredStartTime,
       preferredEndTime: preferredEndTime,
       minPlayers: minPlayers,
@@ -127,13 +135,18 @@ class ReservationCubit extends Cubit<ReservationState> {
 
     _lastInputsFingerprint = fingerprint;
     _quoteIdempotencyKey = generateIdempotencyKey();
+
+    // Cache lại preferredStartTime/preferredEndTime để dùng cho confirm
+    // (BR-NEW-15): server verify `preferredStartTime`/`preferredEndTime` từ
+    // confirm request phải khớp với quote fingerprint (BR §XVII.2). Nếu user
+    // đổi input sau khi quote xong, fingerprint đổi → quote mới + cache mới.
+    _preferredStartTime = preferredStartTime;
     _preferredEndTime = preferredEndTime;
 
     final result = await repository.createQuote(
       cafeId: cafeId,
       gameId: gameId,
       playDate: playDate,
-      timeSlot: timeSlot,
       preferredStartTime: preferredStartTime,
       preferredEndTime: preferredEndTime,
       minPlayers: minPlayers,
@@ -198,13 +211,36 @@ class ReservationCubit extends Cubit<ReservationState> {
     //     đã gắn với lobby đã bị dissolve.
     _confirmIdempotencyKey ??= generateIdempotencyKey();
 
+    // Lấy preferred times theo thứ tự ưu tiên (BR-NEW-15 + BR §XVII.2):
+    //   1. Cache local `_preferredStartTime`/`_preferredEndTime` (gán trong
+    //      `createQuote`) — giá trị user vừa chọn.
+    //   2. Fallback về `quote.preferredStartTime`/`preferredEndTime` từ
+    //      response của server (server đã echo lại từ request, là single
+    //      source of truth — bảo đảm khớp với quote fingerprint).
+    //
+    // Tuyệt đối KHÔNG fallback về '00:00:00' (bug 2026-08-18: trước đây
+    // fallback hardcoded khiến confirm fail với
+    // `preferredEndTime < preferredStartTime`).
+    final startTime = _preferredStartTime ?? quote.preferredStartTime;
+    final endTime = _preferredEndTime ?? quote.preferredEndTime;
+    if (startTime == null ||
+        endTime == null ||
+        startTime.isEmpty ||
+        endTime.isEmpty) {
+      // Không có giờ hợp lệ → không gọi confirm, emit lỗi rõ ràng để user
+      // biết cần re-quote.
+      emit(const ReservationConfirmError(
+        message: 'Thiếu thông tin giờ chơi — vui lòng tạo lại quote.',
+      ));
+      return;
+    }
+
     final result = await repository.confirmReservation(
       cafeId: quote.cafeId,
       gameId: quote.gameId,
       playDate: quote.playDate,
-      timeSlot: quote.timeSlot,
-      preferredStartTime: quote.preferredStartTime,
-      preferredEndTime: _preferredEndTime,
+      preferredStartTime: startTime,
+      preferredEndTime: endTime,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -280,13 +316,24 @@ class ReservationCubit extends Cubit<ReservationState> {
 
     // Re-quote dùng cùng idempotencyKey fingerprint → server trả lại
     // quote mới với `currentBalance` đã cập nhật.
+    //
+    // Ưu tiên đọc `preferredStartTime`/`preferredEndTime` từ cache (đã gán
+    // trong lần createQuote gần nhất) — đây là giá trị thực user đã chọn.
+    // Fallback về `quote.preferredStartTime` chỉ khi cache trống.
+    final cachedStart = _preferredStartTime ?? quote.preferredStartTime;
+    final cachedEnd = _preferredEndTime ?? quote.preferredEndTime;
+    if (cachedStart == null || cachedEnd == null) {
+      emit(ReservationConfirmError(
+        message: 'Thiếu thông tin giờ chơi — vui lòng tạo lại quote.',
+      ));
+      return;
+    }
     await createQuote(
       cafeId: quote.cafeId,
       gameId: quote.gameId,
       playDate: quote.playDate,
-      timeSlot: quote.timeSlot,
-      preferredStartTime: quote.preferredStartTime,
-      preferredEndTime: _preferredEndTime,
+      preferredStartTime: cachedStart,
+      preferredEndTime: cachedEnd,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -303,13 +350,15 @@ class ReservationCubit extends Cubit<ReservationState> {
     if (fp == null) return;
     final quote = _currentQuote;
     if (quote == null) return;
+    final cachedStart = _preferredStartTime ?? quote.preferredStartTime;
+    final cachedEnd = _preferredEndTime ?? quote.preferredEndTime;
+    if (cachedStart == null || cachedEnd == null) return;
     await createQuote(
       cafeId: quote.cafeId,
       gameId: quote.gameId,
       playDate: quote.playDate,
-      timeSlot: quote.timeSlot,
-      preferredStartTime: quote.preferredStartTime,
-      preferredEndTime: _preferredEndTime,
+      preferredStartTime: cachedStart,
+      preferredEndTime: cachedEnd,
       minPlayers: quote.minPlayers,
       maxPlayers: quote.maxPlayers,
       isPrivate: quote.isPrivate,
@@ -325,6 +374,7 @@ class ReservationCubit extends Cubit<ReservationState> {
     _quoteIdempotencyKey = null;
     _confirmIdempotencyKey = null;
     _lastInputsFingerprint = null;
+    _preferredStartTime = null;
     _preferredEndTime = null;
     emit(const ReservationInitial());
   }

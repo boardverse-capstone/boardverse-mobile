@@ -137,6 +137,22 @@ class _ReasonFormState extends State<_ReasonForm> {
     super.dispose();
   }
 
+  /// Hiển thị policy huỷ theo BR-REFUND-02 (BVC v2).
+  ///
+  /// Backend đã đơn giản hoá policy còn 2 mốc duy nhất:
+  /// - Grace 15 phút (countdown ngay sau khi confirm) HOẶC ≥24h trước
+  ///   giờ chơi → hoàn 100% BVC.
+  /// - <24h trước giờ chơi (ngoài grace) → hoàn 0% BVC, có thể bị trừ
+  ///   Karma tuỳ BR-USER-LIMIT-* (FE không hiển thị chi tiết — server
+  ///   mới là nguồn chính).
+  ///
+  /// Lưu ý: tier 50% (6-24h trước) đã bị BVC v2 bỏ — UI không còn đề
+  /// cập "6-24h hoàn 50%" nữa.
+  static const _refundPolicyDescription =
+      'Policy BR-REFUND-02: trong 15 phút đầu HOẶC trước 24 giờ → '
+      'hoàn 100%. Dưới 24 giờ (ngoài grace) → hoàn 0%, có thể bị phạt '
+      'Karma.';
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -181,7 +197,7 @@ class _ReasonFormState extends State<_ReasonForm> {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Theo policy: huỷ trong 15 phút đầu hoàn 100% BVC; huỷ trước 6 giờ hoàn 50%; dưới 6 giờ forfeit 100%.',
+                  _refundPolicyDescription,
                   style: textTheme.bodySmall,
                 ),
               ),
@@ -231,7 +247,7 @@ class _CancelledView extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         _kv('Hoàn BVC', '${result.refundBvc}'),
         _kv('BVC bị giữ', '${result.forfeitBvc}'),
-        _kv('Policy', result.refundPolicyApplied),
+        _kv('Policy', result.refundPolicyApplied.refundPolicyLabel),
         const SizedBox(height: AppSpacing.md),
         FilledButton(
           onPressed: onDismiss,

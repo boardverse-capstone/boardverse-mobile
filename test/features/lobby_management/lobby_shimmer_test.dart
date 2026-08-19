@@ -88,8 +88,9 @@ void main() {
     });
   });
 
-  // Sanity check: LobbyStatus enum đầy đủ 12 giá trị (mapping đầy đủ).
-  test('LobbyStatus enum có đầy đủ 12 giá trị', () {
-    expect(LobbyStatus.values.length, 12);
+  // Sanity check: LobbyStatus enum đầy đủ 13 giá trị (BVC v2 thêm
+  // `dissolved` cho DELETE soft-delete — BR §XXI-A.6).
+  test('LobbyStatus enum có đầy đủ 13 giá trị', () {
+    expect(LobbyStatus.values.length, 14);
   });
 }

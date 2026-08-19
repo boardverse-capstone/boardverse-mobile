@@ -33,6 +33,7 @@ enum LobbyStatusModel {
   open,
   viable,
   full,
+  waitingCheckIn,
   inProgress,
   ratingOpen,
   closed,
@@ -585,6 +586,8 @@ class LobbyModel {
         return LobbyStatus.viable;
       case LobbyStatusModel.full:
         return LobbyStatus.full;
+      case LobbyStatusModel.waitingCheckIn:
+        return LobbyStatus.waitingCheckIn;
       case LobbyStatusModel.inProgress:
         return LobbyStatus.inProgress;
       case LobbyStatusModel.ratingOpen:

@@ -10,9 +10,9 @@ import '../../domain/entities/lobby_entity.dart';
 /// Status label dựa trên **lobby.status + player.isHost/player.readyAt**:
 /// - Host luôn hiển thị "Chủ phòng" (override tất cả trạng thái khác).
 /// - Lobby terminal (closed/cancelled/timeout/rejected/expired) → "Đã đóng".
-/// - Lobby `full`/`inProgress`/`ratingOpen` → hiển thị ready state của player
-///   theo **BR-LOBBY-READY-01** (`readyAt != null` = "Sẵn sàng", ngược lại
-///   "Chưa sẵn sàng"). Trước đây dùng `bool isReady` dễ bị drift với backend.
+/// - Lobby `full` → hiển thị ready state để thành viên xác nhận.
+/// - Lobby `waitingCheckIn` → tất cả đã sẵn sàng, chờ staff check-in.
+/// - Lobby `inProgress`/`ratingOpen` → phiên tại quán đã bắt đầu hoặc đang đánh giá.
 /// - Lobby `pendingActivation`/`pendingCafeApproval` → "Thành viên".
 /// - Lobby `open`/`viable` → "Cần thêm người".
 ///
@@ -52,24 +52,41 @@ class LobbyPlayerCard extends StatelessWidget {
       return (label: 'Đã đóng', color: AppColors.textTertiary);
     }
 
-    // 3. Lobby đang ở phase có thể ready (full/inProgress/ratingOpen).
+    // 3. Lobby `waitingCheckIn` → tất cả đã Ready, chờ staff check-in.
+    if (lobbyStatus == LobbyStatus.waitingCheckIn) {
+      return (label: 'Chờ check-in', color: AppColors.warning);
+    }
+
+    // 4. Đã bấm Ready (BR-LOBBY-READY-01: `readyAt != null`) → ưu tiên
+    //    hiển thị "Sẵn sàng" ở mọi phase pre-game/check-in (`open` /
+    //    `viable` / `full` / `pendingCafeApproval` / `inProgress` /
+    //    `ratingOpen`). Trước đây chỉ phase `full`/`inProgress`/`ratingOpen`
+    //    mới flip → user thấy "Cần thêm người" dù đã bấm Ready ở lobby
+    //    open/viable.
+    if (player.readyAt != null &&
+        (lobbyStatus == LobbyStatus.open ||
+            lobbyStatus == LobbyStatus.viable ||
+            lobbyStatus == LobbyStatus.full ||
+            lobbyStatus == LobbyStatus.inProgress ||
+            lobbyStatus == LobbyStatus.ratingOpen ||
+            lobbyStatus == LobbyStatus.pendingCafeApproval)) {
+      return (label: 'Sẵn sàng', color: AppColors.success);
+    }
+
+    // 5. Phase chưa Ready: full/inProgress/ratingOpen → "Chưa sẵn sàng".
     if (lobbyStatus == LobbyStatus.full ||
         lobbyStatus == LobbyStatus.inProgress ||
         lobbyStatus == LobbyStatus.ratingOpen) {
-      // BR-LOBBY-READY-01: `readyAt != null` = đã sẵn sàng.
-      final isReady = player.readyAt != null;
-      return isReady
-          ? (label: 'Sẵn sàng', color: AppColors.success)
-          : (label: 'Chưa sẵn sàng', color: AppColors.textTertiary);
+      return (label: 'Chưa sẵn sàng', color: AppColors.textTertiary);
     }
 
-    // 4. Lobby open/viable → cần thêm người, player chưa cam kết.
+    // 6. Lobby open/viable, player chưa Ready → "Cần thêm người".
     if (lobbyStatus == LobbyStatus.open ||
         lobbyStatus == LobbyStatus.viable) {
       return (label: 'Cần thêm người', color: AppColors.info);
     }
 
-    // 5. Lobby pending (chờ kích hoạt / chờ quán duyệt) → "Thành viên".
+    // 7. Lobby pending (chờ kích hoạt / chờ quán duyệt) → "Thành viên".
     if (lobbyStatus == LobbyStatus.pendingActivation ||
         lobbyStatus == LobbyStatus.pendingCafeApproval) {
       return (label: 'Thành viên', color: AppColors.warning);
@@ -79,13 +96,32 @@ class LobbyPlayerCard extends StatelessWidget {
   }
 
   /// Quyết định có show badge "ready" (icon check) trên avatar hay không.
-  /// Chỉ relevant khi lobby đang ở phase có ready (full/inProgress/ratingOpen).
-  /// Host luôn có host badge (ưu tiên hơn ready badge).
+  /// BR-LOBBY-READY-01: hiển thị ở mọi phase pre-game/check-in (open/viable/
+  /// full/waitingCheckIn/pendingCafeApproval/inProgress/ratingOpen) khi
+  /// player đã bấm Ready (`readyAt != null`). Host luôn ưu tiên host badge.
   bool _showReadyBadge() {
     if (player.isHost) return false; // ưu tiên host badge
-    return lobbyStatus == LobbyStatus.full ||
-        lobbyStatus == LobbyStatus.inProgress ||
-        lobbyStatus == LobbyStatus.ratingOpen;
+    if (player.readyAt == null) return false; // chưa Ready → không hiện
+    switch (lobbyStatus) {
+      case LobbyStatus.open:
+      case LobbyStatus.viable:
+      case LobbyStatus.full:
+      case LobbyStatus.waitingCheckIn:
+      case LobbyStatus.pendingCafeApproval:
+      case LobbyStatus.inProgress:
+      case LobbyStatus.ratingOpen:
+        return true;
+      // pendingActivation / terminal → không hiện (lobby chưa publish hoặc
+      // đã kết thúc).
+      case LobbyStatus.pendingActivation:
+      case LobbyStatus.closed:
+      case LobbyStatus.timeoutFailed:
+      case LobbyStatus.hostCancelled:
+      case LobbyStatus.rejectedByCafe:
+      case LobbyStatus.expiredByCafe:
+      case LobbyStatus.dissolved:
+        return false;
+    }
   }
 
   @override
@@ -543,7 +579,6 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
         widget.lobby.status == LobbyStatus.open ||
         widget.lobby.status == LobbyStatus.viable ||
         widget.lobby.status == LobbyStatus.full ||
-        widget.lobby.status == LobbyStatus.inProgress ||
         widget.lobby.status == LobbyStatus.pendingCafeApproval;
 
     return Semantics(
@@ -613,6 +648,8 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
             // ── Body copy theo trạng thái ───────────────────────────
             if (widget.lobby.status == LobbyStatus.inProgress)
               _bodyInProgress(isDark)
+            else if (widget.lobby.status == LobbyStatus.waitingCheckIn)
+              _bodyWaitingCheckIn(isDark)
             else if (widget.lobby.status == LobbyStatus.pendingCafeApproval)
               _bodyPendingCafeApproval(isDark)
             else if (showReadySection)
@@ -865,6 +902,16 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _bodyWaitingCheckIn(bool isDark) {
+    return Text(
+      'Cả nhóm đã sẵn sàng. Hãy đến quán và chờ staff check-in để bắt đầu phiên chơi.',
+      style: TextStyle(
+        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 

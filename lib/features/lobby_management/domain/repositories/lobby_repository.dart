@@ -195,11 +195,30 @@ abstract class LobbyRepository {
 
   /// GET /api/v1/lobbies/hosted
   /// Lấy danh sách lobby do user này host.
+  ///
+  /// **Deprecated (BVC v2)**: Ưu tiên dùng [getMyLobbies] — endpoint mới
+  /// hợp nhất hosted + joined trong 1 response, đồng thời tự filter theo
+  /// BR-MEMBER-CLEANUP-01 (chỉ trả lobby còn active).
   Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies();
 
   /// GET /api/v1/lobbies/joined
   /// Lấy danh sách lobby mà user đang tham gia.
+  ///
+  /// **Deprecated (BVC v2)**: Ưu tiên dùng [getMyLobbies].
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
+
+  /// GET /api/v1/lobbies/my
+  /// Trả về cả hosted + joined của user hiện tại trong cùng 1 response.
+  /// Backend tự filter theo BR-MEMBER-CLEANUP-01:
+  /// - Chỉ trả lobby có status thuộc active set:
+  ///   `PendingActivation`, `PendingCafeApproval`, `Open`, `Viable`,
+  ///   `Full`, `InProgress`, `RatingOpen`.
+  /// - Lobby đã terminal (`Closed`, `TimeoutFailed`, `HostCancelled`,
+  ///   `RejectedByCafe`, `ExpiredByCafe`, `Dissolved`) → tự động set
+  ///   `IsActive=false` cho member rows → không xuất hiện trong list.
+  ///
+  /// Spec: `lobby.md` §Lobby listing endpoints + BR-MEMBER-CLEANUP-01.
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies();
 
   // ─── Lobby Social ─────────────────────────────────────────────────
 

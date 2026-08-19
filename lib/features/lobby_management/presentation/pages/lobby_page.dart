@@ -7,6 +7,7 @@ import 'package:boardverse/core/theme/theme.dart';
 import 'package:boardverse/core/utils/current_user_resolver.dart';
 import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/in_game_experience/in_game_feature_flags.dart';
 import 'package:boardverse/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
@@ -769,7 +770,13 @@ class _LobbyPageState extends State<LobbyPage> {
   /// nhiều lần khi `LobbyReservationCubit` poll liên tục mỗi 15s.
   ///
   /// Nếu user đã rời page (không còn mounted), bỏ qua.
+  ///
+  /// **Tạm tắt** khi [kInGameSessionEnabled] = false — backend
+  /// `InGameRepositoryImpl.checkIn` đang trả mock data, không nên tự
+  /// động đẩy user vào màn hình đang hiển thị mock. Lobby detail vẫn
+  /// hiển thị status "Đang chơi" bình thường.
   void _maybeAutoRedirectToInGame(res.ReservationEntity reservation) {
+    if (!kInGameSessionEnabled) return;
     if (_autoRedirectReservationId == reservation.id) return;
     if (reservation.id.isEmpty) return;
     if (reservation.status != res.ReservationStatus.checkedIn) return;
@@ -877,7 +884,12 @@ class _LobbyPageState extends State<LobbyPage> {
           // Khi lobby.status == inProgress và reservation.status ==
           // checkedIn, hiển thị sticky banner "Mở màn hình đang chơi" để
           // user 1 chạm vào phiên chơi thay vì phải scroll tìm button.
-          if (lobby.status == LobbyStatus.inProgress)
+          //
+          // Tạm ẩn khi [kInGameSessionEnabled] = false vì
+          // `InGameRepositoryImpl.checkIn` đang trả mock data (xem
+          // `in_game_feature_flags.dart`). Lobby detail vẫn hiển thị
+          // status strip "Đang chơi" — chỉ tắt đường vào màn hình in-game.
+          if (kInGameSessionEnabled && lobby.status == LobbyStatus.inProgress)
             SliverToBoxAdapter(
               child: _InProgressEnterCtaBanner(
                 lobby: lobby,
@@ -888,6 +900,8 @@ class _LobbyPageState extends State<LobbyPage> {
           // ── Phase A: Status strip (badge + check-in section) ─────
           // Đã bỏ countdown `ScheduledTimeCountdown` — lobby giờ chỉ
           // hiển thị status badge + pending-cafe banner + check-in section.
+          // Cũng đã bỏ `LobbyCafeInfoCard` (cafe info đã được hiển thị
+          // gọn trong hero header — không cần card riêng nữa).
           SliverToBoxAdapter(
             child: BlocBuilder<LobbyReservationCubit, LobbyReservationState>(
               builder: (context, reservationState) {
@@ -1430,8 +1444,8 @@ class _InProgressEnterCtaBannerState extends State<_InProgressEnterCtaBanner>
 /// Hiển thị tuần tự:
 /// 1. [LobbyStatusBadge] — variant resolve từ (lobby.status, reservation.status).
 /// 2. [ScheduledTimeCountdown] — đếm ngược tới `lobby.scheduledTime` (giờ chơi).
-/// 3. [LobbyCheckInSection] — chỉ khi `reservation.status == confirmed` và
-///    lobby đang trong phase check-in (Viable/Full/InProgress).
+/// 3. [LobbyCheckInSection] — chỉ khi reservation đã confirmed/checkedIn và
+///    lobby đang chờ check-in hoặc đã `InProgress`.
 ///
 /// Dùng `BlocBuilder` trong parent, không fetch gì thêm.
 class _LobbyStatusStrip extends StatelessWidget {
@@ -1469,11 +1483,17 @@ class _LobbyStatusStrip extends StatelessWidget {
 
   /// Navigate to InGameSessionPage after staff scan/check-in.
   /// `tableNumber` default to 1 if not available from reservation.
+  ///
+  /// **Tạm tắt** khi [kInGameSessionEnabled] = false — backend
+  /// `InGameRepositoryImpl.checkIn` đang trả mock data (xem
+  /// `in_game_feature_flags.dart`). Lobby detail chỉ hiển thị status
+  /// "Đang chơi", không navigate vào màn hình in-game mock.
   void _navigateToInGameSession(
     BuildContext context, {
     required res.ReservationEntity reservation,
     required LobbyEntity lobby,
   }) {
+    if (!kInGameSessionEnabled) return;
     Navigator.of(context, rootNavigator: true).pushNamed(
       LobbyRoutes.inGameSession,
       arguments: InGameSessionPageArgs(
@@ -1676,6 +1696,8 @@ res.LobbyStatus _mapLobbyStatus(LobbyStatus s) {
       return res.LobbyStatus.viable;
     case LobbyStatus.full:
       return res.LobbyStatus.full;
+    case LobbyStatus.waitingCheckIn:
+      return res.LobbyStatus.waitingCheckIn;
     case LobbyStatus.inProgress:
       return res.LobbyStatus.inProgress;
     case LobbyStatus.ratingOpen:
@@ -1690,6 +1712,8 @@ res.LobbyStatus _mapLobbyStatus(LobbyStatus s) {
       return res.LobbyStatus.rejectedByCafe;
     case LobbyStatus.expiredByCafe:
       return res.LobbyStatus.expiredByCafe;
+    case LobbyStatus.dissolved:
+      return res.LobbyStatus.dissolved;
   }
 }
 

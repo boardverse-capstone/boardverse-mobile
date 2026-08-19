@@ -83,20 +83,20 @@ void main() {
       );
       await tester.pump();
 
-      // Header "Chi tiết phòng" + "Tổng quan" visible trên viewport.
+      // Header "Chi tiết phòng" + "TỔNG QUAN" visible trên viewport.
       expect(find.text('Chi tiết phòng'), findsOneWidget);
-      expect(find.text('Tổng quan'), findsOneWidget);
+      expect(find.text('TỔNG QUAN'), findsOneWidget);
 
       // Scroll ListView để reveal các section headers còn lại trong
       // DraggableScrollableSheet (initialChildSize = 0.7 có thể che
       // bớt content trên thiết bị test).
       await tester.drag(find.byType(ListView), const Offset(0, -200));
       await tester.pump();
-      expect(find.text('Lịch trình'), findsOneWidget);
+      expect(find.text('LỊCH TRÌNH'), findsOneWidget);
 
       await tester.drag(find.byType(ListView), const Offset(0, -200));
       await tester.pump();
-      expect(find.text('Thành viên'), findsOneWidget);
+      expect(find.text('THÀNH VIÊN'), findsOneWidget);
     });
 
     testWidgets('render game + cafe + invite code trong Tổng quan',
@@ -127,8 +127,14 @@ void main() {
       );
       await tester.pump();
 
-      // Scroll xuống để reveal section "Thành viên".
-      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      // Scroll xuống để reveal section "THÀNH VIÊN".
+      // DraggableScrollableSheet initial = 0.72, content dài → cần drag
+      // nhiều lần hoặc dùng ensureVisible. Drag 3 lần cho chắc.
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pump();
 
       expect(find.text('3 / 6 người'), findsOneWidget);

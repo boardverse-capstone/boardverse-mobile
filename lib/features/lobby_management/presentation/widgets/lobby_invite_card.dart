@@ -19,6 +19,19 @@ class LobbyInviteCard extends StatelessWidget {
 
   final bool isLoading;
 
+  /// Card có cần hiển thị row info chips (cafe + member count + expiry) hay
+  /// không. Nếu cả 3 field đều null thì bỏ qua row để tránh khoảng trống
+  /// thừa (vd: DTO mới không trả nested `lobby` + chưa phải pending).
+  static bool _hasInfoChip(LobbyInviteEntity invite) {
+    final hasCafe =
+        invite.cafeName != null && invite.cafeName!.isNotEmpty;
+    final hasMembers =
+        invite.currentMembers != null && invite.maxMembers != null;
+    final hasExpiry = invite.status == LobbyInviteStatus.pending &&
+        invite.remainingTime.inMinutes > 0;
+    return hasCafe || hasMembers || hasExpiry;
+  }
+
   const LobbyInviteCard({
     super.key,
     required this.invite,
@@ -127,15 +140,22 @@ class LobbyInviteCard extends StatelessWidget {
                             fontSize: 15,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          invite.gameName,
-                          style: TextStyle(
-                            color: AppColors.white.withValues(alpha: 0.85),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                        // Chỉ hiển thị tên game khi server trả về non-null
+                        // (BR-NEW-12: DTO mới có thể bỏ qua khi host
+                        // chưa publish lobby detail). Tránh fallback "Board Game".
+                        if (invite.gameName != null &&
+                            invite.gameName!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            invite.gameName!,
+                            style: TextStyle(
+                              color:
+                                  AppColors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -187,28 +207,45 @@ class LobbyInviteCard extends StatelessWidget {
                     const SizedBox(height: AppSpacing.md),
                   ],
 
-                  // Info chips
-                  Row(
-                    children: [
-                      _InfoChip(icon: AppIcons.cafe, label: invite.cafeName),
-                      const SizedBox(width: AppSpacing.sm),
-                      _InfoChip(
-                        icon: AppIcons.users,
-                        label:
-                            '${invite.currentMembers}/${invite.maxMembers}',
-                      ),
-                      const Spacer(),
-                      if (invite.status == LobbyInviteStatus.pending &&
-                          invite.remainingTime.inMinutes > 0)
-                        _ExpiryChip(remaining: invite.remainingTime),
-                    ],
-                  ),
+                  // Info chips — chỉ render khi field có data từ server.
+                  // Trước đây luôn hiển thị "Quán" + "1/4" fallback làm
+                  // card rối khi DTO mới không trả nested `lobby`.
+                  if (_hasInfoChip(invite)) ...[
+                    Row(
+                      children: [
+                        if (invite.cafeName != null &&
+                            invite.cafeName!.isNotEmpty) ...[
+                          _InfoChip(
+                              icon: AppIcons.cafe, label: invite.cafeName!),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
+                        if (invite.currentMembers != null &&
+                            invite.maxMembers != null) ...[
+                          _InfoChip(
+                            icon: AppIcons.users,
+                            label:
+                                '${invite.currentMembers}/${invite.maxMembers}',
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
+                        const Spacer(),
+                        if (invite.status == LobbyInviteStatus.pending &&
+                            invite.remainingTime.inMinutes > 0)
+                          _ExpiryChip(remaining: invite.remainingTime),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
 
                   // Action buttons
                   if (invite.status == LobbyInviteStatus.pending &&
                       invite.isActive) ...[
                     const SizedBox(height: AppSpacing.md),
-                    if (isInvitee && invite.hasSlots)
+                    // `hasSlots` trả về null khi thiếu data member counts.
+                    // Mặc định hiển thị CTA "Tham gia/Từ chối" — chỉ
+                    // show "Phòng đã đầy" khi server xác nhận currentMembers
+                    // >= maxMembers (false). Null = unknown → show CTA.
+                    if (isInvitee && (invite.hasSlots ?? true))
                       Row(
                         children: [
                           Expanded(

@@ -112,11 +112,20 @@ abstract class LobbyRemoteDatasource {
 
   /// GET /api/v1/lobbies/hosted
   /// Lấy danh sách lobby do user này host (cả active lẫn đã đóng).
+  ///
+  /// **Deprecated (BVC v2)**: prefer [getMyLobbies].
   Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies();
 
   /// GET /api/v1/lobbies/joined
   /// Lấy danh sách lobby mà user đang tham gia.
+  ///
+  /// **Deprecated (BVC v2)**: prefer [getMyLobbies].
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
+
+  /// GET /api/v1/lobbies/my
+  /// Hợp nhất hosted + joined, server tự filter theo
+  /// BR-MEMBER-CLEANUP-01 (chỉ lobby còn active).
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies();
 
   /// POST /api/v1/lobbies/{lobbyId}/report
   /// Báo cáo phòng chờ vi phạm.

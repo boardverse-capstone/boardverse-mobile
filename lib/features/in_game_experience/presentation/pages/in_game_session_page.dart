@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
 import '../../../match_summary_rating/presentation/pages/rating_page.dart';
@@ -37,73 +36,96 @@ class InGameSessionPage extends StatefulWidget {
 }
 
 class _InGameSessionPageState extends State<InGameSessionPage> {
-  final _inGameCubit = getIt<InGameCubit>();
+  /// Cubit dùng trong scope page này. Lấy từ `BlocProvider` cha (route
+  /// generator `lobbyRouteGenerator` wrap BlocProvider quanh page).
+  /// Cách này đảm bảo:
+  /// 1. Cubit được tạo một lần khi route push + auto-dispose khi pop.
+  /// 2. State đồng bộ giữa các rebuild vì cùng một instance.
+  /// 3. Tránh `mouse_tracker.dart:199` assertion do timer/state phát
+  ///    liên tục trên cubit orphan (đã dispose nhưng widget tree cũ).
+  late final InGameCubit _inGameCubit;
 
   @override
-  void initState() {
-    super.initState();
-    if (!widget.skipCheckIn) {
-      _inGameCubit.checkIn(widget.bookingId);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolve cubit từ BlocProvider cha trong didChangeDependencies
+    // (chạy sau initState, đảm bảo Provider đã có sẵn).
+    _inGameCubit = context.read<InGameCubit>();
+
+    // Trigger check-in / load session ngay lần đầu mount.
+    // Dùng _initialized flag để tránh re-trigger khi dependency thay đổi.
+    if (!_initialized) {
+      _initialized = true;
+      if (!widget.skipCheckIn) {
+        _inGameCubit.checkIn(widget.bookingId);
+      } else {
+        // skipCheckIn = true nghĩa là reservation đã checkedIn trước đó
+        // (qua staff scan POS hoặc self QR). Cần load session info để
+        // hiển thị UI ngay, không để page ở `InGameInitial` → render
+        // `SizedBox.shrink()` → page trắng.
+        //
+        // bằng reservationId) thì thay mock bằng API thật.
+        _inGameCubit.loadMockSession();
+      }
     }
   }
 
+  bool _initialized = false;
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _inGameCubit,
-      child: BlocConsumer<InGameCubit, InGameState>(
-        listener: (context, state) {
-          if (state is InGameCheckoutComplete) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const RatingPage()),
-            );
-          }
-          if (state is InGameSessionEnded) {
-            SessionEndedNotificationDialog.show(
-              context: context,
-              totalDuration: state.totalDuration,
-              onRateNow: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RatingPage()),
-                );
-              },
-              onVoteNoShow: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RatingPage()),
-                );
-              },
-              onLater: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RatingPage()),
-                );
-              },
-            );
-          }
-        },
-        builder: (context, state) {
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (didPop, result) {
-              if (!didPop) {
-                _showExitConfirmation(context);
-              }
-            },
-            child: Scaffold(
-              body: Stack(
-                children: [
-                  _buildBody(context, state),
-                  if (state is InGameCheckingInventory)
-                    const InventoryCheckingOverlay(),
-                ],
-              ),
-            ),
+    return BlocConsumer<InGameCubit, InGameState>(
+      listener: (context, state) {
+        if (state is InGameCheckoutComplete) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const RatingPage()),
           );
-        },
-      ),
+        }
+        if (state is InGameSessionEnded) {
+          SessionEndedNotificationDialog.show(
+            context: context,
+            totalDuration: state.totalDuration,
+            onRateNow: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const RatingPage()),
+              );
+            },
+            onVoteNoShow: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const RatingPage()),
+              );
+            },
+            onLater: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const RatingPage()),
+              );
+            },
+          );
+        }
+      },
+      builder: (context, state) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              _showExitConfirmation(context);
+            }
+          },
+          child: Scaffold(
+            body: Stack(
+              children: [
+                _buildBody(context, state),
+                if (state is InGameCheckingInventory)
+                  const InventoryCheckingOverlay(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -296,9 +318,7 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
           // Content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -306,14 +326,10 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.surfaceDark
-                          : AppColors.surface,
+                      color: isDark ? AppColors.surfaceDark : AppColors.surface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: isDark
-                            ? AppColors.borderDark
-                            : AppColors.border,
+                        color: isDark ? AppColors.borderDark : AppColors.border,
                         width: 2.5,
                       ),
                       boxShadow: [
@@ -419,10 +435,12 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                     runSpacing: AppSpacing.xs,
                     children: session.players.map((player) {
                       final present = player.isPresent;
-                      final fgColor =
-                          present ? AppColors.white : AppColors.textSecondary;
-                      final bgColor =
-                          present ? AppColors.success : AppColors.textTertiary;
+                      final fgColor = present
+                          ? AppColors.white
+                          : AppColors.textSecondary;
+                      final bgColor = present
+                          ? AppColors.success
+                          : AppColors.textTertiary;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
@@ -450,8 +468,9 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                           children: [
                             CircleAvatar(
                               radius: 12,
-                              backgroundColor:
-                                  AppColors.white.withValues(alpha: 0.3),
+                              backgroundColor: AppColors.white.withValues(
+                                alpha: 0.3,
+                              ),
                               backgroundImage: player.avatarUrl.isNotEmpty
                                   ? NetworkImage(player.avatarUrl)
                                   : null,

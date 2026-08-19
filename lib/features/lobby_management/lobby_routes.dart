@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/navigation/lobby_join_signal.dart';
+import 'package:boardverse/features/in_game_experience/presentation/cubit/in_game_cubit.dart';
 import 'package:boardverse/features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'package:boardverse/features/player_check_in/presentation/pages/player_qr_check_in_page.dart';
 import 'presentation/cubit/lobby_cubit.dart';
@@ -217,13 +218,21 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
 
     case LobbyRoutes.inGameSession:
       final args = settings.arguments as InGameSessionPageArgs;
+      // Wrap BlocProvider ở route level — đảm bảo cubit được tạo một
+      // lần qua factory + auto-dispose khi route pop. Trước đây page tự
+      // gọi `getIt<InGameCubit>()` trong initState → tạo cubit riêng,
+      // KHÔNG match với BlocProvider cha (nếu có) → state không đồng bộ
+      // → page trắng + `mouse_tracker.dart:199` assertion khi popup.
       return MaterialPageRoute(
-        builder: (_) => InGameSessionPage(
-          bookingId: args.bookingId,
-          cafeName: args.cafeName,
-          gameName: args.gameName,
-          tableNumber: args.tableNumber,
-          skipCheckIn: args.skipCheckIn,
+        builder: (_) => BlocProvider<InGameCubit>(
+          create: (_) => getIt<InGameCubit>(),
+          child: InGameSessionPage(
+            bookingId: args.bookingId,
+            cafeName: args.cafeName,
+            gameName: args.gameName,
+            tableNumber: args.tableNumber,
+            skipCheckIn: args.skipCheckIn,
+          ),
         ),
       );
 

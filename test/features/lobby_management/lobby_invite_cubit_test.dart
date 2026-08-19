@@ -153,6 +153,10 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       rightOf<Failure, Lst<LobbyEntity>>(const []);
 
   @override
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async =>
+      rightOf<Failure, Lst<LobbyEntity>>(const []);
+
+  @override
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
     String? gameTemplateId,
     double? latitude,

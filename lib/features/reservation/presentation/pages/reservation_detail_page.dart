@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../lobby_management/domain/repositories/lobby_repository.dart';
 import '../../../lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../lobby_management/presentation/pages/lobby_page.dart';
 import '../../../lobby_management/presentation/pages/lobby_pending_cafe_approval_page.dart';
@@ -29,6 +30,7 @@ class ReservationDetailPage extends StatelessWidget {
     return BlocProvider<ReservationDetailCubit>(
       create: (_) => ReservationDetailCubit(
         repository: sl<ReservationRepository>(),
+        lobbyRepository: sl<LobbyRepository>(),
       )..fetchReservation(
           reservationId: reservation.id,
           snapshot: reservation,
@@ -658,7 +660,7 @@ class _DepositCard extends StatelessWidget {
             r.refundPolicyApplied!.isNotEmpty) ...[
           _InfoRow(
             label: 'Chính sách hoàn',
-            value: r.refundPolicyApplied!,
+            value: r.refundPolicyApplied!.refundPolicyLabel,
           ),
         ],
         _InfoRow(

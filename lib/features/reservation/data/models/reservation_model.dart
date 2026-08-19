@@ -154,7 +154,8 @@ class ReservationModel extends ReservationEntity {
   /// Build scheduledTime từ playDate + timeSlot.
   ///
   /// Dùng khi list API không trả `scheduledStartTime` mà chỉ trả
-  /// `playDate` (date only) + `timeSlot` (Morning/Afternoon/Evening/Night).
+  /// `playDate` (date only) + `timeSlot`
+  /// (`Morning`/`Afternoon`/`Evening`/`LateNight`).
   static DateTime _buildScheduledTimeFromPlayDateAndSlot(
     String? playDate,
     String? timeSlot,

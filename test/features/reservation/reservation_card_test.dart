@@ -63,9 +63,9 @@ class _StubReservationRepository implements ReservationRepository {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    // BR-NEW-15 (2026-08-18): quote request bỏ `timeSlot`.
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -78,9 +78,9 @@ class _StubReservationRepository implements ReservationRepository {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    // BR-NEW-15 (2026-08-18): confirm request bỏ `timeSlot`.
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -212,7 +212,7 @@ void main() {
       expect(find.textContaining('100000 BVC'), findsOneWidget);
     });
 
-    testWidgets('status "HOẠT ĐỘNG" xuất hiện khi reservation active',
+    testWidgets('status "Đã xác nhận đặt chỗ" xuất hiện khi reservation active (holding)',
         (tester) async {
       final r = _makeReservation(
         status: ReservationStatus.holding,
@@ -224,8 +224,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
-      expect(find.text('Đang giữ chỗ'), findsOneWidget);
+      expect(find.text('Đã xác nhận đặt chỗ'), findsOneWidget);
     });
 
     testWidgets('status "Chờ quán duyệt" khi lobby pendingCafeApproval',
@@ -244,7 +243,7 @@ void main() {
       expect(find.text('Chờ quán duyệt'), findsOneWidget);
     });
 
-    testWidgets('KHÔNG hiển thị "HOẠT ĐỘNG" khi reservation terminal',
+    testWidgets('status "Đã huỷ" khi reservation cancelledByPlayer (terminal, không phải "HOẠT ĐỘNG")',
         (tester) async {
       final r = _makeReservation(
         status: ReservationStatus.cancelledByPlayer,
@@ -257,7 +256,7 @@ void main() {
         ),
       );
       expect(find.text('HOẠT ĐỘNG'), findsNothing);
-      expect(find.text('Hủy bởi người dùng'), findsOneWidget);
+      expect(find.text('Đã huỷ'), findsOneWidget);
     });
 
     testWidgets('onTap callback được gọi khi tap card', (tester) async {

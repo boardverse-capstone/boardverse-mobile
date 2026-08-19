@@ -51,6 +51,16 @@ class _LobbyHubActionsState extends State<LobbyHubActions> {
           _setCount(state.pendingInvites.length);
         } else if (state is LobbyInviteEmpty) {
           _setCount(0);
+        } else if (state is LobbyInviteAccepted) {
+          // Sau khi accept thành công, badge phải giảm ngay (invite đã bị
+          // remove khỏi list). Count nằm trong `state.pendingInvites`
+          // (nếu có) hoặc ta giảm 1 tạm thời. Tốt nhất: fetch lại để
+          // đảm bảo sync. Dùng refresh() thay vì loadPendingInvites() để
+          // tái sử dụng logic refresh của cubit.
+          _cubit.refresh();
+        } else if (state is LobbyInviteDeclined) {
+          // Tương tự cho decline — reload để badge đồng bộ.
+          _cubit.refresh();
         }
       },
       child: Row(

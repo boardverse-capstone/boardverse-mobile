@@ -560,6 +560,54 @@ class LobbyCubit extends Cubit<LobbyState> {
         // không liên quan tới 1 lobby cụ thể, `LobbySearchCubit` đã
         // subscribe và tự reload list. Cubit này ignore.
         break;
+
+      // ─── BVC v2 events (BR-NEW-13/14) ────────────────────────────────
+      case LobbyActivatedEvent _:
+        // Lobby vừa chuyển từ PendingActivation sang Open/Viable. UI
+        // watcher `watchLobbyRealtime` sẽ refetch → tự cập nhật state.
+        break;
+      case LobbyApprovalRequiredEvent _:
+        // Cafe approval bắt buộc (BR-NEW-11) — UI page pending đã poll,
+        // realtime chỉ để trigger refetch sớm hơn.
+        break;
+      case LobbyApprovedEvent _:
+        // Cafe duyệt — lobby chuyển sang Open. UI tự reload state.
+        break;
+      case LobbyRejectedEvent e:
+        // Cafe từ chối — emit dismissal để MainScaffold pop về.
+        if (isClosed) return;
+        await _persistenceService.clearAll();
+        emit(LobbyDismissed(
+          title: 'Quán đã từ chối',
+          message: e.reason.isEmpty
+              ? 'Quán từ chối duyệt phòng chờ này.'
+              : 'Lý do: ${e.reason}',
+          reasonCode: 'REJECTED_BY_CAFE',
+        ));
+        break;
+      case LobbyAtRiskWarningEvent _:
+        // Banner cảnh báo rủi ro (heldBalance / cooling-off / overlap) —
+        // UI render qua widget ngoài page (vd top snack bar).
+        break;
+      case LobbyMilestoneNotificationEvent _:
+        // Milestone 24h/2h/30min tới deadline — UI countdown đã handle,
+        // realtime để refresh display state.
+        break;
+      case MemberReadyEvent _:
+        // Member ready status đổi — UI watcher refetch.
+        break;
+      case HostChangedEvent _:
+        // Host đã chuyển — UI refetch.
+        break;
+      case MemberKickedEvent e:
+        // Member bị kick — nếu current user bị kick thì dismiss.
+        // Backend sẽ gửi event tới channel riêng của user bị kick, không
+        // riêng lobby — UI handle qua top notification service.
+        debugPrint(
+          '[LobbyCubit] member kicked: ${e.kickedUserId} by '
+          '${e.kickedByUserId}',
+        );
+        break;
     }
   }
 

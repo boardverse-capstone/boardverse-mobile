@@ -82,13 +82,36 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
 }
 
 /// Request model cho Quote API
+///
+/// BR-NEW-15 (2026-08-18): Backend đã BỎ `timeSlot` khỏi request body của
+/// `POST /api/v1/reservations/quote`. Thay vào đó FE phải gửi
+/// `preferredStartTime` + `preferredEndTime` (cả 2 REQUIRED theo
+/// `ReservationQuoteRequestDto` trong swagger.json).
+///
+/// Schema backend (swagger.json `ReservationQuoteRequestDto` line 27806):
+/// ```json
+/// {
+///   "cafeId": "guid",
+///   "gameId": "guid",
+///   "playDate": "YYYY-MM-DD",
+///   "preferredStartTime": "HH:mm:ss",
+///   "preferredEndTime": "HH:mm:ss",
+///   "minPlayers": 4,
+///   "maxPlayers": 6,
+///   "isPrivate": false,
+///   "idempotencyKey": "..."
+/// }
+/// ```
 class QuoteRequestModel {
   final String cafeId;
   final String gameId;
   final DateTime playDate;
-  final String timeSlot;
-  final String? preferredStartTime;
-  final String? preferredEndTime;
+
+  /// REQUIRED (BR-NEW-15) — giờ bắt đầu dự kiến (HH:mm:ss).
+  final String preferredStartTime;
+
+  /// REQUIRED (BR-NEW-15) — giờ kết thúc dự kiến (HH:mm:ss).
+  final String preferredEndTime;
   final int minPlayers;
   final int maxPlayers;
   final bool isPrivate;
@@ -98,9 +121,8 @@ class QuoteRequestModel {
     required this.cafeId,
     required this.gameId,
     required this.playDate,
-    required this.timeSlot,
-    this.preferredStartTime,
-    this.preferredEndTime,
+    required this.preferredStartTime,
+    required this.preferredEndTime,
     required this.minPlayers,
     required this.maxPlayers,
     this.isPrivate = false,
@@ -112,11 +134,12 @@ class QuoteRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
-      'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
+      // BR-NEW-15: backend không còn `timeSlot` trong quote request —
+      // dùng `preferredStartTime`/`preferredEndTime` (HH:mm:ss) để xác
+      // định giờ chơi cụ thể. Server tự resolve TimeSlot từ cặp giờ này
+      // và xác định scheduledStartTime/EndTime cho reservation.
       'preferredStartTime': preferredStartTime,
-      // NOT sending preferredEndTime — backend tự tính giờ kết thúc dựa
-      // trên timeSlot. Gửi field này sẽ gây lỗi 400.
+      'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -157,13 +180,23 @@ class ReservationConfirmResultModel extends ReservationConfirmResult {
 }
 
 /// Request model cho Confirm API
+///
+/// BR-NEW-15 (2026-08-18): Backend đã BỎ `timeSlot` khỏi request body.
+/// Confirm chỉ cần `cafeId`/`gameId`/`playDate` + `preferredStartTime`/
+/// `preferredEndTime`/`maxPlayers`/`minPlayers`/`expectedFinalDeposit`/
+/// `idempotencyKey` (xem swagger.json `ReservationConfirmRequestDto`
+/// line 27747). Server đã biết TimeSlot từ quote trước đó, confirm chỉ
+/// verify params khớp + tạo reservation/lobby.
 class ConfirmRequestModel {
   final String cafeId;
   final String gameId;
   final DateTime playDate;
-  final String timeSlot;
-  final String? preferredStartTime;
-  final String? preferredEndTime;
+
+  /// REQUIRED (BR-NEW-15) — phải khớp với `preferredStartTime` từ quote.
+  final String preferredStartTime;
+
+  /// REQUIRED (BR-NEW-15) — phải khớp với `preferredEndTime` từ quote.
+  final String preferredEndTime;
   final int minPlayers;
   final int maxPlayers;
   final bool isPrivate;
@@ -174,9 +207,8 @@ class ConfirmRequestModel {
     required this.cafeId,
     required this.gameId,
     required this.playDate,
-    required this.timeSlot,
-    this.preferredStartTime,
-    this.preferredEndTime,
+    required this.preferredStartTime,
+    required this.preferredEndTime,
     required this.minPlayers,
     required this.maxPlayers,
     this.isPrivate = false,
@@ -189,10 +221,10 @@ class ConfirmRequestModel {
       'cafeId': cafeId,
       'gameId': gameId,
       'playDate': playDate.toIso8601String().split('T')[0],
-      // Backend expects PascalCase: "Morning", "Afternoon", "Evening", "Night"
-      'timeSlot': timeSlot[0].toUpperCase() + timeSlot.substring(1),
+      // BR-NEW-15: backend không còn `timeSlot` trong confirm request.
+      // Server tự suy ra từ quote fingerprint đã cache trong confirm session.
       'preferredStartTime': preferredStartTime,
-      // NOT sending preferredEndTime — backend tự tính giờ kết thúc.
+      'preferredEndTime': preferredEndTime,
       'minPlayers': minPlayers,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,

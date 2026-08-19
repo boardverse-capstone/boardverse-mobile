@@ -106,8 +106,7 @@ void main() {
         LobbyStatus.open,
       ));
       await tester.pump();
-      expect(find.text('Đang tuyển'), findsOneWidget);
-      expect(find.text('Chưa sẵn sàng'), findsNothing);
+      expect(find.text('Cần thêm người'), findsOneWidget);
     });
 
     testWidgets('lobby closed → "Đã đóng" (terminal)', (tester) async {

@@ -12,6 +12,7 @@ enum LobbyStatusBadgeVariant {
   recruiting,
   viable,
   full,
+  waitingCheckIn,
   pendingCafeApproval,
   rejectedByCafe,
   expiredByCafe,
@@ -71,6 +72,9 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
         }
         return LobbyStatusBadgeVariant.confirmed;
       case res.ReservationStatus.confirmed:
+        if (lobbyStatus == LobbyStatus.waitingCheckIn) {
+          return LobbyStatusBadgeVariant.waitingCheckIn;
+        }
         return LobbyStatusBadgeVariant.confirmed;
       case res.ReservationStatus.checkedIn:
         return LobbyStatusBadgeVariant.checkedIn;
@@ -95,6 +99,8 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
       return LobbyStatusBadgeVariant.viable;
     case LobbyStatus.full:
       return LobbyStatusBadgeVariant.full;
+    case LobbyStatus.waitingCheckIn:
+      return LobbyStatusBadgeVariant.waitingCheckIn;
     case LobbyStatus.inProgress:
       return LobbyStatusBadgeVariant.inProgress;
     case LobbyStatus.ratingOpen:
@@ -109,6 +115,10 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
       return LobbyStatusBadgeVariant.rejectedByCafe;
     case LobbyStatus.expiredByCafe:
       return LobbyStatusBadgeVariant.expiredByCafe;
+    case LobbyStatus.dissolved:
+      // Dissolved lobby hiển thị cùng visual với `closed` (terminal) nhưng
+      // text khác để user phân biệt được (BR §XXI-A.6).
+      return LobbyStatusBadgeVariant.closed;
     case null:
       return LobbyStatusBadgeVariant.unknown;
   }
@@ -166,6 +176,13 @@ class LobbyStatusBadge extends StatelessWidget {
           icon: AppIcons.check,
           background: AppColors.success,
           foreground: AppColors.white,
+        );
+      case LobbyStatusBadgeVariant.waitingCheckIn:
+        return const _BadgeStyle(
+          label: 'Chờ check-in tại quán',
+          icon: AppIcons.location,
+          background: AppColors.warning,
+          foreground: AppColors.black,
         );
       case LobbyStatusBadgeVariant.pendingCafeApproval:
         return const _BadgeStyle(

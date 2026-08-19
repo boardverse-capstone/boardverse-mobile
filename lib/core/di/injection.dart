@@ -20,6 +20,7 @@ import '../../features/matchmaking_discovery/data/datasources/base/matchmaking_d
 import '../../features/matchmaking_discovery/data/datasources/remote/matchmaking_remote_datasource_impl.dart';
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
+import '../../features/matchmaking_discovery/presentation/cubit/cafe_detail_cubit.dart';
 import '../../features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
@@ -163,6 +164,10 @@ void setupDependencies() {
     ),
   );
 
+  sl.registerFactory<CafeDetailCubit>(
+    () => CafeDetailCubit(sl<MatchmakingRepository>()),
+  );
+
   // ─── Feature: Lobby Management ────────────────────────────────────────
   sl.registerLazySingleton<LobbyRemoteDatasource>(
     () => RealLobbyRemoteDatasource(dio: sl<Dio>()),
@@ -207,7 +212,15 @@ void setupDependencies() {
     ),
   );
 
-  sl.registerFactory<LobbyInviteCubit>(
+  // Register as `lazySingleton` (không phải factory) để MỌI consumer
+  // (`LobbyHubActions` ở AppBar inbox button, `LobbyInvitesPage`, các page
+  // phụ) dùng chung một instance.
+  //
+  // Bug trước đây: `registerFactory` → mỗi `BlocProvider.create:` tạo cubit
+  // mới. Khi user mở trang invites, accept một lời mời rồi back về Lobby
+  // Hub, cubit ở `LobbyHubActions` (badge inbox) vẫn giữ state cũ → badge
+  // đỏ vẫn hiển thị "1" mặc dù invite đã accept.
+  sl.registerLazySingleton<LobbyInviteCubit>(
     () => LobbyInviteCubit(remoteDatasource: sl<LobbyRemoteDatasource>()),
   );
 

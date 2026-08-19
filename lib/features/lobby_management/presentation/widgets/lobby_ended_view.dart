@@ -845,6 +845,10 @@ class _RefundBanner extends StatelessWidget {
         return 'BVC đã được hoàn 100% về ví của bạn.';
       case LobbyStatus.timeoutFailed:
         return 'BVC đã được hoàn về ví theo chính sách hoàn tiền (BR-08).';
+      case LobbyStatus.dissolved:
+        // Soft-delete theo BR §XXI-A.6 — refund thường là 100% (chưa check-in)
+        // hoặc theo BR-08 nếu đã qua recruitmentDeadline.
+        return 'Phòng đã được giải tán. BVC đã được hoàn về ví của bạn.';
       default:
         return 'BVC đã được hoàn.';
     }

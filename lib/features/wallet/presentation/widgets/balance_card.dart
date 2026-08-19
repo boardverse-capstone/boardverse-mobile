@@ -147,6 +147,90 @@ class BalanceCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+          // BR-USER-LIMIT-03: hiển thị heldBalance badge khi > 0.
+          if (wallet.heldBalance > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _buildHeldBalanceBadge(),
+          ],
+          // BR-NEW-10: cooling-off badge — cảnh báo rủi ro đặt cọc ×2.
+          if (wallet.isCoolingOff) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _buildCoolingOffBadge(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeldBalanceBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs + 2,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.lock_clock_outlined,
+            size: 14,
+            color: AppColors.white,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              'Đang giữ ${wallet.heldBalance} BVC '
+              '(${_formatVnd(wallet.heldBalanceVnd)} VND) cho reservation khác',
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoolingOffBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs + 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.black, width: 2),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.white),
+          SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              'Cooling-off: cọc lobby mới sẽ nhân ×2 (BR-NEW-10)',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );

@@ -207,6 +207,16 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
       LobbyCancelledEvent e => e.lobbyId == lobbyId,
       LobbyTimeoutEvent e => e.lobbyId == lobbyId,
       BookingConfirmedEvent e => e.lobbyId == lobbyId,
+      // BVC v2 events (BR-NEW-13/14)
+      LobbyActivatedEvent e => e.lobbyId == lobbyId,
+      LobbyApprovalRequiredEvent e => e.lobbyId == lobbyId,
+      LobbyApprovedEvent e => e.lobbyId == lobbyId,
+      LobbyRejectedEvent e => e.lobbyId == lobbyId,
+      LobbyAtRiskWarningEvent e => e.lobbyId == lobbyId,
+      LobbyMilestoneNotificationEvent e => e.lobbyId == lobbyId,
+      MemberReadyEvent e => e.lobbyId == lobbyId,
+      HostChangedEvent e => e.lobbyId == lobbyId,
+      MemberKickedEvent e => e.lobbyId == lobbyId,
       LobbyInviteReceivedEvent e => e.lobbyId == lobbyId,
       InviteAcceptedEvent e => e.lobbyId == lobbyId,
       InviteDeclinedEvent e => e.lobbyId == lobbyId,
@@ -351,6 +361,19 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
     return cache<Either<Failure, List<LobbyEntity>>>(
       'lobbies-joined',
       () => _remote.getJoinedLobbies(),
+    );
+  }
+
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() {
+    // Endpoint `/my` hợp nhất hosted + joined và đã tự filter theo
+    // BR-MEMBER-CLEANUP-01 — không cần filter lại client-side. Nếu
+    // backend fallback (404) thì `getMyLobbies()` ở remote DS sẽ tự
+    // merge hosted + joined với `status.isActive`. Cache key riêng để
+    // không dedupe với cached `hosted` / `joined` (đã deprecated).
+    return cache<Either<Failure, List<LobbyEntity>>>(
+      'lobbies-my',
+      () => _remote.getMyLobbies(),
     );
   }
 

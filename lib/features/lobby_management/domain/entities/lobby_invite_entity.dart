@@ -74,17 +74,20 @@ class LobbyInviteEntity extends Equatable {
   /// Null nếu chưa phản hồi.
   final DateTime? respondedAt;
 
-  /// Tên game của lobby.
-  final String gameName;
+  /// Tên game của lobby (optional — server DTO mới có thể trả null khi
+  /// host chưa publish lobby detail; xem BR-NEW-12). Khi null, card không
+  /// hiển thị chip "Board Game" fallback.
+  final String? gameName;
 
-  /// Tên cafe của lobby.
-  final String cafeName;
+  /// Tên cafe của lobby (optional — tương tự [gameName]).
+  final String? cafeName;
 
-  /// Số người hiện tại trong lobby.
-  final int currentMembers;
+  /// Số người hiện tại trong lobby (optional — nếu server không trả về
+  /// nested `lobby` object).
+  final int? currentMembers;
 
-  /// Số người tối đa của lobby.
-  final int maxMembers;
+  /// Số người tối đa của lobby (optional — tương tự [currentMembers]).
+  final int? maxMembers;
 
   const LobbyInviteEntity({
     required this.inviteId,
@@ -101,10 +104,10 @@ class LobbyInviteEntity extends Equatable {
     required this.createdAt,
     required this.expiresAt,
     this.respondedAt,
-    required this.gameName,
-    required this.cafeName,
-    required this.currentMembers,
-    required this.maxMembers,
+    this.gameName,
+    this.cafeName,
+    this.currentMembers,
+    this.maxMembers,
   });
 
   /// Kiểm tra lời mời có đang active (pending và chưa hết hạn).
@@ -121,11 +124,18 @@ class LobbyInviteEntity extends Equatable {
   /// Khoảng thời gian còn lại trước khi hết hạn.
   Duration get remainingTime => expiresAt.difference(DateTime.now());
 
-  /// Số slot còn trống trong lobby.
-  int get slotsRemaining => maxMembers - currentMembers;
+  /// Số slot còn trống trong lobby. Trả về null nếu thiếu data
+  /// ([currentMembers] hoặc [maxMembers] chưa có từ server).
+  int? get slotsRemaining {
+    if (currentMembers == null || maxMembers == null) return null;
+    return maxMembers! - currentMembers!;
+  }
 
-  /// Lobby có còn chỗ không.
-  bool get hasSlots => currentMembers < maxMembers;
+  /// Lobby có còn chỗ không. Trả về null nếu thiếu data để xác định.
+  bool? get hasSlots {
+    if (currentMembers == null || maxMembers == null) return null;
+    return currentMembers! < maxMembers!;
+  }
 
   @override
   List<Object?> get props => [

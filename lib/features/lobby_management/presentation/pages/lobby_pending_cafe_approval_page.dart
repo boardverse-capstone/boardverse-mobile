@@ -22,8 +22,10 @@ import '../widgets/lobby_page_shimmer.dart';
 /// - Hiển thị cafe name + address (lấy qua `CafeInfoHelper`).
 /// - Countdown 24h tới `cafeApprovalDeadline` (cập nhật mỗi giây).
 /// - Action "Hủy đặt chỗ" → gọi `ReservationCubit.cancelReservation` → hoàn
-///   BVC theo BR-REFUND-02/03 (grace 15' → 100%, ≥24h → 100%, 6-24h → 50%,
-///   <6h → 0%).
+///   BVC theo BR-REFUND-02 (BVC v2 — đơn giản hoá còn 2 mốc):
+///     + Grace 15 phút (chưa có member join) HOẶC ≥24h trước giờ chơi
+///       → hoàn 100%.
+///     + <24h trước giờ chơi (ngoài grace) → hoàn 0%, có thể bị trừ Karma.
 /// - Auto re-route: poll reservation detail mỗi 15s. Khi cafe duyệt →
 ///   chuyển sang placeholder page (MainScaffold sẽ pick up join signal để
 ///   navigate sang `LobbyPage` thật). Khi cafe từ chối → hiển thị dialog
@@ -228,13 +230,13 @@ class _LobbyPendingCafeApprovalPageState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'BVC sẽ được hoàn theo chính sách BR-REFUND-02/03:',
+              'BVC sẽ được hoàn theo chính sách BR-REFUND-02 (BVC v2):',
             ),
             const SizedBox(height: AppSpacing.sm),
             const Text('• Trong grace 15 phút (chưa có member): 100%'),
             const Text('• ≥ 24 giờ trước giờ chơi: 100%'),
-            const Text('• 6 – 24 giờ trước: 50%'),
-            const Text('• < 6 giờ trước: 0%'),
+            const Text('• < 24 giờ trước giờ chơi (ngoài grace): 0% — '
+                'có thể bị trừ Karma.'),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: controller,
@@ -281,8 +283,21 @@ class _LobbyPendingCafeApprovalPageState
 
   @override
   Widget build(BuildContext context) {
-    final deadline = widget.cafeApprovalDeadline;
-    final remaining = deadline == null
+    // BR-NEW-11: Ưu tiên dùng `cafeApprovalDeadline` (absolute time) để
+    // countdown chính xác. Nếu backend không trả (vd khi poll từ
+    // MyReservations API chỉ có remaining* relative fields) → fallback
+    // sang `_reservation?.remainingApprovalHours/Minutes` để render
+    // countdown đúng BR-NEW-11 yêu cầu hiển thị "Còn lại 23 giờ 45 phút".
+    DateTime? deadline = widget.cafeApprovalDeadline;
+    Duration remaining;
+    if (deadline == null && _reservation != null) {
+      final hours = _reservation!.remainingApprovalHours ?? 0;
+      final minutes = _reservation!.remainingApprovalMinutes ?? 0;
+      if (hours > 0 || minutes > 0) {
+        deadline = DateTime.now().add(Duration(hours: hours, minutes: minutes));
+      }
+    }
+    remaining = deadline == null
         ? Duration.zero
         : deadline.difference(DateTime.now());
     final isExpired = remaining.isNegative && deadline != null;

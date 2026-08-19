@@ -85,6 +85,25 @@ class _StubLobbyRepository implements LobbyRepository {
     return joinedResult;
   }
 
+  @override
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async {
+    if (throwOnLoad) {
+      throw Exception('Lỗi mạng');
+    }
+    // BVC v2: `getMyLobbies` hợp nhất hosted + joined. Stub đơn giản
+    // trả cả 2 list dedup theo id.
+    final seen = <String>{};
+    final merged = <LobbyEntity>[];
+    for (final list in [hostedResult, joinedResult]) {
+      list.fold((_) {}, (lobbies) {
+        for (final l in lobbies) {
+          if (seen.add(l.id)) merged.add(l);
+        }
+      });
+    }
+    return Right(merged);
+  }
+
   // Unused stubs - throw NotFoundFailure để các test khác fail ngay nếu
   // vô tình gọi tới.
   @override
@@ -382,9 +401,9 @@ class _StubReservationRepository implements ReservationRepository {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    // BR-NEW-15 (2026-08-18): quote request bỏ `timeSlot`.
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
@@ -396,9 +415,9 @@ class _StubReservationRepository implements ReservationRepository {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    // BR-NEW-15 (2026-08-18): confirm request bỏ `timeSlot`.
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,

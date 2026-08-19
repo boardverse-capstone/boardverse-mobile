@@ -16,10 +16,10 @@ class LobbyInviteModel {
   final DateTime createdAt;
   final DateTime expiresAt;
   final DateTime? respondedAt;
-  final String gameName;
-  final String cafeName;
-  final int currentMembers;
-  final int maxMembers;
+  final String? gameName;
+  final String? cafeName;
+  final int? currentMembers;
+  final int? maxMembers;
 
   const LobbyInviteModel({
     required this.inviteId,
@@ -36,10 +36,10 @@ class LobbyInviteModel {
     required this.createdAt,
     required this.expiresAt,
     this.respondedAt,
-    required this.gameName,
-    required this.cafeName,
-    required this.currentMembers,
-    required this.maxMembers,
+    this.gameName,
+    this.cafeName,
+    this.currentMembers,
+    this.maxMembers,
   });
 
   factory LobbyInviteModel.fromJson(Map<String, dynamic> json) {
@@ -90,17 +90,16 @@ class LobbyInviteModel {
       respondedAt: json['respondedAt'] != null
           ? parseDate(json['respondedAt'])
           : null,
-      gameName: (json['lobby']?['gameName'] ??
-              json['gameName'] ??
-              'Board Game')
-          .toString(),
-      cafeName:
-          (json['lobby']?['cafeName'] ?? json['cafeName'] ?? 'Quán').toString(),
-      currentMembers:
-          (json['lobby']?['currentMembers'] ?? json['currentPlayers'] ?? 1)
-              as int,
-      maxMembers:
-          (json['lobby']?['maxMembers'] ?? json['maxPlayers'] ?? 4) as int,
+      // Game/cafe name + member counts được đọc từ nested `lobby` object
+      // (DTO mới) hoặc root (DTO cũ). Trả về `null` nếu cả hai đều vắng
+      // — tránh hiển thị "Board Game" / "Quán" / "1/4" fallback gây nhiễu
+      // (BR-NEW-12). UI sẽ ẩn chip tương ứng khi field null.
+      gameName: (json['lobby']?['gameName'] ?? json['gameName'])?.toString(),
+      cafeName: (json['lobby']?['cafeName'] ?? json['cafeName'])?.toString(),
+      currentMembers: json['lobby']?['currentMembers'] as int? ??
+          json['currentPlayers'] as int?,
+      maxMembers: json['lobby']?['maxMembers'] as int? ??
+          json['maxPlayers'] as int?,
     );
   }
 

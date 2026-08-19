@@ -231,6 +231,22 @@ class ApiEndpoints {
   /// POST /api/v1/lobbies/{id}/report — Báo cáo phòng chờ vi phạm.
   static String lobbyReport(String id) => '/api/v1/lobbies/$id/report';
 
+  /// POST /api/v1/lobbies/{id}/change-timeslot — Host đổi khung giờ lobby
+  /// (BR-NEW-15 — quán vẫn phải open trong khoảng mới).
+  static String lobbyChangeTimeslot(String id) =>
+      '/api/v1/lobbies/$id/change-timeslot';
+
+  /// POST /api/v1/lobbies/{id}/boost — Tăng visibility (cooldown 6h, BR-LOBBY-BOOST-01).
+  static String lobbyBoost(String id) => '/api/v1/lobbies/$id/boost';
+
+  /// POST /api/v1/lobbies/{id}/share-code/regenerate — Tạo lại share code mới.
+  static String lobbyShareCodeRegenerate(String id) =>
+      '/api/v1/lobbies/$id/share-code/regenerate';
+
+  /// GET /api/v1/lobbies/my — Phòng của tôi (hosted + joined) trong 1 endpoint.
+  /// BR-MEMBER-CLEANUP-01: backend tự filter các lobby còn active.
+  static const String lobbyMy = '/api/v1/lobbies/my';
+
   /// POST /api/v1/lobbies/{id}/messages — Gửi tin nhắn chat trong lobby.
   static String lobbyMessages(String id) => '/api/v1/lobbies/$id/messages';
 

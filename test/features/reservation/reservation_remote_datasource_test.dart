@@ -87,7 +87,10 @@ void main() {
         cafeId: 'cafe-1',
         gameId: 'game-1',
         playDate: DateTime.utc(2026, 8, 8),
-        timeSlot: 'Evening',
+        // BR-NEW-15 (2026-08-18): confirm không còn `timeSlot` — chỉ cần
+        // `preferredStartTime` + `preferredEndTime`.
+        preferredStartTime: '19:00:00',
+        preferredEndTime: '23:00:00',
         minPlayers: 2,
         maxPlayers: 4,
         expectedFinalDeposit: 50000,
@@ -129,7 +132,8 @@ void main() {
         cafeId: 'cafe-1',
         gameId: 'game-1',
         playDate: DateTime.utc(2026, 8, 8),
-        timeSlot: 'Evening',
+        preferredStartTime: '19:00:00',
+        preferredEndTime: '23:00:00',
         minPlayers: 2,
         maxPlayers: 4,
         expectedFinalDeposit: 50000,
@@ -166,7 +170,8 @@ void main() {
         cafeId: 'cafe-1',
         gameId: 'game-1',
         playDate: DateTime.utc(2026, 8, 8),
-        timeSlot: 'Evening',
+        preferredStartTime: '19:00:00',
+        preferredEndTime: '23:00:00',
         minPlayers: 2,
         maxPlayers: 4,
         expectedFinalDeposit: 50000,
@@ -222,7 +227,10 @@ void main() {
         cafeId: 'cafe-1',
         gameId: 'game-1',
         playDate: DateTime.utc(2026, 8, 8),
-        timeSlot: 'Evening',
+        // BR-NEW-15 (2026-08-18): quote request bỏ `timeSlot` — chỉ cần
+        // `preferredStartTime` + `preferredEndTime`.
+        preferredStartTime: '19:00:00',
+        preferredEndTime: '23:00:00',
         minPlayers: 2,
         maxPlayers: 4,
         idempotencyKey: 'idem-quote-201',

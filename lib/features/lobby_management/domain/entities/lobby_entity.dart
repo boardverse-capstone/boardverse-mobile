@@ -9,19 +9,24 @@ import '../../../reservation/domain/entities/entities.dart' as res;
 /// - [open]                 : cần thêm người, recruitmentDeadline chưa tới.
 /// - [viable]               : đã đạt minPlayers, vẫn có thể nhận thêm đến max.
 /// - [full]                 : đạt maxPlayers, ngừng nhận.
-/// - [inProgress]           : cả nhóm đã check-in tại quán (Task 4).
+/// - [waitingCheckIn]       : tất cả thành viên đã Ready, chờ staff check-in.
+/// - [inProgress]           : cả nhóm đã được staff check-in tại quán (Task 4).
 /// - [ratingOpen]           : sau thanh toán POS, đang đánh giá Karma (Task 5).
 /// - [closed]               : phiên kết thúc, rating cross được phép (Task 5).
 /// - [timeoutFailed]        : BR-08 — Lead-time trôi qua mà chưa đạt [minPlayers].
 /// - [hostCancelled]        : Host主动 hủy khi còn [open].
 /// - [rejectedByCafe]       : cafe từ chối duyệt (BR-NEW-11).
 /// - [expiredByCafe]        : cafe không duyệt trong 24h (BR-NEW-11).
+/// - [dissolved]            : BR §XXI-A.6 — Soft-delete sau khi host gọi
+///                            DELETE. Lobby bị ẩn khỏi discovery nhưng vẫn
+///                            truy vấn được qua list cá nhân (audit trail).
 enum LobbyStatus {
   pendingActivation,
   pendingCafeApproval,
   open,
   viable,
   full,
+  waitingCheckIn,
   inProgress,
   ratingOpen,
   closed,
@@ -29,6 +34,7 @@ enum LobbyStatus {
   hostCancelled,
   rejectedByCafe,
   expiredByCafe,
+  dissolved,
 }
 
 extension LobbyStatusX on LobbyStatus {
@@ -40,12 +46,14 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.hostCancelled:
       case LobbyStatus.rejectedByCafe:
       case LobbyStatus.expiredByCafe:
+      case LobbyStatus.dissolved:
         return true;
       case LobbyStatus.pendingActivation:
       case LobbyStatus.pendingCafeApproval:
       case LobbyStatus.open:
       case LobbyStatus.viable:
       case LobbyStatus.full:
+      case LobbyStatus.waitingCheckIn:
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
         return false;
@@ -55,11 +63,13 @@ extension LobbyStatusX on LobbyStatus {
   /// Lobby đang ở phase "active" — UI show nút Ready, action cho phép
   /// (check-in, chat, etc.). Bao gồm cả pre-game (open/viable/full) và
   /// in-game (inProgress/ratingOpen).
+  /// `waitingCheckIn` vẫn là pre-game nhưng đã khóa thay đổi Ready.
   bool get isActive {
     switch (this) {
       case LobbyStatus.open:
       case LobbyStatus.viable:
       case LobbyStatus.full:
+      case LobbyStatus.waitingCheckIn:
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
         return true;
@@ -70,6 +80,7 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.hostCancelled:
       case LobbyStatus.rejectedByCafe:
       case LobbyStatus.expiredByCafe:
+      case LobbyStatus.dissolved:
         return false;
     }
   }
@@ -80,10 +91,12 @@ extension LobbyStatusX on LobbyStatus {
   /// + BR-NEW-11. Một số trạng thái "business" đặc biệt:
   /// - `Viable`: "Đủ người tối thiểu" (đạt minPlayers, vẫn tuyển).
   /// - `Full`: "Phòng đầy" (đạt maxPlayers, ngừng tuyển).
-  /// - `InProgress`: "Đang chơi" (đã check-in tại quán).
+  /// - `WaitingCheckIn`: "Chờ check-in" (tất cả đã Ready, chưa tới quán).
+  /// - `InProgress`: "Đang chơi" (đã được staff check-in tại quán).
   /// - `RatingOpen`: "Đang đánh giá" (sau POS thanh toán, đang Karma).
   /// - `PendingActivation`: "Đang kích hoạt" (atomic transaction BR-§17.4).
   /// - `PendingCafeApproval`: "Chờ quán duyệt" (BR-NEW-11).
+  /// - `Dissolved`: "Đã giải tán" (soft-delete, BR §XXI-A.6).
   String get displayName {
     switch (this) {
       case LobbyStatus.pendingActivation:
@@ -96,6 +109,8 @@ extension LobbyStatusX on LobbyStatus {
         return 'Đủ người tối thiểu';
       case LobbyStatus.full:
         return 'Phòng đầy';
+      case LobbyStatus.waitingCheckIn:
+        return 'Chờ check-in';
       case LobbyStatus.inProgress:
         return 'Đang chơi';
       case LobbyStatus.ratingOpen:
@@ -110,6 +125,8 @@ extension LobbyStatusX on LobbyStatus {
         return 'Quán từ chối';
       case LobbyStatus.expiredByCafe:
         return 'Hết hạn duyệt';
+      case LobbyStatus.dissolved:
+        return 'Đã giải tán';
     }
   }
 
@@ -126,6 +143,8 @@ extension LobbyStatusX on LobbyStatus {
         return 'Đủ min';
       case LobbyStatus.full:
         return 'Đầy';
+      case LobbyStatus.waitingCheckIn:
+        return 'Chờ check-in';
       case LobbyStatus.inProgress:
         return 'Đang chơi';
       case LobbyStatus.ratingOpen:
@@ -140,6 +159,8 @@ extension LobbyStatusX on LobbyStatus {
         return 'Bị từ chối';
       case LobbyStatus.expiredByCafe:
         return 'Hết hạn duyệt';
+      case LobbyStatus.dissolved:
+        return 'Giải tán';
     }
   }
 
@@ -162,12 +183,14 @@ extension LobbyStatusX on LobbyStatus {
       case LobbyStatus.hostCancelled:
         return true;
       case LobbyStatus.closed:
+      case LobbyStatus.waitingCheckIn:
       case LobbyStatus.inProgress:
       case LobbyStatus.ratingOpen:
       case LobbyStatus.pendingActivation:
       case LobbyStatus.pendingCafeApproval:
       case LobbyStatus.rejectedByCafe:
       case LobbyStatus.expiredByCafe:
+      case LobbyStatus.dissolved:
         return false;
     }
   }
@@ -178,14 +201,13 @@ extension LobbyStatusX on LobbyStatus {
   /// Lobby host đã chủ động huỷ.
   bool get isHostCancelled => this == LobbyStatus.hostCancelled;
 
-  /// Lobby đã đủ điều kiện để host đến quán check-in. Áp dụng khi:
-  /// - Viable  (đủ minPlayers, còn slot) → có thể đến quán
-  /// - Full    (đủ maxPlayers, đóng tuyển) → sẵn sàng đến quán
-  /// - InProgress (đã check-in, đang chơi)
+  /// Lobby đang ở phase chờ staff check-in tại quán.
+  bool get isWaitingCheckIn => this == LobbyStatus.waitingCheckIn;
+
+  /// Lobby đã đủ điều kiện check-in. Chỉ `WaitingCheckIn` là trạng thái chờ
+  /// check-in; `InProgress` nghĩa là staff đã check-in và phiên chơi bắt đầu.
   bool get canCheckIn =>
-      this == LobbyStatus.viable ||
-      this == LobbyStatus.full ||
-      this == LobbyStatus.inProgress;
+      this == LobbyStatus.waitingCheckIn || this == LobbyStatus.inProgress;
 
   /// Lobby đang chờ cafe duyệt (BR-NEW-11) — host phải đợi.
   bool get isPendingCafeApproval => this == LobbyStatus.pendingCafeApproval;

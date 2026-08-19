@@ -5,7 +5,7 @@ enum TimeSlot {
   morning,
   afternoon,
   evening,
-  night;
+  lateNight;
 
   String get displayName {
     switch (this) {
@@ -15,11 +15,13 @@ enum TimeSlot {
         return 'Phiên chiều';
       case TimeSlot.evening:
         return 'Phiên tối';
-      case TimeSlot.night:
+      case TimeSlot.lateNight:
         return 'Phiên khuya';
     }
   }
 
+  /// Giờ bắt đầu mặc định của khung giờ (HH:mm).
+  /// LateNight vượt qua 0 giờ ngày hôm sau — server vẫn hợp lệ.
   String get startTime {
     switch (this) {
       case TimeSlot.morning:
@@ -28,11 +30,13 @@ enum TimeSlot {
         return '13:00';
       case TimeSlot.evening:
         return '18:00';
-      case TimeSlot.night:
-        return '19:00';
+      case TimeSlot.lateNight:
+        return '23:00';
     }
   }
 
+  /// Giờ kết thúc mặc định của khung giờ (HH:mm).
+  /// LateNight kết thúc 06:00 ngày hôm sau.
   String get endTime {
     switch (this) {
       case TimeSlot.morning:
@@ -41,16 +45,28 @@ enum TimeSlot {
         return '18:00';
       case TimeSlot.evening:
         return '23:00';
-      case TimeSlot.night:
-        return '24:00';
+      case TimeSlot.lateNight:
+        return '06:00';
     }
   }
 
   static TimeSlot fromString(String value) {
-    return TimeSlot.values.firstWhere(
-      (e) => e.name.toLowerCase() == value.toLowerCase(),
-      orElse: () => TimeSlot.evening,
-    );
+    // BR-NEW-15 — backend dùng 'LateNight' (không phải 'Night' như BR cũ).
+    // Accept cả 'night' (backward-compat) + 'lateNight' / 'LateNight' / 'LATE_NIGHT'.
+    final normalized = value.toLowerCase().replaceAll('_', '').trim();
+    switch (normalized) {
+      case 'morning':
+        return TimeSlot.morning;
+      case 'afternoon':
+        return TimeSlot.afternoon;
+      case 'evening':
+        return TimeSlot.evening;
+      case 'latenight':
+      case 'night':
+        return TimeSlot.lateNight;
+      default:
+        return TimeSlot.evening;
+    }
   }
 }
 
@@ -131,12 +147,14 @@ enum LobbyStatus {
   open,
   viable,
   full,
+  waitingCheckIn,
   inProgress,
   closed,
   timeoutFailed,
   hostCancelled,
   rejectedByCafe,
-  expiredByCafe;
+  expiredByCafe,
+  dissolved;
 
   String get displayName {
     switch (this) {
@@ -150,6 +168,8 @@ enum LobbyStatus {
         return 'Đủ người';
       case LobbyStatus.full:
         return 'Đầy';
+      case LobbyStatus.waitingCheckIn:
+        return 'Chờ check-in';
       case LobbyStatus.inProgress:
         return 'Đang chơi';
       case LobbyStatus.closed:
@@ -162,6 +182,8 @@ enum LobbyStatus {
         return 'Quán từ chối';
       case LobbyStatus.expiredByCafe:
         return 'Hết hạn duyệt';
+      case LobbyStatus.dissolved:
+        return 'Đã giải tán';
     }
   }
 
@@ -169,6 +191,7 @@ enum LobbyStatus {
       this == LobbyStatus.open ||
       this == LobbyStatus.viable ||
       this == LobbyStatus.full ||
+      this == LobbyStatus.waitingCheckIn ||
       this == LobbyStatus.inProgress ||
       this == LobbyStatus.pendingCafeApproval;
 
@@ -421,6 +444,110 @@ class ReservationEntity extends Equatable {
   /// Tính buffer time (thời gian từ now đến deadline)
   int get bufferMinutes => timeToDeadline.inMinutes;
 
+  /// Copy with selected fields.
+  ///
+  /// Dùng khi cần mutate 1-2 field (vd: enrich `currentPlayers` từ lobby
+  /// detail) mà không muốn copy nguyên entity.
+  ReservationEntity copyWith({
+    String? id,
+    String? hostId,
+    String? hostDisplayName,
+    String? cafeId,
+    String? cafeName,
+    String? cafeAddress,
+    String? gameId,
+    String? gameName,
+    DateTime? playDate,
+    TimeSlot? timeSlot,
+    String? preferredStartTime,
+    String? preferredEndTime,
+    DateTime? scheduledTime,
+    DateTime? scheduledEndTime,
+    DateTime? recruitmentDeadline,
+    int? minPlayers,
+    int? maxPlayers,
+    int? finalDeposit,
+    int? depositRatePerPerson,
+    int? baseDeposit,
+    double? riskMultiplier,
+    int? minDepositApplied,
+    ReservationStatus? status,
+    int? currentPlayers,
+    String? lobbyId,
+    String? lobbyShareCode,
+    LobbyStatus? lobbyStatus,
+    bool? isPrivate,
+    bool? requiresCafeApproval,
+    DateTime? cafeApprovalDeadline,
+    String? cafeRejectionReason,
+    String? refundPolicyApplied,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isHost,
+    bool? canCancel,
+    DateTime? checkedInAt,
+    DateTime? actualEndAt,
+    double? playedRatio,
+    String? endReason,
+    String? tableNumber,
+    String? cancelledBy,
+    String? cancelReason,
+    int? remainingApprovalHours,
+    int? remainingApprovalMinutes,
+    bool? isCafeApproved,
+    DateTime? approvedAt,
+  }) {
+    return ReservationEntity(
+      id: id ?? this.id,
+      hostId: hostId ?? this.hostId,
+      hostDisplayName: hostDisplayName ?? this.hostDisplayName,
+      cafeId: cafeId ?? this.cafeId,
+      cafeName: cafeName ?? this.cafeName,
+      cafeAddress: cafeAddress ?? this.cafeAddress,
+      gameId: gameId ?? this.gameId,
+      gameName: gameName ?? this.gameName,
+      playDate: playDate ?? this.playDate,
+      timeSlot: timeSlot ?? this.timeSlot,
+      preferredStartTime: preferredStartTime ?? this.preferredStartTime,
+      preferredEndTime: preferredEndTime ?? this.preferredEndTime,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
+      scheduledEndTime: scheduledEndTime ?? this.scheduledEndTime,
+      recruitmentDeadline: recruitmentDeadline ?? this.recruitmentDeadline,
+      minPlayers: minPlayers ?? this.minPlayers,
+      maxPlayers: maxPlayers ?? this.maxPlayers,
+      finalDeposit: finalDeposit ?? this.finalDeposit,
+      depositRatePerPerson: depositRatePerPerson ?? this.depositRatePerPerson,
+      baseDeposit: baseDeposit ?? this.baseDeposit,
+      riskMultiplier: riskMultiplier ?? this.riskMultiplier,
+      minDepositApplied: minDepositApplied ?? this.minDepositApplied,
+      status: status ?? this.status,
+      currentPlayers: currentPlayers ?? this.currentPlayers,
+      lobbyId: lobbyId ?? this.lobbyId,
+      lobbyShareCode: lobbyShareCode ?? this.lobbyShareCode,
+      lobbyStatus: lobbyStatus ?? this.lobbyStatus,
+      isPrivate: isPrivate ?? this.isPrivate,
+      requiresCafeApproval: requiresCafeApproval ?? this.requiresCafeApproval,
+      cafeApprovalDeadline: cafeApprovalDeadline ?? this.cafeApprovalDeadline,
+      cafeRejectionReason: cafeRejectionReason ?? this.cafeRejectionReason,
+      refundPolicyApplied: refundPolicyApplied ?? this.refundPolicyApplied,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isHost: isHost ?? this.isHost,
+      canCancel: canCancel ?? this.canCancel,
+      checkedInAt: checkedInAt ?? this.checkedInAt,
+      actualEndAt: actualEndAt ?? this.actualEndAt,
+      playedRatio: playedRatio ?? this.playedRatio,
+      endReason: endReason ?? this.endReason,
+      tableNumber: tableNumber ?? this.tableNumber,
+      cancelledBy: cancelledBy ?? this.cancelledBy,
+      cancelReason: cancelReason ?? this.cancelReason,
+      remainingApprovalHours: remainingApprovalHours ?? this.remainingApprovalHours,
+      remainingApprovalMinutes: remainingApprovalMinutes ?? this.remainingApprovalMinutes,
+      isCafeApproved: isCafeApproved ?? this.isCafeApproved,
+      approvedAt: approvedAt ?? this.approvedAt,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,
@@ -469,4 +596,33 @@ class ReservationEntity extends Equatable {
         isCafeApproved,
         approvedAt,
       ];
+}
+
+/// Extension chuyển `refundPolicyApplied` (raw string từ backend) thành
+/// label tiếng Việt dễ đọc cho UI.
+///
+/// Backend các giá trị BR-REFUND-02 (BVC v2) trả về:
+/// - `Cancel-Grace`: huỷ trong 15 phút đầu sau khi confirm → hoàn 100%.
+/// - `Cancel-24h`: huỷ trước 24 giờ trước giờ chơi → hoàn 100%.
+/// - `Cancel-Less24h`: huỷ dưới 24 giờ trước giờ chơi (ngoài grace) →
+///   hoàn 0%, có thể bị trừ Karma.
+///
+/// Lưu ý: tier `Cancel-6h` (50% hoàn) đã bị BVC v2 bỏ — extension này
+/// fallback về raw string nếu nhận giá trị không xác định (giữ backward-
+/// compat nếu backend cũ / dữ liệu cũ).
+extension RefundPolicyLabelX on String? {
+  String get refundPolicyLabel {
+    final raw = this;
+    if (raw == null || raw.isEmpty) return 'Không áp dụng';
+    switch (raw) {
+      case 'Cancel-Grace':
+        return 'Hoàn 100% (trong 15 phút đầu)';
+      case 'Cancel-24h':
+        return 'Hoàn 100% (trước 24 giờ)';
+      case 'Cancel-Less24h':
+        return 'Không hoàn — phạt Karma';
+      default:
+        return raw;
+    }
+  }
 }

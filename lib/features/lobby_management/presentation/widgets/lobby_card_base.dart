@@ -24,6 +24,7 @@ enum LobbyCardVariant {
   recruiting,
   viable,
   full,
+  waitingCheckIn,
   pendingCafeApproval,
   rejectedByCafe,
   expiredByCafe,
@@ -80,6 +81,9 @@ LobbyCardVariant resolveLobbyCardVariant({
         }
         return LobbyCardVariant.confirmed;
       case res.ReservationStatus.confirmed:
+        if (lobbyStatus == lobby.LobbyStatus.waitingCheckIn) {
+          return LobbyCardVariant.waitingCheckIn;
+        }
         return LobbyCardVariant.confirmed;
       case res.ReservationStatus.checkedIn:
         return LobbyCardVariant.checkedIn;
@@ -104,6 +108,8 @@ LobbyCardVariant resolveLobbyCardVariant({
       return LobbyCardVariant.viable;
     case lobby.LobbyStatus.full:
       return LobbyCardVariant.full;
+    case lobby.LobbyStatus.waitingCheckIn:
+      return LobbyCardVariant.waitingCheckIn;
     case lobby.LobbyStatus.inProgress:
       return LobbyCardVariant.inProgress;
     case lobby.LobbyStatus.ratingOpen:
@@ -118,6 +124,9 @@ LobbyCardVariant resolveLobbyCardVariant({
       return LobbyCardVariant.rejectedByCafe;
     case lobby.LobbyStatus.expiredByCafe:
       return LobbyCardVariant.expiredByCafe;
+    case lobby.LobbyStatus.dissolved:
+      // Dissolved = terminal, hiển thị cùng visual với `closed` (BR §XXI-A.6).
+      return LobbyCardVariant.closed;
     case null:
       return LobbyCardVariant.unknown;
   }
@@ -228,6 +237,7 @@ class LobbyCardBase extends StatelessWidget {
       case LobbyCardVariant.pendingCafeApproval:
       case LobbyCardVariant.checkedIn:
       case LobbyCardVariant.full:
+      case LobbyCardVariant.waitingCheckIn:
         return true;
       case LobbyCardVariant.inProgress:
       case LobbyCardVariant.ratingOpen:
@@ -372,6 +382,7 @@ class LobbyCardBase extends StatelessWidget {
       case LobbyCardVariant.checkedIn:
         return isDark ? AppColors.successDark : AppColors.success;
       case LobbyCardVariant.pendingCafeApproval:
+      case LobbyCardVariant.waitingCheckIn:
         return isDark ? AppColors.warningDark : AppColors.warning;
       case LobbyCardVariant.inProgress:
         return isDark ? AppColors.primaryDark : AppColors.primary;
@@ -881,6 +892,8 @@ lobby.LobbyStatus? _mapLobbyStatus(res.LobbyStatus? s) {
       return lobby.LobbyStatus.viable;
     case res.LobbyStatus.full:
       return lobby.LobbyStatus.full;
+    case res.LobbyStatus.waitingCheckIn:
+      return lobby.LobbyStatus.waitingCheckIn;
     case res.LobbyStatus.inProgress:
       return lobby.LobbyStatus.inProgress;
     case res.LobbyStatus.closed:
@@ -893,5 +906,7 @@ lobby.LobbyStatus? _mapLobbyStatus(res.LobbyStatus? s) {
       return lobby.LobbyStatus.rejectedByCafe;
     case res.LobbyStatus.expiredByCafe:
       return lobby.LobbyStatus.expiredByCafe;
+    case res.LobbyStatus.dissolved:
+      return lobby.LobbyStatus.dissolved;
   }
 }

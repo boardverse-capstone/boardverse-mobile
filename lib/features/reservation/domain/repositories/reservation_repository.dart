@@ -22,47 +22,57 @@ abstract class ReservationRepository {
     int pageSize = 20,
   });
 
-  /// Tạo quote cho reservation (không tạo DB row)
+  /// Tạo quote cho reservation (không tạo DB row).
+  ///
+  /// **BR-NEW-15 (2026-08-18):** Backend đã BỎ `timeSlot` khỏi request body
+  /// của `POST /api/v1/reservations/quote`. FE phải gửi `preferredStartTime`
+  /// + `preferredEndTime` để xác định khung giờ chơi (cả 2 REQUIRED — xem
+  /// swagger.json `ReservationQuoteRequestDto` line 27806).
+  ///
+  /// Server tự suy ra `timeSlot` từ cặp giờ này và trả về kèm
+  /// `scheduledStartTime`/`scheduledEndTime` trong response. Nếu
+  /// `preferredStartTime`/`preferredEndTime` không hợp lệ (ngoài giờ mở
+  /// cửa của cafe / quá sát giờ hiện tại) → backend trả 400.
   ///
   /// [cafeId] - quán cần đặt
   /// [gameId] - game muốn chơi
   /// [playDate] - ngày chơi
-  /// [timeSlot] - khung giờ
-  /// [preferredStartTime] - giờ bắt đầu ưa thích (optional)
-  /// [preferredEndTime] - giờ kết thúc ưa thích (optional)
+  /// [preferredStartTime] - giờ bắt đầu dự kiến `HH:mm:ss` (required)
+  /// [preferredEndTime] - giờ kết thúc dự kiến `HH:mm:ss` (required)
   /// [isPrivate] - lobby private (bỏ qua cafe approval) hay public (cần cafe duyệt)
   /// [minPlayers], [maxPlayers] - số người
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,
     required String idempotencyKey,
   });
 
-  /// Confirm reservation - atomic transaction
+  /// Confirm reservation - atomic transaction.
+  ///
+  /// **BR-NEW-15 (2026-08-18):** Confirm cũng đã bỏ `timeSlot` — chỉ verify
+  /// lại `preferredStartTime`/`preferredEndTime` khớp với quote đã lưu và
+  /// kiểm tra `expectedFinalDeposit` khớp server.
   ///
   /// Thực hiện:
-  /// 1. Validate lại quote
+  /// 1. Validate lại quote (verify `expectedFinalDeposit` khớp BR §XVII.2)
   /// 2. Kiểm tra available seats >= maxPlayers
   /// 3. Kiểm tra game copy còn
   /// 4. Trừ availableBalance, cộng heldBalance
   /// 5. Tạo Reservation (status = holding)
-  /// 6. Tạo Lobby (status = pendingActivation)
+  /// 6. Tạo Lobby (status = pendingActivation → open sau khi commit)
   /// 7. Hold seats và game inventory
-  /// 8. Publish lobby → status = open
   Future<Either<Failure, ReservationConfirmResult>> confirmReservation({
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    required TimeSlot timeSlot,
-    String? preferredStartTime,
-    String? preferredEndTime,
+    required String preferredStartTime,
+    required String preferredEndTime,
     required int minPlayers,
     required int maxPlayers,
     required bool isPrivate,

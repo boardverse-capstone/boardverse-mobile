@@ -10237,7 +10237,7 @@
         "tags": [
           "CafeSchedule"
         ],
-        "summary": "Lấy toàn bộ lịch (4 slot) của cafe, kèm override nếu có. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "summary": "Lấy toàn bộ lịch override của cafe. [Role: Cafe Manager.]",
         "parameters": [
           {
             "name": "cafeId",
@@ -10255,16 +10255,13 @@
             "description": "Lấy lịch cafe thành công."
           },
           "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+            "description": "Thiếu token."
           },
           "403": {
             "description": "Không phải chủ cafe."
           },
           "404": {
             "description": "Không tìm thấy cafe."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       },
@@ -10272,7 +10269,7 @@
         "tags": [
           "CafeSchedule"
         ],
-        "summary": "Tạo hoặc cập nhật override cho 1 slot. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "summary": "Tạo hoặc cập nhật override cho 1 ngày. [Role: Cafe Manager.]",
         "parameters": [
           {
             "name": "cafeId",
@@ -10286,7 +10283,7 @@
           }
         ],
         "requestBody": {
-          "description": "TimeSlot, StartTime, EndTime, IsClosed, EffectiveFrom/To.",
+          "description": "ApplyDate, OpenTime, CloseTime, IsClosed.",
           "content": {
             "application/json": {
               "schema": {
@@ -10310,29 +10307,26 @@
             "description": "Cập nhật override thành công."
           },
           "400": {
-            "description": "Dữ liệu không hợp lệ (vd: StartTime == EndTime khi mở slot)."
+            "description": "Dữ liệu không hợp lệ."
           },
           "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+            "description": "Thiếu token."
           },
           "403": {
             "description": "Không phải chủ cafe."
           },
           "404": {
             "description": "Không tìm thấy cafe."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
     },
-    "/api/v1/cafes/{cafeId}/schedule-overrides/{timeSlot}": {
+    "/api/v1/cafes/{cafeId}/schedule-overrides/{applyDate}": {
       "delete": {
         "tags": [
           "CafeSchedule"
         ],
-        "summary": "Xóa override cho 1 slot → cafe quay về dùng lịch mặc định. [Role: Cafe Manager — chỉ chủ cafe.]",
+        "summary": "Xóa override cho 1 ngày. [Role: Cafe Manager.]",
         "parameters": [
           {
             "name": "cafeId",
@@ -10345,12 +10339,13 @@
             }
           },
           {
-            "name": "timeSlot",
+            "name": "applyDate",
             "in": "path",
-            "description": "Slot cần xóa override (morning/afternoon/evening/night).",
+            "description": "Ngày cần xóa override.",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/TimeSlot"
+              "type": "string",
+              "format": "date"
             }
           }
         ],
@@ -10359,16 +10354,13 @@
             "description": "Xóa override thành công."
           },
           "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ."
+            "description": "Thiếu token."
           },
           "403": {
             "description": "Không phải chủ cafe."
           },
           "404": {
             "description": "Không tìm thấy cafe hoặc override."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -12772,15 +12764,15 @@
         }
       }
     },
-    "/api/v1/lobbies/joined": {
+    "/api/v1/lobbies/my": {
       "get": {
         "tags": [
           "Lobby"
         ],
-        "summary": "Lấy danh sách lobby mà user đang tham gia. [Role: Player]",
+        "summary": "Lấy tất cả lobby của user (host hoặc member, active). [Role: Player]",
         "responses": {
           "200": {
-            "description": "Danh sách lobby joined."
+            "description": "Danh sách lobby của user."
           },
           "401": {
             "description": "Thiếu token."
@@ -25130,7 +25122,7 @@
       "CafeScheduleOverrideDto": {
         "type": "object",
         "properties": {
-          "date": {
+          "applyDate": {
             "type": "string",
             "format": "date"
           },
@@ -25150,9 +25142,6 @@
           },
           "isClosed": {
             "type": "boolean"
-          },
-          "affectedTimeSlot": {
-            "$ref": "#/components/schemas/TimeSlot"
           }
         },
         "additionalProperties": false
@@ -27763,8 +27752,7 @@
           "idempotencyKey",
           "playDate",
           "preferredEndTime",
-          "preferredStartTime",
-          "timeSlot"
+          "preferredStartTime"
         ],
         "type": "object",
         "properties": {
@@ -27779,9 +27767,6 @@
           "playDate": {
             "type": "string",
             "format": "date"
-          },
-          "timeSlot": {
-            "$ref": "#/components/schemas/TimeSlot"
           },
           "preferredStartTime": {
             "type": "string",
@@ -27825,8 +27810,7 @@
           "idempotencyKey",
           "playDate",
           "preferredEndTime",
-          "preferredStartTime",
-          "timeSlot"
+          "preferredStartTime"
         ],
         "type": "object",
         "properties": {
@@ -27841,9 +27825,6 @@
           "playDate": {
             "type": "string",
             "format": "date"
-          },
-          "timeSlot": {
-            "$ref": "#/components/schemas/TimeSlot"
           },
           "preferredStartTime": {
             "type": "string",
@@ -29558,31 +29539,22 @@
       "UpsertCafeScheduleOverrideRequestDto": {
         "type": "object",
         "properties": {
-          "timeSlot": {
-            "$ref": "#/components/schemas/TimeSlot"
+          "applyDate": {
+            "type": "string",
+            "format": "date"
           },
-          "startTime": {
+          "openTime": {
             "type": "string",
             "format": "time",
             "nullable": true
           },
-          "endTime": {
+          "closeTime": {
             "type": "string",
             "format": "time",
             "nullable": true
           },
           "isClosed": {
             "type": "boolean"
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -29903,7 +29875,7 @@
     },
     {
       "name": "CafeSchedule",
-      "description": "Quản lý lịch cafe (override slot time / đóng slot).\r\nBR-NEW-15: 4 time slot cố định, cafe override start/end hoặc IsClosed."
+      "description": "Quản lý lịch cafe (override ngày cụ thể).\r\nBR-NEW-15 (2026-08-18): BỎ TimeSlot - dùng ApplyDate/OpenTime/CloseTime."
     },
     {
       "name": "DebugSePay",
