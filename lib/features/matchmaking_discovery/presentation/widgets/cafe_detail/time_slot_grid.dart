@@ -3,27 +3,44 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
-import '../../../domain/entities/cafe_detail_entity.dart';
+import '../../../domain/entities/default_time_slot_entity.dart';
 import 'cafe_section_title.dart';
-import 'time_slot_icon_x.dart';
 
 /// Grid hiển thị ghế trống theo khung giờ (Morning/Afternoon/Evening/
-/// LateNight) — map từ `availableSeatsByTimeSlot` của API.
+/// LateNight) — render từ raw keys trong `availableSeatsByTimeSlot` của API.
 ///
-/// Chỉ render khi cafe có data; nếu không có thì trả về SizedBox.shrink().
+/// BR-NEW-15 (2026-08-18): keys là string thô từ server. UI bind qua
+/// `TimeSlotKey.fromApiName(...)` để lấy icon/label. Custom key (manager
+/// override) sẽ được bỏ qua vì không map được sang enum.
 class TimeSlotGrid extends StatelessWidget {
-  final CafeDetailEntity cafe;
+  /// Raw map từ server `availableSeatsByTimeSlot`.
+  final Map<String, int> availableSeatsByTimeSlot;
 
-  const TimeSlotGrid({super.key, required this.cafe});
+  /// Total seats của quán — dùng để tính % hiển thị ghế trống.
+  final int? totalSeats;
+
+  const TimeSlotGrid({
+    super.key,
+    required this.availableSeatsByTimeSlot,
+    this.totalSeats,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final slots = cafe.availableSeatsByTimeSlot;
+    final slots = availableSeatsByTimeSlot;
     if (slots.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final total = cafe.totalSeats ?? 0;
+    final total = totalSeats ?? 0;
+
+    // Sắp xếp theo thứ tự BR-NEW-15 (morning → lateNight) cho UI ổn định.
+    final orderedKeys = slots.keys.toList()
+      ..sort((a, b) {
+        final ka = TimeSlotKey.fromApiName(a)?.index ?? 99;
+        final kb = TimeSlotKey.fromApiName(b)?.index ?? 99;
+        return ka.compareTo(kb);
+      });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,11 +59,11 @@ class TimeSlotGrid extends StatelessWidget {
           mainAxisSpacing: AppSpacing.xs,
           childAspectRatio: 2.2,
           children: [
-            for (final slot in TimeSlot.values)
-              if (slots.containsKey(slot))
+            for (final apiKey in orderedKeys)
+              if (TimeSlotKey.fromApiName(apiKey) != null)
                 _TimeSlotTile(
-                  slot: slot,
-                  available: slots[slot]!,
+                  slotKey: TimeSlotKey.fromApiName(apiKey)!,
+                  available: slots[apiKey]!,
                   total: total,
                   isDark: isDark,
                 ),
@@ -58,13 +75,13 @@ class TimeSlotGrid extends StatelessWidget {
 }
 
 class _TimeSlotTile extends StatelessWidget {
-  final TimeSlot slot;
+  final TimeSlotKey slotKey;
   final int available;
   final int total;
   final bool isDark;
 
   const _TimeSlotTile({
-    required this.slot,
+    required this.slotKey,
     required this.available,
     required this.total,
     required this.isDark,
@@ -101,7 +118,7 @@ class _TimeSlotTile extends StatelessWidget {
               color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(slot.icon, size: 18, color: color),
+            child: Icon(slotKey.icon, size: 18, color: color),
           ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
@@ -110,7 +127,7 @@ class _TimeSlotTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  slot.displayLabel,
+                  slotKey.displayLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: isDark

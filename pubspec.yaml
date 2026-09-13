@@ -76,6 +76,24 @@ dependencies:
   # Info.plist.
   geolocator: ^13.0.2
 
+  # ─── QR Check-in Scanner ───
+  # `mobile_scanner` — Flutter QR/barcode scanner dùng MLKit (Android)
+  # + AVFoundation (iOS). Dùng cho PlayerQrCheckInPage — player quét mã
+  # QR do POS tạo để tự check-in (BR §21A.7 — chiều 2 của check-in).
+  # Yêu cầu permission CAMERA ở AndroidManifest + NSCameraUsageDescription
+  # ở Info.plist.
+  mobile_scanner: ^5.2.3
+  # `permission_handler` — Xin runtime permission camera (iOS + Android 6+).
+  permission_handler: ^11.3.1
+
+  # ─── QR Decode từ ảnh (upload) ───
+  # `google_mlkit_barcode_scanning` — Decode QR/barcode từ FILE ẢNH
+  # (mobile_scanner không hỗ trợ). Dùng cho chế độ "Tải ảnh QR" trong
+  # PlayerQrCheckInPage — phục vụ test/debug khi không có camera hoặc
+  # muốn quét QR từ screenshot POS.
+  # Yêu cầu: ML Kit tự động download model khi cần (offline).
+  google_mlkit_barcode_scanning: ^0.12.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -90,6 +108,7 @@ dev_dependencies:
   freezed: ^3.2.5
   json_serializable: ^6.14.0
   bloc_test: ^10.0.0
+  mocktail: ^1.0.4
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:

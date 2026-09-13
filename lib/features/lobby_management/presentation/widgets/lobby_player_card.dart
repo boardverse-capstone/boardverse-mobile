@@ -18,6 +18,10 @@ import '../../domain/entities/lobby_entity.dart';
 ///
 /// Mapping này đảm bảo UI phản ánh đúng nghiệp vụ từ backend
 /// (`docs/apis/lobby.md` §State machine + BR-08 + BR-NEW-11).
+///
+/// **Host actions:** Khi `isHostViewer == true` VÀ `player.isHost == false`,
+/// card hiển thị icon menu (⋮) ở góc trên-phải. Tap menu → mở action sheet
+/// với "Xóa khỏi phòng" (POST /api/v1/lobbies/{lobbyId}/kick).
 class LobbyPlayerCard extends StatelessWidget {
   final LobbyPlayer player;
 
@@ -25,6 +29,15 @@ class LobbyPlayerCard extends StatelessWidget {
   final LobbyStatus lobbyStatus;
 
   final bool isCurrentUser;
+
+  /// true khi người xem là host của lobby — bật icon menu (⋮)
+  /// để host kick member không phải host.
+  final bool isHostViewer;
+
+  /// Callback khi host bấm "Xóa khỏi phòng" từ action sheet.
+  /// Chỉ gọi khi `isHostViewer == true` VÀ `player.isHost == false`.
+  final VoidCallback? onKickMember;
+
   final VoidCallback? onTap;
 
   const LobbyPlayerCard({
@@ -32,6 +45,8 @@ class LobbyPlayerCard extends StatelessWidget {
     required this.player,
     required this.lobbyStatus,
     this.isCurrentUser = false,
+    this.isHostViewer = false,
+    this.onKickMember,
     this.onTap,
   });
 
@@ -144,21 +159,26 @@ class LobbyPlayerCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          splashColor: AppColors.primary.withValues(alpha: 0.06),
           child: Container(
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: borderColor,
-                width: isCurrentUser ? 3 : 2,
+                width: isCurrentUser ? 2 : 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.4),
-                  blurRadius: 0,
-                  offset: const Offset(3, 3),
+                  color: isCurrentUser
+                      ? AppColors.primary.withValues(alpha: 0.25)
+                      : Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -185,20 +205,23 @@ class LobbyPlayerCard extends StatelessWidget {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: player.readyAt != null
-                                ? AppColors.success
-                                : AppColors.textTertiary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.borderDark
-                                  : AppColors.border,
-                              width: 2,
+                            gradient: const LinearGradient(
+                              colors: [AppColors.success, Color(0xFF0E8A68)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.success.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: player.readyAt != null
                               ? const Icon(AppIcons.check,
-                                  size: 12, color: AppColors.white)
+                                  size: 14, color: AppColors.white)
                               : null,
                         ),
                       ),
@@ -211,17 +234,49 @@ class LobbyPlayerCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(AppSpacing.xxs),
                           decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.borderDark
-                                  : AppColors.border,
-                              width: 2,
+                            gradient: const LinearGradient(
+                              colors: [AppColors.accent, Color(0xFFFFC107)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: const Icon(AppIcons.starFilled,
-                              size: 12, color: AppColors.black),
+                              size: 13, color: AppColors.black),
+                        ),
+                      ),
+                    // Kick menu — chỉ hiển thị khi viewer là host VÀ player
+                    // không phải host (host không thể kick chính mình).
+                    if (isHostViewer && !player.isHost)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: GestureDetector(
+                          onTap: onKickMember,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.error.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              AppIcons.moreVertical,
+                              size: 14,
+                              color: AppColors.error,
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -234,9 +289,10 @@ class LobbyPlayerCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: textColor,
                     fontSize: 14,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -247,26 +303,19 @@ class LobbyPlayerCard extends StatelessWidget {
                     vertical: AppSpacing.xxs,
                   ),
                   decoration: BoxDecoration(
-                    color: status.color,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.borderDark
-                          : AppColors.border,
-                      width: 1.5,
-                    ),
+                    color: status.color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     statusLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: player.isHost
-                          ? AppColors.black
-                          : AppColors.white,
-                      fontWeight: FontWeight.w900,
+                      color: status.color,
+                      fontWeight: FontWeight.w800,
                       fontSize: 11,
-                      letterSpacing: 0.3,
+                      letterSpacing: 0.1,
+                      height: 1.1,
                     ),
                   ),
                 ),
@@ -287,7 +336,6 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasAvatar = player.avatarUrl.trim().isNotEmpty;
     final initial = player.name.trim().isEmpty
         ? '?'
@@ -300,17 +348,20 @@ class _PlayerAvatar extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: avatarColor,
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.border,
-          width: 2.5,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            avatarColor,
+            avatarColor.withValues(alpha: 0.65),
+          ],
         ),
+        shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.4),
-            blurRadius: 0,
-            offset: const Offset(2, 2),
+            color: avatarColor.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -355,6 +406,14 @@ class LobbyPlayerGrid extends StatelessWidget {
   /// status label theo lobby state.
   final LobbyStatus lobbyStatus;
 
+  /// true khi viewer là host của lobby — hiển thị nút kick member
+  /// trên mỗi player card (player không phải host).
+  final bool isCurrentUserHost;
+
+  /// Callback khi host bấm action menu kick member.
+  /// Chỉ gọi khi `isCurrentUserHost == true` VÀ player ≠ host.
+  final Future<void> Function(LobbyPlayer player)? onKickMember;
+
   final Function(LobbyPlayer)? onPlayerTap;
 
   const LobbyPlayerGrid({
@@ -363,6 +422,8 @@ class LobbyPlayerGrid extends StatelessWidget {
     required this.maxSlots,
     required this.lobbyStatus,
     this.currentUserId,
+    this.isCurrentUserHost = false,
+    this.onKickMember,
     this.onPlayerTap,
   });
 
@@ -405,6 +466,10 @@ class LobbyPlayerGrid extends StatelessWidget {
                 player: player,
                 lobbyStatus: lobbyStatus,
                 isCurrentUser: isCurrentUser,
+                isHostViewer: isCurrentUserHost,
+                onKickMember: onKickMember == null
+                    ? null
+                    : () => onKickMember?.call(player),
                 onTap: onPlayerTap == null
                     ? null
                     : () => onPlayerTap?.call(player),
@@ -431,17 +496,16 @@ class _EmptySlotCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.surfaceDark : AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isDark ? AppColors.borderDark : AppColors.border,
-            width: 2,
-            style: BorderStyle.solid,
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.black.withValues(alpha: 0.3),
-              blurRadius: 0,
-              offset: const Offset(3, 3),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -452,16 +516,19 @@ class _EmptySlotCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary,
-                    width: 2,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   AppIcons.userAdd,
-                  size: 22,
+                  size: 24,
                   color: AppColors.primary,
                 ),
               ),
@@ -588,17 +655,29 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
         margin: const EdgeInsets.only(top: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceElevatedDark : AppColors.accentLight,
-          borderRadius: BorderRadius.circular(14),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    AppColors.surfaceElevatedDark,
+                    AppColors.surfaceDark,
+                  ]
+                : [
+                    AppColors.accentLight,
+                    AppColors.surface,
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.border,
-            width: 3,
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.black.withValues(alpha: 0.4),
-              blurRadius: 0,
-              offset: const Offset(4, 4),
+              color: AppColors.primary.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -608,24 +687,29 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
             // ── Header ─────────────────────────────────────────────
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.borderDark
-                          : AppColors.border,
-                      width: 2,
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, Color(0xFFFF8A50)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                  child: const Icon(
-                    AppIcons.users,
-                    size: 16,
-                    color: AppColors.white,
-                  ),
+                  ],
                 ),
+                child: const Icon(
+                  AppIcons.users,
+                  size: 16,
+                  color: AppColors.white,
+                ),
+              ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -682,21 +766,22 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                             vertical: AppSpacing.sm,
                           ),
                           decoration: BoxDecoration(
-                            color: isCurrentUserReady
-                                ? AppColors.accent
-                                : AppColors.primary,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.borderDark
-                                  : AppColors.border,
-                              width: 2.5,
-                            ),
+                            gradient: isCurrentUserReady
+                                ? const LinearGradient(
+                                    colors: [AppColors.accent, Color(0xFFFFC107)],
+                                  )
+                                : const LinearGradient(
+                                    colors: [AppColors.primary, Color(0xFFFF8A50)],
+                                  ),
+                            borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.black.withValues(alpha: 0.4),
-                                blurRadius: 0,
-                                offset: const Offset(3, 3),
+                                color: (isCurrentUserReady
+                                        ? AppColors.accent
+                                        : AppColors.primary)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
@@ -732,6 +817,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                                       ? AppColors.black
                                       : AppColors.white,
                                   fontWeight: FontWeight.w900,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -746,7 +832,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: widget.onSecondaryAction,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
@@ -756,12 +842,12 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                             color: isDark
                                 ? AppColors.surfaceDark
                                 : AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isDark
                                   ? AppColors.borderDark
                                   : AppColors.border,
-                              width: 2.5,
+                              width: 1.5,
                             ),
                           ),
                           child: const Text(
@@ -769,6 +855,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w800,
+                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -782,7 +869,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: widget.onSecondaryAction,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
@@ -792,12 +879,12 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                       color: isDark
                           ? AppColors.surfaceDark
                           : AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isDark
                             ? AppColors.borderDark
                             : AppColors.border,
-                        width: 2.5,
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
@@ -811,6 +898,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                           style: TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w800,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -859,15 +947,25 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
         Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xxs,
+            vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: allReady ? AppColors.success : AppColors.accent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.border,
-              width: 2,
-            ),
+            gradient: allReady
+                ? const LinearGradient(
+                    colors: [AppColors.success, Color(0xFF0E8A68)],
+                  )
+                : const LinearGradient(
+                    colors: [AppColors.accent, Color(0xFFFFC107)],
+                  ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: (allReady ? AppColors.success : AppColors.accent)
+                    .withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -884,6 +982,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                   fontWeight: FontWeight.w900,
                   color: allReady ? AppColors.white : AppColors.black,
                   fontSize: 12,
+                  height: 1.1,
                 ),
               ),
             ],

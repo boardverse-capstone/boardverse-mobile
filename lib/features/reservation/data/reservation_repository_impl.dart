@@ -36,6 +36,32 @@ class ReservationRepositoryImpl implements ReservationRepository {
   }
 
   @override
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+      searchReservations({
+    String? gameName,
+    DateTime? fromDate,
+    DateTime? toDate,
+    List<String>? statuses,
+    String? cafeId,
+    bool? hostedByMe,
+    bool? joinedByMe,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    return await remoteDatasource.searchReservations(
+      gameName: gameName,
+      fromDate: fromDate,
+      toDate: toDate,
+      statuses: statuses,
+      cafeId: cafeId,
+      hostedByMe: hostedByMe,
+      joinedByMe: joinedByMe,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+
+  @override
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
     required String cafeId,
     required String gameId,
@@ -191,5 +217,45 @@ class ReservationRepositoryImpl implements ReservationRepository {
     );
 
     return await remoteDatasource.checkInByCode(reservationCode, request);
+  }
+
+  @override
+  Future<Either<Failure, MyReservationsResult>> getMyReservations({
+    ReservationParticipationType? participationType,
+    List<String>? statuses,
+    String? cafeId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final raw = await remoteDatasource.getMyReservations(
+      participationType: participationType,
+      statuses: statuses,
+      cafeId: cafeId,
+      fromDate: fromDate,
+      toDate: toDate,
+      page: page,
+      pageSize: pageSize,
+    );
+    // Map `PaginatedResponse<ReservationModel>` → `PaginatedResponse<ReservationEntity>`
+    // (model extends entity nên items list có thể cast ngược an toàn).
+    return raw.map((r) {
+      final entities =
+          r.paginated.items.cast<ReservationEntity>().toList();
+      return MyReservationsResult(
+        paginated: PaginatedResponse<ReservationEntity>(
+          items: entities,
+          page: r.paginated.page,
+          pageSize: r.paginated.pageSize,
+          totalItems: r.paginated.totalItems,
+          totalPages: r.paginated.totalPages,
+          hasNextPage: r.paginated.hasNextPage,
+          hasPreviousPage: r.paginated.hasPreviousPage,
+        ),
+        hostedCount: r.hostedCount,
+        joinedCount: r.joinedCount,
+      );
+    });
   }
 }

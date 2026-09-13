@@ -11,39 +11,45 @@ class ProfileLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+
     return ListView(
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       children: [
-        const SizedBox(height: AppSpacing.md),
-        const _StatsStackSkeleton(),
-        const SizedBox(height: AppSpacing.md),
-        const _InfoCardSkeleton(),
-        const SizedBox(height: AppSpacing.md),
-        const _InfoCardSkeleton(),
-        const SizedBox(height: AppSpacing.md),
-        const _QuickActionsSkeleton(),
-        const SizedBox(height: AppSpacing.xxl),
+        SizedBox(height: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
+        _StatsStackSkeleton(isSmallScreen: isSmallScreen),
+        SizedBox(height: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
+        _InfoCardSkeleton(isSmallScreen: isSmallScreen),
+        SizedBox(height: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
+        _InfoCardSkeleton(isSmallScreen: isSmallScreen),
+        SizedBox(height: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
+        _QuickActionsSkeleton(isSmallScreen: isSmallScreen),
+        SizedBox(height: isSmallScreen ? AppSpacing.lg : AppSpacing.xxl),
       ],
     );
   }
 }
 
 class _StatsStackSkeleton extends StatelessWidget {
-  const _StatsStackSkeleton();
+  const _StatsStackSkeleton({this.isSmallScreen = false});
+
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Column(
         children: [
           for (var i = 0; i < 3; i++) ...[
-            _StatCardSkeleton(borderColor: borderColor),
-            if (i < 2) const SizedBox(height: AppSpacing.sm),
+            _StatCardSkeleton(borderColor: borderColor, isSmallScreen: isSmallScreen),
+            if (i < 2) SizedBox(height: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
           ],
         ],
       ),
@@ -52,16 +58,21 @@ class _StatsStackSkeleton extends StatelessWidget {
 }
 
 class _StatCardSkeleton extends StatelessWidget {
-  const _StatCardSkeleton({required this.borderColor});
+  const _StatCardSkeleton({required this.borderColor, this.isSmallScreen = false});
 
   final Color borderColor;
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = isSmallScreen ? 28.0 : 36.0;
+    final titleWidth = isSmallScreen ? 60.0 : 80.0;
+    final valueWidth = isSmallScreen ? 45.0 : 60.0;
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
+        vertical: isSmallScreen ? AppSpacing.xs : AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -72,11 +83,11 @@ class _StatCardSkeleton extends StatelessWidget {
         children: [
           AppShimmer.boxRadius(
             context: context,
-            width: 36,
-            height: 36,
+            width: iconSize,
+            height: iconSize,
             borderRadius: const BorderRadius.all(Radius.circular(10)),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          SizedBox(width: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,15 +95,15 @@ class _StatCardSkeleton extends StatelessWidget {
               children: [
                 AppShimmer.box(
                   context: context,
-                  width: 80,
-                  height: 10,
+                  width: titleWidth,
+                  height: isSmallScreen ? 8.0 : 10.0,
                   borderRadius: 4,
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                SizedBox(height: isSmallScreen ? 2 : AppSpacing.xs),
                 AppShimmer.box(
                   context: context,
-                  width: 60,
-                  height: 18,
+                  width: valueWidth,
+                  height: isSmallScreen ? 14.0 : 18.0,
                   borderRadius: 4,
                 ),
               ],
@@ -105,17 +116,20 @@ class _StatCardSkeleton extends StatelessWidget {
 }
 
 class _InfoCardSkeleton extends StatelessWidget {
-  const _InfoCardSkeleton();
+  const _InfoCardSkeleton({this.isSmallScreen = false});
+
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Container(
-        padding: AppSpacing.paddingAllMd,
+        padding: EdgeInsets.all(isSmallScreen ? AppSpacing.sm : AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
@@ -124,13 +138,18 @@ class _InfoCardSkeleton extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppShimmer.box(context: context, width: 140, height: 18, borderRadius: 6),
-            const SizedBox(height: AppSpacing.md),
+            AppShimmer.box(
+              context: context,
+              width: isSmallScreen ? 100 : 140,
+              height: isSmallScreen ? 14.0 : 18.0,
+              borderRadius: 6,
+            ),
+            SizedBox(height: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
             AppShimmer.textLines(
               context: context,
-              lines: 4,
-              lineHeight: 14,
-              lastLineWidth: 200,
+              lines: isSmallScreen ? 3 : 4,
+              lineHeight: isSmallScreen ? 12.0 : 14.0,
+              lastLineWidth: isSmallScreen ? 150 : 200,
             ),
           ],
         ),
@@ -140,29 +159,38 @@ class _InfoCardSkeleton extends StatelessWidget {
 }
 
 class _QuickActionsSkeleton extends StatelessWidget {
-  const _QuickActionsSkeleton();
+  const _QuickActionsSkeleton({this.isSmallScreen = false});
+
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Container(
-        padding: AppSpacing.paddingAllSm,
+        padding: EdgeInsets.all(isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: borderColor, width: NeoBrutalismTheme.borderWidth),
         ),
-        child: Row(
+        child: Column(
           children: [
-            for (var i = 0; i < 4; i++) ...[
-              if (i == 2) const SizedBox(width: AppSpacing.sm),
-              if (i > 0 && i != 2) const SizedBox(width: AppSpacing.sm),
-              const Expanded(
-                child: _QuickActionTileSkeleton(),
+            for (var i = 0; i < 2; i++) ...[
+              if (i > 0) SizedBox(height: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
+              Row(
+                children: [
+                  for (var j = 0; j < 2; j++) ...[
+                    if (j > 0) SizedBox(width: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
+                    Expanded(
+                      child: _QuickActionTileSkeleton(isSmallScreen: isSmallScreen),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],
@@ -173,14 +201,18 @@ class _QuickActionsSkeleton extends StatelessWidget {
 }
 
 class _QuickActionTileSkeleton extends StatelessWidget {
-  const _QuickActionTileSkeleton();
+  const _QuickActionTileSkeleton({this.isSmallScreen = false});
+
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = isSmallScreen ? 24.0 : 32.0;
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? AppSpacing.xs : AppSpacing.sm,
+        vertical: isSmallScreen ? AppSpacing.xs : AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
@@ -190,15 +222,15 @@ class _QuickActionTileSkeleton extends StatelessWidget {
         children: [
           AppShimmer.boxRadius(
             context: context,
-            width: 32,
-            height: 32,
+            width: iconSize,
+            height: iconSize,
             borderRadius: const BorderRadius.all(Radius.circular(8)),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          SizedBox(width: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
           Expanded(
             child: AppShimmer.box(
               context: context,
-              height: 12,
+              height: isSmallScreen ? 10.0 : 12.0,
               borderRadius: 4,
             ),
           ),

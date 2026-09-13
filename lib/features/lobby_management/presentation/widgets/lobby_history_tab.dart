@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/theme/theme.dart';
+import '../../../../core/widgets/empty_state_widget.dart';
+import '../../../../core/widgets/error_state_widget.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../cubit/my_lobbies_cubit.dart';
 import '../cubit/my_lobbies_state.dart';
@@ -16,16 +17,20 @@ import 'lobby_card_base.dart';
 /// được thay thế bằng tab Bookings mới (hiển thị reservation + lobby).
 class LobbyHistoryTab extends StatelessWidget {
   final MyLobbiesCubit myLobbiesCubit;
-  final DateFormat timeFormatter;
   final void Function(LobbyEntity) onTapLobby;
   final VoidCallback onRefresh;
+
+  /// Callback khi player bấm nút "Tạo phòng" từ empty state. `null` nếu
+  /// không muốn hiển thị action button trong empty state (vd: page chỉ
+  /// hiển thị danh sách không cho phép tạo mới).
+  final VoidCallback? onCreateLobby;
 
   const LobbyHistoryTab({
     super.key,
     required this.myLobbiesCubit,
-    required this.timeFormatter,
     required this.onTapLobby,
     required this.onRefresh,
+    this.onCreateLobby,
   });
 
   @override
@@ -35,133 +40,135 @@ class LobbyHistoryTab extends StatelessWidget {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _MyLobbiesSection(
-              cubit: myLobbiesCubit,
-              onTapLobby: onTapLobby,
+            child: _HeaderSection(
+              theme: Theme.of(context),
+              colors: Theme.of(context).colorScheme,
             ),
           ),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              120,
+            ),
+            sliver: _MyLobbiesSliver(
+              cubit: myLobbiesCubit,
+              onTapLobby: onTapLobby,
+              onCreateLobby: onCreateLobby,
+              onRetry: onRefresh,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MyLobbiesSection extends StatelessWidget {
+/// Nội dung lobby list — return sliver widget theo từng state.
+class _MyLobbiesSliver extends StatelessWidget {
   final MyLobbiesCubit cubit;
   final void Function(LobbyEntity) onTapLobby;
 
-  const _MyLobbiesSection({required this.cubit, required this.onTapLobby});
+  /// Callback khi player bấm nút "Tạo phòng" từ empty state.
+  final VoidCallback? onCreateLobby;
+
+  /// Callback khi player bấm "Thử lại" từ error state.
+  final VoidCallback onRetry;
+
+  const _MyLobbiesSliver({
+    required this.cubit,
+    required this.onTapLobby,
+    this.onCreateLobby,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return BlocBuilder<MyLobbiesCubit, MyLobbiesState>(
       bloc: cubit,
       builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [colors.primary, colors.primary.withAlpha(204)],
-                      ),
-                      borderRadius: AppRadius.radiusSmAll,
-                    ),
-                    child: const Icon(Icons.meeting_room, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Phòng chờ của tôi',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Phòng đã tạo hoặc tham gia',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _buildContent(context, state, theme, colors),
-            ],
-          ),
-        );
+        return _buildContent(context, state);
       },
     );
   }
 
-  Widget _buildContent(
-    BuildContext context,
-    MyLobbiesState state,
-    ThemeData theme,
-    ColorScheme colors,
-  ) {
+  Widget _buildContent(BuildContext context, MyLobbiesState state) {
     if (state is MyLobbiesLoading) {
-      // Phase 3 2026-08-10: thay spinner bằng shimmer skeleton list.
-      return ListView.separated(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        itemCount: 4,
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-        itemBuilder: (_, _) => const _HistoryItemSkeleton(),
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisExtent: 265,
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => const _HistoryItemSkeleton(),
+          childCount: 4,
+        ),
       );
     }
-    if (state is MyLobbiesFailure) return _SectionError(message: state.message);
+    if (state is MyLobbiesFailure) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          // Đặt chiều cao tối thiểu để ErrorStateWidget có không gian
+          // hiển thị đẹp khi list ngắn / đang trong tab có nhiều padding.
+          height: 480,
+          child: ErrorStateWidget(
+            message: state.message,
+            onRetry: onRetry,
+            compact: true,
+          ),
+        ),
+      );
+    }
     if (state is MyLobbiesLoaded) {
       if (state.isEmpty) {
-        return _SectionEmpty(
-          icon: Icons.meeting_room_outlined,
-          message: 'Bạn chưa tạo hoặc tham gia phòng chờ nào.',
-          colors: colors,
-          theme: theme,
+        return SliverToBoxAdapter(
+          child: SizedBox(
+            // Đặt chiều cao tối thiểu để LobbyEmptyState có không gian
+            // hiển thị đẹp khi list rỗng trong tab "Phòng chờ của tôi".
+            height: 480,
+            child: LobbyEmptyState(
+              customTitle: 'Chưa có phòng chờ của tôi',
+              customMessage:
+                  'Bạn chưa tạo hoặc tham gia phòng chờ nào.\nHãy tạo phòng mới hoặc khám phá các phòng đang mở để tham gia.',
+              onCreateLobby: onCreateLobby,
+            ),
+          ),
         );
       }
-      return Column(
-        children: [
-          for (final lobby in state.joined)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _HistoryLobbyCard(
-                lobby: lobby,
-                isJoined: true,
-                onTap: () => onTapLobby(lobby),
-              ),
-            ),
-          for (final lobby in state.hosted)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _HistoryLobbyCard(
-                lobby: lobby,
-                isJoined: false,
-                onTap: () => onTapLobby(lobby),
-              ),
-            ),
-        ],
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisExtent: 265,
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final isJoined = index < state.joined.length;
+            final lobby = isJoined
+                ? state.joined[index]
+                : state.hosted[index - state.joined.length];
+            return _HistoryLobbyCard(
+              lobby: lobby,
+              isJoined: isJoined,
+              onTap: () => onTapLobby(lobby),
+            );
+          },
+          childCount: state.joined.length + state.hosted.length,
+        ),
       );
     }
-    return _SectionEmpty(
-      icon: Icons.meeting_room_outlined,
-      message: 'Chưa có phòng chờ nào.',
-      colors: colors,
-      theme: theme,
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 480,
+        child: const LobbyEmptyState(
+          customTitle: 'Chưa có phòng chờ',
+          customMessage: 'Bạn chưa tạo hoặc tham gia phòng chờ nào.',
+        ),
+      ),
     );
   }
 }
@@ -179,87 +186,63 @@ class _HistoryLobbyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Đồng bộ UI với `ReservationCard` — dùng chung `LobbyCardBase`.
-    // Boolean `isJoined` ở đây trở thành "hosted by me" flag cho
-    // `isOwnedByMe` trên card (viền primary).
     return LobbyCardBase(
       item: lobbyItemFromEntity(
         lobby,
         isOwnedByMe: !isJoined,
       ),
       onTap: onTap,
+      layout: LobbyCardLayout.vertical,
     );
   }
 }
 
-class _SectionEmpty extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  final ColorScheme colors;
+/// Header section for "Phòng chờ của tôi".
+class _HeaderSection extends StatelessWidget {
   final ThemeData theme;
+  final ColorScheme colors;
 
-  const _SectionEmpty({
-    required this.icon,
-    required this.message,
-    required this.colors,
-    required this.theme,
-  });
+  const _HeaderSection({required this.theme, required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        0,
       ),
       child: Row(
         children: [
-          Icon(icon, color: colors.onSurfaceVariant, size: 20),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [colors.primary, colors.primary.withAlpha(204)],
               ),
+              borderRadius: AppRadius.radiusSmAll,
             ),
+            child: const Icon(Icons.meeting_room, color: Colors.white, size: 20),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionError extends StatelessWidget {
-  final String message;
-
-  const _SectionError({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colors.errorContainer,
-        borderRadius: AppRadius.radiusMdAll,
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: colors.onErrorContainer, size: 20),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onErrorContainer,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phòng chờ của tôi',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  'Phòng đã tạo hoặc tham gia',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -280,69 +263,96 @@ class _HistoryItemSkeleton extends StatelessWidget {
     return AppShimmer.shimmer(
       context: context,
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: bgBase,
-          borderRadius: AppRadius.radiusLgAll,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.border,
-            width: 2,
+            color: isDark
+                ? AppColors.borderDark.withValues(alpha: 0.4)
+                : AppColors.border.withValues(alpha: 0.4),
+            width: 1.5,
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Game icon
+            // Artwork cover placeholder
             Container(
-              width: 56,
-              height: 56,
+              height: 88,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: AppRadius.radiusMdAll,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.casino_rounded,
+                  size: 42,
+                  color: Colors.white30,
+                ),
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
-            // Text
+            // Content — match vertical card padding/sizes
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title placeholder
+                    Container(
+                      width: double.infinity,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Container(
-                    width: 200,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
+                    const SizedBox(height: 6),
+                    // Cafe placeholder
+                    Container(
+                      width: 80,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Container(
-                    width: 120,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
+                    const SizedBox(height: 10),
+                    // Time chip placeholder (2-row stacked: date + time)
+                    Container(
+                      width: 140,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            // Status pill
-            Container(
-              width: 70,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: AppRadius.radiusSmAll,
+                    const Spacer(),
+                    // Share code pill placeholder — full width
+                    Container(
+                      width: double.infinity,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    // Hint line placeholder
+                    Container(
+                      width: 120,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -351,3 +361,4 @@ class _HistoryItemSkeleton extends StatelessWidget {
     );
   }
 }
+

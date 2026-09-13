@@ -17,7 +17,8 @@ Thay thế luồng cũ `BookingDeposit` (VND/SePay) — flow mới dùng BVC ato
 Tuân thủ business rules:
 
 - **BR-DEPOSIT-01**: Host trả toàn bộ cọc.
-- **BR-DEPOSIT-02..04**: `finalDeposit = ratePerPerson × maxPlayers × riskMultiplier` (nhưng ≥ `minDeposit`).
+- **BR-DEPOSIT-02 (2026-08-27)**: `finalDeposit = round(20% × cafeBasePrice / 1000, floor ≥ 1) × finalMaxPlayers` (BVC). Cọc tỷ lệ với quy mô nhóm và giá vé cơ bản của cafe.
+- **BR-DEPOSIT-02 (2026-08-27 — chỉnh)**: Backend trả về `finalDeposit` (BVC tổng) + `cafeBasePriceVnd` (VND/người) + `maxPlayers`. FE không còn hiển thị breakdown theo công thức `% × giá × số người` (bỏ `depositPerPerson`, `depositPercentage`, `depositRatePerPerson`, `baseDeposit`, `riskMultiplier`, `minDepositApplied`).
 - **BR-NEW-01**: `maxPlayers` + `minDeposit` theo khoảng cách `playDate`.
 - **BR-LOBBY-01a/b**: Buffer ≥ 120 phút OK, 60–120 cảnh báo, < 60 từ chối.
 - **BR-USER-LIMIT-01..05**: 1 host lobby + 1 member lobby = tối đa 2 active; cap tổng heldBalance.
@@ -34,6 +35,8 @@ Tuân thủ business rules:
 
 - [GET /{id}](#get-id)
 - [GET /](#get-)
+- [GET /my](#get-my)
+- [GET /search](#get-search)
 - [GET /pending-cafe-approval](#get-pending-cafe-approval)
 - [GET /{id}/cafe-approval](#get-idcafe-approval)
 - [POST /quote](#post-quote)
@@ -91,8 +94,19 @@ Lấy chi tiết một reservation.
     "cafeRejectionReason": null,
     "requiresCafeApproval": false,
     "cafeApprovalDeadline": null,
+    "reservationCode": "K7H3NP9X",
     "createdAt": "2026-08-02T15:30:00Z",
-    "updatedAt": "2026-08-02T15:30:00Z"
+    "updatedAt": "2026-08-02T15:30:00Z",
+    "isHost": true,
+    "canCancel": true,
+    "checkedInAt": null,
+    "actualEndAt": null,
+    "playedRatio": null,
+    "endReason": null,
+    "walkInWindowId": null,
+    "cancelledBy": null,
+    "cancelReason": null,
+    "tableNumber": null
   }
 }
 ```
@@ -193,6 +207,237 @@ Lấy danh sách reservation của user (host hoặc member). Có filter + phân
 |--------|---------|
 | `401` | Thiếu token |
 | `400` | `page` hoặc `pageSize` không hợp lệ |
+
+---
+
+## GET /my
+
+Lấy tất cả reservation của user cho màn hình lịch sử — **gộp cả reservation do user host lẫn reservation user tham gia làm member**. Mỗi item có field `participationType` để FE phân biệt "lịch hẹn do mình tạo" vs "lịch hẹn mình tham gia".
+
+Khác với `GET /api/v1/reservations` (mặc định chỉ host + 1 ngày):
+
+- Endpoint này mặc định lấy cả Host + Member.
+- Hỗ trợ filter `participationType` để lọc riêng Host hoặc Member.
+- Hỗ trợ `fromDate` / `toDate` để xem theo khoảng ngày (vd: 1 tuần qua, 1 tháng qua).
+- Filter push xuống SQL qua `ReservationRepository.GetListAsync` (server-authoritative, BR §XVII.2).
+- Sort: `PlayDate desc` → `ScheduledStartTime desc` → `CreatedAt desc` (lịch gần nhất trước).
+- Tự swap `fromDate` / `toDate` nếu truyền sai thứ tự (tránh query rỗng im lặng).
+
+### Request
+
+- Method: `GET`
+- Path: `/api/v1/reservations/my`
+- Auth: Player (JWT)
+
+### Query
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `participationType` | enum | No | `Host` \| `Member`. Null = lấy cả hai. |
+| `statuses` | enum[] | No | Filter theo trạng thái (vd: `Holding`, `Confirmed`, `Completed`, `CancelledByPlayer`). |
+| `cafeId` | guid | No | Filter theo cafe. |
+| `fromDate` | date | No | Ngày bắt đầu (inclusive). Null = không giới hạn dưới. |
+| `toDate` | date | No | Ngày kết thúc (inclusive). Null = không giới hạn trên. |
+| `page` | int | No | Số trang (≥ 1). Mặc định 1. |
+| `pageSize` | int | No | Số item/trang (1-100). Mặc định 20. |
+
+**Enum `ReservationParticipationType`:**
+
+| Value | Mô tả |
+|---|---|
+| `Host` | Reservation do user tạo (user trả cọc). |
+| `Member` | Reservation user tham gia với vai trò member (EXCLUDE reservation do chính user host — xem [Gap-2 fix 2026-09-02](#member-only-filter-excludes-self-hosted)). |
+
+**Binding note (2026-09-02):** ASP.NET Core bind enum theo string name **case-insensitive** — `participationType=host`, `Host`, `HOST` đều OK.
+
+### Member-only filter excludes self-hosted (Gap-2 fix 2026-09-02)
+
+Khi `participationType=Member`, query filter `r.HostId != userId && r.Lobby.Members.Any(m.UserId == userId && m.IsActive)`.
+
+Lý do: `LobbyMember.IsActive=true` được set cho cả host lẫn member khi host tạo lobby. Trước fix này, query `Lobby.Members.Any(...)` match cả self-hosted → `ParticipationType=Member` trả reservation do chính user host (sai semantics).
+
+Sau fix: `ParticipationType=Member` chỉ trả reservation user **tham gia vào lobby do người khác host**, loại bỏ self-hosted.
+
+### Response 200
+
+Response bao gồm 2 summary count (`hostedCount`, `joinedCount`) để FE render 2 tab "Tôi tạo (N) | Tôi tham gia (M)" mà không cần filter client-side. Counts áp dụng cùng filter (statuses/cafeId/fromDate/toDate) nhưng **độc lập với `participationType`** — khi user filter Host-only, `joinedCount` vẫn count full Member để summary tab không đổi khi đổi filter.
+
+```json
+{
+  "statusCode": 200,
+  "message": "MyReservationsRetrieved",
+  "data": {
+    "items": [
+      {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "cafeId": "cafe-guid",
+        "cafeName": "BoardGame Cafe A",
+        "gameId": "game-guid",
+        "gameName": "Catan",
+        "playDate": "2026-09-15",
+        "preferredStartTime": "19:00:00",
+        "preferredEndTime": "23:00:00",
+        "scheduledStartTime": "2026-09-15T19:00:00Z",
+        "scheduledEndTime": "2026-09-15T23:00:00Z",
+        "recruitmentDeadline": "2026-09-15T18:40:00Z",
+        "currentPlayers": 3,
+        "maxPlayers": 4,
+        "status": "Holding",
+        "depositAmount": 50,
+        "lobbyId": "lobby-guid",
+        "lobbyStatus": "Open",
+        "reservationCode": "K7H3NP9X",
+        "createdAt": "2026-09-02T15:30:00Z",
+        "isHost": true,
+        "participationType": "Host",
+        "tableNumber": null
+      },
+      {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "cafeId": "cafe-guid",
+        "cafeName": "BoardGame Cafe A",
+        "gameId": "game-guid",
+        "gameName": "Splendor",
+        "playDate": "2026-09-20",
+        "preferredStartTime": "14:00:00",
+        "preferredEndTime": "18:00:00",
+        "scheduledStartTime": "2026-09-20T14:00:00Z",
+        "scheduledEndTime": "2026-09-20T18:00:00Z",
+        "recruitmentDeadline": "2026-09-20T13:40:00Z",
+        "currentPlayers": 4,
+        "maxPlayers": 4,
+        "status": "Confirmed",
+        "depositAmount": 30,
+        "lobbyId": "lobby-guid-2",
+        "lobbyStatus": "Viable",
+        "reservationCode": "A8K3P9X",
+        "createdAt": "2026-09-01T10:00:00Z",
+        "isHost": false,
+        "participationType": "Member",
+        "tableNumber": null
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalCount": 12,
+    "totalPages": 1,
+    "hostedCount": 5,
+    "joinedCount": 7
+  }
+}
+```
+
+### Lỗi thường gặp
+
+| Status | Message |
+|--------|---------|
+| `401` | Thiếu token |
+| `400` | `page` hoặc `pageSize` không hợp lệ |
+| `500` | Lỗi hệ thống |
+
+### Examples
+
+```bash
+# 1. Tất cả reservation (cả Host + Member) trong tháng 9
+GET /api/v1/reservations/my?fromDate=2026-09-01&toDate=2026-09-30
+
+# 2. Chỉ reservation do mình host, status Holding/Confirmed
+GET /api/v1/reservations/my?participationType=Host&statuses=Holding,Confirmed
+
+# 3. Reservation mình tham gia làm member trong 1 tuần qua
+GET /api/v1/reservations/my?participationType=Member&fromDate=2026-08-26&toDate=2026-09-02
+
+# 4. Phân trang
+GET /api/v1/reservations/my?page=2&pageSize=10
+
+# 5. Filter theo cafe
+GET /api/v1/reservations/my?cafeId=abc123-guid
+```
+
+---
+
+## GET /search
+
+Tìm kiếm lịch hẹn theo tên game hoặc ngày tháng. Có filter + phân trang.
+
+### Request
+
+- Method: `GET`
+- Path: `/api/v1/reservations/search`
+- Auth: Player (JWT)
+
+### Query
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `gameName` | string | No | Từ khóa tìm kiếm theo tên game (fuzzy, case-insensitive). |
+| `fromDate` | date | No | Ngày bắt đầu filter (inclusive). |
+| `toDate` | date | No | Ngày kết thúc filter (inclusive). |
+| `statuses` | enum[] | No | Filter theo trạng thái. |
+| `cafeId` | guid | No | Filter theo cafe. |
+| `hostedByMe` | bool | No | Chỉ reservation do user host (default true). |
+| `joinedByMe` | bool | No | Chỉ reservation user tham gia (default false). |
+| `page` | int | No | Số trang (≥ 1). Mặc định 1 |
+| `pageSize` | int | No | Số item/trang (1-100). Mặc định 20 |
+
+**Lưu ý:** Nếu không truyền `hostedByMe` hoặc `joinedByMe`, mặc định trả cả hai (tất cả reservation liên quan đến user).
+
+### Response 200
+
+```json
+{
+  "statusCode": 200,
+  "message": "ReservationsSearched",
+  "data": {
+    "items": [
+      {
+        "id": "...",
+        "cafeId": "...",
+        "cafeName": "BoardGame Cafe A",
+        "gameId": "...",
+        "gameName": "Catan",
+        "playDate": "2026-08-04",
+        "preferredStartTime": "19:30:00",
+        "preferredEndTime": "22:00:00",
+        "currentPlayers": 3,
+        "maxPlayers": 6,
+        "depositAmount": 100000,
+        "status": "Holding",
+        "lobbyId": "...",
+        "lobbyStatus": "Open",
+        "reservationCode": "K7H3NP9X",
+        "scheduledStartTime": "2026-08-04T19:30:00Z",
+        "scheduledEndTime": "2026-08-04T22:00:00Z",
+        "recruitmentDeadline": "2026-08-04T19:10:00Z",
+        "createdAt": "2026-08-02T15:30:00Z",
+        "isHost": true,
+        "tableNumber": null
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalCount": 5,
+    "totalPages": 1
+  }
+}
+```
+
+### Ví dụ
+
+```
+GET /api/v1/reservations/search?gameName=Catan&fromDate=2026-08-01&toDate=2026-08-31
+GET /api/v1/reservations/search?gameName=Splendor&hostedByMe=true
+GET /api/v1/reservations/search?fromDate=2026-08-20&toDate=2026-08-25&statuses=Holding,Confirmed
+GET /api/v1/reservations/search?cafeId=abc123-guid&page=1&pageSize=10
+```
+
+### Lỗi thường gặp
+
+| Status | Message |
+|--------|---------|
+| `401` | Thiếu token |
+| `400` | `page` hoặc `pageSize` không hợp lệ |
+| `500` | Lỗi hệ thống |
 
 ---
 
@@ -332,8 +577,8 @@ Tạo quote cho reservation. **KHÔNG tạo row DB** — chỉ validate + tính 
   "cafeId": "guid",
   "gameId": "guid",
   "playDate": "2026-08-04",
-  "timeSlot": "evening",
   "preferredStartTime": "19:30",
+  "preferredEndTime": "22:00",
   "minPlayers": 4,
   "maxPlayers": 6,
   "isPrivate": false,
@@ -345,13 +590,28 @@ Tạo quote cho reservation. **KHÔNG tạo row DB** — chỉ validate + tính 
 |---|---|---|---|
 | `cafeId` | guid | Yes | Cafe còn hoạt động. |
 | `gameId` | guid | Yes | Game có trong `CafeGameInventory`. |
-| `playDate` | date | Yes | Trong khoảng `[today, today+7]`. |
-| `timeSlot` | enum | Yes | `morning` / `afternoon` / `evening` / `lateNight`. |
-| `preferredStartTime` | time | No | Phải nằm trong `[timeSlot.startTime, timeSlot.endTime]`. |
-| `minPlayers` | int | Yes | ≥ 2. |
+| `playDate` | date | Yes | Trong khoảng `[today, today+7]` (cố định toàn hệ thống — BR-RES-08, G2 fix 2026-09-01). |
+| `preferredStartTime` | time | Yes | `HH:mm`. Phải `>= CafeSchedule.OpenTime` và `> now()` (G11 fix 2026-09-01). |
+| `preferredEndTime` | time | Yes | `HH:mm`. Phải > `preferredStartTime`. Nếu `> preferredStartTime` → cùng ngày; nếu `<` → hiểu là ngày kế tiếp (overnight). **KHÔNG ĐƯỢC** bỏ trống / mặc định `00:00` (G5 fix 2026-09-01). Nếu `==` → 400. |
+| `minPlayers` | int | Yes | ≥ 1 (cho phép solo play). |
 | `maxPlayers` | int | Yes | `minPlayers ≤ maxPlayers`. |
 | `isPrivate` | bool | No | `false` = public lobby (có thể cần cafe duyệt). `true` = private lobby (mời bạn, không cần cafe duyệt). Mặc định `false`. |
 | `idempotencyKey` | string | Yes | 8–128 ký tự. Idempotent theo key. |
+
+### Validation chain (BR-RES-07/08/09 + G2/G5/G7/G8/G11/G13 — fix 2026-09-01)
+
+Server validate theo thứ tự (fail sớm nhất):
+
+1. **Cafe mở cửa ngày đó** (`CafeSchedule.IsClosed`) → 400.
+2. **Preferred times nằm trong giờ mở/đóng thực tế** (`CafeScheduleValidator.ValidatePreferredTimesWithCafeScheduleAsync`, xử lý overnight) → 400 (G3 fix).
+3. **`playDate` trong [today, today+7]** → 400 (G2 fix — `MaxAdvanceBookingDays = 7`).
+4. **`scheduledStartTime > now()`** → 400 (`StartTimeInPast`) (G11 fix).
+5. **`scheduledEndTime > scheduledStartTime`** → 400 (`PreferredTimesMustDiffer`).
+6. **Duration ≤ 12 giờ** → 400 (`DurationTooLong`) (G7 fix).
+7. **Duration ≥ 30 phút** → 400 (`DurationTooShort`) (G8 fix).
+8. **Overnight rule**: nếu overnight, `scheduledEndTime.Date == scheduledStartTime.Date + 1` → 400 (`LateNightMustEndNextDay`).
+9. **Same-day rule**: nếu không overnight, `scheduledEndTime.Date == scheduledStartTime.Date` → 400 (`ReservationEndTimeDifferentDay`).
+10. **Defensive assertion**: `DateOnly.FromDateTime(scheduledStartTime) == playDate` (G13 fix — `Debug.Assert` trong dev).
 
 ### Response 200
 
@@ -371,23 +631,36 @@ Tạo quote cho reservation. **KHÔNG tạo row DB** — chỉ validate + tính 
     "recruitmentDeadline": "2026-08-04T17:40:00Z",
     "minPlayers": 4,
     "maxPlayers": 6,
-    "depositRatePerPerson": 5,
-    "baseDeposit": 30,
-    "riskMultiplier": 1.0,
-    "minDepositApplied": 100000,
-    "finalDeposit": 100000,
+    "cafeBasePriceVnd": 50000,
+    "finalDeposit": 60,
     "currentBalance": 50000,
-    "missingAmount": 50000,
+    "missingAmount": 0,
     "bufferMinutes": 240,
     "bufferWarning": false,
     "requiresCafeApproval": false,
     "riskLevel": "low",
-    "riskMultiplier": 1.0,
     "expiresAt": "2026-08-02T11:00:00Z",
     "warnings": []
   }
 }
 ```
+
+### Deposit breakdown
+
+FE hiển thị breakdown cho người chơi (2026-08-27 — chỉ render `FinalDeposit` + `CafeBasePriceVnd`, không hiển thị công thức % nữa):
+
+```
+Tiền cọc: {FinalDeposit} BVC
+Giá vé cơ bản: {CafeBasePriceVnd:N0}đ / người
+Số người tối đa: {MaxPlayers}
+```
+
+Với ví dụ trên (cafeBasePrice = 50.000đ, 6 người):
+- `cafeBasePriceVnd = 50.000đ`
+- `maxPlayers = 6`
+- `finalDeposit = 60 BVC` (= 20% × 50.000đ × 6 người = 60.000đ tổng cọc)
+
+> **Lưu ý (2026-08-27):** Các field `DepositPercentage`, `DepositPerPerson`, `DepositRatePerPerson`, `BaseDeposit`, `RiskMultiplier`, `MinDepositApplied` không còn được trả về cho FE nữa (giữ trong response với giá trị mặc định = 0 cho backward compat). FE chỉ cần `FinalDeposit` + `CafeBasePriceVnd` + `MaxPlayers` để hiển thị breakdown.
 
 ### Quote warnings
 
@@ -415,10 +688,20 @@ Trường `warnings` chứa các cảnh báo từ server:
 
 | Status | Message rule | BR |
 |---|---|---|
-| `400` | `playDate` ngoài [today, +7] | - |
+| `400` | `playDate` ngoài `[today, today+7]` (cố định hệ thống — `MaxAdvanceBookingDays = 7`) | BR-RES-08 (G2 fix 2026-09-01) |
 | `400` | `minPlayers < 1` hoặc `maxPlayers > 30` | - |
 | `400` | `maxPlayers < minPlayers` | - |
-| `400` | `preferredStartTime` không nằm trong `timeSlot` window | BR-LOBBY-15b |
+| `400` | `playDate < today` (ngày trong quá khứ) | BR-RES-08 (G2 fix 2026-09-01) |
+| `400` | `PreferredStartBeforeOpen(<openTime>)` — start trước giờ mở cafe | BR-RES-07 (G3 fix) |
+| `400` | `PreferredEndAfterClose(<closeTime>)` — end sau giờ đóng cafe | BR-RES-07 (G3 fix) |
+| `400` | `PreferredTimesMustDiffer` (end == start, zero-duration) | BR-RES-07 |
+| `400` | `PreferredEndTimeRequired` (endTime bị default = 00:00 hoặc thiếu) | BR-RES-07 (G5 fix 2026-09-01) |
+| `400` | `StartTimeInPast` (`scheduledStartTime <= now()`) | BR-RES-07 (G11 fix 2026-09-01) |
+| `400` | `DurationTooLong(12)` — duration > 12 giờ | BR-RES-07 (G7 fix 2026-09-01) |
+| `400` | `DurationTooShort(30)` — duration < 30 phút | BR-RES-07 (G8 fix 2026-09-01) |
+| `400` | `LateNightMustEndNextDay` — overnight nhưng endDate != startDate+1 | BR-NEW-15 |
+| `400` | `ReservationEndTimeDifferentDay` — same-day nhưng endDate khác startDate | BR-RES-08 |
+| `400` | `CafeScheduleClosedForPlayDate` — cafe đóng ngày đó | - |
 | `400` | Buffer < 60 phút (từ chối) | BR-LOBBY-01b |
 | `400` | Buffer 60-120 phút (cảnh báo) | BR-LOBBY-01c |
 | `401` | Thiếu token | - |
@@ -453,8 +736,8 @@ Confirm reservation — atomic transaction. Trừ BVC + giữ seat + giữ game 
   "cafeId": "guid",
   "gameId": "guid",
   "playDate": "2026-08-04",
-  "timeSlot": "evening",
   "preferredStartTime": "19:30",
+  "preferredEndTime": "22:00",
   "minPlayers": 4,
   "maxPlayers": 6,
   "isPrivate": false,
@@ -492,6 +775,8 @@ Nếu `isPrivate: true`, lobby không cần cafe duyệt dù playDate cách xa.
 | Status | Message rule | BR |
 |---|---|---|
 | `400` | `expectedFinalDeposit` khác server (quote cũ) | BR §XVII.2 |
+| `400` | `PreferredStartBeforeOpen` / `PreferredEndAfterClose` (preferred times không khớp `CafeSchedule`) | BR-RES-07 (G3 fix) |
+| `400` | `StartTimeInPast` / `DurationTooLong(12)` / `DurationTooShort(30)` / `PreferredEndTimeRequired` | BR-RES-07 (G fix 2026-09-01) |
 | `400` | Buffer < 60 phút | BR-LOBBY-01b |
 | `400` | Insufficient `availableBalance` | - |
 | `401` | Thiếu token | - |
@@ -524,11 +809,51 @@ Khi active:
 
 Trigger: 3 lobby fail (`timeoutFailed` hoặc `hostCancelled` sau grace) trong 7 ngày.
 
+### Overnight Reservations (BR-RES-08)
+
+`POST /quote` và `POST /confirm` chấp nhận khung giờ qua đêm: nếu `preferredEndTime < preferredStartTime`, hệ thống hiểu rằng `scheduledEndTime` thuộc ngày kế tiếp của `playDate`.
+
+| Input | Interpretation |
+|---|---|
+| `preferredStartTime=21:00`, `preferredEndTime=00:00` | 21:00 hôm nay → 00:00 ngày kế tiếp (3 giờ) |
+| `preferredStartTime=22:00`, `preferredEndTime=02:00` | 22:00 hôm nay → 02:00 ngày kế tiếp (4 giờ) |
+| `preferredStartTime=19:00`, `preferredEndTime=21:00` | 19:00 hôm nay → 21:00 cùng ngày (2 giờ) |
+| `preferredStartTime=10:00`, `preferredEndTime=10:00` | **400** — zero-duration, không hợp lệ |
+| `preferredStartTime=05:00`, `preferredEndTime=08:00` | **400** — `preferredStartTime < DefaultOpenTime` (06:00) |
+| `preferredStartTime=20:00`, `preferredEndTime=23:30` (same day) | **400** — `preferredEndTime > DefaultCloseTime` (23:00) |
+
+Response trả `scheduledStartTime` + `scheduledEndTime` đầy đủ `DateTime` (kèm ngày thực tế), ví dụ:
+
+```json
+{
+  "playDate": "2026-08-18",
+  "preferredStartTime": "21:00:00",
+  "preferredEndTime": "00:00:00",
+  "scheduledStartTime": "2026-08-18T21:00:00Z",
+  "scheduledEndTime": "2026-08-19T00:00:00Z",
+  "durationMinutes": 180
+}
+```
+
+Lỗi thường gặp thêm (BR-RES-07/08):
+
+| Status | Message rule | BR |
+|---|---|---|
+| `400` | `PreferredTimesMustDiffer` (end == start, hoặc zero-duration) | BR-RES-07 |
+| `400` | `PreferredStartBeforeOpen(<openTime>)` | BR-RES-07 (G3 fix 2026-09-01 — dùng `CafeSchedule.OpenTime` thực tế, không phải hardcoded 06:00) |
+| `400` | `PreferredEndAfterClose(<closeTime>)` khi không overnight | BR-RES-07 (G3 fix) |
+| `400` | `ReservationEndTimeDifferentDay` (end > start nhưng lệch sang ngày khác) | BR-RES-08 |
+| `400` | `StartTimeInPast` (`scheduledStartTime <= now()`) | BR-RES-07 (G11 fix 2026-09-01) |
+| `400` | `DurationTooLong(12)` — duration vượt 12 giờ | BR-RES-07 (G7 fix 2026-09-01) |
+| `400` | `DurationTooShort(30)` — duration dưới 30 phút | BR-RES-07 (G8 fix 2026-09-01) |
+| `400` | `PreferredEndTimeRequired` (endTime bị default / thiếu) | BR-RES-07 (G5 fix 2026-09-01) |
+
 ### Idempotency strict params (fix 2026-08-06)
 
 Confirm endpoint **verify tất cả params** trước khi trả kết quả cũ:
 
-- `CafeId`, `GameId`, `PlayDate`, `TimeSlot`
+- `CafeId`, `GameId`, `PlayDate`
+- `PreferredStartTime`, `PreferredEndTime`
 - `MaxPlayers`, `MinPlayers`
 - `ExpectedFinalDeposit`
 
@@ -583,9 +908,10 @@ Host hủy reservation. Refund theo BR-REFUND-02.
 |---|---|---|
 | Trong grace 15p + chưa có member | 100% | Không phạt |
 | ≥ 24 giờ trước `ScheduledStartTime` | 100% | Không phạt |
-| < 24 giờ trước `ScheduledStartTime` | 0% | Giảm đáng kể |
+| < 24 giờ trước `ScheduledStartTime` | 0% | Giảm −10 (HostDissolve violation, GAP-4 fix 2026-08-27) |
 
 > **Lưu ý:** Không còn bậc 50% (6-24h) nữa. Chỉ có 100% (grace/≥24h) hoặc 0% (<24h).
+> **HostDissolve (GAP-4 2026-08-27):** Khi host dissolve lobby (`DELETE /api/v1/lobbies/{id}`) ngoài grace, `PlayerKarmaService.RecordHostDissolveAsync` ghi `KarmaShortPlayRecord` với `ViolationType = HostDissolve`, `ReservationId` được set. Karma aggregation chạy `TriggerKarmaAggregationAsync` sau persist → warning (3-4 violations) hoặc restriction (5+) theo BR-KARMA-03.
 
 **H7 Fix (BR-REFUND-03 hasMembers, 2026-08-09):**
 - Điều kiện "chưa có member" check `members.Any(m => !m.IsHost && m.IsActive)` thay vì `members.Count > 1`.
@@ -914,6 +1240,18 @@ Host hủy reservation sau khi đã check-in. Áp dụng refund theo playedRatio
 | `< 50%` | 0% (forfeit 100%) | Giảm nhẹ |
 | `≥ 50%` | 30% | Không phạt |
 | `≥ 90%` | 0% (treated as on-time) | Không phạt |
+
+### Lifecycle metadata (BR-END-02, fix 2026-08-27)
+
+Khi staff nhấn Pay tại POS → `ActiveSessionService.PaySessionAsync` gọi `ReservationService.CompleteAndCaptureAsync`, hệ thống **BẮT BUỘC** populate 3 field lifecycle metadata trên Reservation row:
+
+- `ActualEndAt`: timestamp thực tế đóng session.
+- `PlayedRatio`: `clamp((actualEndAt - checkedInAt) / (scheduledEndTime - scheduledStartTime), 0, 1)`.
+- `EndReason`: `EarlyLeave` / `OnTime` / `StaffOverride` (dựa trên `PlayedRatio` thresholds ở trên).
+
+**Bug đã fix (2026-08-27):** Trước fix, `ExecuteCompleteAndCaptureTransactionAsync` chỉ flip `Status = Completed` mà KHÔNG set `ActualEndAt`, `PlayedRatio`, `EndReason`. Audit/karma/refund reports đọc NULL → "bàn tự dưng closed". Fix được bảo vệ bởi `ReservationCompleteCaptureFixTests` (9 test cases cover edge cases: zero-duration, negative ratio, > 100%, missing `CheckedInAt`, 90% boundary, 50% boundary).
+
+**Side effect:** Nếu `CheckedInAt` cũng NULL (bug upstream trong `ExecuteCheckInTransactionAsync` step 9 — fixed trong cùng change-set), `EndAndSettleAsync` sẽ throw. Test `MissingCheckedInAt_FallbackToScheduledStart_AvoidsDivideByZero` đảm bảo fallback `checkedInAt ?? scheduledStart` để tránh chia cho 0.
 
 ### Lỗi
 

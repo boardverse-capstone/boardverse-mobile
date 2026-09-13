@@ -1,3 +1,4 @@
+import '../../../lobby_management/domain/entities/lobby_entity.dart';
 import '../../domain/entities/entities.dart';
 
 /// Data model cho Reservation API response.
@@ -16,6 +17,7 @@ class ReservationModel extends ReservationEntity {
     required super.playDate,
     required super.timeSlot,
     super.preferredStartTime,
+    super.preferredEndTime,
     required super.scheduledTime,
     super.scheduledEndTime,
     super.recruitmentDeadline,
@@ -51,79 +53,109 @@ class ReservationModel extends ReservationEntity {
     super.remainingApprovalMinutes,
     super.isCafeApproved,
     super.approvedAt,
+    super.participationType,
   });
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
+    // Helper: cast sang String, fallback về empty string. Handle cả int (khi
+    // backend trả về numeric ID thay vì string UUID).
+    String strFrom(dynamic value) {
+      if (value == null) return '';
+      if (value is String) return value;
+      return value.toString();
+    }
+
+    // Helper: cast sang String, fallback về null. Handle int → String.
+    String? strOptFrom(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ReservationModel(
-      id: json['id'] as String? ?? '',
-      hostId: json['hostId'] as String? ?? '',
+      id: strFrom(json['id']),
+      hostId: strFrom(json['hostId']),
       // API trả field 'hostName' → map sang hostDisplayName
-      hostDisplayName: json['hostName'] as String? ?? json['hostDisplayName'] as String?,
-      cafeId: json['cafeId'] as String? ?? '',
-      cafeName: json['cafeName'] as String? ?? '',
-      cafeAddress: json['cafeAddress'] as String?,
-      gameId: json['gameId'] as String? ?? '',
-      gameName: json['gameName'] as String? ?? '',
-      playDate: _parseDateOnly(json['playDate'] as String?) ?? DateTime.now(),
-      timeSlot: TimeSlot.fromString(json['timeSlot'] as String? ?? 'evening'),
-      preferredStartTime: json['preferredStartTime'] as String?,
+      hostDisplayName: json['hostName'] is String
+          ? json['hostName'] as String?
+          : json['hostDisplayName'] is String
+              ? json['hostDisplayName'] as String?
+              : null,
+      cafeId: strFrom(json['cafeId']),
+      cafeName: strFrom(json['cafeName']),
+      cafeAddress: strOptFrom(json['cafeAddress']),
+      gameId: strFrom(json['gameId']),
+      gameName: strFrom(json['gameName']),
+      playDate: _parseDateOnly(strOptFrom(json['playDate'])) ?? DateTime.now(),
+      timeSlot: TimeSlot.fromString(strOptFrom(json['timeSlot']) ?? 'evening'),
+      preferredStartTime: strOptFrom(json['preferredStartTime']),
+      preferredEndTime: strOptFrom(json['preferredEndTime']),
       // API trả 'scheduledStartTime' → scheduledTime
       // Nếu list API không trả, fallback sang playDate + timeSlot
       scheduledTime: _parseDateTime(
-        json['scheduledStartTime'] as String?,
+        strOptFrom(json['scheduledStartTime']),
         null,
       ) ?? _buildScheduledTimeFromPlayDateAndSlot(
-        json['playDate'] as String?,
-        json['timeSlot'] as String?,
+        strOptFrom(json['playDate']),
+        strOptFrom(json['timeSlot']),
       ),
       scheduledEndTime: _parseDateTime(
-        json['scheduledEndTime'] as String?,
+        strOptFrom(json['scheduledEndTime']),
         null,
       ),
       recruitmentDeadline: _parseDateTime(
-        json['recruitmentDeadline'] as String?,
+        strOptFrom(json['recruitmentDeadline']),
         null,
       ),
-      minPlayers: json['minPlayers'] as int? ?? 2,
-      maxPlayers: json['maxPlayers'] as int? ?? 4,
+      minPlayers: (json['minPlayers'] as num?)?.toInt() ?? 2,
+      maxPlayers: (json['maxPlayers'] as num?)?.toInt() ?? 4,
       // API trả depositAmount → finalDeposit
-      finalDeposit: json['depositAmount'] as int? ?? json['finalDeposit'] as int? ?? 0,
+      finalDeposit: (json['depositAmount'] as num?)?.toInt() ??
+          (json['finalDeposit'] as num?)?.toInt() ??
+          0,
       // Các field tính toán mặc định
-      depositRatePerPerson: json['depositRatePerPerson'] as int? ?? 0,
-      baseDeposit: json['baseDeposit'] as int? ?? 0,
+      depositRatePerPerson: (json['depositRatePerPerson'] as num?)?.toInt() ?? 0,
+      baseDeposit: (json['baseDeposit'] as num?)?.toInt() ?? 0,
       riskMultiplier: (json['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
-      minDepositApplied: json['minDepositApplied'] as int? ?? 0,
-      status: ReservationStatus.fromString(json['status'] as String? ?? 'draft'),
-      currentPlayers: json['currentPlayers'] as int? ?? 1,
-      lobbyId: json['lobbyId'] as String?,
+      minDepositApplied: (json['minDepositApplied'] as num?)?.toInt() ?? 0,
+      status: ReservationStatus.fromString(strOptFrom(json['status']) ?? 'draft'),
+      currentPlayers: (json['currentPlayers'] as num?)?.toInt() ?? 1,
+      lobbyId: strOptFrom(json['lobbyId']),
       // API trả 'reservationCode' → lobbyShareCode
-      lobbyShareCode: json['reservationCode'] as String? ?? json['lobbyShareCode'] as String?,
+      lobbyShareCode: json['reservationCode'] is String
+          ? json['reservationCode'] as String?
+          : json['lobbyShareCode'] is String
+              ? json['lobbyShareCode'] as String?
+              : null,
       lobbyStatus: json['lobbyStatus'] != null
-          ? LobbyStatus.fromString(json['lobbyStatus'] as String)
+          ? LobbyStatus.fromString(strOptFrom(json['lobbyStatus'])!)
           : null,
       isPrivate: json['isPrivate'] as bool? ?? false,
       requiresCafeApproval: json['requiresCafeApproval'] as bool? ?? false,
       cafeApprovalDeadline: _parseDateTime(
-        json['cafeApprovalDeadline'] as String?,
+        strOptFrom(json['cafeApprovalDeadline']),
         null,
       ),
-      cafeRejectionReason: json['cafeRejectionReason'] as String?,
-      refundPolicyApplied: json['refundPolicyApplied'] as String?,
-      createdAt: _parseDateTime(json['createdAt'] as String?, null) ?? DateTime.now(),
-      updatedAt: _parseDateTime(json['updatedAt'] as String?, null),
-      checkedInAt: _parseDateTime(json['checkedInAt'] as String?, null),
-      actualEndAt: _parseDateTime(json['actualEndAt'] as String?, null),
-      approvedAt: _parseDateTime(json['approvedAt'] as String?, null),
+      cafeRejectionReason: strOptFrom(json['cafeRejectionReason']),
+      refundPolicyApplied: strOptFrom(json['refundPolicyApplied']),
+      createdAt: _parseDateTime(strOptFrom(json['createdAt']), null) ?? DateTime.now(),
+      updatedAt: _parseDateTime(strOptFrom(json['updatedAt']), null),
+      checkedInAt: _parseDateTime(strOptFrom(json['checkedInAt']), null),
+      actualEndAt: _parseDateTime(strOptFrom(json['actualEndAt']), null),
+      approvedAt: _parseDateTime(strOptFrom(json['approvedAt']), null),
       isHost: json['isHost'] as bool?,
       canCancel: json['canCancel'] as bool?,
       playedRatio: (json['playedRatio'] as num?)?.toDouble(),
-      endReason: json['endReason'] as String?,
-      tableNumber: json['tableNumber'] as String?,
-      cancelledBy: json['cancelledBy'] as String?,
-      cancelReason: json['cancelReason'] as String?,
+      endReason: strOptFrom(json['endReason']),
+      tableNumber: strOptFrom(json['tableNumber']),
+      cancelledBy: strOptFrom(json['cancelledBy']),
+      cancelReason: strOptFrom(json['cancelReason']),
       remainingApprovalHours: (json['remainingApprovalHours'] as num?)?.toInt(),
       remainingApprovalMinutes: (json['remainingApprovalMinutes'] as num?)?.toInt(),
       isCafeApproved: json['isCafeApproved'] as bool?,
+      participationType: ReservationParticipationType.fromString(
+        json['participationType'] as String?,
+      ),
     );
   }
 
@@ -185,6 +217,7 @@ class ReservationModel extends ReservationEntity {
       'playDate': playDate.toIso8601String().split('T').first,
       'timeSlot': timeSlot.name,
       'preferredStartTime': preferredStartTime,
+      'preferredEndTime': preferredEndTime,
       'scheduledStartTime': scheduledTime.toIso8601String(),
       'scheduledEndTime': scheduledEndTime?.toIso8601String(),
       'recruitmentDeadline': recruitmentDeadline?.toIso8601String(),
@@ -220,6 +253,7 @@ class ReservationModel extends ReservationEntity {
       'remainingApprovalMinutes': remainingApprovalMinutes,
       'isCafeApproved': isCafeApproved,
       'approvedAt': approvedAt?.toIso8601String(),
+      'participationType': participationType?.apiValue,
     };
   }
 }

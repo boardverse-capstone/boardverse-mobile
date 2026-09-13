@@ -3,13 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/widgets/empty_state_widget.dart';
+import '../../../../core/widgets/error_state_widget.dart';
+import '../../../lobby_management/domain/entities/lobby_entity.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/reservation_repository.dart';
 import '../cubit/reservation_list_cubit.dart';
 import '../cubit/reservation_list_state.dart';
-import '../widgets/reservation_card.dart';
 import '../widgets/reservation_card_skeleton.dart';
+import '../widgets/reservation_grid_card.dart';
 import 'reservation_detail_page.dart';
+import 'reservation_search_page.dart';
 
 /// Trang / tab danh sách reservation của player.
 ///
@@ -114,6 +118,17 @@ class ReservationListView extends StatelessWidget {
               ),
             ),
             IconButton(
+              tooltip: 'Tìm kiếm',
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ReservationSearchPage(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
               tooltip: 'Làm mới',
               icon: const Icon(Icons.refresh),
               onPressed: () => context.read<ReservationListCubit>().refresh(),
@@ -130,7 +145,7 @@ class ReservationListView extends StatelessWidget {
             return _buildSkeleton(context);
           }
           if (state is ReservationListFailure) {
-            return _ErrorBox(
+            return ErrorStateWidget(
               message: state.message,
               onRetry: () => context.read<ReservationListCubit>().refresh(),
             );
@@ -195,9 +210,9 @@ class ReservationListView extends StatelessWidget {
 
   Widget _buildLoaded(BuildContext context, List<ReservationEntity> items) {
     if (items.isEmpty) {
-      return const _EmptyBox(
-        icon: Icons.event_busy,
-        message: 'Bạn chưa tạo đơn reservation nào.',
+      return const ReservationEmptyState(
+        customTitle: 'CHƯA CÓ LỊCH HẸN',
+        customMessage: 'Bạn chưa tạo đơn reservation nào.\nHãy tạo lịch hẹn mới để bắt đầu.',
       );
     }
     // Sắp xếp: hoạt động trước, sau đó theo thời gian scheduledTime giảm dần.
@@ -212,109 +227,29 @@ class ReservationListView extends StatelessWidget {
         return b.scheduledTime.compareTo(a.scheduledTime);
       });
 
-    return Column(
-      children: [
-        for (final r in sorted)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: ReservationCard(
-              reservation: r,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ReservationDetailPage(reservation: r),
-                ),
-              ),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: AppSpacing.sm,
+        mainAxisSpacing: AppSpacing.sm,
+        mainAxisExtent: 220,
+      ),
+      itemCount: sorted.length,
+      itemBuilder: (context, i) {
+        final r = sorted[i];
+        return ReservationCardModern(
+          reservation: r,
+          isOwnedByMe: r.isHost ?? false,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ReservationDetailPage(reservation: r),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _EmptyBox extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  const _EmptyBox({required this.icon, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: AppRadius.radiusMdAll,
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: colors.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorBox extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorBox({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colors.errorContainer,
-        borderRadius: AppRadius.radiusMdAll,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.error_outline, color: colors.onErrorContainer),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  message,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onErrorContainer,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Thử lại'),
-              style: TextButton.styleFrom(
-                foregroundColor: colors.onErrorContainer,
-              ),
-              onPressed: onRetry,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

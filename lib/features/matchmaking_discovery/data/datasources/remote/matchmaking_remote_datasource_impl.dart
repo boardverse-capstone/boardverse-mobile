@@ -7,9 +7,9 @@ import '../../../domain/entities/search_filter_entity.dart';
 import '../../../domain/entities/game_play_configuration_entity.dart';
 import '../../models/board_game_model.dart';
 import '../../models/board_game_detail_model.dart';
+import '../../models/cafe_active_game_model.dart';
 import '../../models/cafe_model.dart';
 import '../../models/cafe_detail_model.dart';
-import '../../models/default_time_slot_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/game_play_configuration_model.dart';
 import '../../models/game_play_navigation_model.dart';
@@ -205,31 +205,8 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
   }
 
   // ─── Time Slot Defaults ────────────────────────────────────────────
-
-  @override
-  Future<List<DefaultTimeSlotModel>> getDefaultTimeSlots() async {
-    try {
-      final response = await _dio.get(ApiEndpoints.timeSlotDefaults);
-      // Backend trả mảng trực tiếp `[...]` ở body (không wrap trong
-      // envelope `{data: [...]}` như các API khác). Parser dưới đây chấp
-      // nhận cả 2 shape để phòng backend đổi convention sau này.
-      final body = response.data;
-      final List<dynamic> rawList;
-      if (body is List) {
-        rawList = body;
-      } else if (body is Map<String, dynamic> && body['data'] is List) {
-        rawList = body['data'] as List<dynamic>;
-      } else {
-        rawList = const <dynamic>[];
-      }
-      return rawList
-          .whereType<Map<String, dynamic>>()
-          .map(DefaultTimeSlotModel.fromJson)
-          .toList();
-    } on DioException catch (e) {
-      throw _mapDioError(e);
-    }
-  }
+  // BR-NEW (2026-08-27): `getDefaultTimeSlots()` đã bị xoá — backend không
+  // còn xử lý `timeSlot` enum cho reservation/lobby creation.
 
   // ─── Cafes ─────────────────────────────────────────────────────────
 
@@ -387,6 +364,62 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
     return const <BoardGameModel>[];
   }
 
+  @override
+  Future<List<CafeActiveGameModel>> getCafeActiveGames(
+    String cafeId, {
+    String? categoryId,
+    int? groupSize,
+    bool availableOnly = false,
+    String? searchTerm,
+    String? sortBy,
+    int pageNumber = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      final queryParameters = <String, dynamic>{
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      };
+      if (categoryId != null) queryParameters['categoryId'] = categoryId;
+      if (groupSize != null) queryParameters['groupSize'] = groupSize;
+      if (availableOnly) queryParameters['availableOnly'] = true;
+      if (searchTerm != null && searchTerm.isNotEmpty) {
+        queryParameters['searchTerm'] = searchTerm;
+      }
+      if (sortBy != null) queryParameters['sortBy'] = sortBy;
+
+      final response = await _dio.get(
+        ApiEndpoints.cafeActiveGames(cafeId),
+        queryParameters: queryParameters,
+      );
+
+      final envelope = ApiResponse.fromJson(
+        response.data as Map<String, dynamic>,
+        fromJsonT: (json) {
+          final data = json['data'] ?? json;
+          if (data is List) {
+            return data
+                .cast<Map<String, dynamic>>()
+                .map(CafeActiveGameModel.fromJson)
+                .toList();
+          }
+          // Paginated wrapper: { data: [...], meta: {...} }
+          final items = data['data'] ?? data['items'] ?? [];
+          if (items is List) {
+            return items
+                .cast<Map<String, dynamic>>()
+                .map(CafeActiveGameModel.fromJson)
+                .toList();
+          }
+          return <CafeActiveGameModel>[];
+        },
+      );
+      return envelope.data ?? const <CafeActiveGameModel>[];
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
   // ─── Seat Availability (Real-time) ──────────────────────────────────
 
   @override
@@ -460,8 +493,21 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
       throw NetworkException(message: 'No internet connection');
     }
     final statusCode = error.response?.statusCode;
-    final message =
-        error.response?.statusMessage ?? error.message ?? 'Unknown error';
-    throw ServerException(message: '[$statusCode] $message');
+    
+    // Trích xuất message từ backend response body (nếu có)
+    String message;
+    if (error.response?.data is Map<String, dynamic>) {
+      final data = error.response!.data as Map<String, dynamic>;
+      // Backend trả về envelope ApiResponse với field "message"
+      message = (data['message'] as String?) ?? 
+                (data['Message'] as String?) ??
+                error.response?.statusMessage ?? 
+                error.message ?? 
+                'Unknown error';
+    } else {
+      message = error.response?.statusMessage ?? error.message ?? 'Unknown error';
+    }
+    
+    throw ServerException(message: '[$statusCode] $message', statusCode: statusCode);
   }
 }

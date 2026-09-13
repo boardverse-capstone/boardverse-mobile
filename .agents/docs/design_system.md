@@ -1,7 +1,7 @@
 # BoardVerse Mobile - Design System Documentation
 
-> **Document Version**: 4.0
-> **Last Updated**: 2026-08-07
+> **Document Version**: 5.0
+> **Last Updated**: 2026-08-26
 > **Target Platform**: Mobile (iOS & Android)
 > **Design Style**: Neo-Brutalism
 > **Primary Language**: Tiếng Việt (Vietnamese)
@@ -27,6 +27,7 @@
 15. [Animation & Interactions](#15-animation--interactions)
 16. [State Handling](#16-state-handling)
 17. [Implementation Checklist](#17-implementation-checklist)
+18. [Modern Game Store Style (2026+)](#16-modern-game-store-style-2026)
 
 ---
 
@@ -2867,4 +2868,855 @@ Nav transition:  200ms
 
 *Document created for BoardVerse Mobile - Neo-Brutalism Design System v4.0*
 *Covers: Profile, Tournament, Wallet, Friend Management, Settings, Matchmaking/Discovery, Lobby Management*
-*Last Updated: 2026-08-07*
+*Last Updated: 2026-08-26*
+
+---
+
+## 16. Modern Game Store Style (2026+)
+
+> **Mục**: Giữ nguyên Neo-Brutalism (Section 1-15). Thêm style mới này khi cần hiệu ứng mềm mại, gradient nhẹ, phù hợp reservation cards và lobby cards.
+
+### 16.1 Design Philosophy
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│              BOARDVERSE MODERN GAME STORE STYLE DNA                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ██ Soft Colored Shadows (blur 12-20, alpha 0.18-0.35)                │
+│  ██ Pill Shape (BorderRadius.circular(999))                             │
+│  ██ Gradient Backgrounds (2 colors same family)                         │
+│  ██ Thin Border (1.5px, colored)                                       │
+│  ██ Rounded Corners (20px for cards, 14px for buttons)                  │
+│  ██ No Hard Offset (không còn Offset(3,3) black shadow)                │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Khi nào dùng Modern thay vì Neo-Brutalism:**
+- Reservation cards (`ReservationCardNeo`, `ReservationCardModern`)
+- Lobby cards (`LobbyCardBase`)
+- Empty/Loading/Error states trong tabs
+- Bottom bar buttons
+- Chips, pills, badges với soft gradient
+
+### 16.2 Design Tokens
+
+```dart
+/// Modern Game Store Design Tokens
+class ModernGameStoreTheme {
+  ModernGameStoreTheme._();
+
+  // ========================
+  // BORDERS - Mỏng & Soft
+  // ========================
+
+  static const double borderWidth = 1.5;
+  static const double borderWidthBold = 2.5; // Chỉ cho owned-by-me indicator
+
+  // ========================
+  // SHADOWS - Soft colored
+  // ========================
+
+  /// Soft shadow: blur + colored, không hard offset
+  /// Dùng cho cards, FABs, buttons.
+  static BoxShadow softShadow({
+    required Color color,
+    double blurRadius = 12,
+    double alpha = 0.25,
+    Offset offset = const Offset(0, 4),
+  }) =>
+      BoxShadow(
+        color: color.withValues(alpha: alpha),
+        blurRadius: blurRadius,
+        offset: offset,
+      );
+
+  /// Colored gradient shadow cho buttons/filled elements.
+  static BoxShadow coloredShadow({
+    required Color color,
+    double blurRadius = 12,
+    double alpha = 0.35,
+  }) =>
+      BoxShadow(
+        color: color.withValues(alpha: alpha),
+        blurRadius: blurRadius,
+        offset: const Offset(0, 4),
+      );
+
+  // ========================
+  // CARD DECORATION
+  // ========================
+
+  /// Modern card: soft colored shadow, border mỏng, bo tròn 20px
+  static BoxDecoration modernCard({
+    required BuildContext context,
+    Color? backgroundColor,
+    Color? borderColor,
+    Color? shadowColor,
+    double borderRadius = 20,
+    bool isOwnedByMe = false,
+  }) {
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
+    final defaultBg =
+        isDark ? AppColors.surfaceDark : AppColors.surface;
+    final defaultBorder =
+        isDark ? AppColors.borderDark : AppColors.border;
+    final accentColor = shadowColor ?? AppColors.primary;
+
+    return BoxDecoration(
+      color: backgroundColor ?? defaultBg,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: isOwnedByMe
+            ? AppColors.primary
+            : (borderColor ?? defaultBorder),
+        width: isOwnedByMe ? 2.5 : 1.5,
+      ),
+      boxShadow: [
+        softShadow(
+          color: isOwnedByMe ? AppColors.primary : accentColor,
+          alpha: isOwnedByMe ? 0.25 : 0.18,
+        ),
+      ],
+    );
+  }
+
+  // ========================
+  // BUTTON DECORATIONS
+  // ========================
+
+  /// Filled button: gradient + colored shadow
+  static BoxDecoration filledButton({
+    required Color color,
+    double borderRadius = 14,
+  }) =>
+      BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color, color.withAlpha(204)],
+        ),
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          coloredShadow(color: color),
+        ],
+      );
+
+  /// Outline button: thin border + soft shadow
+  static BoxDecoration outlineButton({
+    required BuildContext context,
+    Color? borderColor,
+    double borderRadius = 14,
+  }) {
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      color:
+          isDark ? AppColors.surfaceDark : AppColors.surface,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: borderColor ??
+            (isDark
+                ? AppColors.borderDark
+                : AppColors.border),
+        width: 1.5,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.black.withValues(alpha: 0.06),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### 16.3 Soft Shadow Patterns
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// SOFT SHADOW — Dùng cho: cards, containers, floating elements
+// ══════════════════════════════════════════════════════════════
+BoxDecoration(
+  borderRadius: BorderRadius.circular(20),
+  boxShadow: [
+    BoxShadow(
+      color: accentColor.withValues(alpha: 0.18),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ],
+)
+
+// ══════════════════════════════════════════════════════════════
+// COLORED SHADOW — Dùng cho: filled buttons, gradient containers
+// ══════════════════════════════════════════════════════════════
+BoxDecoration(
+  gradient: LinearGradient(
+    colors: [color, color.withAlpha(204)],
+  ),
+  borderRadius: BorderRadius.circular(14),
+  boxShadow: [
+    BoxShadow(
+      color: color.withValues(alpha: 0.35),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ],
+)
+
+// ══════════════════════════════════════════════════════════════
+// CONTAINER SHADOW — Dùng cho: bottom bar, app bar
+// ══════════════════════════════════════════════════════════════
+BoxDecoration(
+  boxShadow: [
+    BoxShadow(
+      color: AppColors.black.withValues(alpha: 0.08),
+      blurRadius: 16,
+      offset: const Offset(0, -4),
+    ),
+  ],
+)
+```
+
+### 16.4 Pill Chips & Badges
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// PILL CHIPS — Bo tròn 999 (fully rounded)
+// ══════════════════════════════════════════════════════════════
+
+// Status/time pill
+Container(
+  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+  decoration: BoxDecoration(
+    color: accent.withValues(alpha: 0.10),
+    borderRadius: BorderRadius.circular(999), // ← Pill shape
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.schedule_rounded, size: 13, color: accent),
+      const SizedBox(width: 4),
+      Text(
+        '14:00 • 2 tiếng',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: accent,
+        ),
+      ),
+    ],
+  ),
+)
+
+// Gradient pill (cho deposit, owned-by-me)
+Container(
+  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+  decoration: BoxDecoration(
+    gradient: const LinearGradient(
+      colors: [AppColors.accent, Color(0xFFFF8A50)],
+    ),
+    borderRadius: BorderRadius.circular(999),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.accent.withValues(alpha: 0.3),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  ),
+  child: Text(
+    '200 BVC',
+    style: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      color: Colors.white,
+    ),
+  ),
+)
+
+// ══════════════════════════════════════════════════════════════
+// STATUS BADGE PILL — Cho LobbyStatusBadge, ReservationStatusBadge
+// ══════════════════════════════════════════════════════════════
+Container(
+  padding: EdgeInsets.symmetric(
+    horizontal: dense ? AppSpacing.sm : AppSpacing.md,
+    vertical: dense ? 5 : 7,
+  ),
+  decoration: BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        style.background,
+        style.background.withValues(alpha: 0.85),
+      ],
+    ),
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: [
+      BoxShadow(
+        color: style.background.withValues(alpha: 0.3),
+        blurRadius: dense ? 6 : 10,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(style.icon, size: dense ? 12 : 14, color: style.foreground),
+      SizedBox(width: dense ? 4 : 6),
+      Text(
+        style.label,
+        style: TextStyle(
+          color: style.foreground,
+          fontSize: dense ? 11 : 13,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+### 16.5 Modern Card Patterns
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// MODERN CARD — Avatar bên trái + content bên phải
+// ══════════════════════════════════════════════════════════════
+Material(
+  color: Colors.transparent,
+  clipBehavior: Clip.antiAlias,
+  borderRadius: BorderRadius.circular(20),
+  child: InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    splashColor: accent.withValues(alpha: 0.08),
+    child: Ink(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: item.isOwnedByMe
+              ? AppColors.primary
+              : (isActive
+                  ? accent.withValues(alpha: 0.3)
+                  : (isDark
+                      ? AppColors.borderDark
+                      : AppColors.border)),
+          width: item.isOwnedByMe ? 2.5 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (item.isOwnedByMe
+                    ? AppColors.primary
+                    : accent)
+                .withValues(alpha: 0.18),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            // Avatar gradient
+            _AvatarIcon(accent: accent, isActive: isActive, size: 60),
+            const SizedBox(width: AppSpacing.md),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title + owned badge
+                  Row(
+                    children: [
+                      Expanded(child: Text('Game Name', ...)),
+                      if (item.isOwnedByMe) const _OwnedDotIndicator(),
+                    ],
+                  ),
+                  // Cafe name
+                  _CafeRow(cafeName: 'Cafe Name', isDark: isDark),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Status badge
+                  LobbyStatusBadge(variant: variant, dense: true),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Chips row: time + players + deposit + code
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      _TimeChip(...),
+                      _PlayersBadge(...),
+                      _DepositPill(...),
+                      _CodePill(...),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Chevron
+            Icon(Icons.chevron_right_rounded, ...),
+          ],
+        ),
+      ),
+    ),
+  ),
+)
+
+// ══════════════════════════════════════════════════════════════
+// AVATAR ICON — Gradient soft theo accent
+// ══════════════════════════════════════════════════════════════
+class _AvatarIcon extends StatelessWidget {
+  final Color accent;
+  final bool isActive;
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isActive
+              ? [accent, accent.withValues(alpha: 0.75)]
+              : [
+                  AppColors.textTertiary,
+                  AppColors.textTertiary.withValues(alpha: 0.75),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(icon, color: Colors.white, size: size * 0.5),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// OWNED INDICATOR — Gradient pill nhỏ
+// ══════════════════════════════════════════════════════════════
+class _OwnedDotIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, Color(0xFFFF8A50)],
+        ),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Text(
+        'CỦA BẠN',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+```
+
+### 16.6 Modern Bottom Bar
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// BOTTOM BAR — Soft shadow thay hard offset
+// ══════════════════════════════════════════════════════════════
+Container(
+  padding: const EdgeInsets.all(AppSpacing.md),
+  decoration: BoxDecoration(
+    color: bgColor,
+    border: Border(
+      top: BorderSide(
+        color: isDark ? AppColors.borderDark : AppColors.border,
+        width: 1.5, // ← Mỏng hơn neo (3px)
+      ),
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.black.withValues(alpha: 0.08), // ← Soft
+        blurRadius: 16,
+        offset: const Offset(0, -4),
+      ),
+    ],
+  ),
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // Action buttons row
+      Row(
+        children: [
+          Expanded(
+            child: _ActionButton(
+              label: 'Đặt chỗ',
+              icon: Icons.calendar_today,
+              color: AppColors.primary,
+              onPressed: onViewReservation,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      // Leave button (outline)
+      _OutlineButton(
+        label: 'Rời phòng',
+        icon: AppIcons.logout,
+        onPressed: onLeave,
+      ),
+    ],
+  ),
+)
+
+// ══════════════════════════════════════════════════════════════
+// ACTION BUTTON (FILL) — Gradient + colored shadow
+// ══════════════════════════════════════════════════════════════
+class _ActionButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color, color.withAlpha(204)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: Colors.white),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// OUTLINE BUTTON — Soft shadow, border mỏng
+// ══════════════════════════════════════════════════════════════
+class _OutlineButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: textColor),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### 16.7 Empty/Loading/Error States (Modern)
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// EMPTY STATE — Icon với gradient container + soft shadow
+// ══════════════════════════════════════════════════════════════
+Center(
+  child: Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      // Icon container với gradient + colored shadow
+      Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.primaryLight],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Icon(
+          AppIcons.boardGame,
+          size: 48,
+          color: AppColors.white,
+        ),
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      Text(
+        'Chưa có phòng chờ nào',
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 20,
+          color: isDark
+              ? AppColors.textPrimaryDark
+              : AppColors.textPrimary,
+        ),
+      ),
+      const SizedBox(height: AppSpacing.xl),
+      // Create button với gradient
+      _CreateButton(
+        label: 'TẠO PHÒNG',
+        icon: AppIcons.addSimple,
+        onPressed: onCreateLobby,
+      ),
+    ],
+  ),
+)
+
+// ══════════════════════════════════════════════════════════════
+// ERROR STATE — Icon với colored bg (không border cứng)
+// ══════════════════════════════════════════════════════════════
+Container(
+  padding: const EdgeInsets.all(AppSpacing.lg),
+  decoration: BoxDecoration(
+    color: AppColors.error.withValues(alpha: 0.12),
+    borderRadius: BorderRadius.circular(20),
+    // ← Không border như neo-brutalism
+  ),
+  child: const Icon(
+    AppIcons.error,
+    size: 48,
+    color: AppColors.error,
+  ),
+)
+
+// ══════════════════════════════════════════════════════════════
+// RETRY BUTTON — Gradient + colored shadow
+// ══════════════════════════════════════════════════════════════
+Container(
+  decoration: BoxDecoration(
+    gradient: LinearGradient(
+      colors: [AppColors.primary, AppColors.primary.withAlpha(204)],
+    ),
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.primary.withValues(alpha: 0.35),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  ),
+  child: Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onRetry,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.refresh, size: 18, color: Colors.white),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'THỬ LẠI',
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+)
+```
+
+### 16.8 Skeleton Loading (Modern)
+
+```dart
+// ══════════════════════════════════════════════════════════════
+// SHIMMER SKELETON — Bo tròn 20px, border mỏng 1.5px
+// ══════════════════════════════════════════════════════════════
+AppShimmer.shimmer(
+  context: context,
+  child: Container(
+    padding: const EdgeInsets.all(AppSpacing.md),
+    decoration: BoxDecoration(
+      color: bgBase,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: isDark
+            ? AppColors.borderDark.withValues(alpha: 0.4)
+            : AppColors.border.withValues(alpha: 0.4),
+        width: 1.5, // ← Mỏng hơn neo (2px)
+      ),
+    ),
+    child: Row(
+      children: [
+        // Avatar placeholder
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        // Text lines
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Container(
+                width: 200,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Status pill placeholder
+        Container(
+          width: 70,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999), // ← Pill
+          ),
+        ),
+      ],
+    ),
+  ),
+)
+```
+
+### 16.9 Modern vs Neo-Brutalism Quick Reference
+
+| Thuộc tính | Neo-Brutalism | Modern Game Store |
+|-----------|---------------|-------------------|
+| **Shadow** | `blurRadius: 0`, `offset: (3,3)`, màu đen | `blurRadius: 12-20`, `offset: (0,4)`, màu accent |
+| **Border** | 2-3px, cứng | 1.5px, mềm hơn |
+| **Corner** | 10-16px | 14-20px |
+| **Button shape** | 12px | 14px |
+| **Chips** | 10px | 999 (pill) |
+| **Filled button** | Solid color | Gradient nhẹ (2 màu cùng family) |
+| **Card shadow** | Black hard offset | Colored soft shadow (theo accent) |
+| **Badge** | Border 2px + hard shadow | Gradient bg + soft colored shadow |
+
+### 16.10 Implementation Checklist (Modern Style)
+
+Khi tạo component mới với Modern Style:
+
+- [ ] **Colors**: Dùng `AppColors.*` thay vì hardcode
+- [ ] **Theme-aware**: Dùng `isDark` để check theme
+- [ ] **Soft shadow**: `BoxShadow(color: accent.withValues(alpha: 0.18-0.35), blurRadius: 12-20, offset: (0, 4))`
+- [ ] **Border**: 1.5px thay vì 2.5-3px
+- [ ] **Border radius**: 14-20px cho cards, 999 cho pills/chips
+- [ ] **Gradient buttons**: `LinearGradient(colors: [color, color.withAlpha(204)])`
+- [ ] **Colored shadow**: `BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 12, offset: (0, 4))`
+- [ ] **Text colors**: Dùng `AppColors.textPrimary/textSecondary` hoặc `textPrimaryDark/textSecondaryDark`
+- [ ] **Loading states**: Shimmer với border mỏng 1.5px, borderRadius 20px
+- [ ] **Safe area**: Cho sticky elements và navigation
+
+---
+
+*Document updated: 2026-08-26 — Added Modern Game Store Style section (Section 16)*
+*This style is used for Reservation cards, Lobby cards, and modern UI components*
+

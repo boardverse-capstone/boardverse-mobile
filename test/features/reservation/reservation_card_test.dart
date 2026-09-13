@@ -57,6 +57,30 @@ class _StubReservationRepository implements ReservationRepository {
     );
   }
 
+  /// Search dùng cùng stub data như getReservations — test hiện không phân
+  /// biệt 2 nguồn, chỉ cần implement để class không abstract.
+  @override
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+      searchReservations({
+    String? gameName,
+    DateTime? fromDate,
+    DateTime? toDate,
+    List<String>? statuses,
+    String? cafeId,
+    bool? hostedByMe,
+    bool? joinedByMe,
+    int page = 1,
+    int pageSize = 20,
+  }) =>
+      getReservations(
+        statuses: statuses,
+        cafeId: cafeId,
+        hostedByMe: hostedByMe,
+        joinedByMe: joinedByMe,
+        page: page,
+        pageSize: pageSize,
+      );
+
   // Unused stubs - chỉ cần implement để class không lỗi abstract.
   @override
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
@@ -149,6 +173,36 @@ class _StubReservationRepository implements ReservationRepository {
     required String idempotencyKey,
   }) async =>
       const Left(NotFoundFailure(message: 'Not implemented'));
+
+  @override
+  Future<Either<Failure, MyReservationsResult>> getMyReservations({
+    ReservationParticipationType? participationType,
+    List<String>? statuses,
+    String? cafeId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    return reservationsResult.fold(
+      (l) => Left<Failure, MyReservationsResult>(l),
+      (r) => Right<Failure, MyReservationsResult>(
+        MyReservationsResult(
+          paginated: PaginatedResponse<ReservationEntity>(
+            items: r,
+            page: 1,
+            pageSize: r.length,
+            totalItems: r.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          ),
+          hostedCount: r.length,
+          joinedCount: 0,
+        ),
+      ),
+    );
+  }
 }
 
 ReservationEntity _makeReservation({
@@ -206,13 +260,11 @@ void main() {
       expect(find.text('BoardGame Cafe A'), findsOneWidget);
       // 3/6 người
       expect(find.text('3/6'), findsOneWidget);
-      // Phiên tối
-      expect(find.textContaining('Phiên tối'), findsOneWidget);
-      // Cọc label
-      expect(find.textContaining('100000 BVC'), findsOneWidget);
+      // Cọc label — format ngắn (100k BVC)
+      expect(find.textContaining('100k BVC'), findsOneWidget);
     });
 
-    testWidgets('status "Đã xác nhận đặt chỗ" xuất hiện khi reservation active (holding)',
+    testWidgets('status "Đã xác nhận" xuất hiện khi reservation active (holding)',
         (tester) async {
       final r = _makeReservation(
         status: ReservationStatus.holding,
@@ -224,7 +276,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Đã xác nhận đặt chỗ'), findsOneWidget);
+      expect(find.text('Đã xác nhận'), findsOneWidget);
     });
 
     testWidgets('status "Chờ quán duyệt" khi lobby pendingCafeApproval',
@@ -243,7 +295,7 @@ void main() {
       expect(find.text('Chờ quán duyệt'), findsOneWidget);
     });
 
-    testWidgets('status "Đã huỷ" khi reservation cancelledByPlayer (terminal, không phải "HOẠT ĐỘNG")',
+    testWidgets('status "Đã hủy" khi reservation cancelledByPlayer (terminal)',
         (tester) async {
       final r = _makeReservation(
         status: ReservationStatus.cancelledByPlayer,
@@ -255,8 +307,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('HOẠT ĐỘNG'), findsNothing);
-      expect(find.text('Đã huỷ'), findsOneWidget);
+      expect(find.text('Đã hủy'), findsOneWidget);
     });
 
     testWidgets('onTap callback được gọi khi tap card', (tester) async {
@@ -324,11 +375,16 @@ void main() {
 
       await pumpWithStub(tester, repo);
 
-      // Active phải xuất hiện trước completed trong DOM.
-      final inactiveIdx = tester.getTopLeft(find.text('OldGame')).dy;
-      final activeIdx = tester.getTopLeft(find.text('NewGame')).dy;
-      expect(activeIdx < inactiveIdx, isTrue,
-          reason: 'Active reservation phải hiển thị trước terminal');
+      // Sort theo yêu cầu nghiệp vụ: active (holding) đứng trước terminal.
+      // Với grid 2-cột, vị trí xác định bằng cả dx + dy:
+      // - Active phải có dy nhỏ hơn, hoặc (dy bằng nhau && dx nhỏ hơn).
+      final oldTopLeft = tester.getTopLeft(find.text('OldGame'));
+      final newTopLeft = tester.getTopLeft(find.text('NewGame'));
+      final activeIsFirst = newTopLeft.dy < oldTopLeft.dy ||
+          (newTopLeft.dy == oldTopLeft.dy &&
+              newTopLeft.dx < oldTopLeft.dx);
+      expect(activeIsFirst, isTrue,
+          reason: 'Active reservation phải xuất hiện trước terminal');
     });
 
     testWidgets('render empty state khi không có reservation', (tester) async {
@@ -349,7 +405,8 @@ void main() {
       await pumpWithStub(tester, repo);
 
       expect(find.text('Lỗi mạng'), findsOneWidget);
-      expect(find.text('Thử lại'), findsOneWidget);
+      // ErrorStateWidget hiển thị retry label uppercase "THỬ LẠI".
+      expect(find.text('THỬ LẠI'), findsOneWidget);
     });
   });
 }

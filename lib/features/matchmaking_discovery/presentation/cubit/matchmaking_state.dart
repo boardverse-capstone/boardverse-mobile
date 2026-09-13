@@ -3,7 +3,6 @@ import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
-import '../../domain/entities/default_time_slot_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/game_play_navigation_entity.dart';
 import '../../domain/entities/seat_availability_entity.dart';
@@ -233,10 +232,30 @@ class SeatCheckFailure extends MatchmakingState {
 class MatchmakingFailure extends MatchmakingState {
   final String message;
 
-  const MatchmakingFailure({required this.message});
+  /// `true` khi lỗi liên quan đến việc player chưa cập nhật vị trí hiện
+  /// tại của mình — backend `/api/cafes/nearby/me` trả 400 nếu profile
+  /// chưa có `LastKnownLocation`.
+  ///
+  /// UI sẽ hiển thị button "Cập nhật vị trí" thay vì chỉ "Thử lại" để
+  /// player có thể fix ngay lỗi mà không cần back ra ngoài app.
+  ///
+  /// Phát hiện qua:
+  /// 1. `statusCode` = 400 (BadRequestFailure), VÀ
+  /// 2. message chứa keyword liên quan location ("location", "vị trí").
+  final bool requiresLocationUpdate;
+
+  /// HTTP status code từ server (nếu có) — dùng cho UI debug hoặc
+  /// phân loại lỗi chi tiết.
+  final int? statusCode;
+
+  const MatchmakingFailure({
+    required this.message,
+    this.requiresLocationUpdate = false,
+    this.statusCode,
+  });
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, requiresLocationUpdate, statusCode];
 }
 
 // ─── Board Game Detail (with components) ─────────────────────────
@@ -353,16 +372,34 @@ class MatchmakingCafeSearchResults extends MatchmakingState {
 }
 
 // ─── Time Slots Defaults ──────────────────────────────────────────
+//
+// BR-NEW (2026-08-27): Backend không còn xử lý `timeSlot` enum cho
+// reservation/lobby creation. State này đã bị xoá — player tự do chọn
+// giờ bắt đầu / kết thúc trong cùng 1 ngày mà không bị ràng buộc
+// khung giờ cố định.
 
-/// State mang 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
-/// LateNight) được resolve từ `GET /api/v1/manager/time-slots/defaults`.
-/// LobbyConfigPage lắng nghe state này để render chip chọn phiên — thay
-/// vì hardcode `morning=9h, evening=18h` ở client (dễ lệch với backend).
-class MatchmakingTimeSlotsLoaded extends MatchmakingState {
-  final List<DefaultTimeSlotEntity> slots;
+// ─── Cafe Active Games (for game picker in lobby config) ────────────
 
-  const MatchmakingTimeSlotsLoaded({required this.slots});
+/// State chứa danh sách board game đang hoạt động tại một quán cafe cụ thể.
+/// Dùng khi player ấn "Đổi game" trên [LobbyConfigPage] — thay vì hiển
+/// thị toàn bộ game hệ thống, chỉ hiển thị game có sẵn tại quán đã chọn.
+///
+/// Không kế thừa [MatchmakingSearchResults] vì semantically khác:
+/// - Search results: tìm kiếm toàn hệ thống
+/// - Cafe games: chỉ game của quán cụ thể
+class MatchmakingCafeGamesLoaded extends MatchmakingState {
+  /// ID của quán cafe mà danh sách games được lấy từ đó.
+  final String cafeId;
+
+  /// Danh sách board game đang hoạt động tại [cafeId].
+  final List<BoardGameEntity> games;
+
+  const MatchmakingCafeGamesLoaded({
+    required this.cafeId,
+    required this.games,
+  });
 
   @override
-  List<Object?> get props => [slots];
+  List<Object?> get props => [cafeId, games];
 }
+

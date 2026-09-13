@@ -65,6 +65,15 @@ class ApiEndpoints {
       '/api/cafes/{cafeId}/available-tables';
   static const String cafeAvailability = '/api/cafes/{cafeId}/availability';
 
+  /// GET /api/cafes/{cafeId}/active-games — Lấy danh sách board game đang
+  /// hoạt động tại quán cafe cho player (public, không cần token).
+  /// Trả về chỉ những game có trong kho quán, trạng thái Available/InUse,
+  /// chưa bị xóa mềm. Dùng khi player đặt chỗ từ trang chi tiết quán —
+  /// thay thế việc hiển thị toàn bộ game hệ thống.
+  /// Docs: .agents/docs/apis_docs/cafe.md §GET /api/cafes/{cafeId}/active-games
+  static String cafeActiveGames(String cafeId) =>
+      '/api/cafes/$cafeId/active-games';
+
   // ──────────────────────────────────────────────
   //  Health
   // ──────────────────────────────────────────────
@@ -450,10 +459,29 @@ class ApiEndpoints {
   // Lobby creation is atomic through quote → confirm. Direct POST /lobbies
   // is deprecated and must not be used by the mobile client.
   static const String reservations = '/api/v1/reservations';
+
+  /// GET /api/v1/reservations/my — Lấy danh sách reservation của user (host +
+  /// member) cho màn hình lịch sử. Trả về 2 summary count `hostedCount` và
+  /// `joinedCount` để FE render 2 tab "Tôi tạo (N) | Tôi tham gia (M)" mà
+  /// không cần filter client-side.
+  /// Query: `ParticipationType` (Host | Member), `Statuses[]`, `CafeId`,
+  /// `FromDate`, `ToDate`, `Page`, `PageSize` (1-100).
+  /// Mỗi item có field `participationType` để FE phân biệt "lịch hẹn do mình
+  /// tạo" vs "lịch hẹn mình tham gia".
+  /// Docs: `.agents/docs/apis_docs/reservation.md` §GET /my.
+  static const String reservationsMy = '/api/v1/reservations/my';
   static const String reservationQuote = '/api/v1/reservations/quote';
   static const String reservationConfirm = '/api/v1/reservations/confirm';
   static const String reservationsPendingCafeApproval =
       '/api/v1/reservations/pending-cafe-approval';
+
+  /// GET /api/v1/reservations/search — Tìm kiếm reservation theo tên game,
+  /// khoảng ngày, status. Player dùng để tra cứu lịch sử lịch hẹn.
+  /// Query: `GameName` (string), `FromDate` (date), `ToDate` (date),
+  /// `Statuses` (array), `CafeId` (guid), `HostedByMe` (bool),
+  /// `JoinedByMe` (bool), `Page` (int), `PageSize` (int 1-100).
+  /// Docs: `.agents/docs/apis_docs/reservation.md` (GET /search).
+  static const String reservationsSearch = '/api/v1/reservations/search';
 
   // ─── TimeSlot (defaults metadata) ─────────────────────────────────
   // Theo `.agents/docs/apis_docs/time-slot.md`.
@@ -523,4 +551,58 @@ class ApiEndpoints {
   /// Cache 10 phút (khớp với expiresAt của QR).
   static String walletTopupQrImage(String orderId) =>
       '/api/v1/wallet/topup/$orderId/qr-image';
+
+  // ─── Player Session (Player-facing) ─────────────────────────────────────
+  // Base: /api/v1/sessions — Player quản lý phiên chơi của mình trên mobile.
+  // Docs: .agents/docs/apis_docs/player-session.md
+  //
+  // Các endpoints:
+  // - GET /api/v1/sessions/me/current — Lấy phiên hiện tại của player
+  // - POST /api/v1/sessions/me/extend — Yêu cầu gia hạn thêm thời gian
+  // - POST /api/v1/sessions/me/pay — Thanh toán phiên chơi bằng BVC
+  // - GET /api/v1/sessions/me/history — Lấy lịch sử các phiên đã chơi
+  static const String sessionCurrent = '/api/v1/sessions/me/current';
+
+  /// POST /api/v1/sessions/me/extend — Yêu cầu gia hạn thêm thời gian chơi.
+  /// Yêu cầu được staff duyệt trước khi áp dụng.
+  static const String sessionExtend = '/api/v1/sessions/me/extend';
+
+  /// POST /api/v1/sessions/me/pay — Player thanh toán phiên chơi bằng BVC.
+  /// Chỉ áp dụng cho phiên đang ở trạng thái Unpaid.
+  static const String sessionPay = '/api/v1/sessions/me/pay';
+
+  /// GET /api/v1/sessions/me/history — Lấy lịch sử các phiên đã chơi (đã thanh toán xong).
+  static const String sessionHistory = '/api/v1/sessions/me/history';
+
+  // ─── Split Bill (Per-member payment) ───────────────────────────────
+  // Theo docs: `.agents/docs/apis_docs/payment.md` (Split Bill / Per-member payment)
+  // Staff POS tạo QR per-member qua `/api/cafes/{cafeId}/pos/sessions/{sessionId}/pay-member`
+  // Player xem trạng thái thanh toán cá nhân qua endpoint dưới
+
+  /// GET /api/v1/sessions/me/split-bill — Lấy thông tin chia bill của phiên hiện tại.
+  /// Trả về danh sách member với trạng thái thanh toán (Paid/NotPaid) và QR info nếu có.
+  /// Dùng cho Split Bill flow: Player xem ai đã trả, ai chưa, và QR của mình.
+  static const String splitBill = '/api/v1/sessions/me/split-bill';
+
+  /// GET /api/v1/sessions/me/split-bill/member — Lấy thông tin QR thanh toán cá nhân.
+  /// Trả về QR image (base64) và expiry time nếu Staff đã tạo QR cho member này.
+  static const String splitBillMember = '/api/v1/sessions/me/split-bill/member';
+
+  // ─── User Ratings (Karma cross-rating) ─────────────────────────────────
+  // Theo `.agents/docs/apis_docs/user-ratings.md`:
+  // - KarmaRatingController cho Player đánh giá chéo sau khi POS thanh toán
+  //   xong (BR §3.2 + §3.3).
+  // - Karma tags: OnTime (+0.1), Civil (+0.1), Friendly (+0.1), Toxic (-1),
+  //   NoShow (-1).
+  // - Mỗi cặp (rater, target, lobby) chỉ submit một lần (409 nếu trùng).
+
+  /// GET /api/v1/users/ratings/karma/lobbies/{lobbyId}
+  /// Trả ngữ cảnh đánh giá chéo: membersToRate, availableTags, canSubmitRatings.
+  /// Lobby phải ở status RatingOpen hoặc Closed để submit được.
+  static String usersRatingsKarmaContext(String lobbyId) =>
+      '/api/v1/users/ratings/karma/lobbies/$lobbyId';
+
+  /// POST /api/v1/users/ratings/karma
+  /// Submit mảng đánh giá chéo Karma (targetUserId + tags) cho 1 lobby.
+  static const String usersRatingsKarma = '/api/v1/users/ratings/karma';
 }

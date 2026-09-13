@@ -4,9 +4,12 @@ import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
 import '../../domain/entities/rating_entity.dart';
-import '../cubit/rating_state.dart';
 
 /// Neo-brutalism player rating card.
+///
+/// Dùng cho cả karma cross-rating (mới — từ `/api/v1/users/ratings/karma/lobbies/{lobbyId}`)
+/// và match rating (legacy). Khi [player.alreadyRated] = true, toàn bộ tag
+/// chips bị disable và hiển thị badge "Đã đánh giá" ở header.
 class PlayerRatingCard extends StatelessWidget {
   final RatingPlayer player;
   final List<KarmaTag> availableTags;
@@ -35,6 +38,7 @@ class PlayerRatingCard extends StatelessWidget {
         border: Border.all(
           color: isDark ? AppColors.borderDark : AppColors.border,
           width: 3,
+          // Highlight đã đánh giá bằng border tone success.
         ),
         boxShadow: [
           BoxShadow(
@@ -100,21 +104,55 @@ class PlayerRatingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      player.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                        color: isDark
-                            ? AppColors.textPrimaryDark
-                            : AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            player.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: isDark
+                                  ? AppColors.textPrimaryDark
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (player.alreadyRated) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Text(
+                              'ĐÃ ĐÁNH GIÁ',
+                              style: TextStyle(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 9,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Chọn nhiều thẻ để mô tả trải nghiệm của bạn.',
+                      player.alreadyRated
+                          ? 'Bạn đã đánh giá thành viên này.'
+                          : 'Chọn nhiều thẻ để mô tả trải nghiệm của bạn.',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 11,
@@ -129,17 +167,21 @@ class PlayerRatingCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: availableTags.map((tag) {
-              final isSelected = player.selectedTagIds.contains(tag.id);
-              return _KarmaTagChip(
-                tag: tag,
-                isSelected: isSelected,
-                onTap: () => onTagToggle(player.id, tag.id),
-              );
-            }).toList(),
+          Opacity(
+            opacity: player.alreadyRated ? 0.55 : 1.0,
+            child: Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: availableTags.map((tag) {
+                final isSelected = player.selectedTagIds.contains(tag.id);
+                return _KarmaTagChip(
+                  tag: tag,
+                  isSelected: isSelected,
+                  isDisabled: player.alreadyRated,
+                  onTap: () => onTagToggle(player.id, tag.id),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -148,14 +190,19 @@ class PlayerRatingCard extends StatelessWidget {
 }
 
 /// Neo-brutalism karma tag chip with bold border + hard shadow.
+///
+/// [isDisabled] = true khi player đã `alreadyRated` — chip vẫn hiển thị
+/// tag đã chọn nhưng không cho tap.
 class _KarmaTagChip extends StatelessWidget {
   final KarmaTag tag;
   final bool isSelected;
+  final bool isDisabled;
   final VoidCallback onTap;
 
   const _KarmaTagChip({
     required this.tag,
     required this.isSelected,
+    required this.isDisabled,
     required this.onTap,
   });
 
@@ -176,7 +223,7 @@ class _KarmaTagChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
+        onTap: isDisabled ? null : onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOut,

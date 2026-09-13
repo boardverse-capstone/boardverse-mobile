@@ -36,7 +36,7 @@ class FriendModel {
       odId: (json['odId'] ?? json['userId'] ?? json['id'] ?? '').toString(),
       username: (json['username'] ?? json['name'] ?? '').toString(),
       avatarUrl: (json['avatarUrl'] ?? json['avatar'] ?? '').toString(),
-      karmaPoints: (json['karmaPoints'] ?? json['karma'] ?? 0) as int,
+      karmaPoints: ((json['karmaPoints'] ?? json['karma'] ?? 0) as num?)?.toInt() ?? 0,
       gamerTier: _parseGamerTier(json['gamerTier']),
       friendsSince: parseDateTime(json['friendsSince']),
       activityStatus: _parseActivityStatus(json['activityStatus']),

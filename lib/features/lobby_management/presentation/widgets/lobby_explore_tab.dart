@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
-import '../../../../../core/theme/app_colors.dart';
-import '../../../../../core/theme/app_icons.dart';
-import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/theme/theme.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../cubit/lobby_search_cubit.dart';
 import '../cubit/lobby_state.dart';
 import 'lobby_card_base.dart';
-import 'lobby_list_shimmer.dart';
 
-/// Modern lobby explore tab với neo-brutalism cards.
+/// Modern lobby explore tab — đồng bộ style với [ReservationListPage].
 class LobbyExploreTab extends StatelessWidget {
   final LobbySearchCubit searchCubit;
-  final DateFormat timeFormatter;
   final void Function(LobbyEntity) onPreview;
   final void Function(LobbyEntity) onOpenOwned;
   final void Function(String, String?) onJoin;
@@ -24,7 +19,6 @@ class LobbyExploreTab extends StatelessWidget {
   const LobbyExploreTab({
     super.key,
     required this.searchCubit,
-    required this.timeFormatter,
     required this.onPreview,
     required this.onOpenOwned,
     required this.onJoin,
@@ -51,7 +45,6 @@ class LobbyExploreTab extends StatelessWidget {
         if (state is LobbyListLoaded) {
           return _LobbyList(
             lobbies: state.entities,
-            timeFormatter: timeFormatter,
             currentUserId: currentUserId,
             onPreview: onPreview,
             onOpenOwned: onOpenOwned,
@@ -70,7 +63,124 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LobbyInvitesShimmer(itemCount: 5);
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        120,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 265,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) => const _GridCardSkeleton(),
+    );
+  }
+}
+
+/// Shimmer skeleton cho grid card — đồng bộ với [LobbyCardBase] vertical layout.
+class _GridCardSkeleton extends StatelessWidget {
+  const _GridCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgBase = isDark ? AppColors.surfaceElevatedDark : AppColors.surface;
+
+    return AppShimmer.shimmer(
+      context: context,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgBase,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? AppColors.borderDark.withValues(alpha: 0.4)
+                : AppColors.border.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Artwork cover placeholder
+            Container(
+              height: 88,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+            ),
+            // Content — match vertical card padding/sizes
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title line
+                    Container(
+                      width: double.infinity,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Cafe line
+                    Container(
+                      width: 80,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Time chip placeholder (2-row stacked: date + time)
+                    Container(
+                      width: 140,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    const Spacer(),
+                    // Share code pill placeholder — full width
+                    Container(
+                      width: double.infinity,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    // Hint line placeholder
+                    Container(
+                      width: 120,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -82,6 +192,8 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -91,32 +203,31 @@ class _ErrorView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.error, width: 3),
+                color: AppColors.error.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(AppIcons.error, size: 48, color: AppColors.error),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
+            Text(
               'Đã xảy ra lỗi',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
-                color: AppColors.black,
+                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
-            _NeoRetryButton(onTap: onRetry),
+            _RetryButton(onTap: onRetry),
           ],
         ),
       ),
@@ -144,17 +255,15 @@ class _EmptyExploreView extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.primary, AppColors.primaryLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? AppColors.borderDark : AppColors.border,
-                  width: 3,
-                ),
-                boxShadow: const [
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
                   BoxShadow(
-                    color: AppColors.black,
-                    blurRadius: 0,
-                    offset: Offset(5, 5),
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -165,29 +274,28 @@ class _EmptyExploreView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
+            Text(
               'Chưa có phòng chờ nào',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 20,
-                color: AppColors.black,
+                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            const Text(
+            Text(
               'Hãy là người đầu tiên tạo phòng\nđể mọi người cùng tham gia!',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                 height: 1.4,
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
-            _NeoFilledButton(
+            _CreateButton(
               label: 'TẠO PHÒNG',
               icon: AppIcons.addSimple,
-              color: AppColors.primary,
               onPressed: onCreateLobby,
             ),
           ],
@@ -199,7 +307,6 @@ class _EmptyExploreView extends StatelessWidget {
 
 class _LobbyList extends StatelessWidget {
   final List<LobbyEntity> lobbies;
-  final DateFormat timeFormatter;
   final String? currentUserId;
   final void Function(LobbyEntity) onPreview;
   final void Function(LobbyEntity) onOpenOwned;
@@ -208,7 +315,6 @@ class _LobbyList extends StatelessWidget {
 
   const _LobbyList({
     required this.lobbies,
-    required this.timeFormatter,
     this.currentUserId,
     required this.onPreview,
     required this.onOpenOwned,
@@ -220,12 +326,18 @@ class _LobbyList extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: onRefresh,
-      child: ListView.builder(
+      child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
           AppSpacing.sm,
           AppSpacing.md,
           120,
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisExtent: 265,
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
         ),
         itemCount: lobbies.length,
         itemBuilder: (context, index) {
@@ -234,15 +346,10 @@ class _LobbyList extends StatelessWidget {
               currentUserId!.isNotEmpty &&
               lobby.hostId == currentUserId;
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: _NeoLobbyCard(
-              lobby: lobby,
-              timeFormatter: timeFormatter,
-              isMine: isMine,
-              onTap: () => isMine ? onOpenOwned(lobby) : onPreview(lobby),
-              onJoin: () => onJoin(lobby.id, lobby.inviteCode),
-            ),
+          return _GridLobbyCard(
+            lobby: lobby,
+            isMine: isMine,
+            onTap: () => isMine ? onOpenOwned(lobby) : onPreview(lobby),
           );
         },
       ),
@@ -250,22 +357,16 @@ class _LobbyList extends StatelessWidget {
   }
 }
 
-/// Wrapper nhỏ - dùng `LobbyCardBase` chung để đồng bộ UI với
-/// `ReservationCard`. Field `onJoin` được dùng để wire các action
-/// riêng (open lobby của mình / join lobby của người khác) trong tương lai.
-class _NeoLobbyCard extends StatelessWidget {
+/// Grid card — dùng `LobbyCardBase` với vertical layout.
+class _GridLobbyCard extends StatelessWidget {
   final LobbyEntity lobby;
-  final DateFormat timeFormatter;
   final bool isMine;
   final VoidCallback onTap;
-  final VoidCallback onJoin;
 
-  const _NeoLobbyCard({
+  const _GridLobbyCard({
     required this.lobby,
-    required this.timeFormatter,
     required this.isMine,
     required this.onTap,
-    required this.onJoin,
   });
 
   @override
@@ -273,14 +374,16 @@ class _NeoLobbyCard extends StatelessWidget {
     return LobbyCardBase(
       item: lobbyItemFromEntity(lobby, isOwnedByMe: isMine),
       onTap: onTap,
+      layout: LobbyCardLayout.vertical,
     );
   }
 }
 
-class _NeoRetryButton extends StatelessWidget {
+/// Soft-shadow retry button — Game Store style.
+class _RetryButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _NeoRetryButton({required this.onTap});
+  const _RetryButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -288,21 +391,22 @@ class _NeoRetryButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border, width: 2.5),
-            boxShadow: const [
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primary.withAlpha(204)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
               BoxShadow(
-                color: AppColors.black,
-                blurRadius: 0,
-                offset: Offset(3, 3),
+                color: AppColors.primary.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -328,16 +432,15 @@ class _NeoRetryButton extends StatelessWidget {
   }
 }
 
-class _NeoFilledButton extends StatelessWidget {
+/// Soft-shadow filled button — Game Store style.
+class _CreateButton extends StatelessWidget {
   final String label;
   final IconData? icon;
-  final Color color;
   final VoidCallback? onPressed;
 
-  const _NeoFilledButton({
+  const _CreateButton({
     required this.label,
     required this.icon,
-    required this.color,
     this.onPressed,
   });
 
@@ -347,21 +450,22 @@ class _NeoFilledButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border, width: 2.5),
-            boxShadow: const [
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryLight],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
               BoxShadow(
-                color: AppColors.black,
-                blurRadius: 0,
-                offset: Offset(3, 3),
+                color: AppColors.primary.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),

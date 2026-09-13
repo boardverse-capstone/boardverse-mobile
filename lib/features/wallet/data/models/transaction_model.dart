@@ -18,11 +18,11 @@ class TransactionModel extends TransactionEntity {
     return TransactionModel(
       id: json['id'] as String,
       type: TransactionType.fromString(json['type'] as String? ?? 'TopUp'),
-      amount: json['amount'] as int,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
       relatedLobbyId: json['relatedLobbyId'] as String?,
       relatedBookingId: json['relatedBookingId'] as String?,
       relatedPaymentRef: json['relatedPaymentRef'] as String?,
-      balanceSnapshot: json['balanceSnapshot'] as int,
+      balanceSnapshot: (json['balanceSnapshot'] as num?)?.toInt() ?? 0,
       note: json['note'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -64,9 +64,9 @@ class TransactionListModel {
       items: (json['items'] as List<dynamic>)
           .map((e) => TransactionModel.fromJson(e as Map<String, dynamic>))
           .toList(),
-      page: json['page'] as int,
-      pageSize: json['pageSize'] as int,
-      totalItems: json['totalItems'] as int,
+      page: (json['page'] as num?)?.toInt() ?? 0,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? 0,
+      totalItems: (json['totalItems'] as num?)?.toInt() ?? 0,
       hasMore: json['hasMore'] as bool,
     );
   }

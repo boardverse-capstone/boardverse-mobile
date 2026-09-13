@@ -2,66 +2,35 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
-import '../../../../reservation/domain/entities/entities.dart';
 import 'bottom_button.dart';
 import 'buffer_info_card.dart';
 
-/// Một option phiên chơi — được build từ server data
-/// (`GET /api/v1/manager/time-slots/defaults`) hoặc từ fallback hardcoded
-/// khi API lỗi / mạng chậm.
+/// Tab 2 của LobbyConfigPage — chọn ngày + giờ bắt đầu / kết thúc dự kiến.
 ///
-/// Trước đây các giá trị `startTime` / `endTime` / `label` / `icon` /
-/// `color` được hardcode trong `LobbyConfigPage._getSlotStartTime(...)`
-/// — dễ lệch với backend. Sau refactor, các giá trị này được lookup
-/// từ server response (qua `DefaultTimeSlotEntity`) và truyền vào widget
-/// qua `TimeSlotOption` để UI không phụ thuộc logic cứng.
-@immutable
-class TimeSlotOption {
-  /// Local enum dùng để gọi `reservation/quote` API (PascalCase map sang
-  /// backend `Morning/Afternoon/Evening/LateNight` qua `toApiName()`).
-  final TimeSlot slot;
-
-  /// Nhãn tiếng Việt ngắn: "Sáng", "Chiều", "Tối", "Khuya".
-  final String shortLabel;
-
-  /// Range giờ để hiển thị ở chip, ví dụ: "06:00 - 12:00".
-  final String timeRangeLabel;
-
-  /// Icon đại diện cho phiên (sun/cloud/moon/bedtime).
-  final IconData icon;
-
-  /// Màu chủ đạo cho phiên (chip border khi chọn).
-  final Color color;
-
-  const TimeSlotOption({
-    required this.slot,
-    required this.shortLabel,
-    required this.timeRangeLabel,
-    required this.icon,
-    required this.color,
-  });
-}
-
-/// Tab 2 của LobbyConfigPage — chọn ngày + phiên chơi + giờ dự kiến.
+/// BR-NEW (2026-08-27): Backend không còn xử lý `timeSlot` enum, player tự
+/// do chọn ngày + giờ bắt đầu / kết thúc trong cùng 1 ngày. Không còn
+/// chip chọn phiên (Sáng/Chiều/Tối/Khuya).
 ///
-/// Tab này nhận danh sách [TimeSlotOption] đã được build sẵn từ
-/// `LobbyConfigPage` (data từ server + fallback). Widget chỉ render UI,
-/// không tự quyết định slot nào hiển thị.
+/// BR-NEW-15 (2026-09): Hỗ trợ overnight — nếu `preferredEndTime <
+/// preferredStartTime` thì `scheduledEndTime = playDate + 1`. Tab hiển thị
+/// badge "+1 ngày" trên End Time khi [endCrossesMidnight] = true.
 class LobbyConfigTabThoiGian extends StatelessWidget {
   final DateTime selectedDate;
-  final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
   final TimeOfDay? preferredEndTime;
-  final List<TimeSlotOption> slotOptions;
+
+  /// `true` khi `preferredEndTime` rơi vào ngày kế tiếp so với
+  /// `preferredStartTime` (tức end < start tính theo phút). Khi true,
+  /// tab hiển thị badge "+1 ngày" trên End Time để user biết lobby
+  /// kéo dài qua đêm.
+  final bool endCrossesMidnight;
+
   final ValueChanged<DateTime> onDateSelected;
   final VoidCallback onOpenDatePicker;
-  final ValueChanged<TimeSlot> onTimeSlotChanged;
   final VoidCallback onPreferredTimeTap;
   final VoidCallback onPreferredEndTimeTap;
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
-  final TimeOfDay Function(TimeSlot) getSlotStartTime;
-  final TimeOfDay Function(TimeSlot) getSlotEndTime;
   final int bufferMinutes;
   final bool isScheduledInPast;
   final bool hasBufferWarning;
@@ -71,19 +40,15 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   const LobbyConfigTabThoiGian({
     super.key,
     required this.selectedDate,
-    required this.selectedTimeSlot,
     required this.preferredStartTime,
     required this.preferredEndTime,
-    required this.slotOptions,
+    required this.endCrossesMidnight,
     required this.onDateSelected,
     required this.onOpenDatePicker,
-    required this.onTimeSlotChanged,
     required this.onPreferredTimeTap,
     required this.onPreferredEndTimeTap,
     required this.formatDate,
     required this.formatTime,
-    required this.getSlotStartTime,
-    required this.getSlotEndTime,
     required this.formatBuffer,
     required this.bufferMinutes,
     required this.isScheduledInPast,
@@ -211,88 +176,18 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                 const Divider(),
                 const SizedBox(height: AppSpacing.lg),
 
-                // Time slot section
-                Text(
-                  'Phiên chơi',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                // Info banner khi lobby kéo dài qua đêm (BR-NEW-15).
+                // Hiển thị cảnh báo trực quan giúp user không bị bất ngờ
+                // khi nhìn thấy end < start trên End Time.
+                if (endCrossesMidnight) ...[
+                  _OvernightBanner(
+                    endDate: selectedDate.add(const Duration(days: 1)),
+                    formatDate: formatDate,
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.md),
+                ],
 
-                if (slotOptions.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.md),
-                    child: Text(
-                      'Đang tải khung giờ...',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: slotOptions.map((option) {
-                      final isSelected = option.slot == selectedTimeSlot;
-                      final color = option.color;
-
-                      return GestureDetector(
-                        onTap: () => onTimeSlotChanged(option.slot),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? color.withValues(alpha: 0.15)
-                                : theme.colorScheme.surfaceContainerHigh,
-                            borderRadius: AppRadius.radiusMdAll,
-                            border: Border.all(
-                              color: isSelected ? color : theme.colorScheme.outlineVariant,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                option.icon,
-                                color: isSelected ? color : theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    option.shortLabel,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected ? color : theme.colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  Text(
-                                    option.timeRangeLabel,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // Preferred time
+                // Preferred start time
                 GestureDetector(
                   onTap: onPreferredTimeTap,
                   child: Container(
@@ -319,7 +214,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                               Text(
                                 preferredStartTime != null
                                     ? formatTime(preferredStartTime!)
-                                    : 'Chọn giờ (tuỳ chọn)',
+                                    : 'Chọn giờ',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -370,6 +265,11 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                             ],
                           ),
                         ),
+                        // Badge "+1 ngày" khi overnight (BR-NEW-15).
+                        if (endCrossesMidnight) ...[
+                          const _NextDayBadge(),
+                          const SizedBox(width: AppSpacing.xs),
+                        ],
                         Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
                       ],
                     ),
@@ -403,5 +303,99 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   String _getWeekdayShort(int weekday) {
     const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     return days[weekday % 7];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// OVERNIGHT UI HELPERS — BR-NEW-15 (cross-midnight reservation)
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Banner cảnh báo lobby kéo dài qua đêm. Hiển thị ngay phía trên
+/// Start/End Time picker khi `endTime < startTime` — giúp user nhận
+/// biết rằng end time thuộc NGÀY KẾ TIẾP của `playDate`.
+///
+/// VD: playDate = T3 8/9, start = 23:00, end = 05:00 → banner hiển thị
+/// "Lobby sẽ kết thúc lúc 05:00 ngày mai (T4, 09/09)".
+class _OvernightBanner extends StatelessWidget {
+  final DateTime endDate;
+  final String Function(DateTime) formatDate;
+
+  const _OvernightBanner({required this.endDate, required this.formatDate});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final secondary = theme.colorScheme.secondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: secondary.withValues(alpha: 0.1),
+        borderRadius: AppRadius.radiusMdAll,
+        border: Border.all(color: secondary, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.nightlight_round, color: secondary, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Lobby kéo dài qua đêm',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: secondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Sẽ kết thúc vào ${formatDate(endDate)} lúc theo giờ đã chọn',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Badge "+1 ngày" hiển thị kế bên End Time value khi reservation
+/// cross midnight. Pill nhỏ, không border đậm để không cạnh tranh
+/// attention với nội dung chính.
+class _NextDayBadge extends StatelessWidget {
+  const _NextDayBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final secondary = theme.colorScheme.secondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: secondary.withValues(alpha: 0.15),
+        borderRadius: AppRadius.radiusFullAll,
+        border: Border.all(color: secondary.withValues(alpha: 0.5), width: 1),
+      ),
+      child: Text(
+        '+1 ngày',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: secondary,
+          fontWeight: FontWeight.w800,
+          fontSize: 10,
+        ),
+      ),
+    );
   }
 }

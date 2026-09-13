@@ -1,6 +1,12 @@
 /// Generic paginated response wrapper cho list APIs.
 ///
-/// Backend trả về envelope:
+/// Backend CÓ THỂ trả về một trong 2 envelopes tùy endpoint:
+/// 1. `totalItems` + `totalPages` + `hasNextPage` + `hasPreviousPage`
+///    (chuẩn chung).
+/// 2. `totalCount` + `totalPages` (chuẩn ASP.NET Core dùng cho nhiều
+///    endpoint, vd: `GET /api/v1/reservations/search`).
+///
+/// `fromJson` hỗ trợ cả 2 để call site không phải viết 2 parser.
 /// ```json
 /// {
 ///   "items": [...],
@@ -35,17 +41,33 @@ class PaginatedResponse<T> {
     Map<String, dynamic> json,
     T Function(Map<String, dynamic>) fromJsonT,
   ) {
+    final items = (json['items'] as List<dynamic>?)
+            ?.map((e) => fromJsonT(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    final page = json['page'] as int? ?? 1;
+    final pageSize = json['pageSize'] as int? ?? 10;
+
+    // totalItems fallback từ totalCount (chuẩn ASP.NET Core /search).
+    final totalItems =
+        json['totalItems'] as int? ?? json['totalCount'] as int? ?? 0;
+
+    // totalPages có thể không được backend trả về — tự tính.
+    final totalPages = json['totalPages'] as int? ??
+        (pageSize > 0 ? (totalItems / pageSize).ceil() : 0);
+
+    final hasNextPage = json['hasNextPage'] as bool? ?? page < totalPages;
+    final hasPreviousPage = json['hasPreviousPage'] as bool? ?? page > 1;
+
     return PaginatedResponse<T>(
-      items: (json['items'] as List<dynamic>?)
-              ?.map((e) => fromJsonT(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      page: json['page'] as int? ?? 1,
-      pageSize: json['pageSize'] as int? ?? 10,
-      totalItems: json['totalItems'] as int? ?? 0,
-      totalPages: json['totalPages'] as int? ?? 0,
-      hasNextPage: json['hasNextPage'] as bool? ?? false,
-      hasPreviousPage: json['hasPreviousPage'] as bool? ?? false,
+      items: items,
+      page: page,
+      pageSize: pageSize,
+      totalItems: totalItems,
+      totalPages: totalPages,
+      hasNextPage: hasNextPage,
+      hasPreviousPage: hasPreviousPage,
     );
   }
 }

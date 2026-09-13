@@ -103,7 +103,7 @@ class SimilarGamesCarousel extends StatelessWidget {
                               ),
                               const SizedBox(height: AppSpacing.xxs),
                               Text(
-                                '${game.minPlayers}-${game.maxPlayers} người',
+                                game.playerRangeDisplay,
                                 style:
                                     theme.textTheme.labelSmall?.copyWith(
                                   color: theme.colorScheme.outline,

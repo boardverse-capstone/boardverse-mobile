@@ -16,7 +16,7 @@ class FriendPrivacyModel {
     return FriendPrivacyModel(
       isFriendListPublic: json['isFriendListPublic'] as bool? ?? true,
       acceptFriendRequestsFrom: json['acceptFriendRequestsFrom'] as String?,
-      friendLimit: (json['friendLimit'] ?? 5000) as int,
+      friendLimit: ((json['friendLimit'] ?? 5000) as num?)?.toInt() ?? 5000,
     );
   }
 

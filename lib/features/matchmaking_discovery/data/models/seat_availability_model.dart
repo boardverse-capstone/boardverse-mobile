@@ -31,11 +31,11 @@ class SeatAvailabilityModel {
     return SeatAvailabilityModel(
       cafeId: json['cafeId'] as String,
       cafeName: json['cafeName'] as String? ?? '',
-      totalSeats: json['totalSeats'] as int,
-      availableSeats: json['availableSeats'] as int,
-      holdingSeats: json['holdingSeats'] as int? ?? 0,
-      reservedSeats: json['reservedSeats'] as int? ?? 0,
-      inUseSeats: json['inUseSeats'] as int? ?? 0,
+      totalSeats: (json['totalSeats'] as num?)?.toInt() ?? 0,
+      availableSeats: (json['availableSeats'] as num?)?.toInt() ?? 0,
+      holdingSeats: (json['holdingSeats'] as num?)?.toInt() ?? 0,
+      reservedSeats: (json['reservedSeats'] as num?)?.toInt() ?? 0,
+      inUseSeats: (json['inUseSeats'] as num?)?.toInt() ?? 0,
       overallStatus: _parseStatus(json['overallStatus'] as String?),
       lastUpdated: json['lastUpdated'] != null
           ? DateTime.parse(json['lastUpdated'] as String)

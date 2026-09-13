@@ -24,9 +24,14 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
   final String cafeName;
   final String gameName;
   final DateTime selectedDate;
-  final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
   final TimeOfDay? preferredEndTime;
+
+  /// `true` khi lobby kéo dài qua đêm (endTime < startTime). Khi true,
+  /// summary row "Giờ kết thúc" hiển thị thêm badge "+1 ngày" để user
+  /// nhận biết rằng end time thuộc ngày kế tiếp. Xem BR-NEW-15.
+  final bool endCrossesMidnight;
+
   final int maxPlayers;
   final bool isPublic;
   final double minimumKarma;
@@ -39,9 +44,6 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
   final String Function(int) formatBuffer;
-  final String Function(TimeSlot) getSlotLabel;
-  final String Function(TimeSlot) getSlotShortLabel;
-  final IconData Function(TimeSlot) getSlotIcon;
   final VoidCallback onConfirm;
   final VoidCallback onRefreshQuote;
   final VoidCallback onLoadQuote;
@@ -51,9 +53,9 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
     required this.cafeName,
     required this.gameName,
     required this.selectedDate,
-    required this.selectedTimeSlot,
     this.preferredStartTime,
     this.preferredEndTime,
+    required this.endCrossesMidnight,
     required this.maxPlayers,
     required this.isPublic,
     required this.minimumKarma,
@@ -66,9 +68,6 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
     required this.formatDate,
     required this.formatTime,
     required this.formatBuffer,
-    required this.getSlotLabel,
-    required this.getSlotShortLabel,
-    required this.getSlotIcon,
     required this.onConfirm,
     required this.onRefreshQuote,
     required this.onLoadQuote,
@@ -221,13 +220,6 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
                         label: 'Ngày',
                         value: widget.formatDate(widget.selectedDate),
                       ),
-                      _NeoDivider(),
-                      LobbyConfigSummaryRow(
-                        icon: widget.getSlotIcon(widget.selectedTimeSlot),
-                        label: 'Phiên',
-                        value: widget.getSlotShortLabel(
-                            widget.selectedTimeSlot),
-                      ),
                       if (widget.preferredStartTime != null) ...[
                         _NeoDivider(),
                         LobbyConfigSummaryRow(
@@ -242,7 +234,8 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
                         LobbyConfigSummaryRow(
                           icon: Icons.stop_rounded,
                           label: 'Giờ kết thúc',
-                          value: widget.formatTime(widget.preferredEndTime!),
+                          value: widget.formatTime(widget.preferredEndTime!) +
+                              (widget.endCrossesMidnight ? ' (+1 ngày)' : ''),
                         ),
                       ],
                       _NeoDivider(),

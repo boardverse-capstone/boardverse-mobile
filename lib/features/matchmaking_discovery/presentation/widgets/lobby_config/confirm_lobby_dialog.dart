@@ -11,9 +11,14 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
   final String cafeName;
   final String gameName;
   final DateTime selectedDate;
-  final TimeSlot selectedTimeSlot;
   final TimeOfDay? preferredStartTime;
   final TimeOfDay? preferredEndTime;
+
+  /// `true` khi lobby kéo dài qua đêm (endTime < startTime). Khi true,
+  /// dialog thêm "(+1 ngày)" vào value của "Giờ kết thúc" để user thấy
+  /// rõ ràng rằng end time thuộc ngày kế tiếp. Xem BR-NEW-15.
+  final bool endCrossesMidnight;
+
   final int maxPlayers;
   final bool isPublic;
   final double minimumKarma;
@@ -21,7 +26,6 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
   final ReservationQuoteEntity? quotePreview;
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
-  final String Function(TimeSlot) getSlotLabel;
   final String Function(int) formatBuffer;
   final int bufferMinutes;
 
@@ -30,9 +34,9 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
     required this.cafeName,
     required this.gameName,
     required this.selectedDate,
-    required this.selectedTimeSlot,
     required this.preferredStartTime,
     this.preferredEndTime,
+    required this.endCrossesMidnight,
     required this.maxPlayers,
     required this.isPublic,
     required this.minimumKarma,
@@ -40,7 +44,6 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
     required this.quotePreview,
     required this.formatDate,
     required this.formatTime,
-    required this.getSlotLabel,
     required this.formatBuffer,
     required this.bufferMinutes,
   });
@@ -93,11 +96,6 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
               label: 'Ngày',
               value: formatDate(selectedDate),
             ),
-            LobbyConfigDialogRow(
-              icon: Icons.access_time,
-              label: 'Phiên',
-              value: getSlotLabel(selectedTimeSlot),
-            ),
             if (preferredStartTime != null)
               LobbyConfigDialogRow(
                 icon: Icons.schedule,
@@ -108,7 +106,8 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
               LobbyConfigDialogRow(
                 icon: Icons.schedule,
                 label: 'Giờ kết thúc',
-                value: formatTime(preferredEndTime!),
+                value: formatTime(preferredEndTime!) +
+                    (endCrossesMidnight ? ' (+1 ngày)' : ''),
               ),
             LobbyConfigDialogRow(
               icon: Icons.people,

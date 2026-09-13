@@ -49,9 +49,7 @@ LobbyInviteEntity _makeInvite({
 
 /// Fake datasource cho badge test.
 class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
-  _FakeLobbyRemoteDatasource({
-    this.pendingInvites = const [],
-  });
+  _FakeLobbyRemoteDatasource({this.pendingInvites = const []});
 
   List<LobbyInviteEntity> pendingInvites;
   int getPendingInvitesCallCount = 0;
@@ -244,6 +242,13 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
   Future<Either<Failure, MatchResultSubmitResponseModel>> submitMatchResult({
     required String lobbyId,
     required MatchOutcome outcome,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
   }) async => throw UnimplementedError();
 
   @override

@@ -5,24 +5,143 @@
 
 | Endpoint | Method | Role |
 |----------|--------|------|
+| `/` | GET | Player (lấy tất cả quán ACTIVE) |
 | `/nearby` | GET | Public (Player discovery — GPS query params) |
 | `/nearby/me` | GET | Player (dùng vị trí đã lưu trên profile) |
 | `/{id}` | GET | Public |
 | `/{id}` | PUT | Manager (chủ quán) |
+| `/{cafeId}/active-games` | GET | Public (player browse board game đang hoạt động) |
 | `/{cafeId}/staff` | POST | Manager (chủ quán) |
 | `/{cafeId}/staff/promote` | POST | Manager (chủ quán) |
 | `/{cafeId}/staff` | GET | Manager (chủ quán) |
 | `/{cafeId}/staff/{staffId}` | DELETE | Manager (chủ quán) |
 | `/{id}/sepay-config` | PUT | Manager (chủ quán) |
+| `/{cafeId}/reservations` | GET | Manager, CafeStaff |
+| `/{cafeId}/lobbies` | GET | Manager, CafeStaff |
 
 > Lấy `cafeId` qua [GET /api/manager/my-cafes](./manager.md) thay vì hardcode.
+
+---
+
+## So sánh các GET cafe endpoint
+
+### Tổng quan
+
+| Endpoint | DTO trả về | Auth | Dùng cho |
+|---------|-----------|------|----------|
+| `GET /api/cafes/{id}` | `CafeDetailDto` | Public (AllowAnonymous) | Player xem chi tiết 1 quán trước khi đặt chỗ |
+| `GET /api/cafes` | `PaginatedResponse<NearbyCafeDto>` | Player | List view (không GPS) |
+| `GET /api/cafes/nearby` | `NearbyCafeSearchResultDto` (chứa `NearbyCafeDto[]`) | Public | Player discovery GPS |
+| `GET /api/cafes/nearby/me` | `NearbyCafeSearchResultDto` | Player (đã đăng nhập) | Player discovery dùng vị trí đã lưu |
+| `GET /api/cafes/search` | `PaginatedResponse<NearbyCafeDto>` | Public | Player search theo tên |
+| `GET /api/manager/my-cafes` | `ManagerCafeDto[]` | Manager | Manager dashboard |
+| `GET /api/staff/my-cafes` | `ManagerCafeDto[]` | CafeStaff | Staff dashboard |
+| `GET /api/admin/cafes` | `AdminCafeListItemDto[]` | Admin | Admin list |
+| `GET /api/admin/cafes/{id}` | `AdminCafeDetailDto` | Admin | Admin xem chi tiết |
+
+### Chi tiết field theo từng endpoint
+
+#### `GET /api/cafes/{id}` → `CafeDetailDto` (player/public)
+
+Kế thừa `CafeDto` + thêm: `operationalStatus`, `operationalStatusReason` (ẩn cho player), `isCurrentlyOpen`, `refundPolicy`, `refundTiers`, `depositRatePerPerson`, `minDeposit`, `availableSeats`, `heldSeats`, `inUseSeats`, `availableSeatsByTimeSlot`, `cafeConfig`, `scheduleOverrides`, `numberOfTables`, `numberOfPrivateRooms`, `numberOfGamesOwned`, `hasGameMaster`, `distanceKm`.
+
+**Không trả:** `ManagerId`, `SePayMerchantId/ApiKey/SecretKey`, `SePayBankCode`, `SePayAccountNumber`, `SePayReturnUrl`, `WeekdayOpen/Close`, `WeekendOpen/Close`, `StaffCount`, `UpcomingBookingsCount`, `ActiveLobbiesToday`, `PendingCafeApprovalLobbiesCount`, `HeldDepositTotal`, `DefaultHoldDurationMinutes`, `UpdatedAt`, `OperationalProfileUpdatedAt`, `OperationalStatusReason` (lý do nội bộ).
+
+#### `GET /api/cafes`, `/nearby`, `/nearby/me`, `/search` → `NearbyCafeDto` (player)
+
+Kế thừa `CafeDto` + thêm: `distanceMeters`, `availableGameCount`, `totalGameBoxCount`, `availableTableCount`, `totalTableCount`, `selectedGameAvailabilityStatus`, `estimatedWaitMinutes`.
+
+**Không trả:** Mọi refund policy, deposit config, schedule overrides, operational status, staff/lobby/revenue metrics, distance chỉ có nếu truyền lat/lng (không tính trong list view).
+
+`NearbyCafeSearchResultDto` bọc thêm: `emptyResultMessage`, `alternativeSuggestions` (chỉ khi truyền `gameTemplateId`).
+
+#### `GET /api/manager/my-cafes` & `/api/staff/my-cafes` → `ManagerCafeDto` (manager/staff)
+
+Kế thừa `CafeDetailDto` + thêm **manager-only**: `ManagerId`, `SePayMerchantId`, `SePayBankCode`, `SePayAccountNumber`, `SePayReturnUrl`, `DefaultHoldDurationMinutes`, `StaffCount`, `UpcomingBookingsCount`, `ActiveLobbiesToday`, `PendingCafeApprovalLobbiesCount`, `HeldDepositTotal`, `WeekdayOpen/Close`, `WeekendOpen/Close`, `UpdatedAt`, `OperationalProfileUpdatedAt`.
+
+**Quan trọng:** Manager/Staff thấy `operationalStatusReason` (lý do nội bộ) + `HeldDepositTotal` (revenue snapshot).
+
+**Staff field filter:** Staff thấy `ManagerId = Guid.Empty` và ẩn SePay raw (`SePayMerchantId`, `SePayBankCode`, `SePayAccountNumber`, `SePayReturnUrl`).
+
+#### `GET /api/admin/cafes` → `AdminCafeListItemDto` (admin)
+
+Gọn cho list view: `Id`, `Name`, `Address`, `PhoneNumber`, `TotalSeats`, `IsActive`, `DepositPercentage`, `HasSePayConfigured`, `ManagerId`, `ManagerName`, `NumberOfTables`, `NumberOfGamesOwned`, `StaffCount`, `CreatedAt`, `Status`.
+
+> Admin có thể click call trực tiếp từ list nhờ `PhoneNumber` (thêm 2026-08-15).
+
+#### `GET /api/admin/cafes/{id}` → `AdminCafeDetailDto` (admin)
+
+DTO riêng cho admin — **không kế thừa `CafeDetailDto`**: `Id`, `Name`, `Address`, `Latitude`, `Longitude`, `PhoneNumber`, `Description`, `ManagerId`, `ManagerName`, `ManagerEmail`, `PartnerOperationalStatus`, `PartnerOperationalStatusReason`, `PartnerOperationalStatusChangedAt`, `WeekdayOpen/Close`, `WeekendOpen/Close`, `NumberOfTables`, `NumberOfPrivateRooms`, `TotalSeats`, `NumberOfGamesOwned`, `PopularGamesList`, `HasGameMaster`, `BillingModel`, `BasePrice`, `TieredBlockRate`, `TieredBlockMinutes`, `IsPricingLocked`, `DepositPercentage`, `DefaultHoldDurationMinutes`, `RefundPolicy`, `HasSePayConfigured`, `ScheduleOverrides`, `CreatedAt`, `UpdatedAt`, `IsActive`.
+
+> Admin xem/tạo override giờ mở cửa cho ngày lễ qua `ScheduleOverrides` (thêm 2026-08-15).
+
+**Admin-specific:** `ManagerEmail`, `PopularGamesList`, `PartnerOperationalStatusChangedAt`, `TieredBlockRate`, `IsPricingLocked`, `DefaultHoldDurationMinutes`, `ScheduleOverrides`.
+
+> Security note: Admin KHÔNG thấy `SePayApiKey`/`SePaySecretKey` (secret) — chỉ `HasSePayConfigured` boolean.
+
+### Ma trận bảo mật — field nào endpoint nào trả
+
+| Field | `/{id}` (player) | `/nearby` etc. (player) | `my-cafes` (manager) | `my-cafes` (staff) | `/admin/cafes/{id}` |
+|-------|:-:|:-:|:-:|:-:|:-:|
+| `Id`, `Name`, `Address`, `PhoneNumber`, `Description`, `CreatedAt` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Latitude`, `Longitude` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `TotalSeats`, `BillingModel`, `BasePrice`, `TieredBlockRate`, `TieredBlockMinutes`, `DepositPercentage`, `IsPricingLocked` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `HasSePayConfigured` (bool derived) | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `OperationalStatus` (string) | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **`OperationalStatusReason`** (lý do nội bộ) | ❌ **ẩn** | ❌ | ✅ | ✅ | ✅ |
+| `IsCurrentlyOpen` | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `RefundPolicy`, `RefundTiers` | ✅ | ❌ | ✅ | ✅ | `RefundPolicy` only |
+| `DepositRatePerPerson`, `MinDeposit`, `CafeConfig` (BR defaults) | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `AvailableSeats`, `HeldSeats`, `InUseSeats`, `AvailableSeatsByTimeSlot` | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `ScheduleOverrides` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `NumberOfTables`, `NumberOfPrivateRooms`, `NumberOfGamesOwned`, `HasGameMaster` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `PhoneNumber` (admin cần liên hệ cafe từ list/detail) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `DistanceKm` | ✅ (nếu truyền lat/lng) | ❌ | ❌ | ❌ | ❌ |
+| `DistanceMeters` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `AvailableGameCount`, `TotalGameBoxCount`, `AvailableTableCount`, `TotalTableCount` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `SelectedGameAvailabilityStatus`, `EstimatedWaitMinutes` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `ManagerId` | ❌ | ❌ | ✅ | ✅ (set Empty) | ✅ |
+| `ManagerName`, `ManagerEmail` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `SePayMerchantId`, `SePayBankCode`, `SePayAccountNumber`, `SePayReturnUrl` | ❌ | ❌ | ✅ | ❌ (staff ẩn) | ❌ |
+| `DefaultHoldDurationMinutes` | ❌ | ❌ | ✅ | ✅ | ✅ |
+| `StaffCount`, `UpcomingBookingsCount`, `ActiveLobbiesToday`, `PendingCafeApprovalLobbiesCount`, `HeldDepositTotal` | ❌ | ❌ | ✅ | ✅ | ❌ |
+| `WeekdayOpen/Close`, `WeekendOpen/Close` | ❌ | ❌ | ✅ | ✅ | ✅ |
+| `UpdatedAt`, `OperationalProfileUpdatedAt` | ❌ | ❌ | ✅ | ✅ | `UpdatedAt` only |
+| `PopularGamesList`, `PartnerOperationalStatusChangedAt` | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Security filter cho player endpoint `GET /api/cafes/{id}` (public)
+
+> **Cập nhật 2026-08-15:** Field `operationalStatusReason` (lý do nội bộ khi quán bị Inactive/Banned) **luôn null** cho player endpoint. Manager/Admin/Staff thấy field này qua endpoint riêng.
+>
+> Implementation: `ICafeService.GetCafeDetailAsync(includeSensitiveInfo = false)` — `OperationalStatusReason = includeSensitiveInfo ? cafe.PartnerOperationalStatusReason : null`.
+
+---
+
+## GET /api/cafes
+
+Lấy danh sách tất cả quán cafe đang hoạt động cho player (`IsActive=true` AND `PartnerOperationalStatus=Active`).
+**Yêu cầu đăng nhập** (`[Authorize]`). Không filter theo vị trí, không yêu cầu `gameTemplateId`.
+Sắp xếp theo `Name` A→Z. Trả về shape `NearbyCafeDto` (giống `/nearby`) để player thấy được
+`AvailableGameCount`, `TotalGameBoxCount`, `AvailableTableCount`, `TotalTableCount`.
+`distanceMeters` luôn là `0` vì không tính khoảng cách.
+
+**Query:**
+
+| Param | Mô tả | Mặc định |
+|-------|--------|----------|
+| `pageNumber` | Trang | `1` |
+| `pageSize` | Kích thước trang | `20` |
+
+**Response 200:** `PaginatedResponse<NearbyCafeDto>` — `data` chứa danh sách quán, `meta` chứa `currentPage`/`pageSize`/`totalItems`/`totalPages`.
+
+**Lỗi:** `401` thiếu token; `500` lỗi hệ thống.
 
 ---
 
 ## GET /api/cafes/nearby
 
 Tìm quán đối tác **ACTIVE** gần vị trí player (PostGIS `geography` + GiST index). **Không cần token.**  
-Dùng cho luồng **Khám phá game**: `gameTemplateId` **bắt buộc** — chỉ quán có ít nhất một hộp game (`CafeInventoryBoxes`) thuộc tựa đó, trạng thái `Available` hoặc `InUse` (AC 2.1, 3.1).
+`gameTemplateId` là **tùy chọn** — khi truyền sẽ lọc theo tựa game (luồng **Khám phá game**: chỉ quán có ít nhất một hộp game `Available` hoặc `InUse` thuộc tựa đó, AC 2.1, 3.1). Bỏ trống → trả tất cả quán ACTIVE trong bán kính.
 
 **Query:**
 
@@ -30,7 +149,7 @@ Dùng cho luồng **Khám phá game**: `gameTemplateId` **bắt buộc** — ch�
 |-------|--------|----------|
 | `latitude` | Vĩ độ player (WGS84) | bắt buộc |
 | `longitude` | Kinh độ player | bắt buộc |
-| `gameTemplateId` | Tựa game player đã chọn | **bắt buộc** |
+| `gameTemplateId` | Tựa game player đã chọn (tùy chọn) | — |
 | `radiusKm` | Bán kính tìm kiếm (km) | `15` (0.1–50) |
 | `pageNumber` | Trang | `1` |
 | `pageSize` | Kích thước trang | `20` |
@@ -41,7 +160,7 @@ Dùng cho luồng **Khám phá game**: `gameTemplateId` **bắt buộc** — ch�
 |-------|--------|
 | `cafes` | Phân trang `NearbyCafeDto` (shape cũ nằm trong `cafes.data` + `cafes.meta`) |
 | `emptyResultMessage` | Thông điệp UI khi **không có quán nào** (AC 5.1); `null` khi có kết quả |
-| `alternativeSuggestions` | Game cùng thể loại còn hàng `Available` gần player (AC 5.2); `[]` khi có quán |
+| `alternativeSuggestions` | Game cùng thể loại còn hàng `Available` gần player (AC 5.2); `[]` khi không truyền `gameTemplateId` hoặc có kết quả |
 
 Mỗi phần tử `alternativeSuggestions`:
 
@@ -99,13 +218,13 @@ Logic gợi ý: lấy `category_id` của game gốc → tìm game **khác** cù
 
 POS tạo/kết thúc session qua [CafePosController](./cafe-pos.md).
 
-**Lỗi:** `400` tọa độ, bán kính, hoặc thiếu/không hợp lệ `gameTemplateId`.
+**Lỗi:** `400` tọa độ hoặc bán kính không hợp lệ.
 
 ---
 
 ## GET /api/cafes/nearby/me
 
-Cùng logic và response như `GET /nearby`, nhưng dùng **tọa độ đã lưu** trên profile (`LastKnownLatitude` / `LastKnownLongitude`) thay vì query `latitude`/`longitude`. **Yêu cầu đăng nhập.**
+Cùng logic và response như `GET /nearby`, nhưng dùng **tọa độ đã lưu** trên profile (`LastKnownLatitude` / `LastKnownLongitude`) thay vì query `latitude`/`longitude`. **Yêu cầu đăng nhập.** `gameTemplateId` tùy chọn — bỏ trống trả tất cả quán ACTIVE trong bán kính.
 
 **Luồng gợi ý (mobile):**
 
@@ -115,13 +234,13 @@ Cùng logic và response như `GET /nearby`, nhưng dùng **tọa độ đã lư
 3. GET /api/cafes/nearby/me?gameTemplateId=...   → không cần gửi lại lat/lng
 ```
 
-Hoặc gọi thẳng `GET /nearby?latitude=...&longitude=...&gameTemplateId=...` (public, không cần token).
+Hoặc gọi thẳng `GET /nearby?latitude=...&longitude=...` (public, không cần token).
 
 **Query:**
 
 | Param | Mô tả | Mặc định |
 |-------|--------|----------|
-| `gameTemplateId` | Tựa game đã chọn | **bắt buộc** |
+| `gameTemplateId` | Tựa game đã chọn (tùy chọn) | — |
 | `radiusKm` | Bán kính (km) | `15` |
 | `pageNumber` | Trang | `1` |
 | `pageSize` | Kích thước trang | `20` |
@@ -132,9 +251,102 @@ Hoặc gọi thẳng `GET /nearby?latitude=...&longitude=...&gameTemplateId=...`
 
 ## GET /api/cafes/{id}
 
-Xem thông tin quán — **không cần token**.
+Xem thông tin **chi tiết** quán cafe — **không cần token**. Bao gồm pricing, refund policy, seat availability, schedule overrides.
 
-**Response 200:** `CafeDto` (id, name, address, latitude, longitude, phoneNumber, description, createdAt)
+**Query (optional):**
+
+| Param | Mô tả |
+|-------|--------|
+| `latitude` | Vĩ độ player (để tính khoảng cách) |
+| `longitude` | Kinh độ player (để tính khoảng cách) |
+
+**Response 200:** `CafeDetailDto`
+
+```json
+{
+  "statusCode": 200,
+  "message": "Lấy thông tin quán thành công.",
+  "data": {
+    "id": "uuid",
+    "name": "Boss cafe",
+    "address": "22 Lê Tấn Bê, An Lạc, Hồ Chí Minh",
+    "latitude": 10.7249011,
+    "longitude": 106.6046094,
+    "phoneNumber": "0974993949",
+    "description": null,
+    "createdAt": "2026-08-01T05:23:53Z",
+    "totalSeats": 30,
+    "billingModel": "TIME_BASED",
+    "basePrice": 80000,
+    "tieredBlockRate": 25000,
+    "tieredBlockMinutes": 15,
+    "depositPercentage": 0.5,
+    "isPricingLocked": false,
+    "hasSePayConfigured": false,
+
+    "operationalStatus": "ACTIVE",
+    "operationalStatusReason": null,
+    "isCurrentlyOpen": true,
+
+    "refundPolicy": "Partial",
+    "refundTiers": [
+      { "minHoursBeforeScheduled": 24, "refundPercent": 50 },
+      { "minHoursBeforeScheduled": 12, "refundPercent": 25 },
+      { "minHoursBeforeScheduled": 0, "refundPercent": 0 }
+    ],
+
+    "depositRatePerPerson": 10,
+
+    "cafeConfig": {
+      "capacity": 30,
+      "maxLobbiesPerUserPerDay": 1,
+      "maxPlayersPerLobbySameDay": 30,
+      "maxPlayersPerLobby1Day": 20,
+      "maxPlayersPerLobby2Days": 15,
+      "maxPlayersPerLobby3To4Days": 10,
+      "maxPlayersPerLobby5To7Days": 6,
+      "requireApprovalForDistant": true,
+      "distantThresholdDays": 2,
+      "approvalTimeoutHours": 24,
+      "maxTotalDepositPerUser": 500000,
+      "recruitmentDeadlineBufferMinutes": 120,
+      "cancellationGraceMinutes": 15
+    },
+
+    "availableSeats": 25,
+    "heldSeats": 3,
+    "inUseSeats": 2,
+    "availableSeatsByTimeSlot": {
+      "Morning": 30,
+      "Afternoon": 28,
+      "Evening": 25,
+      "LateNight": 30
+    },
+
+    "scheduleOverrides": [],
+
+    "numberOfTables": 10,
+    "numberOfPrivateRooms": 0,
+    "numberOfGamesOwned": 25,
+    "hasGameMaster": false,
+    "distanceKm": 1.5
+  }
+}
+```
+
+**CafeDetailDto fields:**
+
+| Field | Mô tả |
+|-------|--------|
+| **Basic Info** | `id`, `name`, `address`, `latitude`, `longitude`, `phoneNumber`, `description`, `createdAt` |
+| **Pricing** | `totalSeats`, `billingModel`, `basePrice`, `tieredBlockRate`, `tieredBlockMinutes`, `depositPercentage`, `isPricingLocked`, `hasSePayConfigured` |
+| **Operational** | `operationalStatus` (DataBlank/Active/Inactive/Banned), `operationalStatusReason`, `isCurrentlyOpen` |
+| **Refund Policy (BR-18)** | `refundPolicy` (Full/Partial/None), `refundTiers` (khi Partial) |
+| **Deposit Config** | `depositRatePerPerson` (BVC/người), `cafeConfig` (hạn mức riêng của cafe) |
+| **Seat Availability** | `availableSeats`, `heldSeats`, `inUseSeats`, `availableSeatsByTimeSlot` |
+| **Cafe Config (BR-NEW-12)** | `cafeConfig` (maxPlayers, minDeposit, approval settings) |
+| **Schedule** | `scheduleOverrides` (ngày lễ, giờ mở đặc biệt) |
+| **Additional** | `numberOfTables`, `numberOfPrivateRooms`, `numberOfGamesOwned`, `hasGameMaster`, `distanceKm` (nếu truyền lat/lng) |
 
 **Lỗi:** `404` cafe không tồn tại hoặc inactive.
 
@@ -346,3 +558,304 @@ Cập nhật biểu phí của quán (BasePrice, BillingModel, TieredBlockRate, 
 ```
 
 **Lỗi:** `400`; `403`; `404`; `409` quán đang hoạt động; `500`.
+
+---
+
+## GET /api/cafes/{cafeId}/reservations
+
+Lấy danh sách reservation của 1 cafe cho Manager/CafeStaff. Filter theo status, playDate, có phân trang.
+
+### Request
+
+- Method: `GET`
+- Path: `/api/cafes/{cafeId}/reservations`
+- Auth: Manager, CafeStaff
+
+### Query Parameters
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | string | No | Filter theo reservation status (PendingApproval, Holding, Confirmed, CheckedIn, Cancelled, NoShow, etc.) |
+| `playDate` | DateOnly | No | Filter theo ngày dự kiến chơi |
+| `pageNumber` | int | No | Trang (default 1) |
+| `pageSize` | int | No | Kích thước trang (default 20) |
+
+### Response 200
+
+```json
+{
+  "statusCode": 200,
+  "message": "CafeReservationsRetrieved",
+  "data": {
+    "data": [
+      {
+        "reservationId": "guid",
+        "hostId": "guid",
+        "hostUserName": "host_player",
+        "cafeId": "guid",
+        "cafeName": "Boss Cafe",
+        "gameTemplateId": "guid",
+        "gameName": "Catan",
+        "playDate": "2026-08-15",
+        "timeSlot": "Evening",
+        "preferredStartTime": "19:00",
+        "minPlayers": 3,
+        "maxPlayers": 4,
+        "currentPlayers": 4,
+        "status": "Confirmed",
+        "depositAmountBvc": 120,
+        "createdAt": "2026-08-14T10:00:00Z"
+      }
+    ],
+    "meta": {
+      "currentPage": 1,
+      "pageSize": 20,
+      "totalItems": 45,
+      "totalPages": 3,
+      "hasPrevious": false,
+      "hasNext": true
+    }
+  }
+}
+```
+
+### Lỗi
+
+| Code | Mô tả |
+|------|--------|
+| 401 | Thiếu token |
+| 403 | Không phải manager/staff của cafe |
+| 404 | Không tìm thấy cafe |
+
+---
+
+## GET /api/cafes/{cafeId}/lobbies
+
+Lấy danh sách lobby của 1 cafe cho Manager/CafeStaff. Filter theo lobby status, playDate, có phân trang.
+
+### Request
+
+- Method: `GET`
+- Path: `/api/cafes/{cafeId}/lobbies`
+- Auth: Manager, CafeStaff
+
+### Query Parameters
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | string | No | Filter theo lobby status (Open, Full, PendingCafeApproval, InProgress, Closed, TimeoutFailed, HostCancelled, etc.) |
+| `playDate` | DateOnly | No | Filter theo ngày dự kiến chơi |
+| `pageNumber` | int | No | Trang (default 1) |
+| `pageSize` | int | No | Kích thước trang (default 20) |
+
+### Response 200
+
+```json
+{
+  "statusCode": 200,
+  "message": "CafeLobbiesRetrieved",
+  "data": {
+    "data": [
+      {
+        "lobbyId": "guid",
+        "hostId": "guid",
+        "hostUserName": "host_player",
+        "cafeId": "guid",
+        "cafeName": "Boss Cafe",
+        "gameTemplateId": "guid",
+        "gameName": "Catan",
+        "playDate": "2026-08-15",
+        "timeSlot": "Evening",
+        "minPlayers": 3,
+        "maxPlayers": 4,
+        "currentPlayers": 2,
+        "status": "Open",
+        "isPrivate": false,
+        "recruitmentDeadline": "2026-08-15T18:40:00Z",
+        "createdAt": "2026-08-14T10:00:00Z"
+      }
+    ],
+    "meta": {
+      "currentPage": 1,
+      "pageSize": 20,
+      "totalItems": 30,
+      "totalPages": 2,
+      "hasPrevious": false,
+      "hasNext": true
+    }
+  }
+}
+```
+
+### Lỗi
+
+| Code | Mô tả |
+|------|--------|
+| 401 | Thiếu token |
+| 403 | Không phải manager/staff của cafe |
+| 404 | Không tìm thấy cafe |
+
+---
+
+## GET /api/cafes/{cafeId}/active-games
+
+Lấy danh sách board game đang hoạt động tại quán cafe cho player (public, không cần đăng nhập). Dùng cho màn hình "Game có sẵn tại quán" trên app. Hỗ trợ filter + sort.
+
+### Request
+
+- Method: `GET`
+- Path: `/api/cafes/{cafeId}/active-games`
+- Auth: Public (không yêu cầu token)
+
+### Query Parameters
+
+| Param | Type | Default | Mô tả |
+|-------|------|---------|-------|
+| `categoryId` | Guid? | — | Chỉ trả game có thể loại trùng `categoryId`. Bỏ trống → tất cả category. |
+| `groupSize` | int? | — | Số người chơi của nhóm player. Chỉ trả game có `MinPlayers <= groupSize`. Bỏ trống → không filter theo size. |
+| `availableOnly` | bool | `false` | `true` → chỉ trả game có ít nhất 1 hộp `Available` (còn trống để chơi ngay). `false` → trả cả `Available` + `InUse`. |
+| `searchTerm` | string? | — | Tìm theo tên game (case-insensitive, partial match). Bỏ trống → không search. |
+| `sortBy` | enum (`CafeActiveGamesSort`) | `Name` (0) | Sắp xếp. Các giá trị: `Name` (0, A→Z), `AvailableBoxesDesc` (1, hộp trống nhiều trước), `PlayTimeAsc` (2, game ngắn trước), `PlayerCountAsc` (3, `MinPlayers` tăng dần). |
+| `pageNumber` | int | `1` | Số trang. |
+| `pageSize` | int | `20` (max `100`) | Số item mỗi trang. Tự động clamp về `[1, 100]` bởi `PaginationParams`. |
+
+### Response
+
+- `200 OK` — `PaginatedResponse<CafeActiveGameDto>`
+- `404 Not Found` — Không tìm thấy quán hoặc quán đã bị vô hiệu hóa
+- `500 Internal Server Error` — Lỗi hệ thống không mong đợi
+
+### Tiêu chí board game "đang hoạt động"
+
+Endpoint chỉ trả các game thỏa mãn đồng thời:
+
+1. **Quán cafe tồn tại & đang ACTIVE** — `IsActive = true`, `PartnerOperationalStatus = Active`.
+2. **Game có trong kho quán & chưa bị xóa mềm** — `CafeGameInventory.IsActive = true`.
+3. **Master game vẫn active** — `GameTemplate.IsActive = true` (game chưa bị admin vô hiệu hóa).
+4. **Trạng thái vận hành hoạt động** — `CafeGameInventory.Status ∈ {Available, InUse}`.
+
+**Không bao gồm:** `Damaged`, `Maintenance`, `Retired`, và game **chưa được quán add vào kho**.
+
+### Shape mỗi item (`CafeActiveGameDto`)
+
+| Field | Type | Mô tả |
+|-------|------|-------|
+| `inventoryId` | Guid | Mã mục kho (CafeGameInventory.Id) |
+| `gameTemplateId` | Guid | Mã master game (GameTemplates.Id) |
+| `gameName` | string | Tên board game |
+| `thumbnailUrl` | string? | URL ảnh thumbnail |
+| `description` | string? | Mô tả ngắn |
+| `minPlayers` | int | Số người chơi tối thiểu |
+| `maxPlayers` | int | Số người chơi tối đa |
+| `playTime` | int | Thời lượng chơi trung bình (phút) |
+| `boxQuantity` | int | Tổng số hộp vật lý quán đang có |
+| `availableBoxCount` | int | Số hộp đang trống (Status=Available, IsActive=true) — player có thể đặt ngay |
+| `isAvailableNow` | bool *(computed)* | `true` ⇔ `availableBoxCount > 0`. Tiện cho UI không cần so sánh số. |
+| `fitsGroupSize` | bool? | `true` ⇔ `minPlayers <= groupSize` (khi client truyền `groupSize`); `null` khi không truyền. |
+| `status` | string | `Available` hoặc `InUse` |
+| `categories` | CategoryDto[] | Danh sách thể loại (sắp xếp theo SortOrder) |
+
+### Sort behavior
+
+| `sortBy` | Order | Tie-breaker |
+|---|---|---|
+| `Name` (0, mặc định) | `GameName` A→Z | — |
+| `AvailableBoxesDesc` (1) | `availableBoxCount` giảm dần | `GameName` A→Z |
+| `PlayTimeAsc` (2) | `playTime` tăng dần | `GameName` A→Z |
+| `PlayerCountAsc` (3) | `minPlayers` tăng dần → `maxPlayers` tăng dần | `GameName` A→Z |
+
+### Ví dụ
+
+**Request:**
+```http
+GET /api/cafes/3fa85f64-5717-4562-b3fc-2c963f66afa6/active-games?categoryId=c1111111-1111-1111-1111-111111111111&groupSize=4&availableOnly=true&sortBy=AvailableBoxesDesc&pageNumber=1&pageSize=20
+```
+
+**Response `200 OK`:**
+```json
+{
+  "statusCode": 200,
+  "message": "Lấy danh sách board game đang hoạt động của quán thành công.",
+  "data": {
+    "data": [
+      {
+        "inventoryId": "8a1f2b7c-1234-5678-9abc-def012345678",
+        "gameTemplateId": "11111111-1111-1111-1111-111111111111",
+        "gameName": "Catan",
+        "thumbnailUrl": "https://cdn.boardverse.vn/games/catan.jpg",
+        "description": "Game chiến thuật xây dựng đảo và giao thương.",
+        "minPlayers": 3,
+        "maxPlayers": 4,
+        "playTime": 90,
+        "boxQuantity": 3,
+        "availableBoxCount": 2,
+        "isAvailableNow": true,
+        "fitsGroupSize": true,
+        "status": "Available",
+        "categories": [
+          { "id": "c1111111-1111-1111-1111-111111111111", "name": "Strategy", "slug": "strategy", "sortOrder": 1 }
+        ]
+      }
+    ],
+    "meta": {
+      "currentPage": 1,
+      "pageSize": 20,
+      "totalItems": 1,
+      "totalPages": 1,
+      "hasPrevious": false,
+      "hasNext": false
+    }
+  },
+  "timestamp": "2026-09-08T14:30:00Z",
+  "path": "/api/cafes/3fa85f64-5717-4562-b3fc-2c963f66afa6/active-games"
+}
+```
+
+**Response `200 OK` — danh sách rỗng (cafe hợp lệ, không có active game nào match filter):**
+```json
+{
+  "statusCode": 200,
+  "message": "Lấy danh sách board game đang hoạt động của quán thành công.",
+  "data": {
+    "data": [],
+    "meta": {
+      "currentPage": 1,
+      "pageSize": 20,
+      "totalItems": 0,
+      "totalPages": 0,
+      "hasPrevious": false,
+      "hasNext": false
+    }
+  },
+  "timestamp": "2026-09-08T14:30:00Z",
+  "path": "/api/cafes/3fa85f64-5717-4562-b3fc-2c963f66afa6/active-games"
+}
+```
+
+**Response `404 Not Found` — cafe không tồn tại hoặc đã bị vô hiệu hóa:**
+```json
+{
+  "statusCode": 404,
+  "isSuccess": false,
+  "message": "Không tìm thấy quán cafe với mã '<cafe-id>' hoặc quán đã ngừng hoạt động.",
+  "data": null,
+  "timestamp": "2026-09-08T14:30:00Z",
+  "path": "/api/cafes/<cafe-id>/active-games"
+}
+```
+
+### Lỗi
+
+| Code | Mô tả |
+|------|--------|
+| 404 | Không tìm thấy quán hoặc quán đã bị vô hiệu hóa (IsActive=false, hoặc PartnerOperationalStatus ≠ Active) |
+| 500 | Lỗi hệ thống không mong đợi |
+
+### Lưu ý tích hợp
+
+- **So với `/api/cafes/{cafeId}/inventory`**: endpoint inventory cũ trả **đầy đủ** kho game của cafe (kể cả Damaged/Maintenance/Retired) cho manager/staff, có kèm `componentPenalties` (phí phạt linh kiện) và `boxes` (barcode). Endpoint mới này **player-facing**, chỉ trả game hoạt động.
+- **So với `/api/cafes/nearby?gameTemplateId={id}`**: nearby chỉ filter theo 1 game cụ thể + GPS, dùng cho discovery. Endpoint mới trả **nhiều** game của 1 cafe, dùng cho trang chi tiết cafe.
+- **Không tìm thấy cafe** → `404 Not Found`. **Cafe hợp lệ nhưng filter rỗng** → `200 OK` + `data: []` + `meta.totalItems: 0`. Phân biệt 2 case ở frontend.
+- **Consistency**: `AvailableBoxCount` được tính tại thời điểm query (eventual consistency). Nếu staff vừa chuyển box sang `InUse` ngay lúc player gọi, giá trị có thể stale — chấp nhận được cho read API.
+- **Logging**: service ghi structured log (Information) với `cafeId`, các filter params, số item trả về, và elapsed milliseconds — dùng để debug issue player báo "không thấy game X" và track query duration.
+

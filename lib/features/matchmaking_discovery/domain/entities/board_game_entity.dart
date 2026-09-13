@@ -51,6 +51,18 @@ class BoardGameEntity extends Equatable {
     this.categories = const [],
   });
 
+  /// Định dạng hiển thị số người chơi:
+  /// - Khi minPlayers == maxPlayers → "X người"
+  /// - Khi minPlayers != maxPlayers → "X-Y người"
+  ///
+  /// Tránh UI hiển thị "2-2 người" khó hiểu khi chỉ có 1 giá trị.
+  String get playerRangeDisplay =>
+      minPlayers == maxPlayers ? '$minPlayers người' : '$minPlayers-$maxPlayers người';
+
+  /// Phiên bản không có đuôi " người" — dùng cho pill nhỏ (icon + text).
+  String get playerRangeRaw =>
+      minPlayers == maxPlayers ? '$minPlayers' : '$minPlayers-$maxPlayers';
+
   @override
   List<Object?> get props => [
         id,

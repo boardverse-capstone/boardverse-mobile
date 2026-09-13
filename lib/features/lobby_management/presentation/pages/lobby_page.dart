@@ -3,15 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/core/navigation/lobby_left_signal.dart';
 import 'package:boardverse/core/theme/theme.dart';
 import 'package:boardverse/core/utils/current_user_resolver.dart';
 import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
 import 'package:boardverse/features/in_game_experience/in_game_feature_flags.dart';
+import 'package:boardverse/features/in_game_experience/presentation/cubit/in_game_cubit.dart';
+import 'package:boardverse/features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'package:boardverse/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
 import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
+import 'package:boardverse/features/reservation/presentation/pages/reservation_detail_page.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_chat_message.dart';
@@ -30,6 +34,7 @@ import '../widgets/lobby_bottom_bar.dart';
 import '../widgets/lobby_ended_view.dart';
 import '../widgets/lobby_sheets.dart';
 import '../widgets/lobby_friends_sheet.dart';
+import '../widgets/change_lobby_time_sheet.dart';
 import '../widgets/lobby_friends_shimmer.dart';
 import '../widgets/lobby_share_section.dart';
 import '../widgets/lobby_status_badge.dart';
@@ -95,6 +100,14 @@ class _LobbyPageState extends State<LobbyPage> {
 
   /// Map userId → arrival status cho MembersArrivalChecklist.
   final Map<String, MemberArrivalStatus> _arrivalByUserId = {};
+
+  /// Current lobby entity — dùng để fallback navigation khi
+  /// [_currentReservation] chưa load.
+  LobbyEntity? _currentLobby;
+
+  /// Current reservation được cache từ LobbyReservationCubit.
+  /// Dùng để hiển thị navigation buttons trong bottom bar.
+  res.ReservationEntity? _currentReservation;
 
   @override
   void initState() {
@@ -473,6 +486,47 @@ class _LobbyPageState extends State<LobbyPage> {
     }
   }
 
+  /// Hiển thị confirm dialog khi host muốn kick member khỏi lobby.
+  /// Nếu host xác nhận → gọi `lobbyCubit.kickMember`.
+  ///
+  /// Backend endpoint: POST /api/v1/lobbies/{lobbyId}/kick
+  /// Validate: host không thể kick chính mình (400).
+  /// Side effect: member bị kick nhận SignalR MemberKicked.
+  Future<void> _onKickMember(
+    BuildContext context,
+    LobbyEntity lobby,
+    LobbyPlayer player,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa thành viên'),
+        content: Text(
+          'Bạn có chắc muốn xóa "${player.name}" khỏi phòng chờ không?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await widget.lobbyCubit.kickMember(
+      lobby.id,
+      player.userId,
+      reason: 'Bị chủ phòng xóa khỏi phòng chờ.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -503,6 +557,19 @@ class _LobbyPageState extends State<LobbyPage> {
             listener: (context, state) {
               if (state is LobbyDismissed) _showDismissDialog(context, state);
               if (state is LobbyDissolved) _showDissolvedSnackBar(context, state);
+              if (state is LobbyMemberKicked) {
+                // Member bị kick thành công — thông báo host đã kick member.
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Đã xóa thành viên khỏi phòng.',
+                      style: const TextStyle(color: AppColors.white),
+                    ),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
               if (state is LobbyChatLoaded) {
                 setState(() {
                   _chatMessages.clear();
@@ -524,9 +591,11 @@ class _LobbyPageState extends State<LobbyPage> {
               // sẽ ném "setState() or markNeedsBuild() called during build".
               if (state is LobbyCreated) {
                 _lastGoodLobbyState = state;
+                _currentLobby = state.lobby;
                 _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyUpdatedRealtime) {
                 _lastGoodLobbyState = state;
+                _currentLobby = state.lobby;
                 _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyReadyStatusChanged) {
                 // Cache state ready-status để dùng làm fallback khi
@@ -534,9 +603,11 @@ class _LobbyPageState extends State<LobbyPage> {
                 // network drop). Đồng thời sync share code vì lobby
                 // vẫn là entity đầy đủ.
                 _lastGoodLobbyState = state;
+                _currentLobby = state.lobby;
                 _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyEnded) {
                 _lastGoodLobbyState = state;
+                _currentLobby = state.lobby;
                 _syncShareCodeFromLobby(state.lobby);
               }
 
@@ -558,6 +629,11 @@ class _LobbyPageState extends State<LobbyPage> {
             listener: (context, state) {
               if (state is! LobbyReservationLoaded) return;
               final reservation = state.reservation;
+
+              // Cache reservation để dùng trong bottom bar navigation
+              setState(() {
+                _currentReservation = reservation;
+              });
 
               // Auto-redirect sang InGameSessionPage khi reservation chuyển
               // sang `checkedIn` (staff scan QR ở POS, hoặc player self
@@ -631,9 +707,13 @@ class _LobbyPageState extends State<LobbyPage> {
               onRecreate: () => _onRecreateEndedLobby(state.lobby),
               onExtend: () => _onExtendEndedLobby(state.lobby),
               onShowDetails: () => _showLobbyDetails(context, state.lobby),
-              onRate: state.lobby.status == LobbyStatus.closed
-                  ? () => _onRateLobby(state.lobby)
-                  : null,
+              // BR §3.2: mở đánh giá Karma khi lobby ở `ratingOpen`
+              // (host đã mở cửa sổ sau POS) HOẶC `closed` (terminal).
+              onRate:
+                  (state.lobby.status == LobbyStatus.closed ||
+                          state.lobby.status == LobbyStatus.ratingOpen)
+                      ? () => _onRateLobby(state.lobby)
+                      : null,
             );
           }
 
@@ -805,6 +885,7 @@ class _LobbyPageState extends State<LobbyPage> {
         // Nếu để false, InGameCubit.checkIn sẽ re-trigger API không cần
         // thiết — gây latency + chance duplicate session.
         skipCheckIn: true,
+        lobbyId: lobbyEntity?.id,
       ),
     );
   }
@@ -831,6 +912,43 @@ class _LobbyPageState extends State<LobbyPage> {
         // Skip check-in API — reservation đã checkedIn hoặc backend sẽ
         // tự xử lý nếu chưa.
         skipCheckIn: true,
+        lobbyId: lobby.id,
+      ),
+    );
+  }
+
+  /// Navigate tới ReservationDetailPage.
+  /// Fallback về [lobby.reservationId] nếu [_currentReservation] chưa load.
+  void _navigateToReservationDetail(BuildContext context) {
+    final reservationId = _currentReservation?.id ?? _currentLobby?.reservationId;
+    if (reservationId == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReservationDetailPage(
+          reservation: _currentReservation,
+          bookingId: _currentReservation == null ? reservationId : null,
+        ),
+      ),
+    );
+  }
+
+  /// Navigate tới InGameSessionPage từ bottom bar button.
+  /// Fallback về [lobby.reservationId] nếu [_currentReservation] chưa load.
+  void _navigateToInGameSession(BuildContext context) {
+    final reservationId = _currentReservation?.id ?? _currentLobby?.reservationId;
+    if (reservationId == null) return;
+    final inGameCubit = getIt<InGameCubit>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: inGameCubit,
+          child: InGameSessionPage(
+            bookingId: reservationId,
+            skipCheckIn: true,
+            useApiSession: true,
+            lobbyId: _currentLobby?.id ?? _currentReservation?.lobbyId,
+          ),
+        ),
       ),
     );
   }
@@ -920,6 +1038,7 @@ class _LobbyPageState extends State<LobbyPage> {
             child: PlayersSection(
               lobby: lobby,
               currentUserId: _currentUserId ?? '',
+              isHost: isHost,
               onInvite: () => _showInviteFriendsSheet(context, lobby),
               onToggleReady: (isReady) async {
                 // Gọi cubit.setReady — UI sẽ tự rebuild khi state đổi
@@ -931,6 +1050,7 @@ class _LobbyPageState extends State<LobbyPage> {
               },
               onFullGuidanceSecondary: () =>
                   _showLobbyDetails(context, lobby),
+              onKickMember: (player) => _onKickMember(context, lobby, player),
             ),
           ),
 
@@ -990,16 +1110,64 @@ class _LobbyPageState extends State<LobbyPage> {
           final confirmed = await _confirmLeaveLobby(context);
           if (!confirmed || !mounted) return;
           if (!context.mounted) return;
-          // Về thẳng MainScaffold — pop toàn bộ stack trung gian (vd: nếu
-          // user vào lobby từ flow đặt cọc / browse, các page trước đó
-          // đã stale). Tránh rơi lại vào tab "Đặt cọc" của LobbyConfigPage
-          // cũ với data lobby cũ.
-          Navigator.of(context, rootNavigator: true).popUntil(
-            (route) => route.isFirst,
-          );
+          // Phát signal để:
+          //   1. MainScaffold pop về root + switch sang tab Lobbies.
+          //   2. LobbiesPage nhận signal → reload Explore + "Của tôi" list
+          //      ngay lập tức, đảm bảo user thấy thông tin mới nhất
+          //      không bị "stale" sau khi rời lobby.
+          LobbyLeftSignal.instance.request();
         },
+        onViewReservation: lobby.reservationId != null
+            ? () => _navigateToReservationDetail(context)
+            : null,
+        onViewInGameSession: lobby.reservationId != null &&
+                (_currentReservation?.checkedInAt != null ||
+                    _currentReservation?.status == res.ReservationStatus.checkedIn)
+            ? () => _navigateToInGameSession(context)
+            : null,
+        // BR §3.2: mở cửa sổ Karma khi lobby ở ratingOpen (host đã mở
+        // cửa sổ) hoặc closed (terminal). UI sẽ disable/ẩn nút khi
+        // callback = null.
+        onRate: lobby.status == LobbyStatus.ratingOpen ||
+                lobby.status == LobbyStatus.closed
+            ? () => _onRateLobby(lobby)
+            : null,
+        // BR-NEW-15: host-only "Đổi giờ" — chỉ hiển thị khi current user
+        // là host + lobby còn recruiting (chưa InProgress/Closed).
+        onChangeTime: _canHostChangeTime()
+            ? () => _showChangeTimeSheet(context)
+            : null,
+        hasActiveSession: _currentReservation?.checkedInAt != null ||
+            _currentReservation?.status == res.ReservationStatus.checkedIn,
       ),
     );
+  }
+
+  /// Host + lobby đang ở trạng thái cho phép đổi giờ (`Open`/`Viable`/`Full`/
+  /// `PendingCafeApproval`). Check `hostId == currentUserId` để đảm bảo chỉ
+  /// host thấy nút.
+  bool _canHostChangeTime() {
+    final lobby = _lastGoodLobbyState is LobbyCreated
+        ? (_lastGoodLobbyState as LobbyCreated).lobby
+        : _lastGoodLobbyState is LobbyUpdatedRealtime
+            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby
+            : null;
+    if (lobby == null) return false;
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || lobby.hostId != currentUserId) return false;
+    return lobby.status.isRecruiting ||
+        lobby.status == LobbyStatus.pendingCafeApproval;
+  }
+
+  Future<void> _showChangeTimeSheet(BuildContext context) async {
+    final lobby = _lastGoodLobbyState is LobbyCreated
+        ? (_lastGoodLobbyState as LobbyCreated).lobby
+        : _lastGoodLobbyState is LobbyUpdatedRealtime
+            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby
+            : null;
+    if (lobby == null) return;
+    if (!context.mounted) return;
+    await ChangeLobbyTimeSheet.show(context, lobby: lobby);
   }
 
   void _showLobbyDetails(BuildContext context, LobbyEntity lobby) {
@@ -1131,6 +1299,11 @@ class _FallbackQrFullScreen extends StatelessWidget {
 class PlayersSection extends StatelessWidget {
   final LobbyEntity lobby;
   final String currentUserId;
+
+  /// true khi currentUser là host của lobby — quyết định hiển thị
+  /// nút kick member trên mỗi LobbyPlayerCard.
+  final bool isHost;
+
   final VoidCallback onInvite;
 
   /// Optional callback khi player bấm CTA chính trong banner "Phòng đầy".
@@ -1145,14 +1318,20 @@ class PlayersSection extends StatelessWidget {
   /// Implement ở `LobbyPage` (nơi có `widget.lobbyCubit.setReady`).
   final Future<void> Function(bool isReady)? onToggleReady;
 
+  /// Callback khi host bấm kick member từ action menu trên player card.
+  /// Chỉ gọi khi viewer là host VÀ player bị kick KHÔNG phải host.
+  final Future<void> Function(LobbyPlayer player)? onKickMember;
+
   const PlayersSection({
     super.key,
     required this.lobby,
     required this.currentUserId,
+    required this.isHost,
     required this.onInvite,
     this.onFullGuidancePrimary,
     this.onFullGuidanceSecondary,
     this.onToggleReady,
+    this.onKickMember,
   });
 
   @override
@@ -1205,6 +1384,8 @@ class PlayersSection extends StatelessWidget {
             maxSlots: lobby.maxPlayers,
             lobbyStatus: lobby.status,
             currentUserId: currentUserId,
+            isCurrentUserHost: isHost,
+            onKickMember: onKickMember,
           ),
 
           // Banner hướng dẫn khi lobby đầy — chỉ hiện nếu currentPlayers ==
@@ -1501,6 +1682,7 @@ class _LobbyStatusStrip extends StatelessWidget {
         cafeName: reservation.cafeName,
         gameName: reservation.gameName,
         tableNumber: 1, // tableNumber gán từ staff khi check-in
+        lobbyId: lobby.id,
       ),
     );
   }
@@ -1576,7 +1758,7 @@ class _LobbyStatusStrip extends StatelessWidget {
           LobbyCheckInSection(
             reservation: reservation,
             isHost: isHost,
-            lobbyStatus: _mapLobbyStatus(lobby.status),
+            lobbyStatus: lobby.status,
             playStartedAt: lobby.playStartedAt,
             currentUserId: currentUserId,
             arrivalByUserId: arrivalByUserId,
@@ -1678,42 +1860,6 @@ class _PendingCafeApprovalCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// Map [LobbyStatus] (lobby_management entity) sang [res.LobbyStatus]
-/// (reservation entity) — 2 enum có overlap nhưng tách rời để tránh coupling.
-/// Helper này giúp `LobbyCheckInSection` (đang dùng `as res`) nhận đúng enum.
-res.LobbyStatus _mapLobbyStatus(LobbyStatus s) {
-  switch (s) {
-    case LobbyStatus.pendingActivation:
-      return res.LobbyStatus.pendingActivation;
-    case LobbyStatus.pendingCafeApproval:
-      return res.LobbyStatus.pendingCafeApproval;
-    case LobbyStatus.open:
-      return res.LobbyStatus.open;
-    case LobbyStatus.viable:
-      return res.LobbyStatus.viable;
-    case LobbyStatus.full:
-      return res.LobbyStatus.full;
-    case LobbyStatus.waitingCheckIn:
-      return res.LobbyStatus.waitingCheckIn;
-    case LobbyStatus.inProgress:
-      return res.LobbyStatus.inProgress;
-    case LobbyStatus.ratingOpen:
-      return res.LobbyStatus.closed; // ratingOpen → closed (terminal) ở enum res
-    case LobbyStatus.closed:
-      return res.LobbyStatus.closed;
-    case LobbyStatus.timeoutFailed:
-      return res.LobbyStatus.timeoutFailed;
-    case LobbyStatus.hostCancelled:
-      return res.LobbyStatus.hostCancelled;
-    case LobbyStatus.rejectedByCafe:
-      return res.LobbyStatus.rejectedByCafe;
-    case LobbyStatus.expiredByCafe:
-      return res.LobbyStatus.expiredByCafe;
-    case LobbyStatus.dissolved:
-      return res.LobbyStatus.dissolved;
   }
 }
 

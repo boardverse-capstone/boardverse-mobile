@@ -14,6 +14,7 @@ import 'package:boardverse/features/profile/domain/entities/profile_entity.dart'
 /// - Bio và description hiển thị đầy đủ, không cắt ngắn
 /// - Card cao hơn để chứa nhiều info
 /// - Phù hợp cho màn hình mobile
+/// - Responsive cho màn hình nhỏ (360x740)
 class ProfileHeaderCardNeo extends StatelessWidget {
   const ProfileHeaderCardNeo({
     super.key,
@@ -37,11 +38,18 @@ class ProfileHeaderCardNeo extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final hasTier = profile.gamerTier != null && profile.gamerTier!.isNotEmpty;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
     final topPadding = MediaQuery.of(context).padding.top + AppSpacing.sm;
     final hasBio = profile.bio != null && profile.bio!.isNotEmpty;
 
+    // Responsive sizing
+    final avatarSize = isSmallScreen ? 56.0 : 72.0;
+    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+    final titleFontSize = isSmallScreen ? 14.0 : 16.0;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: NeoBrutalismTheme.autoBox(
         context,
         backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
@@ -54,10 +62,10 @@ class ProfileHeaderCardNeo extends StatelessWidget {
           // ===== TOP SECTION: Avatar + Edit Button =====
           Container(
             padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
+              horizontalPadding,
               topPadding,
-              AppSpacing.lg,
-              AppSpacing.md,
+              horizontalPadding,
+              AppSpacing.sm,
             ),
             child: Row(
               children: [
@@ -65,8 +73,9 @@ class ProfileHeaderCardNeo extends StatelessWidget {
                   avatarUrl: profile.avatarUrl,
                   initials: _initials,
                   onTap: onAvatarTap,
+                  size: avatarSize,
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,49 +85,51 @@ class ProfileHeaderCardNeo extends StatelessWidget {
                         profile.username,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
+                          fontSize: titleFontSize,
                           color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                           letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 2),
                       // Handle + Tier
-                      Row(
+                      Wrap(
+                        spacing: AppSpacing.xxs,
+                        runSpacing: 2,
                         children: [
                           Text(
                             '@${profile.username}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                               fontWeight: FontWeight.w500,
+                              fontSize: isSmallScreen ? 10 : 12,
                             ),
                           ),
-                          if (hasTier) ...[
-                            const SizedBox(width: AppSpacing.xs),
+                          if (hasTier)
                             _TierBadge(tier: profile.gamerTier!),
-                          ],
                         ],
                       ),
                       // Full name
                       if (profile.firstName != null ||
                           profile.lastName != null) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           profile.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                             fontStyle: FontStyle.italic,
                             fontWeight: FontWeight.w500,
+                            fontSize: isSmallScreen ? 11 : 13,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                _EditButtonNeo(onPressed: onEditPressed),
+                _EditButtonNeo(onPressed: onEditPressed, size: isSmallScreen ? 36 : 40),
               ],
             ),
           ),
@@ -127,15 +138,15 @@ class ProfileHeaderCardNeo extends StatelessWidget {
           if (hasBio) ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
                 0,
-                AppSpacing.lg,
-                AppSpacing.lg,
+                horizontalPadding,
+                horizontalPadding,
               ),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: EdgeInsets.all(isSmallScreen ? AppSpacing.sm : AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -146,15 +157,18 @@ class ProfileHeaderCardNeo extends StatelessWidget {
                 ),
                 child: Text(
                   profile.bio!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  maxLines: isSmallScreen ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                    height: 1.5,
+                    height: 1.4,
+                    fontSize: isSmallScreen ? 11 : 13,
                   ),
                 ),
               ),
             ),
           ] else
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
         ],
       ),
     );
@@ -166,11 +180,13 @@ class _AvatarNeo extends StatefulWidget {
     required this.avatarUrl,
     required this.initials,
     required this.onTap,
+    this.size = 72.0,
   });
 
   final String? avatarUrl;
   final String initials;
   final VoidCallback onTap;
+  final double size;
 
   @override
   State<_AvatarNeo> createState() => _AvatarNeoState();
@@ -203,7 +219,6 @@ class _AvatarNeoState extends State<_AvatarNeo>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasImage = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;
-    const size = 72.0;
 
     return GestureDetector(
       onTap: () {
@@ -231,7 +246,7 @@ class _AvatarNeoState extends State<_AvatarNeo>
             ),
           ),
           child: CircleAvatar(
-            radius: (size - 6) / 2,
+            radius: (widget.size - 6) / 2,
             backgroundColor: AppColors.primary.withValues(alpha: 0.15),
             backgroundImage: hasImage ? NetworkImage(widget.avatarUrl!) : null,
             child: hasImage
@@ -239,7 +254,7 @@ class _AvatarNeoState extends State<_AvatarNeo>
                 : Text(
                     widget.initials,
                     style: TextStyle(
-                      fontSize: size * 0.38,
+                      fontSize: widget.size * 0.38,
                       fontWeight: FontWeight.w900,
                       color: AppColors.primary,
                     ),
@@ -288,9 +303,10 @@ class _TierBadge extends StatelessWidget {
 }
 
 class _EditButtonNeo extends StatefulWidget {
-  const _EditButtonNeo({required this.onPressed});
+  const _EditButtonNeo({required this.onPressed, this.size = 40});
 
   final VoidCallback onPressed;
+  final double size;
 
   @override
   State<_EditButtonNeo> createState() => _EditButtonNeoState();
@@ -337,7 +353,7 @@ class _EditButtonNeoState extends State<_EditButtonNeo>
           );
         },
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
+          padding: EdgeInsets.all(widget.size * 0.2),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(12),
@@ -351,7 +367,7 @@ class _EditButtonNeoState extends State<_EditButtonNeo>
           ),
           child: Icon(
             AppIcons.edit,
-            size: AppIcons.md,
+            size: widget.size * 0.5,
             color: Colors.white,
           ),
         ),

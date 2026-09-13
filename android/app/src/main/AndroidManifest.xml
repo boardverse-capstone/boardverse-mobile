@@ -13,6 +13,13 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
+    <!-- ─── Camera (mobile_scanner — Player QR check-in tại quán) ─── -->
+    <!-- Player quét QR do POS tạo để tự check-in (BR §21A.7). Runtime
+         permission được xin qua `permission_handler` package. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+
     <application
         android:label="BoardVerse"
         android:name="${applicationName}"

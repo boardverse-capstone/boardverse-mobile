@@ -1,371 +1,61 @@
-// Widget tests cho `BookingsPage` sau khi redesign (Aug 2026).
+// Widget tests cho `BookingsPage`.
 //
-// Mục tiêu:
-//   - Tab "Phòng chờ" (default) hiển thị lobby list qua MyLobbiesCubit.
-//   - Tab "Lịch đặt" hiển thị reservation list qua ReservationListPage.
-//   - Tap reservation card → navigate tới ReservationDetailPage.
-//   - Tap lobby card → navigate tới LobbyPage.
+// Sau khi bỏ tab "Phòng chờ" (Aug 2026), `BookingsPage` chỉ render
+// `ReservationSearchPanel` trực tiếp — không còn tab bar. Phòng chờ
+// đã được dời sang `LobbiesPage` và có thể truy cập từ
+// `ReservationDetailPage`.
 //
-// Vì `BookingsPage` cần `MyLobbiesCubit` từ context (do MainScaffold cung
-// cấp) và `ReservationRepository` từ GetIt, ta wrap test trong
-// `BlocProvider<MyLobbiesCubit>` và stub cả 2 nguồn.
+// Mục tiêu test:
+//   - Page title "LỊCH ĐẶT" hiển thị.
+//   - Không còn tab bar.
+//   - Reservation list render qua `ReservationSearchPanel`.
+//   - Search bar + filter chips hoạt động.
+//   - Empty state khi không có reservation.
+
+import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 
 import 'package:boardverse/core/error/failures.dart';
 import 'package:boardverse/core/network/paginated_response.dart';
-import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
-import 'package:boardverse/features/lobby_management/data/realtime/lobby_realtime_service.dart';
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_chat_message.dart';
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart'
-    show LobbyEntity, LobbyStatus;
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_share_info.dart';
-import 'package:boardverse/features/lobby_management/domain/entities/lobby_summary.dart';
-import 'package:boardverse/features/lobby_management/domain/repositories/lobby_repository.dart';
-import 'package:boardverse/features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
-// Chỉ import ReservationEntity (không qua `entities.dart` để tránh pull
-// theo LobbyStatus trùng tên với lobby_management).
+import 'package:boardverse/core/navigation/pages/bookings_page.dart';
 import 'package:boardverse/features/reservation/domain/entities/reservation_entity.dart'
     hide LobbyStatus;
 import 'package:boardverse/features/reservation/domain/entities/reservation_quote_entity.dart';
 import 'package:boardverse/features/reservation/domain/repositories/reservation_repository.dart';
-import 'package:boardverse/core/navigation/pages/bookings_page.dart';
-
-class _StubLobbyRepository implements LobbyRepository {
-  Either<Failure, List<LobbyEntity>> hostedResult = const Right(
-    <LobbyEntity>[],
-  );
-  Either<Failure, List<LobbyEntity>> joinedResult = const Right(
-    <LobbyEntity>[],
-  );
-
-  void stubHosted(List<LobbyEntity> data) {
-    hostedResult = Right(data);
-  }
-
-  void stubJoined(List<LobbyEntity> data) {
-    joinedResult = Right(data);
-  }
-
-  void stubFailure(String message) {
-    hostedResult = Left(ServerFailure(message: message));
-    joinedResult = Left(ServerFailure(message: message));
-  }
-
-  /// Throw exception khi load — dùng để test trạng thái error
-  /// (MyLobbiesFailure). Fail trả về Left chỉ làm empty list, không
-  /// phải error.
-  void stubThrows() {
-    hostedResult = const Right(<LobbyEntity>[]);
-    joinedResult = const Right(<LobbyEntity>[]);
-    throwOnLoad = true;
-  }
-
-  bool throwOnLoad = false;
-
-  @override
-  Future<Either<Failure, List<LobbyEntity>>> getHostedLobbies() async {
-    if (throwOnLoad) {
-      throw Exception('Lỗi mạng');
-    }
-    return hostedResult;
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies() async {
-    if (throwOnLoad) {
-      throw Exception('Lỗi mạng');
-    }
-    return joinedResult;
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async {
-    if (throwOnLoad) {
-      throw Exception('Lỗi mạng');
-    }
-    // BVC v2: `getMyLobbies` hợp nhất hosted + joined. Stub đơn giản
-    // trả cả 2 list dedup theo id.
-    final seen = <String>{};
-    final merged = <LobbyEntity>[];
-    for (final list in [hostedResult, joinedResult]) {
-      list.fold((_) {}, (lobbies) {
-        for (final l in lobbies) {
-          if (seen.add(l.id)) merged.add(l);
-        }
-      });
-    }
-    return Right(merged);
-  }
-
-  // Unused stubs - throw NotFoundFailure để các test khác fail ngay nếu
-  // vô tình gọi tới.
-  @override
-  Future<Either<Failure, LobbyEntity?>> getLobbyById(String lobbyId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, bool>> joinLobby(
-    String lobbyId,
-    String? inviteCode,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> leaveLobby(String lobbyId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> inviteFriend(
-    String lobbyId,
-    String friendId,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> sendLobbyInvite({
-    required String lobbyId,
-    required String inviteeId,
-    String? message,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyInviteEntity>>> getLobbyInvites({
-    required String lobbyId,
-    LobbyInviteStatus? status,
-    int limit = 100,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyInviteEntity>> resendInvite(
-    String inviteId,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyInvitableFriend>>> getInvitableFriends({
-    required String lobbyId,
-    String? search,
-    bool onlineOnly = false,
-    int? minKarma,
-    List<LobbyInviteFriendStatus> statusFilter = const [],
-    int limit = 100,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyInviteEntity>>>
-  getPendingLobbyInvites() async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyInviteEntity>>> getAllLobbyInvites({
-    LobbyInviteStatus? status,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> acceptLobbyInvite(
-    String inviteId,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> declineLobbyInvite(String inviteId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> cancelLobbyInvite(String inviteId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(
-    String lobbyId,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<FriendEntity>>> getOnlineFriends() async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> cancelLobby(
-    String lobbyId,
-    String reasonCode,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> dissolveLobby({
-    required String lobbyId,
-    String? reason,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> openKarmaWindow(String lobbyId) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbySummary>>> searchNearbyLobbies({
-    required double latitude,
-    required double longitude,
-    required LobbySearchFilter filter,
-    required double currentUserKarma,
-    bool excludeSelfOverlapping = true,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
-    String? gameTemplateId,
-    double? latitude,
-    double? longitude,
-    double? radiusKm,
-    int limit = 50,
-    bool excludeSelfOverlapping = true,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
-    String lobbyId,
-    LobbyStatus newStatus,
-  ) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> transferHost({
-    required String lobbyId,
-    required String newHostId,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> kickMember({
-    required String lobbyId,
-    required String targetUserId,
-    String? reason,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> setReady({
-    required String lobbyId,
-    required bool isReady,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> updateLobby({
-    required String lobbyId,
-    String? description,
-    int? maxMembers,
-    bool? isPrivate,
-    int? minKarmaScore,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, void>> reportLobby({
-    required String lobbyId,
-    required String category,
-    required String reason,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyChatMessage>> sendChatMessage({
-    required String lobbyId,
-    required String content,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, List<LobbyChatMessage>>> getChatMessages({
-    required String lobbyId,
-    String? beforeCursor,
-    int limit = 50,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Future<Either<Failure, LobbyEntity>> simulateAddFriend({
-    required String lobbyId,
-    required String friendId,
-  }) async {
-    return const Left(NotFoundFailure(message: 'Not implemented'));
-  }
-
-  @override
-  Stream<LobbyEntity> watchLobbyRealtime(String lobbyId) {
-    return const Stream.empty();
-  }
-
-  @override
-  Stream<LobbyRealtimeEvent> watchLobbyEvents(String lobbyId) {
-    return const Stream.empty();
-  }
-}
+import 'package:boardverse/features/reservation/presentation/widgets/my_reservations_panel.dart';
+import 'package:boardverse/features/reservation/presentation/widgets/reservation_card_skeleton.dart';
 
 class _StubReservationRepository implements ReservationRepository {
   Either<Failure, List<ReservationEntity>> reservationsResult = const Right(
     <ReservationEntity>[],
   );
 
+  /// Per-participation response — nếu set sẽ override `reservationsResult`
+  /// cho Host vs Member (dùng để test khác biệt giữa 2 tab).
+  Map<ReservationParticipationType, List<ReservationEntity>>? responsesByType;
+
+  /// Completer cho response hiện tại — nếu set, stub sẽ block tới khi
+  /// `completeWith(...)` được gọi. Cho phép test quan sát trạng thái
+  /// `MyReservationsLoading` (skeleton) trước khi API "trả về".
+  Completer<Either<Failure, MyReservationsResult>>? myReservationsGate;
+
   void stubReservations(List<ReservationEntity> data) {
     reservationsResult = Right(data);
+  }
+
+  /// Block lần `getMyReservations` tiếp theo cho tới khi gọi
+  /// `completeMyReservations(...)` với kết quả mong muốn.
+  void gateNextMyReservationsCall() {
+    myReservationsGate = Completer<Either<Failure, MyReservationsResult>>();
+  }
+
+  void completeMyReservations(Either<Failure, MyReservationsResult> result) {
+    myReservationsGate?.complete(result);
+    myReservationsGate = null;
   }
 
   @override
@@ -395,13 +85,35 @@ class _StubReservationRepository implements ReservationRepository {
     );
   }
 
+  /// Search dùng cùng stub data — chỉ cần implement để class không abstract.
+  @override
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+  searchReservations({
+    String? gameName,
+    DateTime? fromDate,
+    DateTime? toDate,
+    List<String>? statuses,
+    String? cafeId,
+    bool? hostedByMe,
+    bool? joinedByMe,
+    int page = 1,
+    int pageSize = 20,
+  }) =>
+      getReservations(
+        statuses: statuses,
+        cafeId: cafeId,
+        hostedByMe: hostedByMe,
+        joinedByMe: joinedByMe,
+        page: page,
+        pageSize: pageSize,
+      );
+
   // Unused stubs.
   @override
   Future<Either<Failure, ReservationQuoteEntity>> createQuote({
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    // BR-NEW-15 (2026-08-18): quote request bỏ `timeSlot`.
     required String preferredStartTime,
     required String preferredEndTime,
     required int minPlayers,
@@ -415,7 +127,6 @@ class _StubReservationRepository implements ReservationRepository {
     required String cafeId,
     required String gameId,
     required DateTime playDate,
-    // BR-NEW-15 (2026-08-18): confirm request bỏ `timeSlot`.
     required String preferredStartTime,
     required String preferredEndTime,
     required int minPlayers,
@@ -482,49 +193,51 @@ class _StubReservationRepository implements ReservationRepository {
     required String idempotencyKey,
   }) async =>
       const Left(NotFoundFailure(message: 'Not implemented'));
-}
 
-LobbyEntity _makeLobby({
-  String id = 'lobby-1',
-  String gameName = 'Catan',
-  String cafeName = 'BoardGame Cafe',
-  LobbyStatus status = LobbyStatus.open,
-  int currentPlayers = 3,
-  int maxPlayers = 6,
-  bool isPublic = true,
-}) {
-  final scheduled = DateTime.now().add(const Duration(days: 1));
-  return LobbyEntity(
-    id: id,
-    gameId: 'game-1',
-    gameName: gameName,
-    cafeId: 'cafe-1',
-    cafeName: cafeName,
-    hostId: 'host-1',
-    hostName: 'Host',
-    scheduledTime: scheduled,
-    currentPlayers: currentPlayers,
-    maxPlayers: maxPlayers,
-    minPlayers: 4,
-    isPublic: isPublic,
-    inviteCode: 'K7H3NP9X',
-    status: status,
-    players: const [],
-    createdAt: DateTime.now(),
-    timeoutAt: scheduled.subtract(const Duration(minutes: 30)),
-    minimumKarma: 0,
-    searchRadiusKm: 5,
-  );
+  @override
+  Future<Either<Failure, MyReservationsResult>> getMyReservations({
+    ReservationParticipationType? participationType,
+    List<String>? statuses,
+    String? cafeId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    // Nếu có gate → block cho tới khi test complete.
+    if (myReservationsGate != null) {
+      await myReservationsGate!.future;
+    }
+
+    // Nếu có response riêng theo participationType → dùng nó.
+    final items = (participationType != null &&
+            responsesByType != null &&
+            responsesByType!.containsKey(participationType))
+        ? responsesByType![participationType]!
+        : reservationsResult.getOrElse(() => const <ReservationEntity>[]);
+
+    return Right<Failure, MyReservationsResult>(
+      MyReservationsResult(
+        paginated: PaginatedResponse<ReservationEntity>(
+          items: items,
+          page: 1,
+          pageSize: items.length,
+          totalItems: items.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        ),
+        hostedCount: items.length,
+        joinedCount: 0,
+      ),
+    );
+  }
 }
 
 ReservationEntity _makeReservation({
   String id = 'r1',
   String gameName = 'Catan',
   ReservationStatus status = ReservationStatus.holding,
-  // Note: LobbyStatus ở đây là reservation_entity.dart (LobbyStatus duplicate
-  // từ lobby_management). 2 enum có cùng members nên code chạy được, nhưng
-  // type identity khác nhau → không gán qua nhau được.
-  String? lobbyId = 'lobby-1',
 }) {
   final time = DateTime.now().add(const Duration(days: 2));
   return ReservationEntity(
@@ -547,7 +260,7 @@ ReservationEntity _makeReservation({
     finalDeposit: 100000,
     status: status,
     currentPlayers: 3,
-    lobbyId: lobbyId,
+    lobbyId: 'lobby-1',
     lobbyStatus: null,
     requiresCafeApproval: false,
     createdAt: DateTime.now(),
@@ -555,14 +268,10 @@ ReservationEntity _makeReservation({
 }
 
 void main() {
-  late _StubLobbyRepository lobbyRepo;
   late _StubReservationRepository reservationRepo;
-  late MyLobbiesCubit cubit;
 
   setUp(() async {
-    lobbyRepo = _StubLobbyRepository();
     reservationRepo = _StubReservationRepository();
-    cubit = MyLobbiesCubit(repository: lobbyRepo);
 
     final sl = GetIt.instance;
     if (sl.isRegistered<ReservationRepository>()) {
@@ -572,7 +281,6 @@ void main() {
   });
 
   tearDown(() async {
-    await cubit.close();
     final sl = GetIt.instance;
     if (sl.isRegistered<ReservationRepository>()) {
       await sl.unregister<ReservationRepository>();
@@ -580,14 +288,15 @@ void main() {
   });
 
   Widget wrap() {
-    return BlocProvider<MyLobbiesCubit>.value(
-      value: cubit,
-      child: const MaterialApp(home: BookingsPage()),
+    return MaterialApp(
+      home: Scaffold(
+        body: const BookingsPage(),
+      ),
     );
   }
 
-  group('BookingsPage — tabbed layout', () {
-    testWidgets('hiển thị page title + 2 tab', (tester) async {
+  group('BookingsPage — single-page layout', () {
+    testWidgets('hiển thị page title "LỊCH ĐẶT"', (tester) async {
       await tester.pumpWidget(wrap());
       await tester.pump();
 
@@ -596,13 +305,19 @@ void main() {
         findsOneWidget,
         reason: 'Page title "LỊCH ĐẶT" phải hiển thị',
       );
-      expect(find.text('Phòng chờ'), findsOneWidget);
-      expect(find.text('Lịch đặt'), findsOneWidget);
     });
 
-    testWidgets('tab "Lịch đặt" (default) render reservation list', (
-      tester,
-    ) async {
+    testWidgets('KHÔNG còn tab bar (đã bỏ tab Phòng chờ)', (tester) async {
+      await tester.pumpWidget(wrap());
+      await tester.pump();
+
+      // Không còn widget Tab nào trong tree.
+      expect(find.byType(Tab), findsNothing);
+      // Không còn text "Phòng chờ" trong header.
+      expect(find.text('Phòng chờ'), findsNothing);
+    });
+
+    testWidgets('render reservation list ngay khi mount', (tester) async {
       reservationRepo.stubReservations([
         _makeReservation(gameName: 'Wingspan'),
       ]);
@@ -614,84 +329,212 @@ void main() {
       expect(
         find.text('Wingspan'),
         findsOneWidget,
-        reason: 'Reservation phải render ở tab Lịch đặt (default)',
+        reason: 'Reservation phải render ở page LỊCH ĐẶT',
       );
     });
 
-    testWidgets('tab "Lịch đặt" hiển thị empty state', (tester) async {
+    testWidgets('hiển thị tab strip Chủ phòng / Thành viên', (tester) async {
+      reservationRepo.stubReservations([
+        _makeReservation(gameName: 'Wingspan'),
+      ]);
+
+      await tester.pumpWidget(wrap());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Tab labels (uppercase, bold) — phân biệt Host vs Member bằng màu.
+      expect(find.text('CHỦ PHÒNG'), findsOneWidget,
+          reason: 'Phải có tab "CHỦ PHÒNG"');
+      expect(find.text('THÀNH VIÊN'), findsOneWidget,
+          reason: 'Phải có tab "THÀNH VIÊN"');
+      // Filter chips — chỉ còn status/date (search theo tên game đã được
+        // dời sang trang Search riêng).
+      expect(find.text('Trạng thái'), findsOneWidget);
+      expect(find.text('Từ ngày'), findsOneWidget);
+      expect(find.text('Đến ngày'), findsOneWidget);
+    });
+
+    testWidgets('hiển thị empty state "Chưa có lịch hẹn do bạn tạo" khi không có reservation',
+        (tester) async {
       reservationRepo.stubReservations(const []);
 
       await tester.pumpWidget(wrap());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
+      // MyReservationsPanel dùng empty state khác (Host-specific).
       expect(
-        find.textContaining('Bạn chưa tạo đơn reservation nào'),
+        find.textContaining('CHƯA CÓ LỊCH HẸN DO BẠN TẠO'),
         findsOneWidget,
       );
     });
 
-    testWidgets('chuyển sang tab "Phòng chờ" render lobby list', (
-      tester,
-    ) async {
-      lobbyRepo.stubHosted([_makeLobby()]);
-      cubit.load(null);
+    testWidgets(
+        'chỉ hiển thị tab CHỦ PHÒNG và THÀNH VIÊN mà không có count badge',
+        (tester) async {
+      reservationRepo.stubReservations([
+        _makeReservation(id: 'r1', gameName: 'Wingspan'),
+        _makeReservation(id: 'r2', gameName: 'Splendor'),
+      ]);
 
       await tester.pumpWidget(wrap());
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Tab strip vẫn render cả 2 label — không có count number riêng.
+      expect(find.text('CHỦ PHÒNG'), findsOneWidget);
+      expect(find.text('THÀNH VIÊN'), findsOneWidget);
+    });
+
+    testWidgets(
+        'chuyển tab sang THÀNH VIÊN → hiển thị shimmer skeleton ngay lập tức, '
+        'không hiển thị items của tab cũ trong lúc chờ API',
+        (tester) async {
+      // Stub: tab Host trả về 1 reservation, tab Member sẽ bị gate (block).
+      reservationRepo.responsesByType = {
+        ReservationParticipationType.host: [
+          _makeReservation(id: 'r-host', gameName: 'Wingspan'),
+        ],
+        ReservationParticipationType.member: const [],
+      };
+
+      await tester.pumpWidget(wrap());
+      // Pump cho tới khi panel render xong Host list.
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Tab thứ 2 (index 1) là "Phòng chờ".
-      await tester.tap(find.byType(Tab).last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
+      // Sanity: Host tab đang hiển thị reservation "Wingspan".
+      expect(find.text('Wingspan'), findsOneWidget,
+          reason: 'Initial state phải hiển thị Host reservation');
 
+      // Gate response cho tab Member để quan sát Loading state.
+      reservationRepo.gateNextMyReservationsCall();
+
+      // Bấm sang tab THÀNH VIÊN.
+      await tester.tap(find.text('THÀNH VIÊN'));
+      // Pump 1 frame để xử lý tap + emit Loading state.
+      await tester.pump();
+
+      // Sau khi switch tab, panel KHÔNG được show items của Host cũ
+      // mà phải hiển thị shimmer skeleton (`ReservationCardSkeleton`).
       expect(
-        find.text('Catan'),
+        find.text('Wingspan'),
+        findsNothing,
+        reason: 'Không được render items của tab cũ khi đang chờ API tab mới',
+      );
+      expect(
+        find.byType(ReservationCardSkeleton),
+        findsWidgets,
+        reason: 'Phải hiển thị shimmer skeleton ngay khi switch tab',
+      );
+
+      // Complete response cho Member → empty list → empty state.
+      reservationRepo.completeMyReservations(
+        const Right<Failure, MyReservationsResult>(
+          MyReservationsResult(
+            paginated: PaginatedResponse<ReservationEntity>(
+              items: <ReservationEntity>[],
+              page: 1,
+              pageSize: 0,
+              totalItems: 0,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            ),
+            hostedCount: 1,
+            joinedCount: 0,
+          ),
+        ),
+      );
+
+      // Pump cho tới khi API resolve + AnimatedSwitcher fade xong.
+      // Dùng `pumpAndSettle` để chờ fade-out skeleton hoàn tất (220ms).
+      await tester.pumpAndSettle();
+
+      // Sau khi API trả về: skeleton biến mất, Member empty state hiện ra.
+      expect(
+        find.byType(ReservationCardSkeleton),
+        findsNothing,
+        reason: 'Skeleton phải biến mất sau khi API resolve',
+      );
+      expect(
+        find.textContaining('CHƯA THAM GIA LỊCH HẸN NÀO'),
         findsOneWidget,
-        reason: 'Lobby phải render trong tab Phòng chờ',
+        reason: 'Empty state cho tab Member phải hiển thị sau khi load xong',
       );
     });
 
-    testWidgets('tab "Phòng chờ" hiển thị empty state khi không có lobby', (
-      tester,
-    ) async {
-      lobbyRepo.stubHosted(const []);
-      lobbyRepo.stubJoined(const []);
+    testWidgets(
+        'tab indicator highlight chuyển sang tab mới ngay khi tap, '
+        'không cần đợi API trả về',
+        (tester) async {
+      reservationRepo.responsesByType = {
+        ReservationParticipationType.host: [
+          _makeReservation(id: 'r-host', gameName: 'Wingspan'),
+        ],
+        ReservationParticipationType.member: const [],
+      };
 
       await tester.pumpWidget(wrap());
-      await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      await tester.tap(find.byType(Tab).last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
+      // Gate response để cubit stuck ở Loading.
+      reservationRepo.gateNextMyReservationsCall();
 
-      expect(
-        find.textContaining('Bạn chưa tạo hoặc tham gia phòng chờ nào'),
-        findsOneWidget,
+      // Trước khi tap: tab CHỦ PHÒNG phải đang active (màu cam).
+      // Tìm widget RoleTab và kiểm tra isActive của nó.
+      final roleTabsBefore = tester
+          .widgetList<RoleTab>(find.byType(RoleTab))
+          .toList();
+      expect(roleTabsBefore.length, 2);
+      final hostTabBefore = roleTabsBefore.firstWhere(
+        (t) => t.type == ReservationParticipationType.host,
       );
-    });
+      final memberTabBefore = roleTabsBefore.firstWhere(
+        (t) => t.type == ReservationParticipationType.member,
+      );
+      expect(hostTabBefore.isActive, isTrue,
+          reason: 'Tab Host đang active ban đầu');
+      expect(memberTabBefore.isActive, isFalse);
 
-    testWidgets('tab "Phòng chờ" render error + retry khi API fail', (
-      tester,
-    ) async {
-      lobbyRepo.stubThrows();
-
-      await tester.pumpWidget(wrap());
+      // Tap sang Member.
+      await tester.tap(find.text('THÀNH VIÊN'));
       await tester.pump();
+
+      // Sau khi tap: dù API chưa trả về, tab Member đã phải active.
+      final roleTabsAfter = tester
+          .widgetList<RoleTab>(find.byType(RoleTab))
+          .toList();
+      final hostTabAfter = roleTabsAfter.firstWhere(
+        (t) => t.type == ReservationParticipationType.host,
+      );
+      final memberTabAfter = roleTabsAfter.firstWhere(
+        (t) => t.type == ReservationParticipationType.member,
+      );
+      expect(memberTabAfter.isActive, isTrue,
+          reason:
+              'Tab Member phải active NGAY khi tap, không đợi API trả về');
+      expect(hostTabAfter.isActive, isFalse,
+          reason: 'Tab Host phải mất active khi tap sang Member');
+
+      // Cleanup: complete gate để test kết thúc sạch.
+      reservationRepo.completeMyReservations(
+        const Right<Failure, MyReservationsResult>(
+          MyReservationsResult(
+            paginated: PaginatedResponse<ReservationEntity>(
+              items: <ReservationEntity>[],
+              page: 1,
+              pageSize: 0,
+              totalItems: 0,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            ),
+            hostedCount: 1,
+            joinedCount: 0,
+          ),
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 100));
-
-      await tester.tap(find.byType(Tab).last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
-
-      // Cubit bắt exception → emit MyLobbiesFailure với message 'Không tải được phòng chờ: ...'
-      expect(find.textContaining('Không tải được phòng chờ'), findsOneWidget);
-      expect(find.text('Thử lại'), findsOneWidget);
     });
   });
 }

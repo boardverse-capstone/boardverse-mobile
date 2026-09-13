@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
 import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
+import 'package:boardverse/core/utils/date_formatter.dart';
 import '../../domain/entities/tournament_entity.dart';
 import '../../domain/entities/tournament_status.dart';
 
@@ -55,8 +55,6 @@ class _TournamentListCardState extends State<TournamentListCard>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.borderDark : AppColors.border;
-    final dateFmt = DateFormat('dd/MM/yyyy');
-    final timeFmt = DateFormat('HH:mm');
     final status = widget.tournament.status;
     final statusColor = _statusColor(theme, status);
     final isCancelled = status == TournamentStatus.cancelled;
@@ -154,11 +152,11 @@ class _TournamentListCardState extends State<TournamentListCard>
                   children: [
                     _MetaItem(
                       icon: AppIcons.schedule,
-                      label: dateFmt.format(widget.tournament.startTime),
+                      label: DateFormatter.dateOnly(widget.tournament.startTime),
                     ),
                     _MetaItem(
                       icon: AppIcons.clock,
-                      label: timeFmt.format(widget.tournament.startTime),
+                      label: DateFormatter.timeOnly(widget.tournament.startTime),
                     ),
                     _MetaItem(
                       icon: AppIcons.cash,

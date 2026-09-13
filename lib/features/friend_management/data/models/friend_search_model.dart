@@ -26,9 +26,9 @@ class FriendSuggestionModel {
       odId: (json['odId'] ?? json['userId'] ?? json['id'] ?? '').toString(),
       username: (json['username'] ?? json['name'] ?? '').toString(),
       avatarUrl: (json['avatarUrl'] ?? json['avatar'] ?? '').toString(),
-      karmaPoints: (json['karmaPoints'] ?? json['karma'] ?? 0) as int,
+      karmaPoints: ((json['karmaPoints'] ?? json['karma'] ?? 0) as num?)?.toInt() ?? 0,
       gamerTier: _parseGamerTier(json['gamerTier']),
-      mutualFriendsCount: (json['mutualFriendsCount'] ?? 0) as int,
+      mutualFriendsCount: ((json['mutualFriendsCount'] ?? 0) as num?)?.toInt() ?? 0,
       reason: (json['reason'] ?? 'Gợi ý cho bạn').toString(),
     );
   }
@@ -78,9 +78,9 @@ class UserSearchModel {
       odId: (json['odId'] ?? json['userId'] ?? json['id'] ?? '').toString(),
       username: (json['username'] ?? json['name'] ?? '').toString(),
       avatarUrl: (json['avatarUrl'] ?? json['avatar'] ?? '').toString(),
-      karmaPoints: (json['karmaPoints'] ?? json['karma'] ?? 0) as int,
+      karmaPoints: ((json['karmaPoints'] ?? json['karma'] ?? 0) as num?)?.toInt() ?? 0,
       friendshipStatus: _parseFriendshipStatus(json['friendshipStatus']),
-      mutualFriendsCount: (json['mutualFriendsCount'] ?? 0) as int,
+      mutualFriendsCount: ((json['mutualFriendsCount'] ?? 0) as num?)?.toInt() ?? 0,
     );
   }
 

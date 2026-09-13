@@ -67,6 +67,20 @@ abstract class LobbyRemoteDatasource {
   /// POST /api/v1/lobbies/{lobbyId}/close — Host only.
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId);
 
+  /// POST /api/v1/lobbies/{lobbyId}/change-time — Host only (BR-NEW-15).
+  ///
+  /// Body: `{ preferredStartTime?: "HH:mm:ss", preferredEndTime?: "HH:mm:ss" }`.
+  /// Cả 2 field đều nullable — `null` = giữ nguyên giá trị cũ.
+  /// Chỉ áp dụng khi lobby còn ở trạng thái cho phép
+  /// (`Open`/`Viable`/`Full`/`PendingCafeApproval`). Sau khi host gọi
+  /// thành công, server trả về lobby với `preferredStartTime` /
+  /// `preferredEndTime` mới + recalculated `scheduledTime` + `timeoutAt`.
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  });
+
   /// DELETE /api/v1/lobbies/{lobbyId} — Host giải tán lobby (hard delete).
   /// Hard-delete toàn bộ Lobby + Members + Messages + Invites + Reports.
   /// Chỉ host mới gọi. Không áp dụng khi lobby đã check-in hoặc

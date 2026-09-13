@@ -11,10 +11,37 @@ import '../entities/entities.dart';
 /// - Confirm: atomic transaction (hold BVC + hold seat + hold game + create lobby)
 /// - Cancel: hủy reservation theo policy
 abstract class ReservationRepository {
-  /// Lấy danh sách reservations (phân trang, filter theo status/date/cafe)
+  /// Lấy danh sách reservations (phân trang, filter theo status/date/cafe).
+  ///
+  /// `GET /api/v1/reservations` — simple list. Dùng khi KHÔNG có
+  /// gameName và date range (search thường).
   Future<Either<Failure, PaginatedResponse<ReservationEntity>>> getReservations({
     List<String>? statuses,
     DateTime? playDate,
+    String? cafeId,
+    bool? hostedByMe,
+    bool? joinedByMe,
+    int page = 1,
+    int pageSize = 20,
+  });
+
+  /// Tìm kiếm reservations theo tên game và/hoặc khoảng ngày.
+  ///
+  /// `GET /api/v1/reservations/search` — fuzzy search theo gameName + filter
+  /// theo fromDate/toDate/status/cafeId. Dùng cho Player tra cứu lại lịch
+  /// hẹn trong lịch sử (UI: trang Search trong tab Lịch hẹn).
+  ///
+  /// [gameName] - từ khóa tìm theo tên game (tùy chọn).
+  /// [fromDate] / [toDate] - khoảng ngày chơi (inclusive).
+  /// [statuses] - filter theo status (Holding/Confirmed/...).
+  /// [cafeId] - filter theo cafe cụ thể.
+  /// [hostedByMe] / [joinedByMe] - filter theo role của user.
+  Future<Either<Failure, PaginatedResponse<ReservationEntity>>>
+      searchReservations({
+    String? gameName,
+    DateTime? fromDate,
+    DateTime? toDate,
+    List<String>? statuses,
     String? cafeId,
     bool? hostedByMe,
     bool? joinedByMe,
@@ -136,14 +163,58 @@ abstract class ReservationRepository {
   });
 
   /// Check-in bằng QR code (POS)
-  ///
-  /// [reservationCode] - mã 8-char alphanumeric từ QR code
-  /// [cafeId] - CafeId của POS staff đang quét
-  /// [activeSessionId] - POS session ID
+///
+/// [reservationCode] - mã 8-char alphanumeric từ QR code
+/// [cafeId] - CafeId của POS staff đang quét
+/// [activeSessionId] - POS session ID
   Future<Either<Failure, CheckInByCodeResult>> checkInByCode({
     required String reservationCode,
     required String cafeId,
     required String activeSessionId,
     required String idempotencyKey,
   });
+
+  /// Lấy tất cả reservation của user (Host + Member) cho màn hình "Lịch sử".
+  ///
+  /// `GET /api/v1/reservations/my` — endpoint mới (Sep 2026) gộp cả host
+  /// lẫn member, có 2 summary count (`hostedCount` + `joinedCount`) để FE
+  /// render 2 tab "Tôi tạo (N) | Tôi tham gia (M)" mà không cần filter
+  /// client-side.
+  ///
+  /// Mỗi item có field `participationType` để FE phân biệt host vs member.
+  ///
+  /// Docs: `.agents/docs/apis_docs/reservation.md` §GET /my.
+  Future<Either<Failure, MyReservationsResult>> getMyReservations({
+    ReservationParticipationType? participationType,
+    List<String>? statuses,
+    String? cafeId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int page = 1,
+    int pageSize = 20,
+  });
+}
+
+/// Kết quả trả về từ `GET /api/v1/reservations/my`.
+///
+/// Bao gồm danh sách reservation + 2 summary count (hostedCount /
+/// joinedCount) để render tab strip "Tôi tạo (N) | Tôi tham gia (M)".
+///
+/// Counts áp dụng cùng filter (statuses/cafeId/fromDate/toDate) nhưng
+/// **độc lập với [participationType]** — khi user filter Host-only,
+/// `joinedCount` vẫn count full Member để summary tab không đổi khi đổi
+/// filter (theo API docs 2026-09-02).
+class MyReservationsResult {
+  final PaginatedResponse<ReservationEntity> paginated;
+  final int hostedCount;
+  final int joinedCount;
+
+  const MyReservationsResult({
+    required this.paginated,
+    required this.hostedCount,
+    required this.joinedCount,
+  });
+
+  /// Shortcut tới items.
+  List<ReservationEntity> get items => paginated.items;
 }

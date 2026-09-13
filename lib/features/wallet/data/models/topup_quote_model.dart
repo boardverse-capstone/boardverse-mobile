@@ -77,7 +77,7 @@ class TopUpRequestModel {
 
   factory TopUpRequestModel.fromJson(Map<String, dynamic> json) {
     return TopUpRequestModel(
-      amountVnd: json['amountVnd'] as int,
+      amountVnd: (json['amountVnd'] as num?)?.toInt() ?? 0,
       idempotencyKey: json['idempotencyKey'] as String,
     );
   }

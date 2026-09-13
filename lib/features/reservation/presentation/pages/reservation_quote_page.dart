@@ -5,12 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/navigation/lobby_flow_navigator.dart';
-import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../lobby_management/domain/entities/lobby_entity.dart';
 import '../../../lobby_management/presentation/cubit/lobby_cubit.dart';
 import '../../../lobby_management/presentation/pages/lobby_page.dart';
 import '../../../lobby_management/presentation/pages/lobby_pending_cafe_approval_page.dart';
+import '../../../matchmaking_discovery/presentation/widgets/lobby_config/info_card.dart';
+import '../../../matchmaking_discovery/presentation/widgets/lobby_config/summary_row.dart';
+import '../../../matchmaking_discovery/presentation/widgets/lobby_config/quote_row.dart';
 import '../../domain/entities/entities.dart';
 import '../../../wallet/presentation/widgets/topup_bottom_sheet.dart';
 import '../cubit/reservation_cubit.dart';
@@ -428,17 +431,17 @@ class _LoadedBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remaining = quote.expiresAt.difference(DateTime.now());
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // BR-RISK-09 / BR-NEW-10: render riskMultiplier + warnings[] từ
-            // backend. UI chỉ hiển thị riskLevel (low/medium/high/critical),
-            // không hiển thị riskScore.
-            if (quote.riskMultiplier > 1.0 ||
-                quote.warnings.isNotEmpty) ...[
+            // ── Risk / warning banner ───────────────────────────────
+            if (quote.riskMultiplier > 1.0 || quote.warnings.isNotEmpty) ...[
               _WarningBanner(
                 riskLevel: quote.riskLevel,
                 riskMultiplier: quote.riskMultiplier,
@@ -452,69 +455,264 @@ class _LoadedBody extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Phòng: ${quote.cafeName} • ${quote.gameName}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Cọc cần trừ: ${quote.finalDeposit} BVC',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    if (quote.riskMultiplier > 1.0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.xs),
-                        child: Text(
-                          'Hệ số rủi ro: ×${quote.riskMultiplier.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.warning,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('Số dư hiện tại: ${quote.currentBalance} BVC'),
-                    if (quote.isPrivate)
-                      const Padding(
-                        padding: EdgeInsets.only(top: AppSpacing.sm),
-                        child: Text(
-                          'Phòng riêng tư — không cần cafe duyệt.',
-                        ),
-                      )
-                    else if (quote.requiresCafeApproval)
-                      const Padding(
-                        padding: EdgeInsets.only(top: AppSpacing.sm),
-                        child: Text(
-                          'Sau khi xác nhận sẽ chờ cafe duyệt.',
-                        ),
-                      ),
-                  ],
-                ),
+
+            // ── Section 1: Lobby info ───────────────────────────────
+            LobbyConfigInfoCard(
+              icon: Icons.event_note_rounded,
+              iconColor: AppColors.primary,
+              title: 'Thông tin lobby',
+              useNeoStyle: true,
+              child: Column(
+                children: [
+                  LobbyConfigSummaryRow(
+                    icon: Icons.extension_rounded,
+                    label: 'Game',
+                    value: quote.gameName,
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigSummaryRow(
+                    icon: Icons.local_cafe_rounded,
+                    label: 'Quán',
+                    value: quote.cafeName,
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigSummaryRow(
+                    icon: Icons.calendar_today_rounded,
+                    label: 'Ngày',
+                    value: DateFormatter.dateOnly(quote.playDate),
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigSummaryRow(
+                    icon: Icons.schedule_rounded,
+                    label: 'Giờ chơi',
+                    value:
+                        '${DateFormatter.timeOnly(quote.scheduledStartTime)} – ${DateFormatter.timeOnly(quote.scheduledEndTime)}',
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigSummaryRow(
+                    icon: Icons.group_rounded,
+                    label: 'Số người',
+                    value: '${quote.minPlayers} – ${quote.maxPlayers}',
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigSummaryRow(
+                    icon:
+                        quote.isPrivate ? Icons.lock_rounded : Icons.public_rounded,
+                    label: 'Chế độ',
+                    value: quote.isPrivate ? 'Riêng tư' : 'Công khai',
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              remaining.isNegative
-                  ? 'Đã hết hạn — đang tạo lại báo giá…'
-                  : 'Còn ${_formatDuration(remaining)} để xác nhận',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+
             const SizedBox(height: AppSpacing.lg),
+
+            // ── Section 2: Deposit details ─────────────────────────
+            LobbyConfigInfoCard(
+              icon: Icons.payments_rounded,
+              iconColor: AppColors.success,
+              title: 'Chi tiết cọc',
+              useNeoStyle: true,
+              neoShadowColor: AppColors.success.withValues(alpha: 0.2),
+              child: Column(
+                children: [
+                  // Deposit breakdown rows
+                  LobbyConfigQuoteRow(
+                    label: 'Cọc / người',
+                    value: '${quote.depositRatePerPerson} BVC',
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigQuoteRow(
+                    label: 'Số người',
+                    value: '${quote.minPlayers} – ${quote.maxPlayers}',
+                  ),
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigQuoteRow(
+                    label: 'Base deposit',
+                    value: '${quote.baseDeposit} BVC',
+                  ),
+                  if (quote.riskMultiplier > 1.0) ...[
+                    _NeoDivider(isDark: isDark),
+                    LobbyConfigQuoteRow(
+                      label: 'Hệ số rủi ro',
+                      value: '×${quote.riskMultiplier.toStringAsFixed(2)}',
+                    ),
+                  ],
+                  _NeoDivider(isDark: isDark),
+                  LobbyConfigQuoteRow(
+                    label: 'Buffer',
+                    value: _formatBuffer(quote.bufferMinutes),
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Final deposit highlight
+                  Container(
+                    padding: AppSpacing.paddingAllMd,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'TỔNG CỌC',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.white,
+                            fontSize: 13,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          '${quote.finalDeposit} BVC',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.white,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Current balance row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Số dư hiện tại',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '${quote.currentBalance} BVC',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Private / cafe approval note
+                  if (!quote.isPrivate && quote.requiresCafeApproval) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.warning,
+                          width: NeoBrutalismTheme.borderWidth,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: AppColors.warning,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              'Sau khi xác nhận sẽ chờ quán duyệt.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.warningDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // ── Countdown timer ────────────────────────────────────
+            Container(
+              padding: AppSpacing.paddingAllMd,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: NeoBrutalismTheme.borderWidth,
+                ),
+                boxShadow: NeoBrutalismTheme.lightShadow(
+                  shadowColor: AppColors.black.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.timer_rounded,
+                    color: remaining.isNegative
+                        ? AppColors.error
+                        : AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    remaining.isNegative
+                        ? 'Đã hết hạn — đang tạo lại báo giá…'
+                        : 'Còn ${_formatDuration(remaining)} để xác nhận',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: remaining.isNegative
+                          ? AppColors.error
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // ── Action buttons ─────────────────────────────────────
             FilledButton(
-              onPressed:
-                  remaining.isNegative ? null : onConfirm,
-              child: const Text('Xác nhận & tạo lobby'),
+              onPressed: remaining.isNegative ? null : onConfirm,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                backgroundColor: AppColors.primary,
+              ),
+              child: const Text(
+                'Xác nhận & Tạo lobby',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             OutlinedButton(
               onPressed: onCancel,
-              child: const Text('Huỷ báo giá'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                side: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                  width: NeoBrutalismTheme.borderWidthBold,
+                ),
+              ),
+              child: Text(
+                'Huỷ báo giá',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
           ],
         ),
@@ -522,11 +720,37 @@ class _LoadedBody extends StatelessWidget {
     );
   }
 
+  String _formatBuffer(int minutes) {
+    if (minutes >= 60) {
+      final hours = minutes ~/ 60;
+      final mins = minutes % 60;
+      return mins > 0 ? '$hours giờ $mins phút' : '$hours giờ';
+    }
+    return '$minutes phút';
+  }
+
   String _formatDuration(Duration d) {
     if (d.isNegative) return '00:00:00';
-    final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${d.inHours.toString().padLeft(2, '0')}:$mm:$ss';
+    final hh = d.inHours.toString().padLeft(2, '0');
+    final mm = (d.inMinutes % 60).toString().padLeft(2, '0');
+    final ss = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+}
+
+/// Neo-brutalism divider: 1.5px solid line.
+class _NeoDivider extends StatelessWidget {
+  final bool isDark;
+
+  const _NeoDivider({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1.5,
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      color: isDark ? AppColors.borderDark : AppColors.border,
+    );
   }
 }
 

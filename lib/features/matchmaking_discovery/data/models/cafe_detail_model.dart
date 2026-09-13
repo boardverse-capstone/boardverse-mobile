@@ -45,7 +45,9 @@ class CafeDetailModel {
   final int availableSeats;
   final int heldSeats;
   final int inUseSeats;
-  final Map<TimeSlot, int> availableSeatsByTimeSlot;
+
+  /// BR-NEW-15: ghế trống theo khung giờ — `Map<String, int>` key thô.
+  final Map<String, int> availableSeatsByTimeSlot;
 
   // Config
   final CafeConfigEntity? cafeConfig;
@@ -219,13 +221,15 @@ class CafeDetailModel {
         .toList();
   }
 
-  static Map<TimeSlot, int> _parseTimeSlots(Map<String, dynamic>? raw) {
+  /// BR-NEW-15: parse raw map từ server, không pin enum. Schema
+  /// `additionalProperties: integer` — giữ nguyên keys để UI bind qua
+  /// `TimeSlotKey.fromApiName` (extension ở default_time_slot_entity.dart).
+  static Map<String, int> _parseTimeSlots(Map<String, dynamic>? raw) {
     if (raw == null) return const {};
-    final result = <TimeSlot, int>{};
-    for (final slot in TimeSlot.values) {
-      final v = raw[slot.apiKey];
-      if (v is int) result[slot] = v;
-    }
+    final result = <String, int>{};
+    raw.forEach((key, value) {
+      if (value is int) result[key] = value;
+    });
     return result;
   }
 

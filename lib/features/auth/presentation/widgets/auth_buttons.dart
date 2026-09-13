@@ -302,6 +302,7 @@ class AuthSocialButton extends StatelessWidget {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
@@ -309,11 +310,15 @@ class AuthSocialButton extends StatelessWidget {
                   color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  label,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],

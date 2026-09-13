@@ -143,6 +143,18 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
       _remote.closeLobby(lobbyId);
 
   @override
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  }) =>
+      _remote.changeLobbyTime(
+        lobbyId: lobbyId,
+        preferredStartTime: preferredStartTime,
+        preferredEndTime: preferredEndTime,
+      );
+
+  @override
   Future<Either<Failure, void>> dissolveLobby({
     required String lobbyId,
     String? reason,

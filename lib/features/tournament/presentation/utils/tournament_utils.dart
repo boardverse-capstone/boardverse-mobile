@@ -1,3 +1,4 @@
+import 'package:boardverse/core/utils/date_formatter.dart';
 import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_list_state.dart';
 
@@ -16,10 +17,8 @@ class TournamentUtils {
   }
 
   /// Format DateTime to display (e.g., "21/07/2026 14:30")
-  static String formatDateTime(DateTime d) {
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
-  }
+  /// Delegates to [DateFormatter.fullDateTime] for consistency.
+  static String formatDateTime(DateTime d) => DateFormatter.fullDateTime(d);
 
   /// Filter tournaments based on selected filter index.
   ///

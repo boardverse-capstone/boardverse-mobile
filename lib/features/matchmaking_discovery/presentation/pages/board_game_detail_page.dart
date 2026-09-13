@@ -6,6 +6,8 @@ import '../../../../core/navigation/lobby_suggestion_signal.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
+import '../../../profile/domain/entities/player_location_entity.dart';
+import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../domain/entities/alternative_game_suggestion_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
@@ -16,6 +18,8 @@ import '../pages/lobby_cafe_selection_page.dart';
 import '../widgets/board_game_detail/board_game_detail_error_retry_view.dart';
 import '../widgets/board_game_detail/board_game_detail_shimmer.dart';
 import '../widgets/cafe_card.dart';
+import '../widgets/cafe_selection/location_pick.dart';
+import '../widgets/cafe_selection/location_picker_dialog.dart';
 import '../widgets/game_detail_header.dart';
 import '../widgets/game_info_section.dart';
 import '../widgets/gps_warning_banner.dart';
@@ -43,6 +47,10 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
   /// → màn hình trắng; giờ render lại UI dùng data cached để UX mượt hơn.
   MatchmakingGameDetail? _lastDetailState;
   late final ScrollController _scrollController;
+
+  /// Đang trong flow cập nhật vị trí (khi player chọn "CẬP NHẬT VỊ TRÍ"
+  /// trên error view). Dùng để disable button + tránh mở nhiều dialog.
+  bool _isUpdatingLocation = false;
 
   @override
   void initState() {
@@ -83,9 +91,11 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
               if (state is MatchmakingFailure) {
                 return BoardGameDetailErrorRetryView(
                   message: state.message,
+                  requiresLocationUpdate: state.requiresLocationUpdate,
                   onRetry: () => widget.matchmakingCubit.loadGameDetail(
                     gameId: widget.gameId,
                   ),
+                  onUpdateLocation: _promptUpdateLocation,
                 );
               }
               if (state is MatchmakingGpsDisabled) {
@@ -141,6 +151,86 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         ),
       ),
     );
+  }
+
+  /// Mở dialog chọn vị trí, gọi PUT /api/userprofile/me/location, rồi
+  /// trigger retry load game detail. Dùng khi error view có
+  /// `requiresLocationUpdate = true` và player bấm "CẬP NHẬT VỊ TRÍ".
+  Future<void> _promptUpdateLocation() async {
+    if (_isUpdatingLocation) return;
+
+    final picked = await showDialog<LocationPick>(
+      context: context,
+      builder: (_) => const LocationPickerDialog(),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUpdatingLocation = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final profileCubit = context.read<ProfileCubit>();
+    final stateBefore = profileCubit.state;
+
+    profileCubit.updateLocation(
+      latitude: picked.latitude,
+      longitude: picked.longitude,
+      source: LocationSource.manual.index,
+    );
+
+    await _waitForProfileResult(
+      profileCubit,
+      stateBefore: stateBefore,
+      onSuccess: () {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Đã cập nhật vị trí. Đang tải lại thông tin game...'),
+          ),
+        );
+        widget.matchmakingCubit.loadGameDetail(gameId: widget.gameId);
+      },
+      onFailure: (msg) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Không thể cập nhật vị trí: $msg'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      },
+    );
+
+    if (mounted) setState(() => _isUpdatingLocation = false);
+  }
+
+  /// Polling ProfileCubit tới khi state đổi (LocationLoaded hoặc Failure).
+  /// Trả về qua callback `onSuccess` / `onFailure`. Timeout 8s.
+  Future<void> _waitForProfileResult(
+    ProfileCubit cubit, {
+    required ProfileState stateBefore,
+    required VoidCallback onSuccess,
+    required void Function(String message) onFailure,
+  }) async {
+    const timeout = Duration(seconds: 8);
+    final end = DateTime.now().add(timeout);
+
+    while (DateTime.now().isBefore(end)) {
+      if (!mounted) return;
+      final s = cubit.state;
+      if (!identical(s, stateBefore)) {
+        if (s is ProfileLocationLoaded) {
+          onSuccess();
+          return;
+        }
+        if (s is ProfileFailure) {
+          onFailure(s.message);
+          return;
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+
+    onSuccess();
   }
 
   void _handlePlayNavigation(

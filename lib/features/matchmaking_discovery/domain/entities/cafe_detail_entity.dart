@@ -138,7 +138,20 @@ class CafeConfigEntity extends Equatable {
       ];
 }
 
-/// Khung giờ trong ngày — key trong `availableSeatsByTimeSlot` của API.
+/// Khung giờ trong ngày — dùng bởi `availableSeatsByTimeSlot` (key thô)
+/// của API response và `TimeSlotGrid` (UI).
+///
+/// BR-NEW-15 (2026-08-18): schema `GET /cafes/{id}` response dùng
+/// `additionalProperties: integer` (swagger.json line 26737), không pin
+/// enum — keys có thể là `"Morning"`/`"Afternoon"`/`"Evening"`/`"LateNight"`
+/// hoặc custom override của manager. Cafe dùng chuẩn này xem
+/// `TimeSlotKey.fromApiName`.
+///
+/// Lưu ý: enum này tồn tại riêng cho cafe_detail — KHÔNG chia sẻ với
+/// `reservation_entity.dart`'s `TimeSlot` (sẽ bị bỏ ở scope sau) cũng
+/// như `matchmaking_discovery/.../default_time_slot_entity.dart`'s
+/// `TimeSlotKey` (server-facing).
+@Deprecated('Use TimeSlotKey.fromApiName + Map<String,int> raw keys instead.')
 enum TimeSlot {
   morning, // "Morning"
   afternoon, // "Afternoon"
@@ -225,8 +238,12 @@ class CafeDetailEntity extends Equatable {
   /// Ghế đang sử dụng (InUse).
   final int inUseSeats;
 
-  /// Ghế trống theo khung giờ (Morning/Afternoon/Evening/LateNight).
-  final Map<TimeSlot, int> availableSeatsByTimeSlot;
+  /// Ghế trống theo khung giờ. BR-NEW-15: giờ là `Map<String, int>` raw từ
+  /// server response thay vì `Map<TimeSlot, int>` — tránh phải sync enum
+  /// mỗi khi BE thêm key mới (vd: manager override custom slot).
+  /// UI bind qua `TimeSlotKey.fromApiName` (extension ở
+  /// `default_time_slot_entity.dart`) để lấy icon/label chuẩn.
+  final Map<String, int> availableSeatsByTimeSlot;
 
   // ─── Cafe Config ────────────────────────────────────────────────────
   final CafeConfigEntity? cafeConfig;

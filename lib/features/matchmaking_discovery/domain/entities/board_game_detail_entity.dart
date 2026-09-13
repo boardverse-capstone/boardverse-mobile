@@ -33,6 +33,14 @@ class BoardGameDetailEntity extends Equatable {
     this.components = const [],
   });
 
+  /// Định dạng hiển thị số người chơi — tránh "2-2 người" khó hiểu.
+  String get playerRangeDisplay =>
+      minPlayers == maxPlayers ? '$minPlayers người' : '$minPlayers-$maxPlayers người';
+
+  /// Phiên bản không có đuôi — dùng cho chip nhỏ.
+  String get playerRangeRaw =>
+      minPlayers == maxPlayers ? '$minPlayers' : '$minPlayers-$maxPlayers';
+
   /// Rút gọn về [BoardGameEntity] cho danh sách/UI dùng chung (card, search).
   BoardGameEntity toBoardGameEntity({
     String? fallbackCategory,

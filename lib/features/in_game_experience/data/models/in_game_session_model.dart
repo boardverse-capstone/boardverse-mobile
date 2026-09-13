@@ -83,7 +83,7 @@ class InGameSessionModel {
       cafeName: json['cafeName'] as String,
       gameId: json['gameId'] as String,
       gameName: json['gameName'] as String,
-      tableNumber: json['tableNumber'] as int,
+      tableNumber: (json['tableNumber'] as num?)?.toInt() ?? 0,
       players: (json['players'] as List)
           .map((e) => InGamePlayerModel.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -92,7 +92,7 @@ class InGameSessionModel {
         (e) => e.name == json['status'],
         orElse: () => InGameSessionStatusModel.active,
       ),
-      playDuration: Duration(seconds: json['playDuration'] as int),
+      playDuration: Duration(seconds: (json['playDuration'] as num?)?.toInt() ?? 0),
       isCheckingInventory: json['isCheckingInventory'] as bool? ?? false,
     );
   }

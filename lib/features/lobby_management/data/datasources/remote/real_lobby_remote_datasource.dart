@@ -265,6 +265,35 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }
 
   @override
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      // BR-NEW-15: cả 2 field nullable. `null` = giữ nguyên giá trị cũ
+      // (server dùng `JsonIgnore(Condition = WhenWritingNull)` để skip).
+      if (preferredStartTime != null) {
+        body['preferredStartTime'] = preferredStartTime;
+      }
+      if (preferredEndTime != null) {
+        body['preferredEndTime'] = preferredEndTime;
+      }
+      final path = ApiEndpoints.lobbyChangeTimeslot(lobbyId);
+      final res = await _dio.post<Map<String, dynamic>>(path, data: body);
+      final model = LobbyModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyEntity>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyEntity>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyEntity>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> dissolveLobby({
     required String lobbyId,
     String? reason,

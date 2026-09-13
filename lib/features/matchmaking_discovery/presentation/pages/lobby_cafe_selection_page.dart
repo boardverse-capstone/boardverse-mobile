@@ -443,6 +443,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
             if (state is MatchmakingFailure) {
               return CafeSelectionErrorRetryView(
                 message: state.message,
+                requiresLocationUpdate: state.requiresLocationUpdate,
                 onRetry: _refresh,
                 onUpdateLocation: _promptUpdateLocation,
               );

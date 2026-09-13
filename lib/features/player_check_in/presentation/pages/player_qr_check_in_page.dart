@@ -1,78 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/theme/theme.dart';
 import 'package:boardverse/core/widgets/top_snack_bar.dart';
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
+import '../../data/services/qr_image_decoder.dart';
 import '../cubit/player_check_in_cubit.dart';
 
-/// Page arguments cho [PlayerQrCheckInPage].
-class PlayerQrCheckInPageArgs {
-  final String reservationId;
-  final String cafeName;
-  final String gameName;
-  final int tableNumber;
-
-  const PlayerQrCheckInPageArgs({
-    required this.reservationId,
-    required this.cafeName,
-    required this.gameName,
-    this.tableNumber = 1,
-  });
-}
-
-/// Trang nhập/paste QR token hiển thị trên POS — dùng cho player self
-/// check-in (BR §21A.7, chiều 2 của check-in 2 chiều).
+/// Trang check-in tại quán cho Player (BR §21A.7, chiều 2 của check-in 2
+/// chiều).
 ///
-/// **Note về scope**:
-/// - Backend `/api/check-in/scan-qr` yêu cầu **Player** quét QR do POS tạo
-///   (16-char alphanumeric uppercase). Thiết bị không có camera scanner
-///   (mobile hiện tại chưa add `mobile_scanner`) — vì vậy trang này cho
-///   phép paste token thủ công. Token có thể được copy từ màn hình POS,
-///   từ email/zalo POS gửi, hoặc từ QR Code Reader app khác.
-/// - Sau khi scan thành công → navigate sang `InGameSessionPage` với
-///   `skipCheckIn: true` (đã check-in).
+/// Hỗ trợ 2 chế độ:
+/// - **Camera scanner** (mặc định khi được cấp quyền): dùng `mobile_scanner`
+///   để detect QR code 16-char alphanumeric do POS tạo → tự động submit.
+/// - **Fallback**: hiển thị QR code reservation để staff quét hoặc đối chiếu
+///   khi camera không khả dụng.
+///
+/// Sau khi backend confirm thành công → hiển thị dialog xác nhận "Check-in
+/// thành công" trước khi navigate sang `InGameSessionPage`.
 class PlayerQrCheckInPage extends StatelessWidget {
   final String reservationId;
+  final String lobbyShareCode;
   final String cafeName;
   final String gameName;
   final int tableNumber;
+
+  /// Callback được gọi sau khi check-in thành công.
+  final VoidCallback? onCheckInSuccess;
 
   const PlayerQrCheckInPage({
     super.key,
     required this.reservationId,
+    required this.lobbyShareCode,
     required this.cafeName,
     required this.gameName,
     this.tableNumber = 1,
+    this.onCheckInSuccess,
   });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<PlayerCheckInCubit>(),
+      create: (_) => PlayerCheckInCubit.create(),
       child: _PlayerQrCheckInView(
         reservationId: reservationId,
+        lobbyShareCode: lobbyShareCode,
         cafeName: cafeName,
         gameName: gameName,
         tableNumber: tableNumber,
+        onCheckInSuccess: onCheckInSuccess,
       ),
     );
   }
 }
 
+/// Mode hiển thị của page.
+enum _Mode { scanning, fallback }
+
 class _PlayerQrCheckInView extends StatefulWidget {
   final String reservationId;
+  final String lobbyShareCode;
   final String cafeName;
   final String gameName;
   final int tableNumber;
+  final VoidCallback? onCheckInSuccess;
 
   const _PlayerQrCheckInView({
     required this.reservationId,
+    required this.lobbyShareCode,
     required this.cafeName,
     required this.gameName,
     required this.tableNumber,
+    this.onCheckInSuccess,
   });
 
   @override
@@ -82,13 +86,222 @@ class _PlayerQrCheckInView extends StatefulWidget {
 class _PlayerQrCheckInViewState extends State<_PlayerQrCheckInView> {
   final _tokenController = TextEditingController();
 
-  /// Token đang hiển thị (giữ lại giá trị cũ khi rebuild do state change).
-  String get _currentToken => _tokenController.text.trim().toUpperCase();
+  /// Regex 16-char alphanumeric uppercase (loại trừ 0/1/I/O theo spec backend).
+  static final _tokenRegex = RegExp(
+    r'^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$',
+  );
+
+  /// Regex để extract token từ URL hoặc JSON (ví dụ: ?token=XXXX hoặc "token":"XXXX")
+  static final _tokenExtractRegex = RegExp(
+    r'[?&"]?token[&="]?([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16})',
+    caseSensitive: false,
+  );
+
+  /// True khi đã pre-fill input từ cache (chỉ chạy 1 lần).
+  bool _cachePrefilled = false;
+
+  /// Mode hiện tại của page.
+  _Mode _mode = _Mode.scanning;
+
+  /// Controller cho mobile_scanner — null khi ở mode fallback.
+  MobileScannerController? _scannerController;
+
+  /// True khi đã gọi `submitToken` lần đầu từ scan → pause scanner
+  /// để tránh submit nhiều lần trong khi đợi response.
+  bool _submittedFromScan = false;
+
+  /// True khi đang xin permission lần đầu → hiển thị loading.
+  bool _requestingPermission = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPermissionAndCache();
+  }
+
+  Future<void> _initPermissionAndCache() async {
+    // Pre-fill từ cache (nếu có) — best-effort, không block UI.
+    final cubit = context.read<PlayerCheckInCubit>();
+    final cached = await cubit.loadCachedToken();
+    if (!mounted) return;
+    if (cached != null && _tokenController.text.isEmpty) {
+      _tokenController.text = cached;
+      _tokenController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _tokenController.text.length),
+      );
+    }
+    _cachePrefilled = true;
+
+    // Xin camera permission.
+    await _requestCameraPermission();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    if (!mounted) return;
+    setState(() => _requestingPermission = true);
+
+    try {
+      var status = await Permission.camera.status;
+      if (status.isDenied || status.isRestricted) {
+        status = await Permission.camera.request();
+      }
+
+      if (!mounted) return;
+
+      if (status.isGranted || status.isLimited) {
+        _startScanner();
+      } else {
+        _showPermissionDeniedDialog();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showPermissionDeniedDialog();
+    } finally {
+      if (mounted) {
+        setState(() => _requestingPermission = false);
+      }
+    }
+  }
+
+  void _startScanner() {
+    _scannerController?.dispose();
+    _scannerController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      formats: const [BarcodeFormat.qrCode],
+      // Bật torch để cải thiện quét trong điều kiện ánh sáng yếu
+      torchEnabled: false,
+      // Tìm camera sau
+      facing: CameraFacing.back,
+    );
+    if (mounted) {
+      setState(() => _mode = _Mode.scanning);
+    }
+  }
+
+  void _stopScanner() {
+    _scannerController?.dispose();
+    _scannerController = null;
+  }
+
+  Future<void> _showPermissionDeniedDialog() async {
+    if (!mounted) return;
+    setState(() => _mode = _Mode.fallback);
+
+    final cubit = context.read<PlayerCheckInCubit>();
+    if (cubit.state is PlayerCheckInSubmitting) return;
+    final status = await Permission.camera.status;
+    if (!status.isPermanentlyDenied) return;
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Camera bị chặn'),
+        content: const Text(
+          'Bạn đã chặn quyền camera. Hãy vào Cài đặt → Ứng dụng → '
+          'BoardVerse → Quyền để bật lại. Trong lúc chờ, bạn có thể '
+          'đưa mã QR bên dưới cho nhân viên quét.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Đóng'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              openAppSettings();
+            },
+            child: const Text('Mở cài đặt'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _switchToFallback() {
+    _stopScanner();
+    if (mounted) {
+      setState(() => _mode = _Mode.fallback);
+    }
+  }
+
+  void _switchToScanning() async {
+    final status = await Permission.camera.status;
+    if (!status.isGranted && !status.isLimited) {
+      if (!mounted) return;
+      context.showTopSnackBar(
+        'Cần cấp quyền camera để quét QR.',
+        isError: true,
+      );
+      await _requestCameraPermission();
+      return;
+    }
+    if (mounted) {
+      _startScanner();
+    }
+  }
 
   @override
   void dispose() {
     _tokenController.dispose();
+    _stopScanner();
     super.dispose();
+  }
+
+  void _onScanDetected(BarcodeCapture capture) {
+    if (_submittedFromScan) return;
+    final cubit = context.read<PlayerCheckInCubit>();
+    if (cubit.state is PlayerCheckInSubmitting) return;
+
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue;
+      if (value == null) continue;
+
+      // Debug: log raw value để check format QR
+      debugPrint('[QR Scan] Raw value: "$value"');
+      debugPrint('[QR Scan] Barcode format: ${barcode.format}');
+
+      String? token;
+      final normalized = value.trim().toUpperCase();
+
+      // Thử 1: Direct match 16-char token
+      if (_tokenRegex.hasMatch(normalized)) {
+        token = normalized;
+      }
+      // Thử 2: Extract từ URL hoặc URI bất kỳ.
+      // POS QR payload là deep-link: `boardverse://check-in?token=XXXXX`
+      // Theo `.agents/docs/apis_docs/cafe-pos.md` — handle cả scheme này.
+      // Regex match `token=XXXX` không phụ thuộc scheme nên handle mọi
+      // variant: `boardverse://...?token=`, `https://...?token=`, JSON, v.v.
+      final match = _tokenExtractRegex.firstMatch(normalized);
+      if (match != null) {
+        token = match.group(1);
+        debugPrint('[QR Scan] Extracted token: $token');
+      }
+
+      // Nếu vẫn không extract được, vẫn hiển thị trong text field
+      // để user có thể nhập tay nếu cần
+      if (token != null) {
+        _submittedFromScan = true;
+        _scannerController?.stop();
+
+        _tokenController.text = token;
+        _tokenController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _tokenController.text.length),
+        );
+
+        cubit.submitToken(token);
+      } else {
+        // Hiển thị raw value trong text field để user xem và xử lý
+        debugPrint('[QR Scan] No valid token found, showing raw value');
+        _tokenController.text = normalized;
+        _tokenController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _tokenController.text.length),
+        );
+      }
+      return;
+    }
   }
 
   Future<void> _pasteFromClipboard(BuildContext context) async {
@@ -120,12 +333,226 @@ class _PlayerQrCheckInViewState extends State<_PlayerQrCheckInView> {
     cubit.submitToken(raw);
   }
 
-  void _onSuccess(BuildContext context, PlayerCheckInSuccess state) {
-    if (!state.result.reservationId.isNotEmpty &&
-        state.result.reservationId != widget.reservationId) {
-      // Defensive: backend scan thành công cho reservation khác với context
-      // hiện tại — vẫn cho vào phiên chơi vì session đã được tạo.
+  /// Mở ImagePicker → chọn ảnh QR → decode bằng ML Kit → extract token.
+  ///
+  /// Dùng cho test/debug khi:
+  /// - Không có camera (emulator)
+  /// - Muốn quét QR từ screenshot POS thay vì đưa điện thoại qua lại
+  ///
+  /// Luồng:
+  /// 1. Validate token bằng `_tokenRegex` / `_tokenExtractRegex` (giống
+  ///    camera scanner)
+  /// 2. Pause scanner nếu đang chạy để tránh submit 2 lần
+  /// 3. Submit qua cubit như bình thường
+  Future<void> _pickAndDecodeQrImage() async {
+    if (_decodingImage) return;
+    _decodingImage = true;
+
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        // Không cần maxWidth vì ML Kit tự scale; chỉ để tránh OOM.
+        maxWidth: 2048,
+      );
+      if (image == null) {
+        // User huỷ picker — không làm gì.
+        return;
+      }
+
+      debugPrint('[QR Upload] Picked image: ${image.path}');
+
+      final raw = await QrImageDecoder.decodeFromFile(image.path);
+      if (raw == null || raw.trim().isEmpty) {
+        if (!mounted) return;
+        context.showTopSnackBar(
+          'Không tìm thấy mã QR trong ảnh. Hãy chọn ảnh khác rõ hơn.',
+          isError: true,
+        );
+        return;
+      }
+
+      debugPrint('[QR Upload] Raw value: "$raw"');
+
+      final normalized = raw.trim().toUpperCase();
+
+      // Dùng cùng logic extract token với camera scanner để đảm bảo
+      // nhất quán (handle direct match, URL với token=, JSON, v.v.).
+      String? token;
+      if (_tokenRegex.hasMatch(normalized)) {
+        token = normalized;
+      } else {
+        final match = _tokenExtractRegex.firstMatch(normalized);
+        if (match != null) {
+          token = match.group(1);
+          debugPrint('[QR Upload] Extracted token: $token');
+        }
+      }
+
+      if (token == null) {
+        if (!mounted) return;
+        context.showTopSnackBar(
+          'Mã QR trong ảnh không đúng định dạng (cần 16 ký tự alphanumeric).',
+          isError: true,
+        );
+        // Vẫn điền raw value vào text field để user xem.
+        _tokenController.text = normalized;
+        _tokenController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _tokenController.text.length),
+        );
+        return;
+      }
+
+      // Pause scanner (nếu đang chạy) để tránh submit trùng.
+      if (_scannerController != null) {
+        await _scannerController!.stop();
+      }
+
+      _submittedFromScan = true;
+      _tokenController.text = token;
+      _tokenController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _tokenController.text.length),
+      );
+
+      if (!mounted) return;
+      context.read<PlayerCheckInCubit>().submitToken(token);
+    } catch (e, stack) {
+      debugPrint('[QR Upload] Error: $e\n$stack');
+      if (!mounted) return;
+      context.showTopSnackBar(
+        'Lỗi khi đọc ảnh: ${e.toString()}',
+        isError: true,
+      );
+    } finally {
+      _decodingImage = false;
     }
+  }
+
+  /// True khi đang decode ảnh — disable nút để tránh double-tap.
+  bool _decodingImage = false;
+
+  /// Hiển thị dialog xác nhận trước khi navigate sang `InGameSessionPage`.
+  Future<bool> _showSuccessDialog(
+    BuildContext context,
+    PlayerCheckInSuccess state,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.success, width: 3),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: AppColors.success,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: AppColors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Expanded(
+              child: Text(
+                'Check-in thành công!',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.cafeName,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.gameName,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.success.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Đã check-in lúc ${_formatTime(state.result.checkedInAt)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Ở lại'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Vào phiên chơi'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  String _formatTime(DateTime time) {
+    final local = time.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  void _onSuccess(PlayerCheckInSuccess state) async {
+    final shouldNavigate = await _showSuccessDialog(context, state);
+    if (!mounted || !shouldNavigate) {
+      _submittedFromScan = false;
+      _scannerController?.start();
+      return;
+    }
+
+    widget.onCheckInSuccess?.call();
+
+    if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pushReplacementNamed(
       LobbyRoutes.inGameSession,
       arguments: InGameSessionPageArgs(
@@ -146,20 +573,40 @@ class _PlayerQrCheckInViewState extends State<_PlayerQrCheckInView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quét QR từ quán'),
+        title: Text(_mode == _Mode.scanning ? 'Quét QR từ quán' : 'Mã check-in'),
         elevation: 0,
+        actions: [
+          if (!_requestingPermission)
+            IconButton(
+              tooltip: _mode == _Mode.scanning
+                  ? 'Hiển thị mã cho staff'
+                  : 'Quét bằng camera',
+              icon: Icon(
+                _mode == _Mode.scanning
+                    ? Icons.qr_code
+                    : Icons.qr_code_scanner,
+              ),
+              onPressed: () {
+                if (_mode == _Mode.scanning) {
+                  _switchToFallback();
+                } else {
+                  _switchToScanning();
+                }
+              },
+            ),
+        ],
       ),
       body: BlocConsumer<PlayerCheckInCubit, PlayerCheckInState>(
         listener: (context, state) {
           if (state is PlayerCheckInSuccess) {
-            _onSuccess(context, state);
+            _onSuccess(state);
           }
           if (state is PlayerCheckInFailure) {
-            // Lỗi — giữ nguyên input, không pop.
             context.showTopSnackBar(state.message, isError: true);
+            _submittedFromScan = false;
+            _scannerController?.start();
+
             setState(() {
-              // Restore lại đúng giá trị token đã submit (trong trường
-              // hợp format mismatch đã bị reject trước khi gọi API).
               if (_tokenController.text.trim().toUpperCase() !=
                   state.lastToken) {
                 _tokenController.text = state.lastToken;
@@ -171,67 +618,58 @@ class _PlayerQrCheckInViewState extends State<_PlayerQrCheckInView> {
           final isSubmitting = state is PlayerCheckInSubmitting;
           final lastError = state is PlayerCheckInFailure ? state : null;
 
-          // Auto-fill từ error state để user retry không phải gõ lại.
           if (lastError != null &&
+              _cachePrefilled &&
               _tokenController.text.trim().toUpperCase() !=
                   lastError.lastToken) {
             _tokenController.text = lastError.lastToken;
           }
 
           return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _HeaderCard(
-                    cafeName: widget.cafeName,
-                    gameName: widget.gameName,
-                    isDark: isDark,
+            child: Column(
+              children: [
+                _HeaderCard(
+                  cafeName: widget.cafeName,
+                  gameName: widget.gameName,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_requestingPermission)
+                          const _PermissionLoading()
+                        else if (_mode == _Mode.scanning)
+                          _ScannerSection(
+                            controller: _scannerController!,
+                            onDetect: _onScanDetected,
+                            onSwitchToFallback: _switchToFallback,
+                          )
+                        else
+                          _FallbackSection(
+                            lobbyShareCode: widget.lobbyShareCode,
+                            tokenController: _tokenController,
+                            isSubmitting: isSubmitting,
+                            errorText: lastError?.message,
+                            onChanged: (_) => setState(() {}),
+                            onPaste: () => _pasteFromClipboard(context),
+                            onSubmit: () => _submit(context),
+                            onUploadImage: _pickAndDecodeQrImage,
+                            isUploading: _decodingImage,
+                            isDark: isDark,
+                          ),
+                        const SizedBox(height: AppSpacing.lg),
+                        const _HelperFooter(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  _InstructionStep(
-                    step: 1,
-                    title: 'Lấy mã QR từ quán',
-                    body:
-                        'Nhờ nhân viên quán tạo mã QR trên màn hình POS, '
-                        'sau đó copy mã gồm 16 ký tự in hoa (A–Z, 2–9).',
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _InstructionStep(
-                    step: 2,
-                    title: 'Dán mã vào ô bên dưới',
-                    body:
-                        'Nhấn nút "Dán từ bộ nhớ tạm" hoặc nhập thủ công '
-                        'rồi bấm "Check-in".',
-                    color: AppColors.secondary,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  _TokenInputField(
-                    controller: _tokenController,
-                    isSubmitting: isSubmitting,
-                    onChanged: (_) => setState(() {}),
-                    onPaste: () => _pasteFromClipboard(context),
-                    onSubmit: () => _submit(context),
-                    errorText: lastError?.message,
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  _SubmitButton(
-                    isSubmitting: isSubmitting,
-                    enabled: _currentToken.isNotEmpty,
-                    onPressed: () => _submit(context),
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  const _HelperFooter(),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
@@ -240,6 +678,7 @@ class _PlayerQrCheckInViewState extends State<_PlayerQrCheckInView> {
   }
 }
 
+/// Header card — neo-brutalism gradient banner hiển thị cafe + game.
 class _HeaderCard extends StatelessWidget {
   final String cafeName;
   final String gameName;
@@ -254,6 +693,7 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.all(AppSpacing.lg),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -295,9 +735,9 @@ class _HeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Tự check-in tại quán',
-                  style: const TextStyle(
+                const Text(
+                  'Quét mã QR để check-in',
+                  style: TextStyle(
                     color: AppColors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
@@ -321,92 +761,53 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-class _InstructionStep extends StatelessWidget {
-  final int step;
-  final String title;
-  final String body;
-  final Color color;
-
-  const _InstructionStep({
-    required this.step,
-    required this.title,
-    required this.body,
-    required this.color,
-  });
+/// Loading state khi đang xin camera permission.
+class _PermissionLoading extends StatelessWidget {
+  const _PermissionLoading();
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.border,
-              width: 2,
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        children: [
+          const SizedBox(
+            width: 36,
+            height: 36,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Đang xin quyền camera...',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          child: Text(
-            '$step',
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.white,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                body,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _TokenInputField extends StatelessWidget {
-  final TextEditingController controller;
-  final bool isSubmitting;
-  final ValueChanged<String>? onChanged;
-  final VoidCallback? onPaste;
-  final VoidCallback? onSubmit;
-  final String? errorText;
+/// Section scanner — camera preview với overlay hướng dẫn.
+class _ScannerSection extends StatefulWidget {
+  final MobileScannerController controller;
+  final void Function(BarcodeCapture) onDetect;
+  final VoidCallback onSwitchToFallback;
 
-  const _TokenInputField({
+  const _ScannerSection({
     required this.controller,
-    required this.isSubmitting,
-    required this.onChanged,
-    required this.onPaste,
-    required this.onSubmit,
-    required this.errorText,
+    required this.onDetect,
+    required this.onSwitchToFallback,
   });
+
+  @override
+  State<_ScannerSection> createState() => _ScannerSectionState();
+}
+
+class _ScannerSectionState extends State<_ScannerSection> {
+  bool _torchEnabled = false;
 
   @override
   Widget build(BuildContext context) {
@@ -414,8 +815,291 @@ class _TokenInputField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Đưa mã QR của quán vào khung',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondary,
+                letterSpacing: 0.6,
+              ),
+            ),
+            // Nút bật/tắt đèn flash
+            IconButton(
+              onPressed: () async {
+                await widget.controller.toggleTorch();
+                setState(() {
+                  _torchEnabled = !_torchEnabled;
+                });
+              },
+              icon: Icon(
+                _torchEnabled ? Icons.flash_on : Icons.flash_off,
+                color: _torchEnabled ? Colors.amber : AppColors.textSecondary,
+              ),
+              tooltip: _torchEnabled ? 'Tắt đèn flash' : 'Bật đèn flash',
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AspectRatio(
+          aspectRatio: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.primary,
+                width: 3,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                MobileScanner(
+                  controller: widget.controller,
+                  onDetect: widget.onDetect,
+                  errorBuilder: (_, error, _) => _ScannerError(
+                    error: error,
+                    onSwitchToFallback: widget.onSwitchToFallback,
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: AppColors.white,
+                        width: 3,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        OutlinedButton.icon(
+          onPressed: widget.onSwitchToFallback,
+          icon: const Icon(Icons.qr_code, size: 18),
+          label: const Text(
+            'Hiển thị mã QR của tôi cho staff',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lấy message lỗi chi tiết từ MobileScannerException.
+String _getErrorMessage(MobileScannerException error) {
+  switch (error.errorCode) {
+    case MobileScannerErrorCode.permissionDenied:
+      return 'Quyền camera bị từ chối.\nVui lòng bật quyền camera trong Cài đặt.';
+    case MobileScannerErrorCode.unsupported:
+      return 'Thiết bị không hỗ trợ quét QR.';
+    case MobileScannerErrorCode.genericError:
+      return 'Lỗi không xác định.\nHãy đưa mã QR của bạn cho nhân viên quét.';
+    case MobileScannerErrorCode.controllerAlreadyInitialized:
+      return 'Camera đang được sử dụng bởi ứng dụng khác.';
+    default:
+      return error.errorDetails?.message ??
+          'Lỗi camera không xác định.\nHãy đưa mã QR của bạn cho nhân viên quét.';
+  }
+}
+
+/// Hiển thị khi camera scanner gặp lỗi.
+class _ScannerError extends StatelessWidget {
+  final MobileScannerException error;
+  final VoidCallback onSwitchToFallback;
+
+  const _ScannerError({required this.error, required this.onSwitchToFallback});
+
+  @override
+  Widget build(BuildContext context) {
+    // Lấy message chi tiết để debug
+    final errorMsg = _getErrorMessage(error);
+
+    return Container(
+      color: AppColors.black,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.no_photography_outlined,
+              color: AppColors.white,
+              size: 48,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'Không thể truy cập camera',
+              style: TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              errorMsg,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: onSwitchToFallback,
+              icon: const Icon(Icons.qr_code, size: 18),
+              label: const Text('Hiển thị mã QR'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Section fallback — hiển thị QR reservation + text field để paste token
+/// + nút upload ảnh QR để test/debug.
+class _FallbackSection extends StatelessWidget {
+  final String lobbyShareCode;
+  final TextEditingController tokenController;
+  final bool isSubmitting;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final VoidCallback? onPaste;
+  final VoidCallback? onSubmit;
+  final VoidCallback? onUploadImage;
+  final bool isUploading;
+  final bool isDark;
+
+  const _FallbackSection({
+    required this.lobbyShareCode,
+    required this.tokenController,
+    required this.isSubmitting,
+    required this.errorText,
+    required this.onChanged,
+    required this.onPaste,
+    required this.onSubmit,
+    required this.onUploadImage,
+    required this.isUploading,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final currentToken = tokenController.text.trim().toUpperCase();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // QR code reservation để staff quét
         Text(
-          'Mã QR từ POS (16 ký tự)',
+          'Mã QR của bạn - đưa cho nhân viên quét',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondary,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: AppRadius.radiusMdAll,
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: 2,
+            ),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: AppRadius.radiusSmAll,
+                ),
+                child: QrImageView(
+                  data: lobbyShareCode,
+                  version: QrVersions.auto,
+                  size: 160,
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Mã reservation',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    lobbyShareCode,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 3,
+                      color: colors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  IconButton(
+                    icon: Icon(Icons.copy, color: colors.primary, size: 18),
+                    tooltip: 'Sao chép mã',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: lobbyShareCode));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã sao chép: $lobbyShareCode'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        // Hoặc nhập mã POS
+        Text(
+          'Hoặc dán mã QR từ POS (16 ký tự)',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w900,
@@ -448,14 +1132,14 @@ class _TokenInputField extends StatelessWidget {
                   horizontal: AppSpacing.md,
                 ),
                 child: TextField(
-                  controller: controller,
+                  controller: tokenController,
                   enabled: !isSubmitting,
                   onChanged: onChanged,
                   onSubmitted: (_) => onSubmit?.call(),
                   textCapitalization: TextCapitalization.characters,
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                    fontSize: 16,
                     letterSpacing: 3,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
@@ -490,6 +1174,55 @@ class _TokenInputField extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: AppSpacing.lg),
+        _SubmitButton(
+          isSubmitting: isSubmitting,
+          enabled: currentToken.isNotEmpty,
+          onPressed: onSubmit,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        // Nút upload ảnh QR — phục vụ test/debug. Decode QR từ ảnh bằng
+        // Google ML Kit, sau đó submit như bình thường. Hữu ích khi không
+        // có camera (emulator) hoặc muốn quét QR từ screenshot POS.
+        OutlinedButton.icon(
+          onPressed: (isSubmitting || isUploading) ? null : onUploadImage,
+          icon: isUploading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : const Icon(Icons.image_outlined, size: 18),
+          label: Text(
+            isUploading ? 'Đang đọc ảnh...' : 'Tải ảnh QR từ thiết bị',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          onPressed: () {
+            // Switch back to scanner mode
+            Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.qr_code_scanner, size: 18),
+          label: const Text(
+            'Quay lại chế độ quét camera',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
       ],
     );
   }
@@ -669,9 +1402,9 @@ class _HelperFooter extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Nếu quán chưa tạo QR, hãy nhờ nhân viên vào POS → bấm '
-                  '"Tạo QR check-in" và đưa màn hình cho bạn quét. Mã có '
-                  'thời hạn 30 phút.',
+                  'Nếu camera không hoạt động, hãy đưa mã QR bên trên cho nhân '
+                  'viên để được check-in. Hoặc nhờ nhân viên quét mã trên màn '
+                  'hình POS.',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

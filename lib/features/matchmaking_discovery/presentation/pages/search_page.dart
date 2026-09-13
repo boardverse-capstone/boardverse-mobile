@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
+import '../../../profile/domain/entities/player_location_entity.dart';
+import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
@@ -11,6 +13,9 @@ import '../cubit/matchmaking_state.dart';
 import '../widgets/animated_section_header.dart';
 import '../widgets/board_game_card.dart';
 import '../widgets/cafe_search_card.dart';
+import '../widgets/cafe_selection/cafe_selection_error_retry_view.dart';
+import '../widgets/cafe_selection/location_pick.dart';
+import '../widgets/cafe_selection/location_picker_dialog.dart';
 import '../widgets/empty_board_game_illustration.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/game_skeleton.dart';
@@ -44,6 +49,10 @@ class _SearchPageState extends State<SearchPage>
 
   late final TabController _tabController;
   SearchTab _activeTab = SearchTab.boardgames;
+
+  /// Đang trong flow cập nhật vị trí (khi player chọn "CẬP NHẬT VỊ TRÍ"
+  /// trên error view). Dùng để disable button + tránh mở nhiều dialog.
+  bool _isUpdatingLocation = false;
 
   @override
   void initState() {
@@ -97,6 +106,86 @@ class _SearchPageState extends State<SearchPage>
       widget.matchmakingCubit.searchGames(query: _searchController.text);
     }
     await Future<void>.delayed(const Duration(milliseconds: 600));
+  }
+
+  /// Mở dialog chọn vị trí, gọi PUT /api/userprofile/me/location, rồi
+  /// trigger retry cafe search. Dùng khi error view có
+  /// `requiresLocationUpdate = true` và player bấm "CẬP NHẬT VỊ TRÍ".
+  Future<void> _promptUpdateLocation() async {
+    if (_isUpdatingLocation) return;
+
+    final picked = await showDialog<LocationPick>(
+      context: context,
+      builder: (_) => const LocationPickerDialog(),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUpdatingLocation = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final profileCubit = context.read<ProfileCubit>();
+    final stateBefore = profileCubit.state;
+
+    profileCubit.updateLocation(
+      latitude: picked.latitude,
+      longitude: picked.longitude,
+      source: LocationSource.manual.index,
+    );
+
+    await _waitForProfileResult(
+      profileCubit,
+      stateBefore: stateBefore,
+      onSuccess: () {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Đã cập nhật vị trí. Đang tìm quán quanh bạn...'),
+          ),
+        );
+        _triggerCafeSearch();
+      },
+      onFailure: (msg) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Không thể cập nhật vị trí: $msg'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      },
+    );
+
+    if (mounted) setState(() => _isUpdatingLocation = false);
+  }
+
+  /// Polling ProfileCubit tới khi state đổi (LocationLoaded hoặc Failure).
+  /// Trả về qua callback `onSuccess` / `onFailure`. Timeout 8s.
+  Future<void> _waitForProfileResult(
+    ProfileCubit cubit, {
+    required ProfileState stateBefore,
+    required VoidCallback onSuccess,
+    required void Function(String message) onFailure,
+  }) async {
+    const timeout = Duration(seconds: 8);
+    final end = DateTime.now().add(timeout);
+
+    while (DateTime.now().isBefore(end)) {
+      if (!mounted) return;
+      final s = cubit.state;
+      if (!identical(s, stateBefore)) {
+        if (s is ProfileLocationLoaded) {
+          onSuccess();
+          return;
+        }
+        if (s is ProfileFailure) {
+          onFailure(s.message);
+          return;
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+
+    onSuccess();
   }
 
   void _onSubmitted(String value) {
@@ -505,9 +594,11 @@ class _SearchPageState extends State<SearchPage>
       return const GameSkeletonList();
     }
     if (state is MatchmakingFailure) {
-      return ErrorRetryView(
+      return CafeSelectionErrorRetryView(
         message: state.message,
+        requiresLocationUpdate: state.requiresLocationUpdate,
         onRetry: _triggerCafeSearch,
+        onUpdateLocation: _promptUpdateLocation,
       );
     }
     if (state is MatchmakingCafeSearchResults) {

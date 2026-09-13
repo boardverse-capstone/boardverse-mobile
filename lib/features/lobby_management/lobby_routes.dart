@@ -6,6 +6,7 @@ import 'package:boardverse/core/navigation/lobby_join_signal.dart';
 import 'package:boardverse/features/in_game_experience/presentation/cubit/in_game_cubit.dart';
 import 'package:boardverse/features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'package:boardverse/features/player_check_in/presentation/pages/player_qr_check_in_page.dart';
+import 'package:boardverse/features/player_check_in/presentation/pages/player_qr_check_in_page_args.dart';
 import 'presentation/cubit/lobby_cubit.dart';
 import 'presentation/cubit/lobby_invite_cubit.dart';
 import 'presentation/cubit/match_result_cubit.dart';
@@ -87,6 +88,9 @@ class LobbyInvitesHistoryPageArgs {
 }
 
 /// Page arguments cho [InGameSessionPage].
+///
+/// - [lobbyId]: optional. Nếu có, InGameSessionPage hiển thị nút
+///   "Vào phòng chờ" để player quay lại lobby.
 class InGameSessionPageArgs {
   final String bookingId;
   final String cafeName;
@@ -98,12 +102,16 @@ class InGameSessionPageArgs {
   /// check-in rồi).
   final bool skipCheckIn;
 
+  /// ID của lobby gốc — dùng để navigate ngược lại LobbyPage.
+  final String? lobbyId;
+
   const InGameSessionPageArgs({
     required this.bookingId,
     required this.cafeName,
     required this.gameName,
     required this.tableNumber,
     this.skipCheckIn = true,
+    this.lobbyId,
   });
 }
 
@@ -114,19 +122,6 @@ class InGameSessionPageArgs {
 ///   cùng reservationId trong response).
 /// - [cafeName], [gameName], [tableNumber]: cần thiết để truyền vào
 ///   `InGameSessionPageArgs` sau khi check-in thành công.
-class PlayerQrCheckInPageArgs {
-  final String reservationId;
-  final String cafeName;
-  final String gameName;
-  final int tableNumber;
-
-  const PlayerQrCheckInPageArgs({
-    required this.reservationId,
-    required this.cafeName,
-    required this.gameName,
-    this.tableNumber = 1,
-  });
-}
 
 /// Helper to build routes for lobby-related pages.
 /// Call `setupLobbyRoutes()` in MaterialApp.onGenerateRoute.
@@ -232,6 +227,7 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
             gameName: args.gameName,
             tableNumber: args.tableNumber,
             skipCheckIn: args.skipCheckIn,
+            lobbyId: args.lobbyId,
           ),
         ),
       );
@@ -241,9 +237,11 @@ Route<dynamic>? lobbyRouteGenerator(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (_) => PlayerQrCheckInPage(
           reservationId: args.reservationId,
+          lobbyShareCode: args.lobbyShareCode,
           cafeName: args.cafeName,
           gameName: args.gameName,
           tableNumber: args.tableNumber,
+          onCheckInSuccess: args.onCheckInSuccess,
         ),
       );
 

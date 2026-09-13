@@ -993,6 +993,226 @@
         }
       }
     },
+    "/api/v1/admin/settlements": {
+      "get": {
+        "tags": [
+          "Admin - Settlement"
+        ],
+        "summary": "W-06: Lấy danh sách settlement có phân trang và filter (status, cafeId, cafeManagerId, khoảng ngày).\r\nDùng khi admin muốn xem tổng quan mọi trạng thái hoặc filter status cụ thể (Pending/Retrying/Succeeded/Overridden).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter theo trạng thái (Pending, Succeeded, Failed, Retrying, Overridden). Optional.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cafeId",
+            "in": "query",
+            "description": "Filter theo cafe. Optional.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cafeManagerId",
+            "in": "query",
+            "description": "Filter theo cafe manager. Optional.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "description": "Mốc bắt đầu (CreatedAt). Optional.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "description": "Mốc kết thúc (CreatedAt). Optional.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "description": "Trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách settlement phân trang, sắp xếp theo UpdatedAt DESC.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementListItemDtoPaginatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tham số không hợp lệ (vd: status không phải enum hợp lệ).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không có quyền Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settlements/failed": {
+      "get": {
+        "tags": [
+          "Admin - Settlement"
+        ],
+        "summary": "W-06: Lấy danh sách settlement bị lỗi (Status=Failed) — endpoint chính cho admin\r\ntìm SettlementId để retry (qua AdminJobs) hoặc override sau khi retry exhaustion.\r\nTrả về đầy đủ SettlementId + CafeName + Amount + FailureReason để admin xác nhận\r\nđúng settlement (không nhầm với reservationId/sessionId).\r\n[Role: Admin]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "query",
+            "description": "Filter theo cafe. Optional.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cafeManagerId",
+            "in": "query",
+            "description": "Filter theo cafe manager. Optional.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "description": "Mốc bắt đầu (CreatedAt). Optional.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "description": "Mốc kết thúc (CreatedAt). Optional.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "description": "Trang (mặc định 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Kích thước trang (mặc định 20, max 100).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách settlement Failed phân trang, sắp xếp theo UpdatedAt DESC.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementListItemDtoPaginatedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không có quyền Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "L�i hệ thống không mong đợi."
+          }
+        }
+      }
+    },
     "/api/v1/admin/settlements/{settlementId}/override": {
       "post": {
         "tags": [
@@ -9191,6 +9411,79 @@
         }
       }
     },
+    "/api/cafes/{cafeId}/pos/boxes/{boxId}/status": {
+      "patch": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Đổi trạng thái hộp game (CafeInventoryBox) — dùng sau khi staff bổ sung linh kiện\r\nhoặc đánh dấu hỏng nặng. [Role: Manager, CafeStaff — phải có quyền vận hành quán.]\r\n\nWorkflow sau khi `POST /sessions/component-check` phát hiện thiếu linh kiện:<list type=\"number\"><item>Hệ thống tự động chuyển `CafeInventoryBox.Status` → `Maintenance`.</item><item>Staff bổ sung linh kiện thực tế tại quán.</item><item>Staff gọi PATCH endpoint này với `status: \"Available\"` để đánh dấu sẵn sàng.</item></list>\nTransition rules:<list type=\"bullet\"><item>`Maintenance`/`Damaged` → `Available`: chỉ khi bổ sung/sửa xong.</item><item>`Available`/`Damaged` → `Maintenance`: hộp cần kiểm tra.</item><item>Bất kỳ → `Retired`: ngừng sử dụng vĩnh viễn.</item><item>`InUse` (đang trong phiên) → KHÔNG thể đổi status từ API này.</item></list>",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "boxId",
+            "in": "path",
+            "description": "Mã hộp game (CafeInventoryBox).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Trạng thái mới + lý do đổi. `Reason` bắt buộc, tối đa 500 ký tự — ghi audit log.\r\nOptional: `RestoredComponentId` + `RestoredQuantity` nếu staff vừa bổ sung\r\nlinh kiện (giúp admin audit nhanh).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoxStatusRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoxStatusRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoxStatusRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đổi trạng thái thành công, trả thông tin hộp."
+          },
+          "400": {
+            "description": "Status không hợp lệ (VD: set InUse)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền vận hành quán."
+          },
+          "404": {
+            "description": "Không tìm thấy hộp hoặc hộp không thuộc quán."
+          },
+          "409": {
+            "description": "Hộp đang được sử dụng trong phiên chơi, hoặc transition không hợp lệ."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/cafes/{cafeId}/pos/boxes/{boxId}/component-history": {
       "get": {
         "tags": [
@@ -10228,6 +10521,503 @@
           },
           "500": {
             "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/extension-requests/pending": {
+      "get": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Lấy danh sách yêu cầu gia hạn đang chờ của quán.\r\nPOS staff dùng để xem/duyệt/từ chối yêu cầu gia hạn từ player.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả danh sách yêu cầu gia hạn đang chờ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Manager hoặc CafeStaff của quán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/extension-requests/{requestId}/approve": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "POS staff duyệt yêu cầu gia hạn — cộng thêm thời gian vào phiên chơi.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "Mã yêu cầu gia hạn.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Số phút được duyệt (có thể khác với số phút player yêu cầu).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveExtensionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveExtensionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveExtensionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Duyệt thành công, trả thông tin đã xử lý."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Manager hoặc CafeStaff của quán."
+          },
+          "404": {
+            "description": "Yêu cầu gia hạn không tồn tại."
+          },
+          "409": {
+            "description": "Yêu cầu đã được xử lý trước đó."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/extension-requests/{requestId}/reject": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "POS staff từ chối yêu cầu gia hạn.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã định danh quán cafe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "Mã yêu cầu gia hạn.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do từ chối (tùy chọn).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectExtensionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectExtensionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectExtensionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Từ chối thành công."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không phải Manager hoặc CafeStaff của quán."
+          },
+          "404": {
+            "description": "Yêu cầu gia hạn không tồn tại."
+          },
+          "409": {
+            "description": "Yêu cầu đã được xử lý trước đó."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/payment-status": {
+      "get": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Lấy trạng thái thanh toán per-member của session. [Role: Manager, CafeStaff]\r\nCho biết ai đã thanh toán, ai chưa, và số tiền còn lại.",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về trạng thái thanh toán per-member."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/pay-member": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Thanh toán cho các thành viên cụ thể trong session. [Role: Manager, CafeStaff]\r\n- PaymentMethod = CASH: xác nhận thanh toán tiền mặt ngay\r\n- PaymentMethod = QR_CODE: tạo QR cho từng thành viên",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Danh sách thành viên + phương thức thanh toán.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayMemberRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayMemberRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayMemberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thanh toán thành công. Nếu là QR_CODE, trả về danh sách QR cho từng thành viên."
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "409": {
+            "description": "Thành viên đã thanh toán hoặc phiên không ở trạng thái UNPAID."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/members/{memberId}/create-qr": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Tạo QR thanh toán cho một thành viên cụ thể. [Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "description": "Mã thành viên.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tạo QR thành công, trả về thông tin thanh toán."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/members/{memberId}/regenerate-qr": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Tạo lại QR thanh toán cho một thành viên (khi QR cũ bị lỗi/hết hạn).\r\nChỉ áp dụng khi member đã chọn paymentMethod=QR_CODE và chưa trả.\r\n[Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "description": "Mã thành viên.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tạo lại QR thành công."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "409": {
+            "description": "Thành viên đã thanh toán hoặc không chọn QR."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/cafes/{cafeId}/pos/sessions/{sessionId}/members/{memberId}/confirm-cash": {
+      "post": {
+        "tags": [
+          "CafePos"
+        ],
+        "summary": "Xác nhận thanh toán tiền mặt cho một thành viên. [Role: Manager, CafeStaff]",
+        "parameters": [
+          {
+            "name": "cafeId",
+            "in": "path",
+            "description": "Mã quán.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Mã phiên chơi.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "description": "Mã thành viên.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "amount",
+            "in": "query",
+            "description": "Số tiền thanh toán (phải bằng TotalAmount của thành viên).",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "notes",
+            "in": "query",
+            "description": "Ghi chú (optional).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xác nhận thành công."
+          },
+          "400": {
+            "description": "Số tiền không khớp."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "409": {
+            "description": "Thành viên đã thanh toán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
           }
         }
       }
@@ -13000,12 +13790,12 @@
         }
       }
     },
-    "/api/v1/lobbies/{lobbyId}/change-timeslot": {
+    "/api/v1/lobbies/{lobbyId}/change-time": {
       "post": {
         "tags": [
           "Lobby"
         ],
-        "summary": "BR-NEW-14 (b): Host đổi timeSlot và/hoặc preferred times của lobby.\r\nChỉ áp dụng khi lobby chưa check-in (status = Open/Viable/Full/PendingCafeApproval).\r\nRecalculate RecruitmentDeadline theo newTimeSlot/preferredTimes. [Role: Player — chỉ Host]\r\nBR-RES-07/08/09: preferredStartTime/EndTime phải nằm trong slot range.",
+        "summary": "BR-NEW-14 (b): Host đổi preferred start/end time của lobby.\r\nChỉ áp dụng khi lobby chưa check-in (status = Open/Viable/Full/PendingCafeApproval).\r\nRecalculate RecruitmentDeadline theo preferredTimes.\r\nBR-NEW-15 (2026-08-18): BỎ TimeSlot enum, dùng PreferredStartTime/PreferredEndTime trực tiếp. [Role: Player — chỉ Host]",
         "parameters": [
           {
             "name": "lobbyId",
@@ -13019,7 +13809,7 @@
           }
         ],
         "requestBody": {
-          "description": "- newTimeSlot: khung giờ mới (morning/afternoon/evening/night), nullable = giữ nguyên\r\n- preferredStartTime: giờ bắt đầu ưu tiên (HH:mm), nullable = giữ nguyên\r\n- preferredEndTime: giờ kết thúc ưu tiên (HH:mm), nullable = giữ nguyên",
+          "description": "- preferredStartTime: giờ bắt đầu ưu tiên (HH:mm), nullable = giữ nguyên\r\n- preferredEndTime: giờ kết thúc ưu tiên (HH:mm), nullable = giữ nguyên",
           "content": {
             "application/json": {
               "schema": {
@@ -13043,7 +13833,7 @@
             "description": "Đã cập nhật thành công."
           },
           "400": {
-            "description": "- TimeSlot trùng với hiện tại (khi newTimeSlot = current)\r\n- Buffer không đủ 60 phút\r\n- preferredStartTime/EndTime nằm ngoài slot range"
+            "description": "- Buffer không đủ 60 phút\r\n- preferredStartTime/EndTime nằm ngoài cafe schedule\r\n- preferredEndTime <= preferredStartTime"
           },
           "401": {
             "description": "Thiếu token."
@@ -14796,6 +15586,110 @@
         }
       }
     },
+    "/api/payments/sepay/webhook/member-payment": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Webhook xử lý thanh toán QR cho thành viên cụ thể trong group session.\r\nFix #3: Thêm signature verification để chống fake webhook.\r\n[Public - SePay webhook]",
+        "requestBody": {
+          "description": "Webhook payload từ SePay.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberPaymentWebhookDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberPaymentWebhookDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberPaymentWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Xử lý thành công."
+          },
+          "400": {
+            "description": "Dữ liệu webhook không hợp lệ."
+          },
+          "401": {
+            "description": "Signature không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy thành viên."
+          },
+          "409": {
+            "description": "Số tiền không khớp."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
+    "/api/payments/confirm-member-qr": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "summary": "Staff xác nhận thanh toán QR đã được chuyển khoản cho một thành viên.\r\nUse case: Khách đã quét QR và chuyển tiền, staff xác nhận đã nhận được.\r\n[Role: Manager — chủ quán; CafeStaff — đã gắn quán; Admin bypass.]",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "query",
+            "description": "Mã phiên chơi.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "query",
+            "description": "Mã thành viên.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "notes",
+            "in": "query",
+            "description": "Ghi chú (optional).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xác nhận thành công."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "403": {
+            "description": "Không đủ quyền."
+          },
+          "404": {
+            "description": "Không tìm thấy phiên hoặc thành viên."
+          },
+          "409": {
+            "description": "Thành viên đã thanh toán."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
+          }
+        }
+      }
+    },
     "/api/check-in/scan-qr": {
       "post": {
         "tags": [
@@ -14846,6 +15740,292 @@
           },
           "422": {
             "description": "Reservation không trong khung giờ check-in hoặc quán không còn bàn/hộp game trống."
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/me/current": {
+      "get": {
+        "tags": [
+          "PlayerSession"
+        ],
+        "summary": "Lấy thông tin phiên chơi hiện tại của player đang đăng nhập.\r\nBao gồm thời gian đã chơi, ước tính chi phí, và trạng thái.\r\n[Role: Player]",
+        "responses": {
+          "200": {
+            "description": "Trả về thông tin phiên hiện tại.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCurrentSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không có phiên nào đang hoạt động.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chưa đăng nhập.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/me/extend": {
+      "post": {
+        "tags": [
+          "PlayerSession"
+        ],
+        "summary": "Gửi yêu cầu gia hạn thêm thời gian chơi.\r\nLưu ý: Việc gia hạn thực tế cần được xác nhận bởi nhân viên tại quán.\r\n[Role: Player]",
+        "requestBody": {
+          "description": "Số phút muốn gia hạn thêm.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendSessionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendSessionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Yêu cầu gia hạn đã được gửi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtendSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Số phút gia hạn không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Không thể gia hạn ở trạng thái hiện tại.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không có phiên nào đang hoạt động.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/me/pay": {
+      "post": {
+        "tags": [
+          "PlayerSession"
+        ],
+        "summary": "Thanh toán hóa đơn phiên chơi bằng BVC.\r\nChỉ hoạt động khi phiên đang ở trạng thái Unpaid.\r\n[Role: Player]",
+        "requestBody": {
+          "description": "Thông tin thanh toán (sessionId).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerPaySessionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerPaySessionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerPaySessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thanh toán thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerPaySessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu không hợp lệ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Bạn không tham gia phiên này.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Phiên không ở trạng thái thanh toán.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt quá giới hạn thanh toán (10 lần / 5 phút).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi hệ thống không mong đợi."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/me/history": {
+      "get": {
+        "tags": [
+          "PlayerSession"
+        ],
+        "summary": "Lấy lịch sử các phiên đã chơi của player.\r\nGAP-8 + GAP-2 + GAP-7 Fix: Trả danh sách phiên đã paid (bao gồm walk-in) + cursor pagination + date range.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Số lượng phiên tối đa trả về (mặc định 20, tối đa 100).",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "beforePaidAt",
+            "in": "query",
+            "description": "Cursor: lấy phiên cũ hơn mốc thời gian này (UTC, optional, cho load-more).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "fromDate",
+            "in": "query",
+            "description": "Lọc session từ ngày này trở đi (UTC, optional).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "description": "Lọc session đến ngày này (UTC, optional).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách lịch sử phiên.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionHistoryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Limit không hợp lệ hoặc fromDate > toDate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chưa đăng nhập.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -14986,7 +16166,7 @@
         ],
         "summary": "Tạo quote cho reservation. [Role: Player]\r\nQuote chỉ validate + tính toán, KHÔNG tạo row DB. Idempotent theo IdempotencyKey.",
         "requestBody": {
-          "description": "CafeId, GameId, PlayDate, TimeSlot, MinPlayers, MaxPlayers, PreferredStartTime, IdempotencyKey.",
+          "description": "CafeId, GameId, PlayDate, MinPlayers, MaxPlayers, PreferredStartTime, PreferredEndTime, IdempotencyKey.",
           "content": {
             "application/json": {
               "schema": {
@@ -15010,7 +16190,7 @@
             "description": "Trả quote gồm số BVC cần hold, balance hiện tại, missing amount, buffer, expiresAt."
           },
           "400": {
-            "description": "Request không hợp lệ (playDate ngoài [today, +7], minPlayers < 1, maxPlayers < 1, timeSlot không đúng, preferredStartTime không nằm trong timeSlot window)."
+            "description": "Request không hợp lệ (playDate ngoài [today, +7], minPlayers < 1, maxPlayers < 1, preferredStartTime không n�m trong cafe schedule)."
           },
           "401": {
             "description": "Thiếu token."
@@ -15037,7 +16217,7 @@
         ],
         "summary": "Xác nhận reservation — atomic transaction (§21A.3 + BR-REQUIRED §17.4). [Role: Player]\r\nTrừ BVC từ ví, giữ seat + game copy, tạo Reservation + Lobby trong 1 transaction.\r\nLobby có playDate > 2 ngày sẽ vào trạng thái PendingCafeApproval (BR-NEW-11).",
         "requestBody": {
-          "description": "CafeId, GameId, PlayDate, TimeSlot, MinPlayers, MaxPlayers, ExpectedFinalDeposit, IdempotencyKey.",
+          "description": "CafeId, GameId, PlayDate, MinPlayers, MaxPlayers, PreferredStartTime, PreferredEndTime, ExpectedFinalDeposit, IdempotencyKey.",
           "content": {
             "application/json": {
               "schema": {
@@ -15188,6 +16368,98 @@
           },
           "401": {
             "description": "Thiếu token."
+          }
+        }
+      }
+    },
+    "/api/v1/reservations/search": {
+      "get": {
+        "tags": [
+          "Reservation"
+        ],
+        "summary": "Tìm kiếm lịch hẹn theo tên game hoặc ngày tháng. [Role: Player]",
+        "parameters": [
+          {
+            "name": "GameName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "FromDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "ToDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "Statuses",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ReservationStatus"
+              }
+            }
+          },
+          {
+            "name": "CafeId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "HostedByMe",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "JoinedByMe",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách reservation tìm được (phân trang)."
+          },
+          "401": {
+            "description": "Thiếu token."
+          },
+          "500": {
+            "description": "Lỗi hệ thống."
           }
         }
       }
@@ -16924,769 +18196,6 @@
           },
           "404": {
             "description": "Key không tồn tại trong DB."
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/v1/manager/time-slots/defaults": {
-      "get": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Lấy 4 khung giờ mặc định của hệ thống (metadata read-only). [Role: Manager]",
-        "responses": {
-          "200": {
-            "description": "Trả về 4 TimeSlot mặc định: Morning, Afternoon, Evening, LateNight.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultTimeSlotDto"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultTimeSlotDto"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultTimeSlotDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không có role Manager.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/v1/manager/time-slots/cafes/{cafeId}": {
-      "get": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Lấy toàn bộ 4 khung giờ của cafe (đã merge với override nếu có). [Role: Manager — chỉ chủ cafe.]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã định danh cafe.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Danh sách 4 TimeSlot kèm thông tin override/default.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không phải Manager hoặc không sở hữu cafe này.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy cafe.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Tạo override cho 1 khung giờ của cafe. Nếu đã tồn tại → 409 Conflict (dùng PUT để update). [Role: Manager — chỉ chủ cafe.]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã định danh cafe.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "timeSlot, startTime, endTime, isClosed, effectiveFrom, effectiveTo.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTimeSlotOverrideRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTimeSlotOverrideRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTimeSlotOverrideRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Override đã tạo.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "timeSlot không hợp lệ, startTime == endTime (khi !isClosed), effectiveFrom > effectiveTo.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không sở hữu cafe này.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy cafe.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Cafe đã có override cho slot này — dùng PUT để cập nhật.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      }
-    },
-    "/api/v1/manager/time-slots/cafes/{cafeId}/{timeSlot}": {
-      "get": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Lấy chi tiết 1 khung giờ của cafe (override hoặc default). [Role: Manager — chỉ chủ cafe.]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã định danh cafe.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "timeSlot",
-            "in": "path",
-            "description": "Enum TimeSlot: `morning` / `afternoon` / `evening` / `lateNight`.",
-            "required": true,
-            "schema": {
-              "pattern": "^(Morning|Afternoon|Evening|LateNight)$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Chi tiết TimeSlot của cafe.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "timeSlot không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không sở hữu cafe này.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy cafe.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Cập nhật (partial) override cho 1 khung giờ của cafe. Field null = giữ nguyên giá trị hiện tại. [Role: Manager — chỉ chủ cafe.]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã định danh cafe.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "timeSlot",
-            "in": "path",
-            "description": "Enum TimeSlot: `morning` / `afternoon` / `evening` / `lateNight`.",
-            "required": true,
-            "schema": {
-              "pattern": "^(Morning|Afternoon|Evening|LateNight)$",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Các field cần đổi (StartTime, EndTime, IsClosed, EffectiveFrom, EffectiveTo). Field null = giữ nguyên.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateTimeSlotOverrideRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateTimeSlotOverrideRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateTimeSlotOverrideRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Override đã cập nhật.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagerTimeSlotResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "timeSlot không hợp lệ, không có field nào để update, hoặc giá trị mới không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không sở hữu cafe này.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Cafe chưa có override cho slot này — dùng POST để tạo.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Lỗi hệ thống không mong đợi."
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "TimeSlot"
-        ],
-        "summary": "Xóa override cho 1 khung giờ của cafe → quay về dùng lịch mặc định. Idempotent. [Role: Manager — chỉ chủ cafe.]",
-        "parameters": [
-          {
-            "name": "cafeId",
-            "in": "path",
-            "description": "Mã định danh cafe.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "timeSlot",
-            "in": "path",
-            "description": "Enum TimeSlot: `morning` / `afternoon` / `evening` / `lateNight`.",
-            "required": true,
-            "schema": {
-              "pattern": "^(Morning|Afternoon|Evening|LateNight)$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Override đã xóa (kể cả khi chưa có)."
-          },
-          "400": {
-            "description": "timeSlot không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Thiếu token, token hết hạn hoặc token không hợp lệ.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Tài khoản không sở hữu cafe này.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy cafe.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -19535,7 +20044,7 @@
         "tags": [
           "TournamentPos"
         ],
-        "summary": "Xóa manual pairings cho 1 round (quay lại dùng auto). [Role: Manager]",
+        "summary": "Xóa manual pairings cho 1 round và quay lại dùng auto. Xóa luôn các trận đấu của round nếu chưa có kết quả. [Role: Manager]",
         "parameters": [
           {
             "name": "tournamentId",
@@ -19575,7 +20084,7 @@
             "description": "Không tìm thấy giải đấu."
           },
           "409": {
-            "description": "Round đã có matches — không thể reset."
+            "description": "Round đã có trận đấu đang diễn ra hoặc đã hoàn thành — không thể reset."
           },
           "500": {
             "description": "Lỗi hệ thống không mong đợi."
@@ -24452,6 +24961,16 @@
         },
         "additionalProperties": false
       },
+      "ApproveExtensionRequestDto": {
+        "type": "object",
+        "properties": {
+          "approvedMinutes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AttachGameRequestDto": {
         "required": [
           "gameBarcode"
@@ -25146,6 +25665,16 @@
         },
         "additionalProperties": false
       },
+      "CafeSettlementStatus": {
+        "enum": [
+          "Pending",
+          "Succeeded",
+          "Failed",
+          "Retrying",
+          "Overridden"
+        ],
+        "type": "string"
+      },
       "CafeTableSyncItem": {
         "required": [
           "name"
@@ -25250,9 +25779,6 @@
       "ChangeTimeSlotRequestDto": {
         "type": "object",
         "properties": {
-          "newTimeSlot": {
-            "$ref": "#/components/schemas/TimeSlot"
-          },
           "preferredStartTime": {
             "type": "string",
             "format": "time",
@@ -25847,42 +26373,6 @@
         },
         "additionalProperties": false
       },
-      "CreateTimeSlotOverrideRequestDto": {
-        "required": [
-          "timeSlot"
-        ],
-        "type": "object",
-        "properties": {
-          "timeSlot": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "startTime": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "endTime": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "isClosed": {
-            "type": "boolean"
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "CreateTournamentRequestDto": {
         "required": [
           "startTime",
@@ -26015,36 +26505,6 @@
           "damagedQuantity": {
             "type": "integer",
             "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "DefaultTimeSlotDto": {
-        "type": "object",
-        "properties": {
-          "slot": {
-            "type": "string",
-            "nullable": true
-          },
-          "displayName": {
-            "type": "string",
-            "nullable": true
-          },
-          "defaultStartTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "defaultEndTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "durationMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -26200,6 +26660,62 @@
         },
         "additionalProperties": false
       },
+      "ExtendSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "extensionMinutes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExtendSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestedMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "estimatedAdditionalCostVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "newEndTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "totalMinutesBooked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "estimatedAdditionalCost": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "FriendshipRelationshipDirection": {
         "enum": [
           "None",
@@ -26210,6 +26726,74 @@
           "BlockedByThem"
         ],
         "type": "string"
+      },
+      "GetCurrentSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lobbyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "memberStatus": {
+            "$ref": "#/components/schemas/IndividualSessionStatus"
+          },
+          "sessionStatus": {
+            "$ref": "#/components/schemas/GroupSessionStatus"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "joinedAtOffset": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "elapsedMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalMinutesPlayed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "costEstimate": {
+            "$ref": "#/components/schemas/PlayerCostEstimateDto"
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalGroupMembers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canExtend": {
+            "type": "boolean"
+          },
+          "canPay": {
+            "type": "boolean"
+          },
+          "isPaid": {
+            "type": "boolean"
+          },
+          "lastExtensionRequest": {
+            "$ref": "#/components/schemas/LastExtensionRequestDto"
+          }
+        },
+        "additionalProperties": false
       },
       "GoogleAuthRequestDto": {
         "required": [
@@ -26224,6 +26808,16 @@
           }
         },
         "additionalProperties": false
+      },
+      "GroupSessionStatus": {
+        "enum": [
+          "Active",
+          "Checking",
+          "Unpaid",
+          "Paid",
+          "Closed"
+        ],
+        "type": "string"
       },
       "ImportGameFromBggRequestDto": {
         "type": "object",
@@ -26241,6 +26835,14 @@
         },
         "additionalProperties": false
       },
+      "IndividualSessionStatus": {
+        "enum": [
+          "Playing",
+          "SuspendedMutation",
+          "Finished"
+        ],
+        "type": "string"
+      },
       "InventorySortField": {
         "enum": [
           "UpdatedAt",
@@ -26249,6 +26851,34 @@
           "Status"
         ],
         "type": "string"
+      },
+      "InvoiceLineItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ratePerMinute": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
       },
       "JoinLobbyByShareCodeRequestDto": {
         "required": [
@@ -26325,6 +26955,55 @@
         },
         "additionalProperties": false,
         "description": "Request body cho TournamentPosController.KickParticipant."
+      },
+      "LastExtensionRequestDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestedMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "approvedMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "estimatedAdditionalCostVnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processedAtOffset": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "LedgerEntryType": {
         "enum": [
@@ -26507,7 +27186,8 @@
           "RejectedByCafe",
           "ExpiredByCafe",
           "Viable",
-          "Dissolved"
+          "Dissolved",
+          "WaitingCheckIn"
         ],
         "type": "string"
       },
@@ -26755,70 +27435,6 @@
         },
         "additionalProperties": false
       },
-      "ManagerTimeSlotResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "cafeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timeSlot": {
-            "type": "string",
-            "nullable": true
-          },
-          "startTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "endTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "defaultStartTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "defaultEndTime": {
-            "type": "string",
-            "format": "time"
-          },
-          "isClosed": {
-            "type": "boolean"
-          },
-          "hasOverride": {
-            "type": "boolean"
-          },
-          "isCustomized": {
-            "type": "boolean",
-            "readOnly": true
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "ManualPairingDto": {
         "required": [
           "playerIds"
@@ -26922,6 +27538,45 @@
             "minimum": 0,
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MemberPaymentWebhookDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "memberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "gatewayTransactionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "referenceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "gateway": {
+            "type": "string",
+            "nullable": true
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -27078,6 +27733,36 @@
         },
         "additionalProperties": false
       },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPrevious": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "hasNext": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PartialCheckoutRequestDto": {
         "required": [
           "memberIds"
@@ -27090,6 +27775,35 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PayMemberRequestDto": {
+        "required": [
+          "memberIds",
+          "paymentMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "memberIds": {
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "paymentMethod": {
+            "minLength": 1,
+            "pattern": "^(CASH|QR_CODE)$",
+            "type": "string"
+          },
+          "notes": {
+            "maxLength": 500,
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -27120,12 +27834,121 @@
         ],
         "type": "string"
       },
+      "PlayerCostEstimateDto": {
+        "type": "object",
+        "properties": {
+          "baseMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "subtotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "penaltyAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositApplied": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDue": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlayerInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "subtotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "penaltyAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositApplied": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDue": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "lineItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLineItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PlayerLocationSource": {
         "enum": [
           "Gps",
           "Manual"
         ],
         "type": "string"
+      },
+      "PlayerPaySessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlayerPaySessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoice": {
+            "$ref": "#/components/schemas/PlayerInvoiceDto"
+          },
+          "bvcDeducted": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remainingBvcBalance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "PlayerPlayMode": {
         "enum": [
@@ -27676,6 +28499,16 @@
             "maxLength": 1000,
             "minLength": 0,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RejectExtensionRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -28232,6 +29065,69 @@
         },
         "additionalProperties": false
       },
+      "SessionHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lobbyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "gameName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sessionStatus": {
+            "$ref": "#/components/schemas/GroupSessionStatus"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "joinedAtOffset": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paidAtOffset": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "totalMinutesPlayed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAmountDue": {
+            "type": "number",
+            "format": "double"
+          },
+          "memberStatus": {
+            "$ref": "#/components/schemas/IndividualSessionStatus"
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SetEnvironmentRequestDto": {
         "type": "object",
         "properties": {
@@ -28281,6 +29177,111 @@
             "items": {
               "$ref": "#/components/schemas/ManualPairingDto"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SettlementListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cafeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cafeManagerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activeSessionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "bookingDepositId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "depositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "feeAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "netTransferAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "sePayTransferId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/CafeSettlementStatus"
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "retryCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nextRetryAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "transferredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "overrideBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "overrideAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SettlementListItemDtoPaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettlementListItemDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -28591,15 +29592,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "TimeSlot": {
-        "enum": [
-          "Morning",
-          "Afternoon",
-          "Evening",
-          "LateNight"
-        ],
-        "type": "string"
       },
       "TopUpRequestDto": {
         "required": [
@@ -28918,6 +29910,36 @@
           "playerQuantity": {
             "maximum": 50,
             "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateBoxStatusRequestDto": {
+        "required": [
+          "reason",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CafeGameInventoryStatus"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "type": "string"
+          },
+          "restoredComponentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "restoredQuantity": {
+            "maximum": 2147483647,
+            "minimum": 0,
             "type": "integer",
             "format": "int32",
             "nullable": true
@@ -29390,36 +30412,6 @@
         },
         "additionalProperties": false
       },
-      "UpdateTimeSlotOverrideRequestDto": {
-        "type": "object",
-        "properties": {
-          "startTime": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "endTime": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "isClosed": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "UpdateTopUpRequestDto": {
         "required": [
           "amountVnd",
@@ -29851,7 +30843,7 @@
     },
     {
       "name": "Admin - Settlement",
-      "description": "Admin endpoints cho Settlement.\r\nW-06: Manual settlement override endpoint."
+      "description": "Admin endpoints cho Settlement.\r\nW-06: Manual settlement override + list endpoints (mọi status / Failed)."
     },
     {
       "name": "Admin - Tournament",
@@ -29906,6 +30898,10 @@
       "description": "API để player quét QR do POS tạo, tự check-in vào reservation của mình.\r\nHỗ trợ chiều thứ 2 của luồng check-in 2 chiều (BR §21A.7): thay vì staff scan\r\nQR player, player scan QR POS. Hữu ích cho demo và khi player cầm điện thoại dễ scan hơn."
     },
     {
+      "name": "PlayerSession",
+      "description": "Player-facing APIs để quản lý phiên chơi của mình.\r\nCho phép player xem phiên hiện tại, gia hạn thời gian, và thanh toán bằng BVC.\r\n[Role: Player — yêu cầu đăng nhập]"
+    },
+    {
       "name": "Receipt",
       "description": "Receipt generation and revenue report endpoints.\r\nP-01: Receipt Generation API — GET /api/v1/sessions/{sessionId}/receipt\r\nP-02: Revenue Report API — GET /api/v1/cafes/{cafeId}/revenue"
     },
@@ -29916,10 +30912,6 @@
     {
       "name": "SystemConfigurationPublic",
       "description": "Admin endpoint để xem 1 system config theo key (read-only).\r\nHữu ích cho Admin/Dev/QA verify demo mode, bypass flag, elo_k_factor, v.v.\r\nKHÔNG expose write operations — đã có `AdminConfigurationController` cho PUT/DELETE.\r\nKHÔNG expose sensitive config (passwords, API keys, webhooks secret) ở production."
-    },
-    {
-      "name": "TimeSlot",
-      "description": "Quản lý `TimeSlot` cho manager.\r\nBR-NEW-15 §7.1: 4 time slot cố định (Morning / Afternoon / Evening / LateNight),\r\nkhông thể thêm slot mới. Manager chỉ override StartTime / EndTime / IsClosed cho từng cafe qua `CafeScheduleOverride`."
     },
     {
       "name": "Tournament",

@@ -12,6 +12,7 @@ import 'package:boardverse/features/lobby_management/domain/entities/lobby_entit
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
 import 'package:boardverse/features/matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
 import 'package:boardverse/features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
+import 'package:boardverse/features/player_check_in/presentation/pages/player_qr_check_in_page_args.dart';
 import '../../../reservation/domain/entities/entities.dart' as res;
 import '../cubit/member_arrival_cubit.dart';
 import 'confirmation_status_banner.dart';
@@ -43,7 +44,7 @@ class LobbyCheckInSection extends StatefulWidget {
   final bool isExpanded;
 
   /// Lobby status hiện tại — dùng để quyết định banner "Đang chơi".
-  final res.LobbyStatus lobbyStatus;
+  final LobbyStatus lobbyStatus;
 
   /// Thời điểm bắt đầu chơi thực tế (nếu đã inProgress). Dùng để hiển thị
   /// "đã chơi được X phút".
@@ -69,7 +70,7 @@ class LobbyCheckInSection extends StatefulWidget {
     required this.isHost,
     this.onExpand,
     this.isExpanded = false,
-    this.lobbyStatus = res.LobbyStatus.viable,
+    this.lobbyStatus = LobbyStatus.viable,
     this.playStartedAt,
     required this.currentUserId,
     this.arrivalByUserId,
@@ -203,14 +204,16 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
 
   /// Navigate sang [PlayerQrCheckInPage] — chiều 2 check-in BR §21A.7.
   ///
-  /// Cho phép player self check-in bằng cách nhập/paste token 16-char
+  /// Cho phép player self check-in bằng cách quét QR hoặc nhập token 16-char
   /// hiển thị trên POS. Sau khi thành công → tự động navigate sang
   /// `InGameSessionPage` (vì PlayerQrCheckInPage làm navigate thay).
   void _openPlayerQrCheckIn() {
+    final shareCode = widget.reservation.lobbyShareCode ?? widget.reservation.id;
     Navigator.of(context, rootNavigator: true).pushNamed(
       LobbyRoutes.playerQrCheckIn,
       arguments: PlayerQrCheckInPageArgs(
         reservationId: widget.reservation.id,
+        lobbyShareCode: shareCode,
         cafeName: widget.reservation.cafeName,
         gameName: widget.reservation.gameName,
         tableNumber: 1, // tableNumber sẽ được backend/SignalR cập nhật realtime
@@ -241,7 +244,7 @@ class _LobbyCheckInSectionState extends State<LobbyCheckInSection> {
 // hiển thị bên dưới để staff dễ đọc khi cần nhập tay.
 final code = reservation.lobbyShareCode ?? reservation.id;
 
-    final isInProgress = widget.lobbyStatus == res.LobbyStatus.inProgress;
+    final isInProgress = widget.lobbyStatus == LobbyStatus.inProgress;
 
     return BlocProvider<MemberArrivalCubit>.value(
       value: _arrivalCubit,

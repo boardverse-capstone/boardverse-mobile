@@ -28,10 +28,19 @@ android {
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // BẬT minify để R8 strip unused code (nhưng giữ MLKit classes)
+            isMinifyEnabled = true
+            // Enable shrinking để loại bỏ unused resources
+            isShrinkResources = true
+            // Áp dụng ProGuard rules để giữ MLKit classes
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

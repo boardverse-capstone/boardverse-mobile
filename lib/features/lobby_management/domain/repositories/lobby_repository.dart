@@ -96,6 +96,15 @@ abstract class LobbyRepository {
   /// Host-only: đóng phòng thủ công (`POST /api/v1/lobbies/{id}/close`).
   Future<Either<Failure, LobbyEntity>> closeLobby(String lobbyId);
 
+  /// Host-only: đổi giờ lobby (`POST /api/v1/lobbies/{id}/change-time`).
+  /// BR-NEW-15 (2026-08-18): body chỉ nhận `preferredStartTime` /
+  /// `preferredEndTime` (HH:mm:ss) — `null` = giữ nguyên.
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  });
+
   /// Host giải tán lobby (hard delete toàn bộ records).
   /// `DELETE /api/v1/lobbies/{lobbyId}`.
   ///

@@ -27,6 +27,7 @@ class QuickActionItemNeo {
 /// - KHÔNG có khung bao ngoài
 /// - Icon to, title rõ ràng
 /// - Press animation với scale
+/// - Responsive cho màn hình nhỏ (360x740)
 class QuickActionsGridNeo extends StatelessWidget {
   const QuickActionsGridNeo({super.key, required this.actions});
 
@@ -34,18 +35,22 @@ class QuickActionsGridNeo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+    
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.3,
-      mainAxisSpacing: AppSpacing.md,
-      crossAxisSpacing: AppSpacing.md,
+      childAspectRatio: isSmallScreen ? 1.4 : 1.3,
+      mainAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
+      crossAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
       children: [
         for (final item in actions)
           _ActionTileNeo(
             item: item,
             accentColor: item.accentColor ?? AppColors.primary,
+            isSmallScreen: isSmallScreen,
           ),
       ],
     );
@@ -56,10 +61,12 @@ class _ActionTileNeo extends StatefulWidget {
   const _ActionTileNeo({
     required this.item,
     required this.accentColor,
+    this.isSmallScreen = false,
   });
 
   final QuickActionItemNeo item;
   final Color accentColor;
+  final bool isSmallScreen;
 
   @override
   State<_ActionTileNeo> createState() => _ActionTileNeoState();
@@ -102,6 +109,12 @@ class _ActionTileNeoState extends State<_ActionTileNeo>
     final isDark = theme.brightness == Brightness.dark;
     final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
 
+    // Responsive sizing
+    final iconSize = widget.isSmallScreen ? 22.0 : 28.0;
+    final iconPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.sm + 2;
+    final cardPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.md;
+    final titleFontSize = widget.isSmallScreen ? 11.0 : 13.0;
+
     return AnimatedBuilder(
       animation: _scaleAnimation,
       builder: (context, child) {
@@ -128,13 +141,14 @@ class _ActionTileNeoState extends State<_ActionTileNeo>
             shadowColor: widget.accentColor.withValues(alpha: 0.2),
             borderRadius: 16,
           ),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: EdgeInsets.all(cardPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Icon lớn với neo-brutalist background
               Container(
-                padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                padding: EdgeInsets.all(iconPadding),
                 decoration: BoxDecoration(
                   color: widget.accentColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
@@ -146,17 +160,18 @@ class _ActionTileNeoState extends State<_ActionTileNeo>
                 child: Icon(
                   widget.item.icon,
                   color: widget.accentColor,
-                  size: 28,
+                  size: iconSize,
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              SizedBox(height: widget.isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
               // Title
               Text(
                 widget.item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w800,
+                  fontSize: titleFontSize,
                   color: isPressed
                       ? widget.accentColor
                       : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),

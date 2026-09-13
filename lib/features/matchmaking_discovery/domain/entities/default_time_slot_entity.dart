@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 
 /// Khung giờ cố định trong ngày của hệ thống (BR-NEW-15 §7.1).
 ///
@@ -8,14 +8,18 @@ import 'package:equatable/equatable.dart';
 ///   - `Afternoon` : Chiều
 ///   - `Evening`   : Tối
 ///   - `LateNight` : Khuya (qua đêm — `endTime` thuộc ngày hôm sau)
+///
+/// BR-NEW (2026-08-27): enum này giờ CHỈ dùng để map icon/color cho
+/// `availableSeatsByTimeSlot` map trên cafe detail UI. Backend không còn
+/// nhận `timeSlot` enum cho reservation/lobby creation (player tự chọn
+/// giờ bắt đầu/kết thúc trong ngày).
 enum TimeSlotKey {
   morning,
   afternoon,
   evening,
   lateNight;
 
-  /// Tên chuẩn backend dùng trong JSON (`/api/v1/manager/time-slots/defaults`
-  /// + quote confirm body). Case-sensitive.
+  /// Tên chuẩn backend dùng trong JSON response (case-sensitive).
   String get apiName {
     switch (this) {
       case TimeSlotKey.morning:
@@ -57,47 +61,33 @@ enum TimeSlotKey {
         return 'Khuya';
     }
   }
-}
 
-/// Entity cho `DefaultTimeSlotDto` từ
-/// `GET /api/v1/manager/time-slots/defaults`.
-///
-/// Endpoint trả về 4 slot cố định (morning/afternoon/evening/lateNight)
-/// cùng `startTime`, `endTime` mặc định, `durationMinutes` và `description`
-/// ngắn cho UI manager. Player mobile dùng lại metadata này để hiển thị
-/// khung giờ khi tạo lobby ở `LobbyConfigPage` — tránh phải hardcode
-/// `morning=9h, evening=18h` ở client (dễ lệch với backend sau khi
-/// manager override schedule).
-class DefaultTimeSlotEntity extends Equatable {
-  final TimeSlotKey slot;
+  /// Icon đại diện cho UI. Cố định theo khung giờ — không phụ thuộc theme.
+  IconData get icon {
+    switch (this) {
+      case TimeSlotKey.morning:
+        return Icons.wb_sunny;
+      case TimeSlotKey.afternoon:
+        return Icons.wb_cloudy;
+      case TimeSlotKey.evening:
+        return Icons.nights_stay;
+      case TimeSlotKey.lateNight:
+        return Icons.bedtime;
+    }
+  }
 
-  /// Tên tiếng Việt do backend trả về (VD: "Sáng", "Chiều", "Tối", "Khuya").
-  final String displayName;
-
-  /// Giờ bắt đầu mặc định, format `HH:mm:ss`. Có thể > 23 (LateNight không
-  /// có ý nghĩa này — LateNight start = 23:00, end = 06:00 ngày sau).
-  final String defaultStartTime;
-
-  final String defaultEndTime;
-  final int durationMinutes;
-  final String description;
-
-  const DefaultTimeSlotEntity({
-    required this.slot,
-    required this.displayName,
-    required this.defaultStartTime,
-    required this.defaultEndTime,
-    required this.durationMinutes,
-    required this.description,
-  });
-
-  @override
-  List<Object?> get props => [
-        slot,
-        displayName,
-        defaultStartTime,
-        defaultEndTime,
-        durationMinutes,
-        description,
-      ];
+  /// Màu chủ đạo của khung giờ. Cố định để hiển thị ổn định giữa
+  /// light/dark mode.
+  Color get color {
+    switch (this) {
+      case TimeSlotKey.morning:
+        return Colors.orange;
+      case TimeSlotKey.afternoon:
+        return Colors.amber;
+      case TimeSlotKey.evening:
+        return Colors.indigo;
+      case TimeSlotKey.lateNight:
+        return Colors.deepPurple;
+    }
+  }
 }

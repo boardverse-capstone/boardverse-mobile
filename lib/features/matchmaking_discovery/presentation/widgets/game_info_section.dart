@@ -25,7 +25,10 @@ class GameInfoSection extends StatelessWidget {
         playTimeMinutes: game.playTime,
       ),
       components: game.components
-          .map((c) => ComponentData(name: c.componentName))
+          .map((c) => ComponentData(
+                name: c.componentName,
+                quantity: c.defaultQuantity,
+              ))
           .toList(growable: false),
     );
   }
@@ -165,7 +168,7 @@ class GameInfoSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            _ComponentsGrid(components: components),
+            _ComponentsList(components: components),
           ],
         ],
       ),
@@ -173,76 +176,124 @@ class GameInfoSection extends StatelessWidget {
   }
 }
 
-class _ComponentsGrid extends StatelessWidget {
+/// Danh sách linh kiện dạng card ngang, hiển thị đầy đủ tên + số lượng.
+/// Layout dọc thay vì grid để tránh cắt chữ và dễ đọc hơn.
+class _ComponentsList extends StatelessWidget {
   final List<ComponentData> components;
 
-  const _ComponentsGrid({required this.components});
+  const _ComponentsList({required this.components});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < components.length; i++) ...[
+          _ComponentCard(component: components[i]),
+          if (i < components.length - 1) const SizedBox(height: AppSpacing.xs),
+        ],
+      ],
+    );
+  }
+}
+
+/// Card ngang hiển thị một linh kiện với icon, tên đầy đủ và badge số lượng.
+class _ComponentCard extends StatelessWidget {
+  final ComponentData component;
+
+  const _ComponentCard({required this.component});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hasQuantity = component.quantity != null && component.quantity! > 1;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 4,
-        crossAxisSpacing: AppSpacing.xs,
-        mainAxisSpacing: AppSpacing.xs,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
-      itemCount: components.length,
-      itemBuilder: (context, index) {
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDark : AppColors.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.border,
-              width: NeoBrutalismTheme.borderWidth,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: NeoBrutalismTheme.borderWidth,
+        ),
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.black.withValues(alpha: 0.04),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Icon marker
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                component.name.isNotEmpty ? component.name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Icon(
-                  Icons.check,
-                  color: AppColors.white,
-                  size: 12,
-                ),
+          const SizedBox(width: AppSpacing.sm),
+
+          // Tên linh kiện
+          Expanded(
+            child: Text(
+              component.name,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  components[index].name,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        );
-      },
+
+          // Badge số lượng (chỉ hiển thị khi > 1)
+          if (hasQuantity) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.secondary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'x${component.quantity}',
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
 
 class ComponentData {
   final String name;
-  const ComponentData({required this.name});
+  final int? quantity;
+  const ComponentData({required this.name, this.quantity});
 }
 
 class GameInfoData {

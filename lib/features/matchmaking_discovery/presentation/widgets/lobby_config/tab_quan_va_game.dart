@@ -253,9 +253,7 @@ class _GameInfoCard extends StatelessWidget {
                 // Players
                 _MetaChipNeo(
                   icon: Icons.group_rounded,
-                  label: hasDetail
-                      ? '${gameDetail!.minPlayers}-${gameDetail!.maxPlayers} người'
-                      : '2-6 người',
+                  label: hasDetail ? gameDetail!.playerRangeDisplay : '2-6 người',
                   accent: AppColors.primary,
                 ),
 

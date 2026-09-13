@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection.dart';
+import '../../data/services/player_qr_token_cache_service.dart';
 import '../../domain/entities/player_scan_result_entity.dart';
 import '../../domain/repositories/player_check_in_repository.dart';
 
@@ -66,9 +68,28 @@ class PlayerCheckInFailure extends PlayerCheckInState {
 /// này hoàn toàn là self-service.
 class PlayerCheckInCubit extends Cubit<PlayerCheckInState> {
   final PlayerCheckInRepository repository;
+  final PlayerQrTokenCacheService cacheService;
 
-  PlayerCheckInCubit({required this.repository})
-    : super(const PlayerCheckInIdle());
+  PlayerCheckInCubit({
+    required this.repository,
+    required this.cacheService,
+  }) : super(const PlayerCheckInIdle());
+
+  /// Factory method cho production — lấy deps từ GetIt (service locator pattern).
+  ///
+  /// Page dùng `create()` thay vì `registerFactory` để tránh crash khi
+  /// test register fake repository vào `sl` mà quên unregister factory trước đó.
+  ///
+  /// Test nên `sl.registerLazySingleton<FakeImpl>()` thay vì `registerFactory`
+  /// để `create()` tự resolve đúng fake.
+  factory PlayerCheckInCubit.create({
+    PlayerCheckInRepository? repository,
+    PlayerQrTokenCacheService? cacheService,
+  }) =>
+      PlayerCheckInCubit(
+        repository: repository ?? sl<PlayerCheckInRepository>(),
+        cacheService: cacheService ?? sl<PlayerQrTokenCacheService>(),
+      );
 
   /// Gửi token 16-char lên backend. Token sẽ được validate format và
   /// normalize (trim + uppercase) trước khi gọi API.
@@ -78,6 +99,8 @@ class PlayerCheckInCubit extends Cubit<PlayerCheckInState> {
   /// - Sau khi backend phản hồi: `PlayerCheckInSuccess` hoặc
   ///   `PlayerCheckInFailure` tuỳ status code.
   /// - Idempotent cho cùng (player, token): re-submit trả cùng result.
+  /// - Khi success: token được cache vào [PlayerQrTokenCacheService] để
+  ///   retry lần sau không phải scan/paste lại.
   Future<void> submitToken(String rawToken) async {
     final token = rawToken.trim().toUpperCase();
     if (token.isEmpty) {
@@ -108,14 +131,14 @@ class PlayerCheckInCubit extends Cubit<PlayerCheckInState> {
 
     result.fold(
       (failure) => emit(
-        PlayerCheckInFailure(
-          message: failure.message,
-          lastToken: token,
-        ),
+        PlayerCheckInFailure(message: failure.message, lastToken: token),
       ),
-      (scanResult) => emit(
-        PlayerCheckInSuccess(result: scanResult, token: token),
-      ),
+      (scanResult) {
+        // Cache token thành công để retry lần sau không phải nhập lại.
+        // Best-effort: ignore lỗi cache.
+        cacheService.saveLastToken(token);
+        emit(PlayerCheckInSuccess(result: scanResult, token: token));
+      },
     );
   }
 
@@ -123,5 +146,12 @@ class PlayerCheckInCubit extends Cubit<PlayerCheckInState> {
   void reset() {
     if (state is PlayerCheckInIdle) return;
     emit(const PlayerCheckInIdle());
+  }
+
+  /// Đọc token đã cache (nếu có) — dùng cho UI pre-fill input field
+  /// khi user mở page. Trả về `null` nếu không có cache hoặc cache
+  /// không hợp lệ.
+  Future<String?> loadCachedToken() {
+    return cacheService.loadLastToken();
   }
 }

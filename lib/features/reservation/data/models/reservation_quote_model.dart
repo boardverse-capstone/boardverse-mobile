@@ -36,46 +36,60 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
   factory ReservationQuoteModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
 
+    // Helper: cast sang String, fallback về null. Handle int → String.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
+    // Helper: cast sang String, fallback về empty string.
+    String str(dynamic value) {
+      if (value == null) return '';
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ReservationQuoteModel(
-      reservationId: data['reservationId'] as String?,
-      cafeId: data['cafeId'] as String? ?? '',
-      cafeName: data['cafeName'] as String? ?? '',
-      gameId: data['gameId'] as String? ?? '',
-      gameName: data['gameName'] as String? ?? '',
-      playDate: DateTime.tryParse(data['playDate'] as String? ?? '') ?? DateTime.now(),
-      timeSlot: TimeSlot.fromString(data['timeSlot'] as String? ?? 'morning'),
-      preferredStartTime: data['preferredStartTime'] as String?,
-      preferredEndTime: data['preferredEndTime'] as String?,
+      reservationId: strOpt(data['reservationId']),
+      cafeId: str(data['cafeId']),
+      cafeName: str(data['cafeName']),
+      gameId: str(data['gameId']),
+      gameName: str(data['gameName']),
+      playDate: DateTime.tryParse(strOpt(data['playDate']) ?? '') ?? DateTime.now(),
+      timeSlot: TimeSlot.fromString(strOpt(data['timeSlot']) ?? 'morning'),
+      preferredStartTime: strOpt(data['preferredStartTime']),
+      preferredEndTime: strOpt(data['preferredEndTime']),
       scheduledStartTime: DateTime.tryParse(
-              data['scheduledStartTime'] as String? ?? '') ??
+              strOpt(data['scheduledStartTime']) ?? '') ??
           DateTime.now(),
       scheduledEndTime: DateTime.tryParse(
-              data['scheduledEndTime'] as String? ?? '') ??
+              strOpt(data['scheduledEndTime']) ?? '') ??
           DateTime.now().add(const Duration(hours: 4)),
       recruitmentDeadline:
-          DateTime.tryParse(data['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
-      minPlayers: data['minPlayers'] as int? ?? 2,
-      maxPlayers: data['maxPlayers'] as int? ?? 4,
-      depositRatePerPerson: data['depositRatePerPerson'] as int? ?? 0,
-      baseDeposit: data['baseDeposit'] as int? ?? 0,
+          DateTime.tryParse(strOpt(data['recruitmentDeadline']) ?? '') ?? DateTime.now(),
+      minPlayers: (data['minPlayers'] as num?)?.toInt() ?? 2,
+      maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 4,
+      depositRatePerPerson: (data['depositRatePerPerson'] as num?)?.toInt() ?? 0,
+      baseDeposit: (data['baseDeposit'] as num?)?.toInt() ?? 0,
       riskMultiplier:
           (data['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
-      minDepositApplied: data['minDepositApplied'] as int? ?? 0,
-      finalDeposit: data['finalDeposit'] as int? ?? 0,
-      currentBalance: data['currentBalance'] as int? ?? 0,
-      missingAmount: data['missingAmount'] as int? ?? 0,
-      bufferMinutes: data['bufferMinutes'] as int? ?? 0,
+      minDepositApplied: (data['minDepositApplied'] as num?)?.toInt() ?? 0,
+      finalDeposit: (data['finalDeposit'] as num?)?.toInt() ?? 0,
+      currentBalance: (data['currentBalance'] as num?)?.toInt() ?? 0,
+      missingAmount: (data['missingAmount'] as num?)?.toInt() ?? 0,
+      bufferMinutes: (data['bufferMinutes'] as num?)?.toInt() ?? 0,
       bufferWarning: data['bufferWarning'] as bool? ?? false,
       isPrivate: data['isPrivate'] as bool? ?? false,
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
-      expiresAt: DateTime.tryParse(data['expiresAt'] as String? ?? '') ??
+      expiresAt: DateTime.tryParse(strOpt(data['expiresAt']) ?? '') ??
           DateTime.now().add(const Duration(minutes: 5)),
       warnings: (data['warnings'] as List<dynamic>?)
-              ?.map((e) => e as String)
+              ?.map((e) => e is String ? e : e.toString())
               .toList() ??
           [],
-      riskLevel: data['riskLevel'] is String
-          ? RiskLevel.fromString(data['riskLevel'] as String)
+      riskLevel: strOpt(data['riskLevel']) != null
+          ? RiskLevel.fromString(strOpt(data['riskLevel'])!)
           : RiskLevel.low,
     );
   }
@@ -163,18 +177,25 @@ class ReservationConfirmResultModel extends ReservationConfirmResult {
   factory ReservationConfirmResultModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
 
+    // Helper: cast sang String, fallback về null. Handle int → String.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ReservationConfirmResultModel(
-      reservationId: data['reservationId'] as String? ?? '',
-      lobbyId: data['lobbyId'] as String? ?? '',
+      reservationId: strOpt(data['reservationId']) ?? '',
+      lobbyId: strOpt(data['lobbyId']) ?? '',
       lobbyShareCode:
-          (data['lobbyShareCode'] ?? data['shareCode']) as String?,
+          strOpt(data['lobbyShareCode']) ?? strOpt(data['shareCode']),
       recruitmentDeadline:
-          DateTime.tryParse(data['recruitmentDeadline'] as String? ?? '') ?? DateTime.now(),
+          DateTime.tryParse(strOpt(data['recruitmentDeadline']) ?? '') ?? DateTime.now(),
       requiresCafeApproval: data['requiresCafeApproval'] as bool? ?? false,
       cafeApprovalDeadline: data['cafeApprovalDeadline'] != null
-          ? DateTime.tryParse(data['cafeApprovalDeadline'] as String)
+          ? DateTime.tryParse(strOpt(data['cafeApprovalDeadline'])!)
           : null,
-      heldBvc: data['heldBvc'] as int? ?? 0,
+      heldBvc: (data['heldBvc'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -247,12 +268,19 @@ class ReservationCancelResultModel extends ReservationCancelResult {
   factory ReservationCancelResultModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
 
+    // Helper: cast sang String, fallback về null.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ReservationCancelResultModel(
-      reservationId: data['reservationId'] as String? ?? '',
-      lobbyId: data['lobbyId'] as String? ?? '',
-      refundBvc: data['refundBvc'] as int? ?? 0,
-      forfeitBvc: data['forfeitBvc'] as int? ?? 0,
-      refundPolicyApplied: data['refundPolicyApplied'] as String? ?? '',
+      reservationId: strOpt(data['reservationId']) ?? '',
+      lobbyId: strOpt(data['lobbyId']) ?? '',
+      refundBvc: (data['refundBvc'] as num?)?.toInt() ?? 0,
+      forfeitBvc: (data['forfeitBvc'] as num?)?.toInt() ?? 0,
+      refundPolicyApplied: strOpt(data['refundPolicyApplied']) ?? '',
     );
   }
 }
@@ -295,17 +323,25 @@ class ReservationCancelAfterCheckinResultModel
     Map<String, dynamic> json,
   ) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
+
+    // Helper: cast sang String, fallback về null.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ReservationCancelAfterCheckinResultModel(
-      reservationId: data['reservationId'] as String? ?? '',
-      previousStatus: data['previousStatus'] as String? ?? '',
-      newStatus: data['newStatus'] as String? ?? '',
-      playDurationMinutes: data['playDurationMinutes'] as int? ?? 0,
+      reservationId: strOpt(data['reservationId']) ?? '',
+      previousStatus: strOpt(data['previousStatus']) ?? '',
+      newStatus: strOpt(data['newStatus']) ?? '',
+      playDurationMinutes: (data['playDurationMinutes'] as num?)?.toInt() ?? 0,
       playedRatio: (data['playedRatio'] as num?)?.toDouble() ?? 0.0,
-      refundBvc: data['refundBvc'] as int? ?? 0,
-      forfeitBvc: data['forfeitBvc'] as int? ?? 0,
-      refundReason: data['refundReason'] as String? ?? '',
-      cancellationType: data['cancellationType'] as String? ?? '',
-      cancelledAt: DateTime.tryParse(data['cancelledAt'] as String? ?? '') ??
+      refundBvc: (data['refundBvc'] as num?)?.toInt() ?? 0,
+      forfeitBvc: (data['forfeitBvc'] as num?)?.toInt() ?? 0,
+      refundReason: strOpt(data['refundReason']) ?? '',
+      cancellationType: strOpt(data['cancellationType']) ?? '',
+      cancelledAt: DateTime.tryParse(strOpt(data['cancelledAt']) ?? '') ??
           DateTime.now(),
     );
   }
@@ -327,22 +363,30 @@ class ExtendAvailabilityResultModel extends ExtendAvailabilityResult {
 
   factory ExtendAvailabilityResultModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
+
+    // Helper: cast sang String, fallback về null.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return ExtendAvailabilityResultModel(
-      reservationId: data['reservationId'] as String? ?? '',
+      reservationId: strOpt(data['reservationId']) ?? '',
       currentScheduledEndTime: DateTime.tryParse(
-        data['currentScheduledEndTime'] as String? ?? '',
+        strOpt(data['currentScheduledEndTime']) ?? '',
       ) ?? DateTime.now(),
       requestedExtensionMinutes:
-          data['requestedExtensionMinutes'] as int? ?? 0,
+          (data['requestedExtensionMinutes'] as num?)?.toInt() ?? 0,
       newScheduledEndTime: DateTime.tryParse(
-        data['newScheduledEndTime'] as String? ?? '',
+        strOpt(data['newScheduledEndTime']) ?? '',
       ) ?? DateTime.now(),
       isAvailable: data['isAvailable'] as bool? ?? false,
       remainingExtensionMinutes:
-          data['remainingExtensionMinutes'] as int? ?? 0,
-      extensionCount: data['extensionCount'] as int? ?? 0,
-      maxExtensionMinutes: data['maxExtensionMinutes'] as int? ?? 120,
-      reason: data['reason'] as String?,
+          (data['remainingExtensionMinutes'] as num?)?.toInt() ?? 0,
+      extensionCount: (data['extensionCount'] as num?)?.toInt() ?? 0,
+      maxExtensionMinutes: (data['maxExtensionMinutes'] as num?)?.toInt() ?? 120,
+      reason: strOpt(data['reason']),
     );
   }
 }
@@ -361,16 +405,24 @@ class CheckInByCodeResultModel extends CheckInByCodeResult {
 
   factory CheckInByCodeResultModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
+
+    // Helper: cast sang String, fallback về null.
+    String? strOpt(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
     return CheckInByCodeResultModel(
-      reservationId: data['reservationId'] as String? ?? '',
-      lobbyId: data['lobbyId'] as String? ?? '',
-      activeSessionId: data['activeSessionId'] as String? ?? '',
-      reservationStatus: data['reservationStatus'] as String? ?? '',
-      lobbyStatus: data['lobbyStatus'] as String? ?? '',
+      reservationId: strOpt(data['reservationId']) ?? '',
+      lobbyId: strOpt(data['lobbyId']) ?? '',
+      activeSessionId: strOpt(data['activeSessionId']) ?? '',
+      reservationStatus: strOpt(data['reservationStatus']) ?? '',
+      lobbyStatus: strOpt(data['lobbyStatus']) ?? '',
       checkedInAt: DateTime.tryParse(
-        data['checkedInAt'] as String? ?? '',
+        strOpt(data['checkedInAt']) ?? '',
       ) ?? DateTime.now(),
-      heldBvc: data['heldBvc'] as int? ?? 0,
+      heldBvc: (data['heldBvc'] as num?)?.toInt() ?? 0,
     );
   }
 }

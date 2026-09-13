@@ -1,4 +1,7 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
+
+import '../../../lobby_management/domain/entities/lobby_entity.dart';
 
 /// Khung giờ cố định (BR-NEW-15)
 enum TimeSlot {
@@ -140,73 +143,66 @@ enum ReservationStatus {
   }
 }
 
-/// Trạng thái lobby liên quan (BR §5.3)
-enum LobbyStatus {
-  pendingActivation,
-  pendingCafeApproval,
-  open,
-  viable,
-  full,
-  waitingCheckIn,
-  inProgress,
-  closed,
-  timeoutFailed,
-  hostCancelled,
-  rejectedByCafe,
-  expiredByCafe,
-  dissolved;
+/// Phân loại vai trò của user với một reservation.
+///
+/// Được backend trả về trong `GET /api/v1/reservations/my` qua field
+/// `participationType`. Cho phép FE phân biệt trực quan giữa:
+/// - **Host**: reservation do user tạo (user trả cọc + chịu trách nhiệm).
+/// - **Member**: reservation user tham gia với vai trò thành viên (lobby do
+///   người khác host).
+///
+/// Mapping query string filter (xem `.agents/docs/apis_docs/reservation.md`
+/// §GET /my): `participationType=Host` hoặc `=Member`. Null = lấy cả hai.
+///
+/// Binding note (2026-09-02): ASP.NET Core bind enum theo string name
+/// **case-insensitive** — `host`, `Host`, `HOST` đều OK.
+enum ReservationParticipationType {
+  host,
+  member;
 
   String get displayName {
     switch (this) {
-      case LobbyStatus.pendingActivation:
-        return 'Đang kích hoạt';
-      case LobbyStatus.pendingCafeApproval:
-        return 'Chờ quán duyệt';
-      case LobbyStatus.open:
-        return 'Mở';
-      case LobbyStatus.viable:
-        return 'Đủ người';
-      case LobbyStatus.full:
-        return 'Đầy';
-      case LobbyStatus.waitingCheckIn:
-        return 'Chờ check-in';
-      case LobbyStatus.inProgress:
-        return 'Đang chơi';
-      case LobbyStatus.closed:
-        return 'Đóng';
-      case LobbyStatus.timeoutFailed:
-        return 'Hết hạn';
-      case LobbyStatus.hostCancelled:
-        return 'Host hủy';
-      case LobbyStatus.rejectedByCafe:
-        return 'Quán từ chối';
-      case LobbyStatus.expiredByCafe:
-        return 'Hết hạn duyệt';
-      case LobbyStatus.dissolved:
-        return 'Đã giải tán';
+      case ReservationParticipationType.host:
+        return 'Tôi tạo';
+      case ReservationParticipationType.member:
+        return 'Tôi tham gia';
     }
   }
 
-  bool get isActive =>
-      this == LobbyStatus.open ||
-      this == LobbyStatus.viable ||
-      this == LobbyStatus.full ||
-      this == LobbyStatus.waitingCheckIn ||
-      this == LobbyStatus.inProgress ||
-      this == LobbyStatus.pendingCafeApproval;
-
-  static LobbyStatus fromString(String value) {
-    return LobbyStatus.values.firstWhere(
-      (e) => e.name.toLowerCase() == value.toLowerCase(),
-      orElse: () => LobbyStatus.open,
-    );
+  /// Short label dùng cho badge trên card — uppercase, ngắn gọn.
+  String get shortLabel {
+    switch (this) {
+      case ReservationParticipationType.host:
+        return 'CHỦ PHÒNG';
+      case ReservationParticipationType.member:
+        return 'THÀNH VIÊN';
+    }
   }
-}
 
-extension LobbyStatusX on LobbyStatus {
-  bool get isCafePending => this == LobbyStatus.pendingCafeApproval;
-  bool get isRejectedByCafe => this == LobbyStatus.rejectedByCafe;
-  bool get isExpiredByCafe => this == LobbyStatus.expiredByCafe;
+  IconData get icon {
+    switch (this) {
+      case ReservationParticipationType.host:
+        return Icons.workspace_premium_rounded;
+      case ReservationParticipationType.member:
+        return Icons.groups_rounded;
+    }
+  }
+
+  /// Convert sang query string cho API filter.
+  String get apiValue => name; // "host" | "member"
+
+  static ReservationParticipationType? fromString(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final normalized = value.toLowerCase().trim();
+    switch (normalized) {
+      case 'host':
+        return ReservationParticipationType.host;
+      case 'member':
+        return ReservationParticipationType.member;
+      default:
+        return null;
+    }
+  }
 }
 
 extension ReservationStatusX on ReservationStatus {
@@ -371,6 +367,13 @@ class ReservationEntity extends Equatable {
   /// Thời điểm cafe duyệt (nếu có).
   final DateTime? approvedAt;
 
+  /// Vai trò của user hiện tại với reservation này (Host | Member).
+  ///
+  /// Được backend trả về trong `GET /api/v1/reservations/my`. Null nếu
+  /// reservation lấy từ endpoint khác (vd: `GET /api/v1/reservations/{id}`)
+  /// — fallback suy ra từ [isHost].
+  final ReservationParticipationType? participationType;
+
   const ReservationEntity({
     required this.id,
     required this.hostId,
@@ -381,7 +384,12 @@ class ReservationEntity extends Equatable {
     required this.gameId,
     required this.gameName,
     required this.playDate,
-    required this.timeSlot,
+    // BR-NEW-15 (2026-08-18): `timeSlot` không còn là input bắt buộc từ
+    // client (BE tự resolve từ `preferredStartTime` + `preferredEndTime`).
+    // Tuy nhiên BE vẫn trả về trong response cho backward compatibility
+    // — đặt default `TimeSlot.evening` để tránh breaking change ở các
+    // call site cũ (vd: tests). Có thể bỏ default sau khi dọn hết callers.
+    this.timeSlot = TimeSlot.evening,
     this.preferredStartTime,
     this.preferredEndTime,
     required this.scheduledTime,
@@ -419,6 +427,7 @@ class ReservationEntity extends Equatable {
     this.remainingApprovalMinutes,
     this.isCafeApproved,
     this.approvedAt,
+    this.participationType,
   });
 
   /// Tính số ghế còn trống
@@ -429,6 +438,28 @@ class ReservationEntity extends Equatable {
 
   /// Lobby đã đạt minPlayers chưa
   bool get hasReachedMinPlayers => currentPlayers >= minPlayers;
+
+  /// Resolve vai trò của user với reservation này, fallback từ [isHost] nếu
+  /// backend không trả về `participationType`.
+  ///
+  /// Logic:
+  /// - Nếu backend đã trả `participationType` (vd: từ `/my`) → dùng trực tiếp.
+  /// - Ngược lại, suy ra từ `isHost`:
+  ///   - `isHost = true` → `host`
+  ///   - `isHost = false` hoặc `null` → `member`
+  ///
+  /// Dùng cho UI cần phân biệt host/member để render badge/ribbon tương ứng.
+  ReservationParticipationType get effectiveParticipationType {
+    if (participationType != null) return participationType!;
+    if (isHost == true) return ReservationParticipationType.host;
+    return ReservationParticipationType.member;
+  }
+
+  /// True nếu user hiện tại là host của reservation này (đã trả cọc).
+  bool get isUserHost => effectiveParticipationType == ReservationParticipationType.host;
+
+  /// True nếu user hiện tại là member tham gia reservation của người khác.
+  bool get isUserMember => effectiveParticipationType == ReservationParticipationType.member;
 
   /// Tính thời gian còn lại đến recruitment deadline
   Duration get timeToDeadline {
@@ -496,6 +527,7 @@ class ReservationEntity extends Equatable {
     int? remainingApprovalMinutes,
     bool? isCafeApproved,
     DateTime? approvedAt,
+    ReservationParticipationType? participationType,
   }) {
     return ReservationEntity(
       id: id ?? this.id,
@@ -545,6 +577,7 @@ class ReservationEntity extends Equatable {
       remainingApprovalMinutes: remainingApprovalMinutes ?? this.remainingApprovalMinutes,
       isCafeApproved: isCafeApproved ?? this.isCafeApproved,
       approvedAt: approvedAt ?? this.approvedAt,
+      participationType: participationType ?? this.participationType,
     );
   }
 
@@ -595,6 +628,7 @@ class ReservationEntity extends Equatable {
         remainingApprovalMinutes,
         isCafeApproved,
         approvedAt,
+        participationType,
       ];
 }
 

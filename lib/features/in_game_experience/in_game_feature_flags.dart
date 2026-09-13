@@ -1,19 +1,23 @@
 /// Feature flag cho InGameSessionPage.
 ///
-/// Khi backend triển khai API `/api/v1/sessions/active` thật (xem
-/// `in_game_repository_impl.dart` hiện đang return mock data từ
-/// `MockInGameDatasource.mockActiveSessionDetails` — danh sách player
-/// "Minh Player / Thu Hà / Anh Khoa / ..."), set giá trị này thành
-/// `true` để bật lại navigation từ lobby detail tới InGameSessionPage
-/// (sticky banner + auto-redirect + nút "Vào phiên chơi" trong check-in
-/// section).
+/// Bật = true để cho phép player truy cập màn hình in-game sau khi
+/// staff check-in / mở phiên tính tiền. Backend API `GET /api/v1/
+/// sessions/me/current` (xem `.agents/docs/apis_docs/player-session.md`
+/// §1) đã triển khai thật và trả về:
 ///
-/// Trong thời gian chờ backend, set `false`:
-/// - Sticky banner "Mở màn hình đang chơi" bị ẩn hoàn toàn.
-/// - Auto-redirect khi reservation chuyển sang `checkedIn` bị no-op.
-/// - Nút "Vào phiên chơi" trong LobbyCheckInSection bị ẩn.
+/// - `costEstimate`: { baseMinutes, subtotal, penaltyAmount,
+///   depositApplied, totalDue, currency }
+/// - `canPay`: true khi staff đã mở phiên tính tiền từ POS
+///   (`ActiveSession.Status = Unpaid`)
+/// - `sessionStatus`: Active | Checking | Unpaid | Paid
 ///
-/// Lobby detail vẫn hiển thị status badge "Đang chơi" + strip "inProgress"
-/// bình thường — chỉ tạm tắt đường vào màn hình in-game đang hiển thị
-/// mock data.
-const bool kInGameSessionEnabled = false;
+/// UI sẽ render card "CHI PHÍ ƯỚC TÍNH" + button "Thanh toán X BVC"
+/// khi `canBePaid = canPay && sessionStatus == Unpaid && !isPaid`.
+/// Player có thể thanh toán qua `POST /api/v1/sessions/me/pay`.
+///
+/// **Auto-poll:** Cubit poll `me/current` mỗi 15s (background) để
+/// nhận update khi staff thay đổi status từ POS (vd: tạo QR thanh
+/// toán phiên → session chuyển sang `Unpaid` → player thấy card
+/// "TỔNG CỘNG" + button thanh toán ngay trên màn hình in-game mà
+/// không cần out/vào page).
+const bool kInGameSessionEnabled = true;

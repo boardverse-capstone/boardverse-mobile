@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/utils/date_formatter.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
 
 /// View hiển thị khi lobby đã kết thúc (status = closed / timeoutFailed /
@@ -555,7 +555,6 @@ class EndedInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final timeFmt = DateFormat('HH:mm • dd/MM/yyyy');
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -591,7 +590,7 @@ class EndedInfoCard extends StatelessWidget {
           InfoRow(
             icon: AppIcons.schedule,
             label: 'Giờ hẹn',
-            value: timeFmt.format(lobby.scheduledTime.toLocal()),
+            value: DateFormatter.fullDateTime(lobby.scheduledTime),
             isLast: false,
           ),
           InfoRow(
@@ -610,7 +609,7 @@ class EndedInfoCard extends StatelessWidget {
             InfoRow(
               icon: Icons.event_busy,
               label: 'Đã đóng lúc',
-              value: timeFmt.format(lobby.closedAt!.toLocal()),
+              value: DateFormatter.fullDateTime(lobby.closedAt!),
               isLast: true,
             ),
         ],

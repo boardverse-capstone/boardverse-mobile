@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/tournament/domain/entities/tournament_entity.dart';
@@ -12,6 +11,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_shimmer.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/neo_brutalism_theme.dart';
+import '../../utils/date_formatter.dart';
 import '../../utils/refresh_helper.dart';
 import 'tournament_shell.dart';
 
@@ -190,6 +190,9 @@ class _ActivityPageState extends State<ActivityPage>
 
   Widget _buildGreetingCard(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+
     return BlocBuilder<ProfileCubit, ProfileState>(
       builder: (context, state) {
         final hasProfile = state is ProfileLoaded;
@@ -200,14 +203,19 @@ class _ActivityPageState extends State<ActivityPage>
         // Khác với home_overview_page.dart dùng fallback, Activity page
         // (entry tab sau login) cần rõ ràng "đang tải" cho user đợi.
         if (!hasProfile) {
-          return _GreetingCardSkeleton(isDark: isDark);
+          return _GreetingCardSkeleton(isDark: isDark, isSmallScreen: isSmallScreen);
         }
 
         final username = state.profile.username;
         final avatarUrl = state.profile.avatarUrl;
 
+        // Responsive sizing
+        final avatarSize = isSmallScreen ? 48.0 : 64.0;
+        final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+        final titleFontSize = isSmallScreen ? 18.0 : 22.0;
+
         return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.all(horizontalPadding),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -225,8 +233,12 @@ class _ActivityPageState extends State<ActivityPage>
           ),
           child: Row(
             children: [
-              _AvatarWithBorder(avatarUrl: avatarUrl, username: username),
-              const SizedBox(width: AppSpacing.md),
+              _AvatarWithBorder(
+                avatarUrl: avatarUrl,
+                username: username,
+                size: avatarSize,
+              ),
+              SizedBox(width: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,15 +249,15 @@ class _ActivityPageState extends State<ActivityPage>
                       style: TextStyle(
                         color: AppColors.white.withValues(alpha: 0.9),
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                        fontSize: isSmallScreen ? 12 : 14,
                       ),
                     ),
                     Text(
                       username,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.white,
                         fontWeight: FontWeight.w900,
-                        fontSize: 22,
+                        fontSize: titleFontSize,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -256,7 +268,7 @@ class _ActivityPageState extends State<ActivityPage>
                       style: TextStyle(
                         color: AppColors.white.withValues(alpha: 0.85),
                         fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        fontSize: isSmallScreen ? 10 : 12,
                       ),
                     ),
                   ],
@@ -270,6 +282,9 @@ class _ActivityPageState extends State<ActivityPage>
   }
 
   Widget _buildQuickActionsSection(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -282,37 +297,41 @@ class _ActivityPageState extends State<ActivityPage>
             color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        SizedBox(height: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.3,
-          mainAxisSpacing: AppSpacing.md,
-          crossAxisSpacing: AppSpacing.md,
+          childAspectRatio: isSmallScreen ? 1.4 : 1.3,
+          mainAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
+          crossAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
           children: [
             _QuickActionCard(
               icon: Icons.groups_rounded,
               label: 'Tạo phòng',
               color: AppColors.primary,
+              isSmallScreen: isSmallScreen,
               onTap: () => widget.onSwitchTab?.call(3), // Go to Lobbies tab
             ),
             _QuickActionCard(
               icon: Icons.search_rounded,
               label: 'Tìm phòng',
               color: AppColors.secondary,
+              isSmallScreen: isSmallScreen,
               onTap: () => widget.onSwitchTab?.call(2), // Go to Explore tab
             ),
             _QuickActionCard(
               icon: Icons.calendar_month_rounded,
               label: 'Đặt bàn',
               color: AppColors.accent,
+              isSmallScreen: isSmallScreen,
               onTap: () => widget.onSwitchTab?.call(1), // Go to Bookings tab
             ),
             _QuickActionCard(
               icon: Icons.emoji_events_rounded,
               label: 'Giải đấu',
               color: AppColors.success,
+              isSmallScreen: isSmallScreen,
               onTap: () => _openTournaments(),
             ),
           ],
@@ -495,8 +514,6 @@ class _TournamentMiniCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
 
-  static final DateFormat _dateFormat = DateFormat('dd/MM • HH:mm');
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -567,7 +584,7 @@ class _TournamentMiniCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  _dateFormat.format(tournament.startTime),
+                  DateFormatter.dateTime(tournament.startTime),
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -707,14 +724,19 @@ class _TournamentLoadingCard extends StatelessWidget {
 /// không bị "jump" layout. Phần text/avatar thay bằng shimmer box
 /// để user biết app đang tải.
 class _GreetingCardSkeleton extends StatelessWidget {
-  const _GreetingCardSkeleton({required this.isDark});
+  const _GreetingCardSkeleton({required this.isDark, this.isSmallScreen = false});
 
   final bool isDark;
+  final bool isSmallScreen;
 
   @override
   Widget build(BuildContext context) {
+    // Responsive sizing
+    final avatarSize = isSmallScreen ? 48.0 : 64.0;
+    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: EdgeInsets.all(horizontalPadding),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -733,8 +755,8 @@ class _GreetingCardSkeleton extends StatelessWidget {
       child: Row(
         children: [
           // Avatar skeleton - circle với shimmer
-          AppShimmer.circle(context: context, size: 64),
-          const SizedBox(width: AppSpacing.md),
+          AppShimmer.circle(context: context, size: avatarSize),
+          SizedBox(width: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,24 +765,24 @@ class _GreetingCardSkeleton extends StatelessWidget {
                 // "Xin chào," line
                 AppShimmer.box(
                   context: context,
-                  width: 70,
-                  height: 14,
+                  width: isSmallScreen ? 50 : 70,
+                  height: isSmallScreen ? 12 : 14,
                   borderRadius: 4,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isSmallScreen ? 6 : 8),
                 // Username (to hơn)
                 AppShimmer.box(
                   context: context,
-                  width: 160,
-                  height: 22,
+                  width: isSmallScreen ? 120 : 160,
+                  height: isSmallScreen ? 18 : 22,
                   borderRadius: 6,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isSmallScreen ? 6 : 8),
                 // Greeting message
                 AppShimmer.box(
                   context: context,
-                  width: 200,
-                  height: 12,
+                  width: isSmallScreen ? 150 : 200,
+                  height: isSmallScreen ? 10 : 12,
                   borderRadius: 4,
                 ),
               ],
@@ -857,10 +879,15 @@ class _TournamentEmptyCard extends StatelessWidget {
 // ============ Existing Widgets ============
 
 class _AvatarWithBorder extends StatelessWidget {
-  const _AvatarWithBorder({required this.avatarUrl, required this.username});
+  const _AvatarWithBorder({
+    required this.avatarUrl,
+    required this.username,
+    this.size = 64,
+  });
 
   final String? avatarUrl;
   final String username;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -881,7 +908,7 @@ class _AvatarWithBorder extends StatelessWidget {
         ],
       ),
       child: CircleAvatar(
-        radius: 32,
+        radius: (size - 6) / 2,
         backgroundColor: AppColors.primary.withValues(alpha: 0.2),
         backgroundImage: hasImage ? NetworkImage(avatarUrl!) : null,
         child: hasImage
@@ -890,8 +917,8 @@ class _AvatarWithBorder extends StatelessWidget {
                 username.isNotEmpty
                     ? username.substring(0, 1).toUpperCase()
                     : '?',
-                style: const TextStyle(
-                  fontSize: 28,
+                style: TextStyle(
+                  fontSize: size * 0.44,
                   fontWeight: FontWeight.w900,
                   color: AppColors.primary,
                 ),
@@ -907,12 +934,14 @@ class _QuickActionCard extends StatefulWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.isSmallScreen = false,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool isSmallScreen;
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -924,6 +953,12 @@ class _QuickActionCardState extends State<_QuickActionCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Responsive sizing
+    final iconSize = widget.isSmallScreen ? 22.0 : 28.0;
+    final iconPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.sm + 2;
+    final cardPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.md;
+    final titleFontSize = widget.isSmallScreen ? 11.0 : 13.0;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -941,12 +976,13 @@ class _QuickActionCardState extends State<_QuickActionCard> {
             shadowColor: widget.color.withValues(alpha: 0.2),
             borderRadius: 16,
           ),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: EdgeInsets.all(cardPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                padding: EdgeInsets.all(iconPadding),
                 decoration: BoxDecoration(
                   color: widget.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
@@ -955,13 +991,15 @@ class _QuickActionCardState extends State<_QuickActionCard> {
                     width: 2,
                   ),
                 ),
-                child: Icon(widget.icon, color: widget.color, size: 28),
+                child: Icon(widget.icon, color: widget.color, size: iconSize),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              SizedBox(height: widget.isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
               Text(
                 widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: titleFontSize,
                   fontWeight: FontWeight.w700,
                   color: isDark
                       ? AppColors.textPrimaryDark

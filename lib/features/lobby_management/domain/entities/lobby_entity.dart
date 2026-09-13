@@ -34,7 +34,19 @@ enum LobbyStatus {
   hostCancelled,
   rejectedByCafe,
   expiredByCafe,
-  dissolved,
+  dissolved;
+
+  /// Parse LobbyStatus từ string API (case-insensitive).
+  ///
+  /// Backend trả về string name (vd: 'Open', 'RatingOpen'). Dùng
+  /// `firstWhere` với orElse fallback về `open` — đây là trạng thái
+  /// phổ biến nhất và an toàn nhất khi parse fail.
+  static LobbyStatus fromString(String value) {
+    return LobbyStatus.values.firstWhere(
+      (e) => e.name.toLowerCase() == value.toLowerCase(),
+      orElse: () => LobbyStatus.open,
+    );
+  }
 }
 
 extension LobbyStatusX on LobbyStatus {
@@ -229,6 +241,12 @@ class LobbyEntity extends Equatable {
   final String cafeId;
   final String cafeName;
 
+  /// Số điện thoại quán — optional, chỉ có khi API trả về.
+  final String? cafePhone;
+
+  /// Địa chỉ quán — optional, chỉ có khi API trả về.
+  final String? cafeAddress;
+
   /// Bàn đã được backend gán sẵn cho lobby, nếu có.
   final String? cafeTableId;
 
@@ -238,6 +256,13 @@ class LobbyEntity extends Equatable {
 
   /// Giờ hẹn chơi thực tế. Khác với `timeoutAt` (= scheduledTime - leadTime).
   final int currentPlayers;
+
+  /// BR-NEW-15 (2026-08-18): cặp `preferredStartTime` + `preferredEndTime`
+  /// (HH:mm:ss) thay thế enum `TimeSlot`. Cả 2 đều optional vì server có
+  /// thể trả về cho `/lobbies/{id}` hoặc chỉ một trong hai.
+  final String? preferredStartTime;
+  final String? preferredEndTime;
+
   final int maxPlayers;
   final int minPlayers;
   final bool isPublic;
@@ -298,11 +323,15 @@ class LobbyEntity extends Equatable {
     this.gameImageUrl,
     required this.cafeId,
     required this.cafeName,
+    this.cafePhone,
+    this.cafeAddress,
     this.cafeTableId,
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
     required this.currentPlayers,
+    this.preferredStartTime,
+    this.preferredEndTime,
     required this.maxPlayers,
     required this.minPlayers,
     required this.isPublic,
@@ -337,11 +366,15 @@ class LobbyEntity extends Equatable {
     String? gameName,
     String? cafeId,
     String? cafeName,
+    Object? cafePhone = _sentinel,
+    Object? cafeAddress = _sentinel,
     Object? cafeTableId = _sentinel,
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
     int? currentPlayers,
+    Object? preferredStartTime = _sentinel,
+    Object? preferredEndTime = _sentinel,
     int? maxPlayers,
     int? minPlayers,
     bool? isPublic,
@@ -371,6 +404,12 @@ class LobbyEntity extends Equatable {
           : gameImageUrl as String?,
       cafeId: cafeId ?? this.cafeId,
       cafeName: cafeName ?? this.cafeName,
+      cafePhone: identical(cafePhone, _sentinel)
+          ? this.cafePhone
+          : cafePhone as String?,
+      cafeAddress: identical(cafeAddress, _sentinel)
+          ? this.cafeAddress
+          : cafeAddress as String?,
       cafeTableId: identical(cafeTableId, _sentinel)
           ? this.cafeTableId
           : cafeTableId as String?,
@@ -378,6 +417,12 @@ class LobbyEntity extends Equatable {
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
       currentPlayers: currentPlayers ?? this.currentPlayers,
+      preferredStartTime: identical(preferredStartTime, _sentinel)
+          ? this.preferredStartTime
+          : preferredStartTime as String?,
+      preferredEndTime: identical(preferredEndTime, _sentinel)
+          ? this.preferredEndTime
+          : preferredEndTime as String?,
       maxPlayers: maxPlayers ?? this.maxPlayers,
       minPlayers: minPlayers ?? this.minPlayers,
       isPublic: isPublic ?? this.isPublic,
@@ -426,11 +471,15 @@ class LobbyEntity extends Equatable {
     gameImageUrl,
     cafeId,
     cafeName,
+    cafePhone,
+    cafeAddress,
     cafeTableId,
     hostId,
     hostName,
     scheduledTime,
     currentPlayers,
+    preferredStartTime,
+    preferredEndTime,
     maxPlayers,
     minPlayers,
     isPublic,

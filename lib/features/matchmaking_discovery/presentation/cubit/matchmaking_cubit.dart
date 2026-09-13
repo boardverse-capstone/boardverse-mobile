@@ -4,13 +4,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
-import '../../domain/entities/default_time_slot_entity.dart';
 import '../../domain/entities/game_play_configuration_entity.dart';
 import '../../domain/entities/nearby_cafes_search_result_entity.dart';
 import '../../domain/entities/search_filter_entity.dart';
 import '../../domain/repositories/matchmaking_repository.dart';
 import '../../../lobby_management/domain/repositories/lobby_repository.dart';
 import 'matchmaking_state.dart';
+
+/// Keywords trong error message cho biết lỗi liên quan đến việc
+/// player chưa cập nhật vị trí của mình.
+///
+/// Backend `/api/cafes/nearby/me` trả 400 khi profile chưa có
+/// `LastKnownLocation` — message thường chứa "location" hoặc "vị trí".
+const _locationKeywords = ['location', 'vị trí', 'lastknownlocation'];
 
 class MatchmakingCubit extends Cubit<MatchmakingState> {
   final MatchmakingRepository repository;
@@ -40,7 +46,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (games) {
         _refreshPopularGameId(games);
         emit(
@@ -64,7 +70,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (games) {
         _refreshPopularGameId(games);
         emit(
@@ -117,7 +123,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
 
     await gameResult.fold(
-      (failure) async => emit(MatchmakingFailure(message: failure.message)),
+      (failure) async => emit(_createFailure(failure)),
       (gameDetail) async {
         if (gameDetail == null) {
           emit(const MatchmakingFailure(message: 'Không tìm thấy game'));
@@ -125,7 +131,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         }
 
         await cafesResult.fold(
-          (failure) async => emit(MatchmakingFailure(message: failure.message)),
+          (failure) async => emit(_createFailure(failure)),
           (searchResult) async {
             // Theo AC 2.1 của `cafe.md`, server đã filter `cafes` theo
             // `gameTemplateId` (quán có ít nhất 1 hộp game của `gameId`,
@@ -209,7 +215,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
 
     await gameResult.fold(
-      (failure) async => emit(MatchmakingFailure(message: failure.message)),
+      (failure) async => emit(_createFailure(failure)),
       (game) async {
         if (game == null) {
           emit(const MatchmakingFailure(message: 'Không tìm thấy game'));
@@ -217,7 +223,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         }
 
         await cafesResult.fold(
-          (failure) async => emit(MatchmakingFailure(message: failure.message)),
+          (failure) async => emit(_createFailure(failure)),
           (cafes) {
             final nearbyCafes = _filterCafesWithGame(cafes, gameId);
             emit(
@@ -285,6 +291,45 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
   List<CafeEntity> _filterCafesWithGame(
       List<CafeEntity> cafes, String gameId) {
     return cafes.where((cafe) => cafe.totalGameBoxCount > 0).toList();
+  }
+
+  // ─── Cafe Active Games (for LobbyConfig game picker) ───────────────
+
+  /// Load danh sách board game đang hoạt động tại một quán cafe cụ thể.
+  /// Dùng khi player ấn "Đổi game" trên [LobbyConfigPage] để hiển thị
+  /// chỉ game có sẵn tại quán đã chọn — thay vì toàn bộ game hệ thống.
+  ///
+  /// Gọi `GET /api/cafes/{cafeId}/active-games` — endpoint public, không cần
+  /// token. Kết quả được emit qua state [MatchmakingCafeGamesLoaded] để
+  /// [LobbyGamePickerSheet] hiển thị.
+  ///
+  /// Nếu `groupSize` được truyền, backend chỉ trả game có
+  /// `minPlayers <= groupSize`. Đặt `availableOnly=true` nếu muốn chỉ
+  /// trả game còn hộp trống (có thể đặt ngay).
+  ///
+  /// Lỗi (404 cafe không tồn tại, 500 server error) → emit
+  /// [MatchmakingFailure] để UI hiển thị thông báo phù hợp.
+  Future<void> loadCafeActiveGames(
+    String cafeId, {
+    int? groupSize,
+    bool availableOnly = false,
+  }) async {
+    emit(const MatchmakingLoading());
+
+    final result = await repository.getCafeActiveGames(
+      cafeId,
+      groupSize: groupSize,
+      availableOnly: availableOnly,
+    );
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(_createFailure(failure)),
+      (games) => emit(MatchmakingCafeGamesLoaded(
+        cafeId: cafeId,
+        games: games,
+      )),
+    );
   }
 
   // ─── Seat Availability Methods (BR-05, BR-06) ─────────────────────────
@@ -447,7 +492,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (games) {
         _refreshPopularGameId(games);
         emit(
@@ -487,7 +532,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     if (isClosed) return;
 
     await detailResult.fold(
-      (failure) async => emit(MatchmakingFailure(message: failure.message)),
+      (failure) async => emit(_createFailure(failure)),
       (detail) async {
         if (detail == null) {
           emit(const MatchmakingFailure(message: 'Không tìm thấy game'));
@@ -497,7 +542,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
         if (isClosed) return;
         await cafesEither.fold(
           (failure) async =>
-              emit(MatchmakingFailure(message: failure.message)),
+              emit(_createFailure(failure)),
           (cafes) async {
             final nearbyCafes = _filterCafesWithGame(cafes, gameId);
             final isOutOfRadius =
@@ -520,7 +565,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
     final result = await repository.getGamePlayConfiguration(gameId);
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (config) => emit(MatchmakingPlayConfigurationLoaded(
         config: config,
         gameId: gameId,
@@ -543,7 +588,7 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (navigation) => emit(MatchmakingPlayNavigationResolved(
         navigation: navigation,
       )),
@@ -567,7 +612,7 @@ Future<void> loadNearbyCafesForCurrentUser({
 
   if (isClosed) return;
   result.fold(
-    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (failure) => emit(_createFailure(failure)),
     (data) => emit(MatchmakingNearbyCafesLoaded(
       gameId: gameId ?? '',
       cafes: data.cafes,
@@ -595,7 +640,7 @@ Future<void> loadNearbyCafesWithCoordinates({
 
   if (isClosed) return;
   result.fold(
-    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (failure) => emit(_createFailure(failure)),
     (data) => emit(MatchmakingNearbyCafesLoaded(
       gameId: gameId ?? '',
       cafes: data.cafes,
@@ -648,7 +693,7 @@ void resetNearbyCafesForGameSwitch() {
 
     if (isClosed) return;
     result.fold(
-      (failure) => emit(MatchmakingFailure(message: failure.message)),
+      (failure) => emit(_createFailure(failure)),
       (data) => emit(MatchmakingCafeSearchResults(
         query: name,
         cafes: data.cafes,
@@ -737,7 +782,7 @@ Future<void> _loadCafesNearbyForCurrentUserImpl({
 
   // Fallback cũng trả về cùng data → emit state từ firstResult nguyên thuỷ.
   firstResult.fold(
-    (failure) => emit(MatchmakingFailure(message: failure.message)),
+    (failure) => emit(_createFailure(failure)),
     (data) => emit(MatchmakingCafeSearchResults(
       query: '',
       cafes: data.cafes,
@@ -774,6 +819,80 @@ Future<void> _loadCafesNearbyForCurrentUserImpl({
     final sorted = [...games]
       ..sort((a, b) => b.rating.compareTo(a.rating));
     _popularGameId = sorted.first.id;
+  }
+
+  /// Tạo [MatchmakingFailure] với user-friendly message và flag
+  /// `requiresLocationUpdate = true` nếu lỗi liên quan đến việc player
+  /// chưa cập nhật vị trí.
+  ///
+  /// Logic:
+  /// - Nếu là `BadRequestFailure` (400) và message chứa keyword location
+  ///   → đây là lỗi "chưa có vị trí" → emit với `requiresLocationUpdate=true`
+  /// - Các lỗi khác → message thân thiện với user
+  MatchmakingFailure _createFailure(Failure failure) {
+    final message = failure.message;
+    final requiresLocation = _isLocationRelatedError(failure);
+
+    // User-friendly message cho các loại lỗi phổ biến
+    String friendlyMessage;
+    if (requiresLocation) {
+      friendlyMessage =
+          'Bạn chưa cập nhật vị trí hiện tại. Vui lòng cập nhật vị trí để '
+              'tìm quán cafe gần bạn.';
+    } else if (failure is NetworkFailure) {
+      friendlyMessage = 'Không có kết nối mạng. Vui lòng kiểm tra kết nối '
+          'Internet và thử lại.';
+    } else if (failure is ServerFailure &&
+        failure.statusCode != null &&
+        failure.statusCode! >= 500) {
+      friendlyMessage =
+          'Máy chủ đang bận. Vui lòng thử lại sau vài phút.';
+    } else {
+      // Fallback: sanitize technical messages
+      friendlyMessage = _sanitizeErrorMessage(message);
+    }
+
+    return MatchmakingFailure(
+      message: friendlyMessage,
+      requiresLocationUpdate: requiresLocation,
+      statusCode: failure is ServerFailure ? failure.statusCode : null,
+    );
+  }
+
+  /// Kiểm tra xem lỗi có phải là do player chưa cập nhật vị trí không.
+  ///
+  /// Điều kiện:
+  /// 1. `BadRequestFailure` (statusCode 400), VÀ
+  /// 2. Message chứa keyword liên quan location
+  bool _isLocationRelatedError(Failure failure) {
+    if (failure is! BadRequestFailure) return false;
+    final msg = failure.message.toLowerCase();
+    return _locationKeywords.any((k) => msg.contains(k.toLowerCase()));
+  }
+
+  /// Sanitize technical error message thành message thân thiện với user.
+  ///
+  /// Loại bỏ:
+  /// - Stack traces và technical details
+  /// - Exception class names như "ServerException"
+  /// - Raw HTTP status codes trong ngoặc vuông
+  String _sanitizeErrorMessage(String message) {
+    // Loại bỏ phần trong ngoặc vuông (VD: [400], [null])
+    var sanitized = message.replaceAll(RegExp(r'\[[^\]]*\]'), '').trim();
+
+    // Loại bỏ class names như "ServerException(message: ...)"
+    if (sanitized.contains('Exception')) {
+      sanitized = 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.';
+    }
+
+    // Giới hạn độ dài message
+    if (sanitized.length > 150) {
+      sanitized = '${sanitized.substring(0, 147)}...';
+    }
+
+    return sanitized.isEmpty
+        ? 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.'
+        : sanitized;
   }
 
 /// Kết quả trả về từ [getNearbyCafesForCurrentUser] có thể rỗng khi quán
@@ -832,34 +951,5 @@ Future<MatchmakingCafeSearchResults?> _resolveWithFallback({
       fallbackGameName: bestGame.gameName,
     ),
   );
-}
-
-  // ─── Time Slot Defaults ──────────────────────────────────────────────
-
-  /// Lấy 4 khung giờ cố định từ `GET /api/v1/manager/time-slots/defaults`
-  /// và phát ra [MatchmakingTimeSlotsLoaded].
-  ///
-  /// Hàm **không** trước đó emit `MatchmakingLoading` — vì load này chạy
-  /// song song với các flow khác (game detail, quote preview). Nếu emit
-  /// loading sẽ đè các state đang hiển thị UI.
-  ///
-  /// Trả về thẳng list slot (nếu success) hoặc `null` (failure) để caller
-  /// quyết định fallback. UI nên luôn có hardcoded fallback cho trường hợp
-  /// API lỗi / mạng chậm, vì tab chọn phiên cần render ngay khi mở trang.
-  Future<List<DefaultTimeSlotEntity>?> loadDefaultTimeSlots() async {
-    final result = await repository.getDefaultTimeSlots();
-    if (isClosed) return null;
-
-    return result.fold(
-      (failure) {
-        // Không emit failure để tránh phá state hiện tại — chỉ trả về null
-        // cho caller tự quyết định fallback UI.
-        return null;
-      },
-      (slots) {
-        emit(MatchmakingTimeSlotsLoaded(slots: slots));
-        return slots;
-      },
-    );
   }
 }

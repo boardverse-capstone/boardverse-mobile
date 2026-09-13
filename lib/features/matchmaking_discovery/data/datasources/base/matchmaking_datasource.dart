@@ -1,7 +1,7 @@
 import '../../models/board_game_model.dart';
+import '../../models/cafe_active_game_model.dart';
 import '../../models/cafe_model.dart';
 import '../../models/cafe_detail_model.dart';
-import '../../models/default_time_slot_model.dart';
 import '../../models/seat_availability_model.dart';
 import '../../models/game_category_model.dart';
 import '../../models/board_game_detail_model.dart';
@@ -53,14 +53,8 @@ abstract class MatchmakingDatasource {
     required PlayMode mode,
   });
 
-  /// `GET /api/v1/manager/time-slots/defaults`
-  ///
-  /// Trả về 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
-  /// LateNight). Tài liệu gắn tag "Manager" nhưng dữ liệu là metadata
-  /// chung — Player mobile cũng dùng để hiển thị khung giờ ở LobbyConfig.
-  /// Nếu backend reject với 403 thì chỉ cần nâng cấp role của player token
-  /// hoặc đổi endpoint; abstraction này giữ cho UI không phụ thuộc.
-  Future<List<DefaultTimeSlotModel>> getDefaultTimeSlots();
+  // BR-NEW (2026-08-27): `getDefaultTimeSlots()` đã bị xoá — backend không
+  // còn xử lý `timeSlot` enum cho reservation/lobby creation.
 
   // ─── Cafes ─────────────────────────────────────────────────────────
 
@@ -122,6 +116,33 @@ abstract class MatchmakingDatasource {
 
   /// Lấy games có sẵn tại quán (legacy, dùng cho Mock)
   Future<List<BoardGameModel>> getCafeGames(String cafeId);
+
+  /// Lấy danh sách board game đang hoạt động tại quán cafe —
+  /// `GET /api/cafes/{cafeId}/active-games` (public, không cần token).
+  ///
+  /// Chỉ trả game có trong kho quán, trạng thái Available/InUse, chưa
+  /// bị xóa mềm. Dùng khi player đặt chỗ từ trang chi tiết quán —
+  /// thay thế việc hiển thị toàn bộ game hệ thống.
+  ///
+  /// Query params hỗ trợ:
+  /// - `categoryId`: lọc theo thể loại.
+  /// - `groupSize`: chỉ trả game có `minPlayers <= groupSize`.
+  /// - `availableOnly`: `true` → chỉ trả game có `availableBoxCount > 0`.
+  /// - `searchTerm`: tìm theo tên game.
+  /// - `sortBy`: sắp xếp (Name/AvailableBoxesDesc/PlayTimeAsc/PlayerCountAsc).
+  /// - `pageNumber`, `pageSize`: phân trang.
+  ///
+  /// Docs: `.agents/docs/apis_docs/cafe.md` §GET /api/cafes/{cafeId}/active-games
+  Future<List<CafeActiveGameModel>> getCafeActiveGames(
+    String cafeId, {
+    String? categoryId,
+    int? groupSize,
+    bool availableOnly = false,
+    String? searchTerm,
+    String? sortBy,
+    int pageNumber = 1,
+    int pageSize = 100,
+  });
 
   // ─── Seat Availability (Real-time) ──────────────────────────────────
 

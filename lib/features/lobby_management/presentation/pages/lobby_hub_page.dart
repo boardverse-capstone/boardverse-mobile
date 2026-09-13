@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/error/failures.dart';
@@ -38,7 +37,6 @@ class LobbyHubPage extends StatefulWidget {
 
 class _LobbyHubPageState extends State<LobbyHubPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  static final DateFormat _timeFormatter = DateFormat('HH:mm');
 
   late final TabController _tabController;
 
@@ -197,7 +195,6 @@ class _LobbyHubPageState extends State<LobbyHubPage>
               children: [
                 LobbyExploreTab(
                   searchCubit: _searchCubit,
-                  timeFormatter: _timeFormatter,
                   onPreview: _openPreview,
                   onOpenOwned: _openOwnedLobby,
                   onJoin: _joinAndOpen,
@@ -206,9 +203,9 @@ class _LobbyHubPageState extends State<LobbyHubPage>
                 ),
                 LobbyHistoryTab(
                   myLobbiesCubit: _myLobbiesCubit,
-                  timeFormatter: _timeFormatter,
                   onTapLobby: _openMyLobby,
                   onRefresh: _loadMyLobbies,
+                  onCreateLobby: _openCreateLobby,
                 ),
               ],
             ),
@@ -266,11 +263,25 @@ class _LobbyHubPageState extends State<LobbyHubPage>
   }
 
   Future<void> _openPreview(LobbyEntity lobby) async {
-    Navigator.of(context).push(
+    // Mở preview page — flow mới (no-delay): preview page tự gọi
+    // `joinLobby` API tại chỗ + hiển thị shimmer overlay + pushReplacement
+    // sang LobbyPage khi thành công. Hub page không cần xử lý gì thêm
+    // về navigation.
+    //
+    // Sau khi preview page pop (do user bấm "Quay lại" hoặc do pushReplace),
+    // ta chỉ cần refresh "Của tôi" list để lobby vừa join xuất hiện ngay
+    // mà không cần pull-to-refresh. Trước đây hub tự gọi `_joinAndOpen`
+    // — gây ra navigation 2 bước (preview → hub → LobbyPage) khiến user
+    // thấy delay "quay về khám phá" trước khi vào lobby.
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => LobbyPreviewPage(lobby: lobby, lobbyCubit: _lobbyCubit),
       ),
     );
+
+    // Refresh "Của tôi" tab để lobby vừa join xuất hiện ngay
+    // mà không cần pull-to-refresh / reload màn hình.
+    _loadMyLobbies();
   }
 
   Future<void> _openMyLobby(LobbyEntity lobby) async {

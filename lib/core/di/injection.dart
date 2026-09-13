@@ -44,9 +44,11 @@ import '../../features/notification/data/datasources/remote/notification_remote_
 import '../../features/notification/data/notification_repository_impl.dart';
 import '../../features/notification/data/realtime/fcm_service.dart';
 import '../../features/notification/domain/repositories/notification_repository.dart';
+import '../../features/in_game_experience/data/datasources/player_session_remote_datasource.dart';
 import '../../features/in_game_experience/data/in_game_repository_impl.dart';
 import '../../features/in_game_experience/domain/repositories/in_game_repository.dart';
 import '../../features/in_game_experience/presentation/cubit/in_game_cubit.dart';
+import '../../features/match_summary_rating/data/datasources/karma_rating_remote_datasource.dart';
 import '../../features/match_summary_rating/data/rating_repository_impl.dart';
 import '../../features/match_summary_rating/domain/repositories/rating_repository.dart';
 import '../../features/match_summary_rating/presentation/cubit/rating_cubit.dart';
@@ -71,12 +73,14 @@ import '../../features/wallet/presentation/cubit/wallet_cubit.dart';
 import '../../features/wallet/presentation/cubit/topup_cubit.dart';
 import '../../features/player_check_in/data/datasources/player_check_in_remote_datasource.dart';
 import '../../features/player_check_in/data/player_check_in_repository_impl.dart';
+import '../../features/player_check_in/data/services/player_qr_token_cache_service.dart';
 import '../../features/player_check_in/domain/repositories/player_check_in_repository.dart';
 import '../../features/player_check_in/presentation/cubit/player_check_in_cubit.dart';
 import '../../features/reservation/data/datasources/reservation_remote_datasource.dart';
 import '../../features/reservation/data/reservation_repository_impl.dart';
 import '../../features/reservation/domain/repositories/reservation_repository.dart';
 import '../../features/reservation/presentation/cubit/reservation_cubit.dart';
+import '../../features/reservation/presentation/cubit/reservation_detail_cubit.dart';
 import '../services/storage/theme_preferences_service.dart';
 import '../utils/current_user_resolver.dart';
 
@@ -129,9 +133,7 @@ void setupDependencies() {
     () => ProfileRemoteDatasourceImpl(dio: sl<Dio>()),
   );
 
-  sl.registerLazySingleton<ProfileCacheService>(
-    () => ProfileCacheService(),
-  );
+  sl.registerLazySingleton<ProfileCacheService>(() => ProfileCacheService());
 
   sl.registerLazySingleton<ProfileRepository>(
     () =>
@@ -247,26 +249,46 @@ void setupDependencies() {
     () => NotificationRemoteDatasourceImpl(dio: sl<Dio>()),
   );
   sl.registerLazySingleton<NotificationRepository>(
-    () => NotificationRepositoryImpl(datasource: sl<NotificationRemoteDatasource>()),
+    () => NotificationRepositoryImpl(
+      datasource: sl<NotificationRemoteDatasource>(),
+    ),
   );
 
   // FCM service — stub NullFcmService cho đến khi firebase deps được add.
   // Production impl cần register `FirebaseMessagingService` thay thế sau khi
   // thêm `firebase_core` + `firebase_messaging` vào pubspec.yaml.
-  sl.registerLazySingleton<FcmService>(
-    () => NullFcmService(),
-  );
+  sl.registerLazySingleton<FcmService>(() => NullFcmService());
 
   // ─── Feature: In Game Experience ──────────────────────────────────────
-  sl.registerLazySingleton<InGameRepository>(() => InGameRepositoryImpl());
+  sl.registerLazySingleton<PlayerSessionRemoteDatasource>(
+    () => PlayerSessionRemoteDatasource(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<InGameRepository>(
+    () => InGameRepositoryImpl(
+      playerSessionDatasource: sl<PlayerSessionRemoteDatasource>(),
+    ),
+  );
 
   sl.registerFactory<InGameCubit>(
     () => InGameCubit(repository: sl<InGameRepository>()),
   );
 
   // ─── Feature: Match Summary Rating ────────────────────────────────────
-  sl.registerLazySingleton<RatingRepository>(() => RatingRepositoryImpl());
+  // Triển khai thật theo `.agents/docs/apis_docs/user-ratings.md`:
+  // - GET  /api/v1/users/ratings/karma/lobbies/{lobbyId}
+  // - POST /api/v1/users/ratings/karma
+  sl.registerLazySingleton<KarmaRatingRemoteDatasource>(
+    () => RealKarmaRatingRemoteDatasource(dio: sl<Dio>()),
+  );
 
+  sl.registerLazySingleton<RatingRepository>(
+    () => RatingRepositoryImpl(datasource: sl<KarmaRatingRemoteDatasource>()),
+  );
+
+  // Factory cubit — mỗi page mount (LobbyRatingPage) sẽ tạo instance
+  // mới; cũng share được giữa ReservationDetailPage khi navigate qua
+  // `BlocProvider.value(...)` để giữ state khi pop ngược.
   sl.registerFactory<RatingCubit>(
     () => RatingCubit(repository: sl<RatingRepository>()),
   );
@@ -278,7 +300,9 @@ void setupDependencies() {
   );
 
   sl.registerLazySingleton<TournamentRepository>(
-    () => TournamentRepositoryImpl(remoteDatasource: sl<TournamentRemoteDatasource>()),
+    () => TournamentRepositoryImpl(
+      remoteDatasource: sl<TournamentRemoteDatasource>(),
+    ),
   );
 
   // Lazy singletons — dùng cho các cubit có vòng đời dài (vd Tournament
@@ -366,7 +390,9 @@ void setupDependencies() {
   );
 
   sl.registerLazySingleton<ReservationRepository>(
-    () => ReservationRepositoryImpl(remoteDatasource: sl<ReservationRemoteDatasource>()),
+    () => ReservationRepositoryImpl(
+      remoteDatasource: sl<ReservationRemoteDatasource>(),
+    ),
   );
 
   // Factory cubit for reservation flow (creates new instance each time).
@@ -385,6 +411,14 @@ void setupDependencies() {
     () => LobbyReservationCubit(repository: sl<ReservationRepository>()),
   );
 
+  // Factory cubit for reservation detail page
+  sl.registerFactory<ReservationDetailCubit>(
+    () => ReservationDetailCubit(
+      repository: sl<ReservationRepository>(),
+      lobbyRepository: sl<LobbyRepository>(),
+    ),
+  );
+
   // ─── Feature: Player Check-In (BR §21A.7) ──────────────────────────────
   // Player self check-in via POS QR token (chiều 2 của check-in 2 chiều).
   // Backend: /api/check-in/scan-qr — chỉ register khi backend live;
@@ -393,11 +427,21 @@ void setupDependencies() {
     () => PlayerCheckInRemoteDatasourceImpl(dio: sl<Dio>()),
   );
   sl.registerLazySingleton<PlayerCheckInRepository>(
-    () => PlayerCheckInRepositoryImpl(remote: sl<PlayerCheckInRemoteDatasource>()),
+    () => PlayerCheckInRepositoryImpl(
+      remote: sl<PlayerCheckInRemoteDatasource>(),
+    ),
+  );
+  // Cache service — lưu token QR gần nhất vào FlutterSecureStorage.
+  // Best-effort, không throw nếu storage lỗi.
+  sl.registerLazySingleton<PlayerQrTokenCacheService>(
+    () => PlayerQrTokenCacheService(storage: sl<FlutterSecureStorage>()),
   );
   // Factory — mỗi page mount (PlayerCheckInPage) sẽ có cubit riêng.
   sl.registerFactory<PlayerCheckInCubit>(
-    () => PlayerCheckInCubit(repository: sl<PlayerCheckInRepository>()),
+    () => PlayerCheckInCubit(
+      repository: sl<PlayerCheckInRepository>(),
+      cacheService: sl<PlayerQrTokenCacheService>(),
+    ),
   );
   // ─── Current user (JWT-based, used to identify "me" in lists) ────────
   sl.registerLazySingleton<CurrentUserResolver>(

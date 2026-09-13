@@ -15,8 +15,8 @@ class WalletModel extends WalletEntity {
   factory WalletModel.fromJson(Map<String, dynamic> json) {
     return WalletModel(
       userId: json['userId'] as String,
-      availableBalance: json['availableBalance'] as int,
-      heldBalance: json['heldBalance'] as int? ?? 0,
+      availableBalance: (json['availableBalance'] as num?)?.toInt() ?? 0,
+      heldBalance: (json['heldBalance'] as num?)?.toInt() ?? 0,
       riskMultiplier:
           (json['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
       riskLevel: RiskLevel.fromString(json['riskLevel'] as String? ?? 'low'),

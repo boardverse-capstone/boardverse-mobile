@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../lobby_management/presentation/widgets/lobby_card_base.dart';
 import '../../domain/entities/reservation_entity.dart';
+import 'reservation_card_neo.dart';
 
-/// Neo-brutalism card hiển thị một `ReservationEntity`.
+/// Adapter widget — `ReservationCard` → `ReservationCardNeo`.
 ///
-/// Vui lòng đọc `lobby_card_base.dart` để hiểu design chung. File này chỉ là
-/// adapter — chuyển `ReservationEntity` → `LobbyCardItem` rồi nhờ widget
-/// `LobbyCardBase` render.
-///
-/// Tại sao file này tồn tại:
-/// - Place-based: page `reservation_list_page.dart` import widget "nằm trong"
-///   feature `reservation` để dễ đọc (call site ngắn hơn).
-/// - API surface ổn định — page call code cũ (`ReservationCard(reservation: r, onTap: ...)`)
+/// Tại sao có wrapper:
+/// - Caller cũ (`ReservationCard(reservation: r, onTap: ...)`) vẫn hoạt động
 ///   không cần sửa.
+/// - Logic `isOwnedByMe` suy ra từ `reservation.isHost` — đỡ phải truyền từ
+///   ngoài.
 class ReservationCard extends StatelessWidget {
   final ReservationEntity reservation;
   final VoidCallback? onTap;
@@ -26,8 +22,9 @@ class ReservationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LobbyCardBase(
-      item: lobbyItemFromReservation(reservation),
+    return ReservationCardNeo(
+      reservation: reservation,
+      isOwnedByMe: reservation.isHost ?? false,
       onTap: onTap,
     );
   }

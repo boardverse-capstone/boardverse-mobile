@@ -287,6 +287,54 @@ class LobbyCubit extends Cubit<LobbyState> {
     );
   }
 
+  /// Host đổi giờ lobby (`POST /api/v1/lobbies/{id}/change-time`).
+  ///
+  /// BR-NEW-15 (2026-08-18): cả 2 field nullable. Chỉ áp dụng khi lobby
+  /// còn ở trạng thái `Open`/`Viable`/`Full`/`PendingCafeApproval`. Trả về
+  /// [Right(LobbyEntity)] để caller cập nhật state không phải đợi realtime
+  /// stream. Nếu server trả [Failure] (vd: lobby đã InProgress) → emit
+  /// [LobbyFailure] để UI hiển thị message.
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  }) async {
+    final result = await _repository.changeLobbyTime(
+      lobbyId: lobbyId,
+      preferredStartTime: preferredStartTime,
+      preferredEndTime: preferredEndTime,
+    );
+    if (isClosed) {
+      return result;
+    }
+    return result.fold(
+      (failure) {
+        emit(LobbyFailure(message: failure.message));
+        return Left<Failure, LobbyEntity>(failure);
+      },
+      (lobby) async {
+        // Cập nhật state ngay với lobby mới (preferredStartTime/EndTime +
+        // scheduledTime mới) — UI render tức thì, không cần đợi realtime.
+        await _applyLobbyChange(lobby);
+        return Right<Failure, LobbyEntity>(lobby);
+      },
+    );
+  }
+
+  /// Apply lobby update từ server (vd: change-time) vào state hiện tại.
+  /// BR-NEW-15: server có thể trả lobby với status thay đổi (vd: từ
+  /// `PendingCafeApproval` → `Open`). Re-emit các state phù hợp để UI
+  /// đồng bộ với server data ngay lập tức.
+  Future<void> _applyLobbyChange(LobbyEntity updated) async {
+    final current = state;
+    if (current is LobbyCreated && current.lobby.id == updated.id) {
+      emit(LobbyCreated(lobby: updated));
+    } else if (current is LobbyUpdatedRealtime &&
+        current.lobby.id == updated.id) {
+      emit(LobbyUpdatedRealtime(lobby: updated));
+    }
+  }
+
   /// Host giải tán lobby (hard delete).
   /// `DELETE /api/v1/lobbies/{lobbyId}`.
   ///

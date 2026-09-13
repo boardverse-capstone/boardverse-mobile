@@ -266,6 +266,14 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       throw UnimplementedError();
 
   @override
+  Future<Either<Failure, LobbyEntity>> changeLobbyTime({
+    required String lobbyId,
+    String? preferredStartTime,
+    String? preferredEndTime,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
   Future<Either<Failure, LobbyEntity>> updateLobbyStatus(
           String lobbyId, LobbyStatus newStatus) async =>
       throw UnimplementedError();

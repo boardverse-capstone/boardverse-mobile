@@ -6,6 +6,7 @@ import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/setup_profile_gate.dart';
 import '../../../features/lobby_management/lobby_routes.dart';
 import '../lobby_join_signal.dart';
+import '../lobby_left_signal.dart';
 import '../lobby_suggestion_signal.dart';
 import '../nav_tab.dart';
 import '../navigation_cubit.dart';
@@ -62,6 +63,8 @@ class _MainScaffoldState extends State<MainScaffold> {
     LobbySuggestionSignal.instance.addListener(_handleLobbySuggestion);
     // Listen yêu cầu "navigate đến LobbyPage" sau khi accept invite.
     LobbyJoinSignal.instance.addListener(_handleLobbyJoin);
+    // Listen yêu cầu "chuyển về tab Lobbies" sau khi user rời phòng.
+    LobbyLeftSignal.instance.addListener(_handleLobbyLeft);
 
     // Đảm bảo [ProfileCubit] đã load profile trước khi [SetupProfileGate]
     // đánh giá `hasProfile`. Tránh trường hợp MainScaffold mount nhưng
@@ -97,10 +100,25 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
   }
 
+  /// Chuyển về tab Lobbies + switch sang tab "Của tôi" khi user rời lobby.
+  ///
+  /// `LobbiesPage` sẽ listen signal riêng để reload dữ liệu.
+  void _handleLobbyLeft() {
+    if (!mounted) return;
+    // Pop to root (LobbyPage + các page trung gian).
+    Navigator.of(context, rootNavigator: true).popUntil(
+      (route) => route.isFirst,
+    );
+    // Chuyển sang tab Lobbies (index 3). Tab index được switch ngay sau
+    // pop → user thấy LobbiesPage mount với data đã reload.
+    _onTabTapped(NavTab.lobbies.tabIndex);
+  }
+
   @override
   void dispose() {
     LobbySuggestionSignal.instance.removeListener(_handleLobbySuggestion);
     LobbyJoinSignal.instance.removeListener(_handleLobbyJoin);
+    LobbyLeftSignal.instance.removeListener(_handleLobbyLeft);
     _navigationCubit.close();
     super.dispose();
   }

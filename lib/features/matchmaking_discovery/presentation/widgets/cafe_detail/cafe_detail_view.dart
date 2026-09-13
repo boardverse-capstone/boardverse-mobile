@@ -173,7 +173,10 @@ class CafeDetailView extends StatelessWidget {
                     SeatCapacityCard(cafe: cafe),
 
                     // ─── Ghế trống theo khung giờ ────────────────────
-                    TimeSlotGrid(cafe: cafe),
+                    TimeSlotGrid(
+                      availableSeatsByTimeSlot: cafe.availableSeatsByTimeSlot,
+                      totalSeats: cafe.totalSeats,
+                    ),
 
                     // ─── Tiện ích ────────────────────────────────────
                     if ((cafe.numberOfTables > 0 ||
@@ -389,23 +392,40 @@ class CafeDetailView extends StatelessWidget {
   /// Sau khi chọn game → đi thẳng sang [LobbyConfigPage] với cafe đã có.
   /// Không cần qua [LobbyCafeSelectionPage] vì player đã ở trong cafe rồi.
   ///
+  /// Gọi `GET /api/cafes/{cafeId}/active-games` thay vì `searchGames()`
+  /// (toàn bộ catalog hệ thống) — đảm bảo player chỉ thấy game thực sự
+  /// có tại quán, tránh chọn game không có và gặp lỗi ở bước cuối.
+  ///
   /// Stack navigation: dùng `Navigator.push` (không phải pushReplacement)
   /// để giữ CafeDetailPage trong stack — khi player ấn back từ
   /// LobbyConfigPage sẽ quay lại trang chi tiết cafe thay vì thoát ra
   /// SearchPage.
   Future<void> _showGamePicker(BuildContext context) async {
-    // Đảm bảo cubit có search results để picker hiển thị. Pattern này
-    // giống [LobbyCafeSelectionPage._onChangeGamePressed] — chỉ fetch nếu
-    // state chưa có, tránh gọi API thừa.
-    if (matchmakingCubit.state is! MatchmakingSearchResults) {
-      await matchmakingCubit.searchGames();
+    // Load games của quán đã chọn. Dùng `loadCafeActiveGames` thay vì
+    // `searchGames` (toàn bộ catalog hệ thống) — đảm bảo player chỉ
+    // thấy game thực sự có tại quán, tránh chọn game không có và gặp
+    // lỗi ở bước cuối.
+    matchmakingCubit.loadCafeActiveGames(cafe.id);
+
+    // Chờ cho đến khi cubit emit trạng thái settled (không còn Loading).
+    late final MatchmakingState finalState;
+    try {
+      finalState = await matchmakingCubit.stream
+          .firstWhere((s) => s is! MatchmakingLoading);
+    } catch (_) {
+      // Stream đã closed trước khi emit state settled → không mở picker.
       if (!context.mounted) return;
+      return;
     }
 
-    final state = matchmakingCubit.state;
-    final games = state is MatchmakingSearchResults
-        ? state.games
-        : const <BoardGameEntity>[];
+    if (!context.mounted) return;
+
+    // Nếu load thất bại (MatchmakingFailure), vẫn mở picker với danh
+    // sách rỗng để player có thể đóng sheet. Lỗi đã được cubit emit
+    // rồi — UI sẽ hiển thị SnackBar hoặc toast.
+    final games = finalState is MatchmakingCafeGamesLoaded
+        ? finalState.games
+        : <BoardGameEntity>[];
 
     if (!context.mounted) return;
 

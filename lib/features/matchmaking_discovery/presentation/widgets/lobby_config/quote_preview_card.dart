@@ -72,7 +72,7 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
           ),
           LobbyConfigQuoteRow(
             label: 'Số người',
-            value: '${quote.minPlayers} - ${quote.maxPlayers}',
+            value: quote.playerRangeDisplay,
           ),
           LobbyConfigQuoteRow(
             label: 'Base deposit',

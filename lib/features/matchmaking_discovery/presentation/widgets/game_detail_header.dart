@@ -518,6 +518,9 @@ class _QuickStatsRow extends StatelessWidget {
     required this.playTime,
   });
 
+  String get _playerRangeText =>
+      minPlayers == maxPlayers ? '$minPlayers' : '$minPlayers-$maxPlayers';
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -559,7 +562,7 @@ class _QuickStatsRow extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  '$minPlayers-$maxPlayers',
+                  _playerRangeText,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),

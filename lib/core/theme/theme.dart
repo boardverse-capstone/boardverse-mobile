@@ -32,6 +32,7 @@ export 'app_icons.dart';
 
 // Neo-brutalism widgets
 export '../widgets/neo_panel.dart';
+export 'neo_brutalism_theme.dart';
 
 // Main Theme
 export 'app_theme.dart';

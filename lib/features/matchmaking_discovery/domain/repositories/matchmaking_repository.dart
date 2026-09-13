@@ -5,7 +5,6 @@ import '../entities/board_game_detail_entity.dart';
 import '../entities/board_game_entity.dart';
 import '../entities/cafe_detail_entity.dart';
 import '../entities/cafe_entity.dart';
-import '../entities/default_time_slot_entity.dart';
 import '../entities/game_play_configuration_entity.dart';
 import '../entities/game_play_navigation_entity.dart';
 import '../entities/nearby_cafes_search_result_entity.dart';
@@ -130,6 +129,33 @@ abstract class MatchmakingRepository {
   /// Lấy games có sẵn tại quán (legacy, dùng cho Mock).
   Future<Either<Failure, List<BoardGameEntity>>> getCafeGames(String cafeId);
 
+  /// Lấy danh sách board game đang hoạt động tại quán cafe —
+  /// `GET /api/cafes/{cafeId}/active-games` (public, không cần token).
+  ///
+  /// Dùng khi player đặt chỗ từ trang chi tiết quán để hiển thị
+  /// chỉ game có sẵn tại quán, thay vì toàn bộ game hệ thống.
+  ///
+  /// Query params:
+  /// - `categoryId`: lọc theo thể loại.
+  /// - `groupSize`: chỉ trả game có `minPlayers <= groupSize`.
+  /// - `availableOnly`: `true` → chỉ trả game có `availableBoxCount > 0`.
+  /// - `searchTerm`: tìm theo tên game.
+  /// - `sortBy`: Name | AvailableBoxesDesc | PlayTimeAsc | PlayerCountAsc.
+  /// - `pageNumber`, `pageSize`: phân trang (mặc định pageSize=100 để
+  ///   lấy tất cả game của quán).
+  ///
+  /// Docs: `.agents/docs/apis_docs/cafe.md` §GET /api/cafes/{cafeId}/active-games
+  Future<Either<Failure, List<BoardGameEntity>>> getCafeActiveGames(
+    String cafeId, {
+    String? categoryId,
+    int? groupSize,
+    bool availableOnly = false,
+    String? searchTerm,
+    String? sortBy,
+    int pageNumber = 1,
+    int pageSize = 100,
+  });
+
   // ─── Seat Availability (Real-time) ──────────────────────────────────
 
   /// Lấy thông tin ghế trống của quán tại một khung giờ
@@ -157,14 +183,7 @@ abstract class MatchmakingRepository {
     required PlayMode mode,
   });
 
-  /// `GET /api/v1/manager/time-slots/defaults`
-  ///
-  /// Trả về 4 khung giờ cố định của hệ thống (Morning/Afternoon/Evening/
-  /// LateNight). LobbyConfigPage dùng danh sách này để hiển thị chip chọn
-  /// phiên — trước đây thông tin này hardcode trong `LobbyConfigState`
-  /// (morning=9h, evening=18h…) dễ lệch với backend sau khi manager override
-  /// hoặc backend chỉnh default. Xem doc
-  /// `.agents/docs/apis_docs/time-slot.md`.
-  Future<Either<Failure, List<DefaultTimeSlotEntity>>>
-      getDefaultTimeSlots();
+  // BR-NEW (2026-08-27): `getDefaultTimeSlots()` đã bị xoá — backend không
+  // còn xử lý `timeSlot` enum cho reservation/lobby creation. Player tự
+  // do chọn giờ bắt đầu / kết thúc trong cùng 1 ngày.
 }

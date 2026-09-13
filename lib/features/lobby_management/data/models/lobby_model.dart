@@ -176,11 +176,24 @@ class LobbyModel {
   final String? gameImageUrl;
   final String cafeId;
   final String cafeName;
+
+  /// Số điện thoại quán — optional, API có thể trả về `cafePhone` / `phoneNumber`.
+  final String? cafePhone;
+
+  /// Địa chỉ quán — optional, API có thể trả về `cafeAddress` / `address`.
+  final String? cafeAddress;
   final String? cafeTableId;
   final String hostId;
   final String hostName;
   final DateTime scheduledTime;
   final int currentPlayers;
+
+  /// BR-NEW-15 (2026-08-18): cặp `preferredStartTime` + `preferredEndTime`
+  /// (HH:mm:ss) thay thế enum `TimeSlot`. Cả 2 đều optional vì server có
+  /// thể trả về cho `/lobbies/{id}` hoặc chỉ một trong hai.
+  final String? preferredStartTime;
+  final String? preferredEndTime;
+
   final int maxPlayers;
   final int minPlayers;
   final bool isPublic;
@@ -208,11 +221,15 @@ class LobbyModel {
     required this.gameName,
     required this.cafeId,
     required this.cafeName,
+    this.cafePhone,
+    this.cafeAddress,
     this.cafeTableId,
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
     required this.currentPlayers,
+    this.preferredStartTime,
+    this.preferredEndTime,
     required this.maxPlayers,
     required this.minPlayers,
     required this.isPublic,
@@ -317,6 +334,12 @@ class LobbyModel {
       // rỗng; cubit merge với cached lobby trước khi emit state để UI
       // vẫn hiển thị tên quán cũ.
       cafeName: (json['cafeName'] ?? '') as String,
+      // `cafePhone` / `phoneNumber` — optional, fallback null để UI ẩn row
+      // thay vì hiển thị giá trị rỗng. Backend có thể trả camelCase hoặc
+      // PascalCase tùy endpoint.
+      cafePhone: (json['cafePhone'] ?? json['phoneNumber']) as String?,
+      // `cafeAddress` / `address` — tương tự phone.
+      cafeAddress: (json['cafeAddress'] ?? json['address']) as String?,
       cafeTableId: json['cafeTableId']?.toString(),
       hostId: hostId,
       // `hostName` optional ở schema mới — fallback 'Chủ phòng' để UI không
@@ -324,6 +347,8 @@ class LobbyModel {
       hostName: (json['hostName'] ?? '') as String,
       scheduledTime: _parseDateTime(scheduledTimeRaw),
       currentPlayers: derivedCurrentPlayers,
+      preferredStartTime: json['preferredStartTime'] as String?,
+      preferredEndTime: json['preferredEndTime'] as String?,
       maxPlayers: maxPlayers,
       // `/discoverable` không trả `minPlayers` — fallback = 2 (BR-07 min).
       minPlayers: (json['minPlayers'] as int?) ?? 2,
@@ -421,11 +446,15 @@ class LobbyModel {
     'gameImageUrl': gameImageUrl,
     'cafeId': cafeId,
     'cafeName': cafeName,
+    'cafePhone': cafePhone,
+    'cafeAddress': cafeAddress,
     'cafeTableId': cafeTableId,
     'hostId': hostId,
     'hostName': hostName,
     'scheduledTime': scheduledTime.toIso8601String(),
     'currentPlayers': currentPlayers,
+    'preferredStartTime': preferredStartTime,
+    'preferredEndTime': preferredEndTime,
     'maxPlayers': maxPlayers,
     'minPlayers': minPlayers,
     'isPublic': isPublic,
@@ -458,11 +487,15 @@ class LobbyModel {
     String? gameImageUrl,
     String? cafeId,
     String? cafeName,
+    Object? cafePhone = _sentinel,
+    Object? cafeAddress = _sentinel,
     Object? cafeTableId = _sentinel,
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
     int? currentPlayers,
+    Object? preferredStartTime = _sentinel,
+    Object? preferredEndTime = _sentinel,
     int? maxPlayers,
     int? minPlayers,
     bool? isPublic,
@@ -491,6 +524,12 @@ class LobbyModel {
       gameImageUrl: gameImageUrl ?? this.gameImageUrl,
       cafeId: cafeId ?? this.cafeId,
       cafeName: cafeName ?? this.cafeName,
+      cafePhone: identical(cafePhone, _sentinel)
+          ? this.cafePhone
+          : cafePhone as String?,
+      cafeAddress: identical(cafeAddress, _sentinel)
+          ? this.cafeAddress
+          : cafeAddress as String?,
       cafeTableId: identical(cafeTableId, _sentinel)
           ? this.cafeTableId
           : cafeTableId as String?,
@@ -498,6 +537,12 @@ class LobbyModel {
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
       currentPlayers: currentPlayers ?? this.currentPlayers,
+      preferredStartTime: identical(preferredStartTime, _sentinel)
+          ? this.preferredStartTime
+          : preferredStartTime as String?,
+      preferredEndTime: identical(preferredEndTime, _sentinel)
+          ? this.preferredEndTime
+          : preferredEndTime as String?,
       maxPlayers: maxPlayers ?? this.maxPlayers,
       minPlayers: minPlayers ?? this.minPlayers,
       isPublic: isPublic ?? this.isPublic,
@@ -550,11 +595,15 @@ class LobbyModel {
     gameName: gameName,
     cafeId: cafeId,
     cafeName: cafeName,
+    cafePhone: cafePhone,
+    cafeAddress: cafeAddress,
     cafeTableId: cafeTableId,
     hostId: hostId,
     hostName: hostName,
     scheduledTime: scheduledTime,
     currentPlayers: currentPlayers,
+    preferredStartTime: preferredStartTime,
+    preferredEndTime: preferredEndTime,
     maxPlayers: maxPlayers,
     minPlayers: minPlayers,
     isPublic: isPublic,

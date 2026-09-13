@@ -68,9 +68,9 @@ class EloResultModel {
         (e) => e.name == json['result'],
         orElse: () => MatchResultModel.draw,
       ),
-      eloChange: json['eloChange'] as int,
-      currentElo: json['currentElo'] as int,
-      newElo: json['newElo'] as int,
+      eloChange: (json['eloChange'] as num?)?.toInt() ?? 0,
+      currentElo: (json['currentElo'] as num?)?.toInt() ?? 0,
+      newElo: (json['newElo'] as num?)?.toInt() ?? 0,
     );
   }
 

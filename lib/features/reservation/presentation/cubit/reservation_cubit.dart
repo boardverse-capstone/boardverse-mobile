@@ -163,7 +163,6 @@ class ReservationCubit extends Cubit<ReservationState> {
       },
       (quote) async {
         _currentQuote = quote;
-        _confirmIdempotencyKey =
         _confirmIdempotencyKey = generateIdempotencyKey();
 
         if (!quote.hasEnoughBalance) {

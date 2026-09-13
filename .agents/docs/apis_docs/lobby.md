@@ -115,7 +115,7 @@ Xem chi tiết API:
 | `/{lobbyId}` | PATCH | Host cập nhật thông tin lobby (description, maxMembers, isPrivate, minKarmaScore, ...) | Host |
 | `/{lobbyId}/transfer-host` | POST | Host chuyển quyền host cho member khác | Host |
 | `/{lobbyId}/kick` | POST | Host kick thành viên khỏi lobby | Host |
-| `/{lobbyId}/ready` | POST | Member bấm Ready/Unready (cho phép ở Open/Full/Viable; auto WaitingCheckIn khi tất cả Ready; timeout 20p không Ready sau khi Full) | Player |
+| `/{lobbyId}/ready` | POST | Member bấm Ready/Unready (cho phép ở Open/Full/Viable; auto InProgress khi tất cả Ready; timeout 20p không Ready sau khi Full) | Player |
 | `/{lobbyId}/report` | POST | Báo cáo lobby vi phạm | Player |
 | `/{lobbyId}/messages` | POST | Gửi tin nhắn chat trong lobby | Host hoặc active member |
 | `/{lobbyId}/messages` | GET | Lấy lịch sử chat (cursor pagination) | Host hoặc active member |
@@ -502,9 +502,8 @@ await connection.invoke("JoinLobby", lobbyId);
 5. Server broadcast `LobbyFull` → app tự navigate sang đặt cọc flow.
 6. Host thanh toán cọc thành công (qua `/api/v1/payments/booking-deposit`).
 7. Webhook payment success → server broadcast `BookingConfirmed` cho lobby.
-8. Tất cả members Ready → lobby chuyển `WaitingCheckIn`.
-9. Nhóm đến cafe, staff check-in → status chuyển `InProgress`.
-10. POS thanh toán xong → Host gọi `/open-karma-window` → status `RatingOpen`.
+8. Nhóm đến cafe quét QR check-in → status chuyển `InProgress`.
+9. POS thanh toán xong → Host gọi `/open-karma-window` → status `RatingOpen`.
 10. Members gửi KarmaRating → lobby `Closed`.
 
 ### Exception path: timeout (BR-08)
@@ -535,7 +534,7 @@ Lấy tất cả lobby của user hiện tại (host hoặc member, chỉ active
 
 **Role:** Player — đã đăng nhập
 
-**Response 200:** `LobbyResponseDto[]` — chỉ trả lobby còn active (status: `PendingActivation`, `PendingCafeApproval`, `Open`, `Viable`, `Full`, `WaitingCheckIn`, `InProgress`).
+**Response 200:** `LobbyResponseDto[]` — chỉ trả lobby còn active (status: `PendingActivation`, `PendingCafeApproval`, `Open`, `Viable`, `Full`, `InProgress`).
 
 **Response codes:**
 - `200` — Trả danh sách (có thể rỗng)
@@ -684,7 +683,7 @@ Member bấm Ready/Unready để xác nhận tham gia lobby. Cho phép gọi khi
 | Member bấm Ready lần đầu | `member.Status = Ready`, ghi `ReadyAt` |
 | Member bấm Unready | `member.Status = Joined`, clear `ReadyAt` |
 | Lobby vừa đạt `MaxMembers` (do member join hoặc host lock) | `lobby.Status = Full`, ghi `FullAt = now` |
-| Tất cả member ACTIVE đều Ready VÀ `≥ MinPlayers` | `lobby.Status = WaitingCheckIn` (auto-flip); nhóm chờ đến quán |
+| Tất cả member ACTIVE đều Ready VÀ `≥ MinPlayers` | `lobby.Status = InProgress` (auto-flip) |
 | Lobby đã Full 20 phút mà chưa có ai Ready | Scheduler timeout → `TimeoutFailed`, lý do `LobbyReadyTimeout` |
 | Scheduler đến `ScheduledStartTime - leadTime` mà `readyCount < MinPlayers` | `TimeoutFailed`, lý do `NotEnoughReadyMembers` |
 | Member bị `Kicked` hoặc `Left` | Không thể Ready, trả 409 |
@@ -821,7 +820,7 @@ Host tạo lại mã chia sẻ (invalidate mã cũ, sinh mã mới). Dùng khi m
 
 ## POST /api/v1/lobbies/{lobbyId}/change-timeslot
 
-Host đổi timeSlot và/hoặc preferred time của lobby. Chỉ áp dụng trước khi tất cả thành viên Ready (status = Open/Viable/Full/PendingCafeApproval). `WaitingCheckIn` đã khóa lịch và chờ staff check-in. Recalculate RecruitmentDeadline theo newTimeSlot.
+Host đổi timeSlot và/hoặc preferred time của lobby. Chỉ áp dụng khi lobby chưa check-in (status = Open/Viable/Full/PendingCafeApproval). Recalculate RecruitmentDeadline theo newTimeSlot.
 
 ### Request
 
@@ -923,11 +922,9 @@ stateDiagram-v2
     Open --> Full: Đủ MaxMembers HOẶC POST /lock
     Open --> TimeoutFailed: now > T - cancellationLeadTimeMinutes\nVÀ members < MinPlayers (BR-08)
     Open --> HostCancelled: Host rời, không còn ai
-    Full --> WaitingCheckIn: Tất cả member Ready\nVÀ đạt MinPlayers
-    WaitingCheckIn --> InProgress: Staff check-in nhóm tại cafe
+    Full --> InProgress: Quét QR tại cafe (BR-05)
     Full --> HostCancelled: Host hủy
-    Full --> TimeoutFailed: Quá giờ hẹn mà chưa sẵn sàng/check-in
-    WaitingCheckIn --> TimeoutFailed: Quá giờ hẹn mà chưa check-in
+    Full --> TimeoutFailed: Quá giờ hẹn mà chưa check-in
     InProgress --> RatingOpen: POS thanh toán xong\n+ POST /open-karma-window
     RatingOpen --> Closed: Members gửi đủ KarmaRating
     TimeoutFailed --> [*]
@@ -938,9 +935,8 @@ stateDiagram-v2
 | State | Description | BR |
 |-------|-------------|-----|
 | `Open` | Lobby mới tạo, đang tuyển thành viên | BR-08 |
-| `Full` | Đủ người, chờ các thành viên xác nhận Ready | BR-07 |
-| `WaitingCheckIn` | Tất cả thành viên đã Ready, nhóm chưa được staff check-in tại quán | BR-LOBBY-READY-01 |
-| `InProgress` | Staff đã check-in nhóm; phiên đang chơi tại cafe | — |
+| `Full` | Đủ người, sẵn sàng đặt cọc | BR-07 |
+| `InProgress` | Nhóm đang chơi tại cafe | — |
 | `RatingOpen` | Sau thanh toán, đang đánh giá Karma | — |
 | `Closed` | Hoàn tất | — |
 | `TimeoutFailed` | Hết hạn không đủ người | BR-08 |

@@ -1,12 +1,12 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../core/cache/cacheable_repository.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/error/failures.dart';
 import '../domain/entities/board_game_detail_entity.dart';
 import '../domain/entities/board_game_entity.dart';
 import '../domain/entities/cafe_detail_entity.dart';
 import '../domain/entities/cafe_entity.dart';
-import '../domain/entities/default_time_slot_entity.dart';
 import '../domain/entities/game_play_configuration_entity.dart';
 import '../domain/entities/game_play_navigation_entity.dart';
 import '../domain/entities/nearby_cafes_search_result_entity.dart';
@@ -16,7 +16,6 @@ import '../domain/entities/game_category_entity.dart';
 import '../domain/repositories/matchmaking_repository.dart';
 import 'datasources/base/matchmaking_datasource.dart';
 import 'models/board_game_model.dart';
-import 'models/default_time_slot_model.dart';
 import 'models/nearby_cafes_search_result_model.dart';
 
 /// Repository implementation sử dụng DataSource Abstraction Pattern
@@ -58,7 +57,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi tìm kiếm: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm kiếm'));
     }
   }
 
@@ -72,7 +71,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi tìm kiếm: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm kiếm'));
     }
   }
 
@@ -85,7 +84,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy danh sách game: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy danh sách game'));
     }
   }
 
@@ -109,8 +108,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi tìm kiếm phân trang: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm kiếm phân trang'));
     }
   }
 
@@ -121,8 +119,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final detail = await datasource.getBoardGameDetails(id);
       return Right(detail?.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi lấy chi tiết game: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy chi tiết game'));
     }
   }
 
@@ -132,7 +129,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final game = await datasource.getGameById(id);
       return Right(game?.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy thông tin game: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy thông tin game'));
     }
   }
 
@@ -146,7 +143,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final results = await datasource.getSimilarGames(gameId);
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy game tương tự: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy game tương tự'));
     }
   }
 
@@ -156,7 +153,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final results = await datasource.getGameCategories();
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy danh mục game: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy danh mục game'));
     }
   }
 
@@ -178,7 +175,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy danh sách quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy danh sách quán'));
     }
   }
 
@@ -203,8 +200,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi tìm quán gần: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm quán gần'));
     }
   }
 
@@ -232,8 +228,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi tìm quán gần (me): ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm quán gần'));
     }
   }
 
@@ -262,8 +257,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi tìm kiếm quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi tìm kiếm quán'));
     }
   }
 
@@ -281,7 +275,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy danh sách quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy danh sách quán'));
     }
   }
 
@@ -291,7 +285,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final cafe = await datasource.getCafeById(id);
       return Right(cafe?.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy thông tin quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy thông tin quán'));
     }
   }
 
@@ -301,7 +295,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final cafe = await datasource.getCafeById(id);
       return Right(cafe?.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy chi tiết quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy chi tiết quán'));
     }
   }
 
@@ -312,7 +306,46 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       final results = await datasource.getCafeGames(cafeId);
       return Right(results.map((m) => m.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy games của quán: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy games của quán'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<BoardGameEntity>>> getCafeActiveGames(
+    String cafeId, {
+    String? categoryId,
+    int? groupSize,
+    bool availableOnly = false,
+    String? searchTerm,
+    String? sortBy,
+    int pageNumber = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      // Cache key theo cafe + filter params để dedupe khi gọi lại cùng quán.
+      final cacheKey =
+          'cafe-active-games:$cafeId:${categoryId ?? '_'}:${groupSize ?? '_'}:'
+          '$availableOnly:${searchTerm ?? '_'}:${sortBy ?? '_'}:$pageSize';
+      final models = await cache<List>(
+        cacheKey,
+        () => datasource.getCafeActiveGames(
+          cafeId,
+          categoryId: categoryId,
+          groupSize: groupSize,
+          availableOnly: availableOnly,
+          searchTerm: searchTerm,
+          sortBy: sortBy,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        ),
+      );
+      // `cache` returns raw List; cast back to the datasource return type.
+      // ignore: avoid_dynamic_calls
+      final cafeModels = models.cast<dynamic>().map((m) => m as dynamic).toList();
+      // ignore: avoid_dynamic_calls
+      return Right(cafeModels.map((m) => m.toEntity() as BoardGameEntity).toList());
+    } catch (e) {
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy games của quán'));
     }
   }
 
@@ -330,7 +363,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi lấy thông tin ghế: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy thông tin ghế'));
     }
   }
 
@@ -348,7 +381,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result);
     } catch (e) {
-      return Left(ServerFailure(message: 'Lỗi kiểm tra ghế: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi kiểm tra ghế'));
     }
   }
 
@@ -365,8 +398,7 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       }
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi lấy cấu hình chơi: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy cấu hình chơi'));
     }
   }
 
@@ -382,27 +414,65 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       );
       return Right(result.toEntity());
     } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi điều hướng chế độ chơi: ${e.toString()}'));
+      return Left(_mapExceptionToFailure(e, 'Lỗi điều hướng chế độ chơi'));
     }
   }
 
-  @override
-  Future<Either<Failure, List<DefaultTimeSlotEntity>>>
-      getDefaultTimeSlots() async {
-    try {
-      // Cache ngắn — metadata gần như tĩnh (chỉ đổi khi backend rollout
-      // version mới). 5 phút là đủ để tránh gọi lại khi user navigate
-      // qua lobby config nhiều lần trong 1 phiên.
-      final models = await cache<List<DefaultTimeSlotModel>>(
-        'time-slot-defaults',
-        () => datasource.getDefaultTimeSlots(),
-        ttl: const Duration(minutes: 5),
-      );
-      return Right(models);
-    } catch (e) {
-      return Left(ServerFailure(
-          message: 'Lỗi lấy khung giờ mặc định: ${e.toString()}'));
+  // ─── Helpers ────────────────────────────────────────────────────────
+
+  /// Chuyển đổi exception từ datasource sang Failure với statusCode đúng.
+  ///
+  /// Đảm bảo `BadRequestFailure` được trả về khi backend trả 400,
+  /// giúp `MatchmakingCubit._isLocationRelatedError()` nhận biết được
+  /// lỗi "chưa cập nhật vị trí" để hiển thị UI thân thiện.
+  Failure _mapExceptionToFailure(Object error, String fallbackContext) {
+    if (error is ServerException) {
+      // Trích xuất statusCode từ ServerException.message dạng "[400] message"
+      final msg = error.message;
+      int? statusCode;
+
+      // Parse "[statusCode] message" pattern
+      final match = RegExp(r'\[(\d+)\]').firstMatch(msg);
+      if (match != null) {
+        statusCode = int.tryParse(match.group(1)!);
+      }
+
+      // Trích xuất message thực từ backend (sau "[statusCode] ")
+      String backendMessage = msg;
+      if (match != null) {
+        backendMessage = msg.substring(match.end).trim();
+        if (backendMessage.isEmpty) {
+          backendMessage = msg;
+        }
+      }
+
+      // Trả về Failure type đúng theo statusCode
+      switch (statusCode) {
+        case 400:
+          return BadRequestFailure(message: backendMessage);
+        case 401:
+          return UnauthorizedFailure(message: backendMessage);
+        case 403:
+          return ForbiddenFailure(message: backendMessage);
+        case 404:
+          return NotFoundFailure(message: backendMessage);
+        case 409:
+          return ConflictFailure(message: backendMessage);
+        case 429:
+          return RateLimitFailure(message: backendMessage);
+        default:
+          return ServerFailure(
+            message: '$fallbackContext: $backendMessage',
+            statusCode: statusCode,
+          );
+      }
+    } else if (error is NetworkException) {
+      return NetworkFailure(message: error.message);
+    } else if (error is CacheException) {
+      return CacheFailure(message: error.message);
+    } else {
+      // Fallback cho exception không xác định
+      return ServerFailure(message: '$fallbackContext: ${error.toString()}');
     }
   }
 }

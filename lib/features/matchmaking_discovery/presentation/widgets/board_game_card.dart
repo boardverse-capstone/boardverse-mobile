@@ -209,8 +209,7 @@ class _BoardGameCardState extends State<BoardGameCard>
                           children: [
                             _MetaPill(
                               icon: Icons.people_alt,
-                              text:
-                                  '${widget.game.minPlayers}-${widget.game.maxPlayers}',
+                              text: widget.game.playerRangeRaw,
                             ),
                             const SizedBox(width: AppSpacing.xs),
                             _MetaPill(

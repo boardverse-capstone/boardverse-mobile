@@ -64,9 +64,6 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
   if (reservationStatus != null) {
     switch (reservationStatus) {
       case res.ReservationStatus.holding:
-        // Có thể là awaiting cafe approval hoặc đang giữ chỗ thông thường.
-        // Phân biệt qua lobbyStatus: nếu lobby là pendingCafeApproval thì
-        // badge = pendingCafeApproval, ngược lại = confirmed.
         if (lobbyStatus == LobbyStatus.pendingCafeApproval) {
           return LobbyStatusBadgeVariant.pendingCafeApproval;
         }
@@ -80,7 +77,6 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
         return LobbyStatusBadgeVariant.checkedIn;
       case res.ReservationStatus.draft:
       case res.ReservationStatus.awaitingDeposit:
-        // Chưa hoàn tất flow đặt cọc — fallback theo lobby status.
         break;
       default:
         break;
@@ -116,8 +112,6 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
     case LobbyStatus.expiredByCafe:
       return LobbyStatusBadgeVariant.expiredByCafe;
     case LobbyStatus.dissolved:
-      // Dissolved lobby hiển thị cùng visual với `closed` (terminal) nhưng
-      // text khác để user phân biệt được (BR §XXI-A.6).
       return LobbyStatusBadgeVariant.closed;
     case null:
       return LobbyStatusBadgeVariant.unknown;
@@ -137,11 +131,14 @@ class _BadgeStyle {
   });
 }
 
-/// Badge hiển thị trạng thái lobby/reservation ở header của LobbyPage.
+/// Badge hiển thị trạng thái lobby/reservation — Modern Game Store style.
 ///
-/// Hiển thị text + icon + màu nền khác nhau cho từng variant. Màu sắc theo
-/// semantic: xanh dương cho recruiting, xanh lá cho confirmed/full, vàng
-/// cho pending approval, đỏ cho rejected/expired.
+/// **Design:**
+/// - Pill bo tròn 20, padding 8/4.
+/// - Soft colored shadow theo `background` (alpha 0.25).
+/// - Không border cứng — dùng gradient subtle bg để có depth.
+/// - Màu theo semantic: xanh dương recruiting, xanh lá confirmed, vàng pending,
+///   đỏ rejected/expired, indigo inProgress.
 class LobbyStatusBadge extends StatelessWidget {
   final LobbyStatusBadgeVariant variant;
   final bool dense;
@@ -274,34 +271,37 @@ class LobbyStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _styleFor(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
-    final shadowColor = isDark ? AppColors.black : AppColors.black;
 
     return Semantics(
       label: 'Trạng thái phòng: ${style.label}${showActiveIndicator ? ' (Hoạt động)' : ''}',
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: dense ? AppSpacing.sm : AppSpacing.md,
-          vertical: dense ? AppSpacing.xs : AppSpacing.sm,
+          vertical: dense ? 5 : 7,
         ),
         decoration: BoxDecoration(
-          color: style.background,
-          borderRadius: BorderRadius.circular(dense ? 8 : 10),
-          border: Border.all(color: borderColor, width: 2),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              style.background,
+              style.background.withValues(alpha: 0.85),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: shadowColor,
-              blurRadius: 0,
-              offset: const Offset(2, 2),
+              color: style.background.withValues(alpha: 0.3),
+              blurRadius: dense ? 6 : 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(style.icon, size: dense ? 14 : 16, color: style.foreground),
-            SizedBox(width: dense ? 4 : AppSpacing.xs),
+            Icon(style.icon, size: dense ? 12 : 14, color: style.foreground),
+            SizedBox(width: dense ? 4 : 6),
             Text(
               style.label,
               maxLines: 1,
@@ -309,8 +309,9 @@ class LobbyStatusBadge extends StatelessWidget {
               style: TextStyle(
                 color: style.foreground,
                 fontSize: dense ? 11 : 13,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.3,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+                height: 1.1,
               ),
             ),
             if (showActiveIndicator) ...[

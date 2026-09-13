@@ -13,6 +13,7 @@ import 'package:boardverse/features/matchmaking_discovery/domain/repositories/ma
 import 'package:boardverse/features/reservation/domain/entities/entities.dart';
 import 'package:boardverse/features/reservation/domain/repositories/reservation_repository.dart';
 import 'package:boardverse/features/reservation/presentation/cubit/reservation_cubit.dart';
+import '../../domain/entities/lobby_entity.dart';
 import 'package:boardverse/features/reservation/presentation/cubit/reservation_state.dart';
 import '../widgets/lobby_page_shimmer.dart';
 

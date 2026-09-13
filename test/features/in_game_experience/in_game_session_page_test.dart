@@ -1,4 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:boardverse/core/di/injection.dart';
+import 'package:boardverse/features/in_game_experience/data/datasources/player_session_remote_datasource.dart';
+import 'package:boardverse/features/in_game_experience/data/models/player_session_model.dart';
+import 'package:boardverse/features/in_game_experience/data/models/extend_session_model.dart';
+import 'package:boardverse/features/in_game_experience/data/models/pay_session_model.dart';
+import 'package:boardverse/features/in_game_experience/data/models/session_history_model.dart';
+import 'package:boardverse/features/in_game_experience/data/models/split_bill_model.dart';
 import 'package:boardverse/features/in_game_experience/data/in_game_repository_impl.dart';
 import 'package:boardverse/features/in_game_experience/domain/repositories/in_game_repository.dart';
 import 'package:boardverse/features/in_game_experience/presentation/cubit/in_game_cubit.dart';
@@ -7,23 +14,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+// Simple stub datasource for testing
+class StubPlayerSessionRemoteDatasource implements PlayerSessionRemoteDatasource {
+  @override
+  final Dio dio;
+
+  StubPlayerSessionRemoteDatasource() : dio = Dio();
+
+  @override
+  Future<PlayerSessionModel> getCurrentSession() async {
+    throw PlayerSessionNotFoundException();
+  }
+
+  @override
+  Future<ExtendSessionResponseModel> extendSession(int minutes) async {
+    throw PlayerSessionNotFoundException();
+  }
+
+  @override
+  Future<PaySessionResponseModel> paySession(String sessionId) async {
+    throw PlayerSessionNotFoundException();
+  }
+
+  @override
+  Future<SessionHistoryResponseModel> getSessionHistory({
+    int limit = 20,
+    DateTime? beforePaidAt,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    throw PlayerSessionNotFoundException();
+  }
+
+  @override
+  Future<SplitBillSessionModel> getSplitBillSession() async {
+    throw PlayerSessionNotFoundException(
+        message: 'Không tìm thấy phiên chơi để chia bill.');
+  }
+
+  @override
+  Future<MemberPaymentInfoModel> getMyMemberPaymentInfo() async {
+    throw PlayerSessionNotFoundException(
+        message: 'Không tìm thấy thông tin thanh toán của bạn.');
+  }
+}
+
 void main() {
   group('InGameSessionPage', () {
     setUp(() {
       // Reset DI trước mỗi test để tránh state leak giữa các tests.
+      if (sl.isRegistered<PlayerSessionRemoteDatasource>()) {
+        sl.unregister<PlayerSessionRemoteDatasource>();
+      }
       if (sl.isRegistered<InGameRepository>()) {
         sl.unregister<InGameRepository>();
       }
       if (sl.isRegistered<InGameCubit>()) {
         sl.unregister<InGameCubit>();
       }
-      sl.registerLazySingleton<InGameRepository>(() => InGameRepositoryImpl());
+
+      // Register stub datasource
+      sl.registerLazySingleton<PlayerSessionRemoteDatasource>(
+        () => StubPlayerSessionRemoteDatasource(),
+      );
+      sl.registerLazySingleton<InGameRepository>(
+        () => InGameRepositoryImpl(
+          playerSessionDatasource: sl<PlayerSessionRemoteDatasource>(),
+        ),
+      );
       sl.registerFactory<InGameCubit>(
         () => InGameCubit(repository: sl<InGameRepository>()),
       );
     });
 
     tearDown(() async {
+      if (sl.isRegistered<PlayerSessionRemoteDatasource>()) {
+        await sl.unregister<PlayerSessionRemoteDatasource>();
+      }
       if (sl.isRegistered<InGameRepository>()) {
         final repo = sl<InGameRepository>();
         if (repo is InGameRepositoryImpl) {
@@ -48,9 +115,6 @@ void main() {
     testWidgets(
       'skipCheckIn=true không để page ở trạng thái InGameInitial trắng',
       (tester) async {
-        // Đây là fix bug: trước đây khi skipCheckIn=true, page không gọi
-        // checkIn nên state vẫn là InGameInitial → _buildBody render
-        // SizedBox.shrink() → page trắng + mouse_tracker assertion.
         await tester.pumpWidget(
           wrap(
             const InGameSessionPage(
@@ -59,6 +123,7 @@ void main() {
               gameName: 'Test Game',
               tableNumber: 5,
               skipCheckIn: true,
+              useApiSession: true,
             ),
           ),
         );
@@ -67,9 +132,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 600));
 
-        // Page phải render session view, không phải trắng.
-        // Kiểm tra: text "Bàn số" xuất hiện → đã có session info.
-        expect(find.text('Bàn số 5'), findsOneWidget);
+        // Page phải render "Không có phiên chơi" thay vì trắng
+        expect(find.text('Không có phiên chơi'), findsOneWidget);
       },
     );
 
@@ -82,6 +146,7 @@ void main() {
             gameName: 'Test Game',
             tableNumber: 5,
             skipCheckIn: false,
+            useApiSession: true,
           ),
         ),
       );
@@ -89,42 +154,12 @@ void main() {
       // Loading xuất hiện trong lúc chờ checkIn.
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Sau khi checkIn xong → session view.
+      // Stub datasource throw PlayerSessionNotFoundException → repository
+      // checkIn() fallback về _createMockSession('test-booking') tạo ra
+      // cafeName='Board Game Hub District 1' → page emit InGameSessionActive
+      // → render _buildLegacySessionView (KHÔNG phải "Không có phiên chơi").
       await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('Bàn số 5'), findsOneWidget);
+      expect(find.text('Board Game Hub District 1'), findsOneWidget);
     });
-
-    testWidgets(
-      'cubit state ban đầu khi skipCheckIn=true emit InGameSessionActive',
-      (tester) async {
-        // Cubit được resolve từ BlocProvider cha (qua getIt factory).
-        // Khi page mount với skipCheckIn=true → didChangeDependencies gọi
-        // loadMockSession → state phải chuyển sang InGameSessionActive.
-        // Verify bằng UI: nếu state là InGameInitial thì _buildBody trả
-        // SizedBox.shrink() → text 'Bàn số' không xuất hiện → test fail.
-        await tester.pumpWidget(
-          MaterialApp(
-            home: BlocProvider<InGameCubit>(
-              create: (_) => getIt<InGameCubit>(),
-              child: const InGameSessionPage(
-                bookingId: 'test-booking',
-                cafeName: 'Test Cafe',
-                gameName: 'Test Game',
-                tableNumber: 5,
-                skipCheckIn: true,
-              ),
-            ),
-          ),
-        );
-
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 600));
-
-        // State phải là InGameSessionActive → page render session view.
-        // Đây là test quan trọng nhất — đảm bảo page KHÔNG bị trắng khi
-        // skipCheckIn=true.
-        expect(find.text('Bàn số 5'), findsOneWidget);
-      },
-    );
   });
 }

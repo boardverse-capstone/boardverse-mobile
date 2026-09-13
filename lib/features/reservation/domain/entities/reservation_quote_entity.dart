@@ -90,6 +90,14 @@ class ReservationQuoteEntity extends Equatable {
     return BufferWarningLevel.rejected;
   }
 
+  /// Định dạng hiển thị số người chơi:
+  /// - Khi minPlayers == maxPlayers → "X-Y" (VD: "2-2")
+  /// - Khi minPlayers != maxPlayers → "X-Y" (VD: "2-4")
+  ///
+  /// Tránh UI hiển thị "2-2" khó hiểu khi chỉ có 1 giá trị.
+  String get playerRangeDisplay =>
+      minPlayers == maxPlayers ? '$minPlayers' : '$minPlayers-$maxPlayers';
+
   @override
   List<Object?> get props => [
         cafeId,
@@ -109,6 +117,8 @@ class ReservationQuoteEntity extends Equatable {
         riskLevel,
         scheduledStartTime,
         scheduledEndTime,
+        preferredStartTime,
+        preferredEndTime,
       ];
 }
 
