@@ -7,15 +7,15 @@ import '../domain/entities/entities.dart';
 import '../domain/repositories/wallet_repository.dart';
 import 'datasources/wallet_remote_datasource.dart';
 
-/// Implementation of WalletRepository using remote datasource
+/// Implementation of [WalletRepository] using remote datasource.
 class WalletRepositoryImpl implements WalletRepository {
   final WalletRemoteDatasource remoteDatasource;
 
   WalletRepositoryImpl({required this.remoteDatasource});
 
   @override
-  Future<Either<Failure, WalletEntity>> getWallet({bool includeHeld = false}) async {
-    return await remoteDatasource.getWallet(includeHeld: includeHeld);
+  Future<Either<Failure, WalletEntity>> getWallet() async {
+    return await remoteDatasource.getWallet();
   }
 
   @override
@@ -72,8 +72,8 @@ class WalletRepositoryImpl implements WalletRepository {
     int? expectedBvc,
     DateTime? quoteCreatedAt,
   }) async {
-    // Lấy transactions + wallet balance song song để tiết kiệm thời gian
-    // polling (mỗi lần 5s).
+    // Tải transactions và (nếu cần) wallet song song để giảm thời gian
+    // polling.
     final futures = <Future<dynamic>>[
       remoteDatasource.getTransactions(page: 1, pageSize: 10),
     ];
@@ -91,15 +91,11 @@ class WalletRepositoryImpl implements WalletRepository {
     return txResult.map((txPage) {
       final txs = (txPage as dynamic).items as List<TransactionEntity>;
 
-      // ── Tier 1: relatedPaymentRef match ─────────────────────────
-      // Backend lý tưởng gắn `relatedPaymentRef` cho transaction SePay
-      // trả về. Nếu có → match và trả true ngay.
+      // 1. Tìm transaction có `relatedPaymentRef` khớp orderId.
       if (txs.any((tx) => tx.relatedPaymentRef == orderId)) return true;
 
-      // ── Tier 2: TopUp transaction tạo SAU quoteCreatedAt ────────
-      // Backend hiện tại không gắn `relatedPaymentRef` → fallback
-      // phát hiện theo timestamp. Tier này vẫn an toàn vì user thường
-      // chỉ tạo 1 top-up tại 1 thời điểm.
+      // 2. Tìm TopUp transaction tạo sau quoteCreatedAt (fallback khi
+      //    backend không gắn relatedPaymentRef).
       if (quoteCreatedAt != null) {
         final recentTopUp = txs.any((tx) =>
             tx.type == TransactionType.topUp &&
@@ -108,9 +104,8 @@ class WalletRepositoryImpl implements WalletRepository {
         if (recentTopUp) return true;
       }
 
-      // ── Tier 3: Balance delta ────────────────────────────────────
-      // Nếu balance hiện tại tăng >= expectedBvc so với trước khi
-      // nạp → chắc chắn SePay đã webhook.
+      // 3. Balance delta — nếu balance tăng >= expectedBvc thì chắc
+      //    chắn SePay đã webhook.
       if (previousBalance != null && walletResult is Either<Failure, WalletEntity>) {
         return walletResult.fold(
           (_) => false,

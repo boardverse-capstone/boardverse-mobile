@@ -305,13 +305,13 @@ class ReservationCubit extends Cubit<ReservationState> {
   }
 
   /// Re-quote sau khi top-up thành công.
-  /// Gọi `walletRepository.getWallet(includeHeld: true)` để đảm bảo balance
-  /// server khớp trước khi re-quote. Sau đó tự động confirm nếu đủ.
+  /// Gọi `walletRepository.getWallet()` để lấy balance mới nhất từ
+  /// server trước khi re-quote. Sau đó tự động confirm nếu đủ.
   Future<void> refreshBalanceAndConfirm({bool autoConfirm = false}) async {
     final quote = _currentQuote;
     if (quote == null) return;
 
-    await walletRepository.getWallet(includeHeld: true);
+    await walletRepository.getWallet();
 
     // Re-quote dùng cùng idempotencyKey fingerprint → server trả lại
     // quote mới với `currentBalance` đã cập nhật.

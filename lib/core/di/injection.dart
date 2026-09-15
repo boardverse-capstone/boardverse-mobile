@@ -205,12 +205,12 @@ void setupDependencies() {
   );
 
   // MyLobbiesCubit — section "Phòng chờ của tôi" trong Discovery → tab
-  // "Phòng chờ". Sử dụng real API endpoints /hosted và /joined.
-  // Đồng thời fetch cafe details từ /cafes/{id}.
+  // "Phòng chờ". Sử dụng endpoint `/api/v1/lobbies/my` (đã merge
+  // hosted + joined + trả kèm cafeName cho mỗi lobby — không cần gọi
+  // thêm `/api/cafes/{id}`).
   sl.registerFactory<MyLobbiesCubit>(
     () => MyLobbiesCubit(
       repository: sl<LobbyRepository>(),
-      matchmakingRepository: sl<MatchmakingRepository>(),
     ),
   );
 
@@ -358,7 +358,6 @@ void setupDependencies() {
   );
 
   // ─── Feature: Wallet (BVC) ────────────────────────────────────────────
-  // Backend API: /api/v1/wallet/* (BR §2, §3)
   sl.registerLazySingleton<WalletRemoteDatasource>(
     () => WalletRemoteDatasourceImpl(dio: sl<Dio>()),
   );
@@ -397,7 +396,7 @@ void setupDependencies() {
 
   // Factory cubit for reservation flow (creates new instance each time).
   // Cubit cần cả `WalletRepository` để `refreshBalanceAndConfirm` có thể
-  // gọi `getWallet(includeHeld:true)` trước khi re-quote.
+  // gọi `getWallet()` trước khi re-quote.
   sl.registerFactory<ReservationCubit>(
     () => ReservationCubit(
       repository: sl<ReservationRepository>(),

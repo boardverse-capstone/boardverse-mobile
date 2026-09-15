@@ -7,25 +7,25 @@ import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/error/failures.dart';
 import '../models/models.dart';
 
-/// Base interface cho wallet remote datasource
+/// Base interface cho wallet remote datasource.
 abstract class WalletRemoteDatasource {
-  /// Lấy thông tin ví (auto-create nếu chưa có)
-  Future<Either<Failure, WalletModel>> getWallet({bool includeHeld = false});
+  /// Lấy thông tin ví (auto-create nếu chưa có).
+  Future<Either<Failure, WalletModel>> getWallet();
 
-  /// Tạo đơn top-up
+  /// Tạo đơn top-up.
   Future<Either<Failure, TopUpQuoteModel>> createTopUp({
     required int amountVnd,
     required String idempotencyKey,
   });
 
-  /// Lấy lịch sử giao dịch
+  /// Lấy lịch sử giao dịch.
   Future<Either<Failure, TransactionListModel>> getTransactions({
     int page = 1,
     int pageSize = 20,
   });
 
   /// PATCH /api/v1/wallet/topup/{topUpId}
-  /// Đổi số tiền đơn top-up BVC đang Pending (chưa thanh toán).
+  /// Đổi số tiền đơn top-up BVC đang chờ thanh toán.
   /// Đơn cũ = Cancelled, đơn mới = Pending với SePay URL mới.
   Future<Either<Failure, TopUpQuoteModel>> updateTopUp({
     required String topUpId,
@@ -34,32 +34,29 @@ abstract class WalletRemoteDatasource {
   });
 
   /// DELETE /api/v1/wallet/topup/{topUpId}
-  /// Hủy đơn top-up BVC đang Pending (chưa thanh toán).
+  /// Hủy đơn top-up BVC đang chờ thanh toán.
   /// Set local flag Status = Cancelled. Webhook SePay sau sẽ tự reject.
   Future<Either<Failure, void>> cancelTopUp(String topUpId);
 
   /// GET /api/v1/wallet/topup/{orderId}/qr-image
   /// Fallback endpoint lấy ảnh QR PNG — dùng khi backend không trả
-  /// `qrImageBase64` trong response của POST/PATCH /topup.
+  /// `qrImageBase64` trong response.
   ///
   /// Backend proxy từ vietqr.app server-side → bypass CORS trên Flutter Web.
   /// Trả về `Uint8List` PNG bytes để `Image.memory` render.
   Future<Either<Failure, Uint8List>> getQrImageBytes(String orderId);
 }
 
-/// Implementation using Dio
+/// Implementation using Dio.
 class WalletRemoteDatasourceImpl implements WalletRemoteDatasource {
   final Dio dio;
 
   WalletRemoteDatasourceImpl({required this.dio});
 
   @override
-  Future<Either<Failure, WalletModel>> getWallet({bool includeHeld = false}) async {
+  Future<Either<Failure, WalletModel>> getWallet() async {
     try {
-      final response = await dio.get(
-        ApiEndpoints.wallet,
-        queryParameters: {'includeHeld': includeHeld},
-      );
+      final response = await dio.get(ApiEndpoints.wallet);
 
       if (response.statusCode == 200) {
         final data = response.data['data'] as Map<String, dynamic>;

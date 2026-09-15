@@ -228,6 +228,47 @@ extension LobbyStatusX on LobbyStatus {
   /// có thể nhận thêm (viable) — vẫn show countdown tới recruitmentDeadline.
   bool get isRecruiting =>
       this == LobbyStatus.open || this == LobbyStatus.viable;
+
+  /// Giá trị int của enum theo backend spec cho query param `statuses`.
+  ///
+  /// Spec backend `/api/v1/lobbies/my`:
+  ///   Open=0, Full=1, InProgress=4, Closed=5, RatingOpen=6,
+  ///   PendingActivation=10, PendingCafeApproval=11, RejectedByCafe=12,
+  ///   ExpiredByCafe=13, Viable=14, Dissolved=15, WaitingCheckIn=16.
+  ///
+  /// Dùng để gửi `statuses` query param khi gọi `GET /api/v1/lobbies/my`.
+  int get toApiInt {
+    switch (this) {
+      case LobbyStatus.open:
+        return 0;
+      case LobbyStatus.full:
+        return 1;
+      case LobbyStatus.inProgress:
+        return 4;
+      case LobbyStatus.closed:
+        return 5;
+      case LobbyStatus.ratingOpen:
+        return 6;
+      case LobbyStatus.pendingActivation:
+        return 10;
+      case LobbyStatus.pendingCafeApproval:
+        return 11;
+      case LobbyStatus.rejectedByCafe:
+        return 12;
+      case LobbyStatus.expiredByCafe:
+        return 13;
+      case LobbyStatus.viable:
+        return 14;
+      case LobbyStatus.dissolved:
+        return 15;
+      case LobbyStatus.waitingCheckIn:
+        return 16;
+      case LobbyStatus.timeoutFailed:
+        return 7; // backend spec: 7 = timeoutFailed
+      case LobbyStatus.hostCancelled:
+        return 8; // backend spec: 8 = hostCancelled
+    }
+  }
 }
 
 class LobbyEntity extends Equatable {
@@ -254,7 +295,12 @@ class LobbyEntity extends Equatable {
   final String hostName;
   final DateTime scheduledTime;
 
-  /// Giờ hẹn chơi thực tế. Khác với `timeoutAt` (= scheduledTime - leadTime).
+  /// BR-NEW-15 / 2026-09-14: backend bổ sung field `scheduledEndTime` ở
+  /// `/api/v1/lobbies/{id}`. Optional — `null` nếu response cũ không có.
+  /// UI dùng hiển thị cặp `start – end` trong hero card của lobby detail.
+  final DateTime? scheduledEndTime;
+
+  /// Số người hiện tại (= host + members). BR §17.5.
   final int currentPlayers;
 
   /// BR-NEW-15 (2026-08-18): cặp `preferredStartTime` + `preferredEndTime`
@@ -329,6 +375,7 @@ class LobbyEntity extends Equatable {
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
+    this.scheduledEndTime,
     required this.currentPlayers,
     this.preferredStartTime,
     this.preferredEndTime,
@@ -372,6 +419,7 @@ class LobbyEntity extends Equatable {
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
+    Object? scheduledEndTime = _sentinel,
     int? currentPlayers,
     Object? preferredStartTime = _sentinel,
     Object? preferredEndTime = _sentinel,
@@ -416,6 +464,9 @@ class LobbyEntity extends Equatable {
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
+      scheduledEndTime: identical(scheduledEndTime, _sentinel)
+          ? this.scheduledEndTime
+          : scheduledEndTime as DateTime?,
       currentPlayers: currentPlayers ?? this.currentPlayers,
       preferredStartTime: identical(preferredStartTime, _sentinel)
           ? this.preferredStartTime
@@ -477,6 +528,7 @@ class LobbyEntity extends Equatable {
     hostId,
     hostName,
     scheduledTime,
+    scheduledEndTime,
     currentPlayers,
     preferredStartTime,
     preferredEndTime,

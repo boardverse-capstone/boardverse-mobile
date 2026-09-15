@@ -975,15 +975,31 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }
 
   @override
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async {
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    List<int>? statuses,
+    String? statusFilter,
+  }) async {
     try {
-      // BR-MEMBER-CLEANUP-01: backend `/my` đã tự filter lobby đã
-      // terminal (Closed / TimeoutFailed / HostCancelled / RejectedByCafe
-      // / ExpiredByCafe / Dissolved) khỏi response — không cần filter
-      // thêm client-side. Nếu backend trả 404 (chưa deploy endpoint),
-      // fallback về `getHostedLobbies + getJoinedLobbies` và filter tại
-      // client (defensive).
-      final res = await _dio.get<Map<String, dynamic>>(ApiEndpoints.lobbyMy);
+      // BR-NEW-MY-LOBBY-SORT (2026-09-14): backend hỗ trợ lọc + sắp xếp
+      // qua query params:
+      //   ?statuses=4&statuses=16&statuses=14&statuses=1&statuses=0
+      //   &statuses=6
+      //   &statusFilter=InProgress,WaitingCheckIn,Viable,Full,Open,RatingOpen
+      // Backend tự sắp xếp: active trước → terminal sau, trong mỗi
+      // nhóm theo thời gian mới nhất.
+      final query = <String, dynamic>{};
+      if (statuses != null && statuses.isNotEmpty) {
+        query['statuses'] = statuses;
+      }
+      if (statusFilter != null && statusFilter.isNotEmpty) {
+        query['statusFilter'] = statusFilter;
+      }
+      final res = query.isEmpty
+          ? await _dio.get<Map<String, dynamic>>(ApiEndpoints.lobbyMy)
+          : await _dio.get<Map<String, dynamic>>(
+              ApiEndpoints.lobbyMy,
+              queryParameters: query,
+            );
       final items = _unwrapList(res.data)
           .whereType<Map<String, dynamic>>()
           .map((json) => LobbyModel.fromJson(json).toEntity())
@@ -1000,10 +1016,12 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
           final joinedRes = await getJoinedLobbies();
           final hosted = hostedRes.fold((_) => <LobbyEntity>[], (l) => l);
           final joined = joinedRes.fold((_) => <LobbyEntity>[], (l) => l);
-          // Filter client-side defensive — chỉ giữ lobby còn active.
-          final filtered = [...hosted, ...joined]
-              .where((l) => l.status.isActive)
-              .toList();
+          // Filter client-side defensive — chỉ giữ lobby còn active
+          // nếu gọi không filter. Khi có filter từ caller,
+          // giữ nguyên kết quả (backend đã filter).
+          final filtered = (statuses == null && statusFilter == null)
+              ? [...hosted, ...joined].where((l) => l.status.isActive).toList()
+              : [...hosted, ...joined];
           // Dedup by id.
           final byId = <String, LobbyEntity>{};
           for (final l in filtered) {

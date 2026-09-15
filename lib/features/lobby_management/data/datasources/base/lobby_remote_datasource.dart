@@ -137,9 +137,26 @@ abstract class LobbyRemoteDatasource {
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
 
   /// GET /api/v1/lobbies/my
-  /// Hợp nhất hosted + joined, server tự filter theo
-  /// BR-MEMBER-CLEANUP-01 (chỉ lobby còn active).
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies();
+  ///
+  /// **BR-NEW-MY-LOBBY-SORT (2026-09-14):** Backend bổ sung query params:
+  /// - `statuses`: mảng int (enum value) — lọc theo LobbyStatus.
+  /// - `statusFilter`: comma-separated string — vd "InProgress,Viable,Full".
+  ///
+  /// Backend tự sắp xếp kết quả: active statuses trước (InProgress,
+  /// WaitingCheckIn, Viable, Full, Open, RatingOpen), rồi terminal
+  /// statuses (Closed, TimeoutFailed, ...), trong mỗi nhóm sắp theo
+  /// thời gian mới nhất.
+  ///
+  /// Nếu không truyền filter, backend trả tất cả (backend tự filter
+  /// BR-MEMBER-CLEANUP-01 — chỉ lobby còn active).
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    /// Danh sách int enum LobbyStatus cần lọc. VD: [0, 4, 14] = Open, InProgress, Viable.
+    List<int>? statuses,
+
+    /// Comma-separated LobbyStatus names. VD: "InProgress,Viable,Full".
+    /// Backend sẽ union với `statuses` nếu cả 2 cùng truyền.
+    String? statusFilter,
+  });
 
   /// POST /api/v1/lobbies/{lobbyId}/report
   /// Báo cáo phòng chờ vi phạm.

@@ -35,6 +35,12 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   final bool isScheduledInPast;
   final bool hasBufferWarning;
   final String Function(int) formatBuffer;
+
+  /// Quay lại tab trước (Thời gian → Quán & Game). Được wire từ
+  /// nút "Quay lại" ở bottom action bar — thay thế cho nút back trên
+  /// AppBar để tránh chạm nhầm dẫn đến pop cả page.
+  final VoidCallback onPrev;
+
   final VoidCallback onNext;
 
   const LobbyConfigTabThoiGian({
@@ -53,6 +59,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.bufferMinutes,
     required this.isScheduledInPast,
     required this.hasBufferWarning,
+    required this.onPrev,
     required this.onNext,
   });
 
@@ -295,6 +302,8 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
           // sát giờ theo BR §XXI-B.4.
           label: 'Tiếp tục',
           onPressed: isScheduledInPast ? null : onNext,
+          secondaryLabel: 'Quay lại',
+          secondaryOnPressed: onPrev,
         ),
       ],
     );

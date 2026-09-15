@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
-/// Canonical PascalCase status name do backend trả về trong field `type`
-/// của GET /api/v1/wallet/transactions (xem swagger `LedgerEntryType`).
+/// Tên PascalCase do backend trả về trong field `type` của
+/// GET /api/v1/wallet/transactions.
 ///
 /// Dùng để map qua lại giữa Dart enum ↔ JSON một cách an toàn — tránh
 /// hard-code string rải rác ở UI / datasource.
@@ -16,17 +16,7 @@ abstract final class TransactionTypeNames {
   static const String adminDebit = 'AdminDebit';
 }
 
-/// Loại giao dịch trong ledger (BR §3.2, §3.3).
-///
-/// Mapping theo swagger `LedgerEntryType`:
-///   TopUp           → nạp tiền thật → BVC
-///   DepositHold     → giữ cọc reservation
-///   DepositRelease  → hoàn cọc do timeout/hủy
-///   DepositCapture  → capture cọc sau check-in
-///   DepositForfeit  → tịch thu cọc do no-show
-///   Adjustment      → sửa sai (chỉ admin)
-///   AdminCredit     → admin cộng BVC thủ công
-///   AdminDebit      → admin trừ BVC thủ công
+/// Loại giao dịch trong ledger.
 enum TransactionType {
   topUp,
   depositHold,
@@ -37,8 +27,7 @@ enum TransactionType {
   adminCredit,
   adminDebit;
 
-  /// Map từ string backend → enum. Throw nếu gặp value lạ — UI sẽ hiển thị
-  /// rõ ràng thay vì nuốt bug.
+  /// Map từ string backend → enum. Throw nếu gặp value lạ.
   static TransactionType fromString(String value) {
     final normalized = value.trim();
     for (final t in TransactionType.values) {
@@ -50,7 +39,7 @@ enum TransactionType {
     );
   }
 
-  /// Tên PascalCase chính xác mà backend serialize (swagger enum).
+  /// Tên PascalCase chính xác mà backend serialize.
   String get wireName {
     switch (this) {
       case TransactionType.topUp:
@@ -86,7 +75,7 @@ enum TransactionType {
       case TransactionType.depositForfeit:
         return 'Tịch thu cọc';
       case TransactionType.adjustment:
-        return '�iều chỉnh';
+        return 'Điều chỉnh';
       case TransactionType.adminCredit:
         return 'Admin cộng';
       case TransactionType.adminDebit:
@@ -99,22 +88,12 @@ enum TransactionType {
 ///   - [credit]: cộng vào ví (TopUp, DepositRelease, AdminCredit, Adjustment dương)
 ///   - [debit] : trừ khỏi ví hiển thị (DepositHold, DepositCapture,
 ///               DepositForfeit, AdminDebit, Adjustment âm)
-///
-/// `Adjustment` đặc biệt: dấu phụ thuộc vào `amount` (server chỉ ghi
-/// entry kèm `isCredit` của admin, ledger `amount` luôn dương theo BR
-/// §3.3 — tuy nhiên `TransactionType.adjustment` có thể xuất hiện với
-/// amount âm khi backend chọn cách biểu diễn ±). UI dùng [amountSign]
-/// để ra quyết định cuối cùng.
 enum TransactionDirection { credit, debit }
 
-/// Extension đính kèm helper cho UI.
-///
-/// `isPositive`/`isNegative` được GIỮ để tương thích ngược với code
-/// cũ, nhưng UI mới nên dùng `direction` (kết hợp `type` + dấu `amount`
-/// cho Adjustment).
+/// Extension helper cho UI.
 extension TransactionTypeDirection on TransactionType {
-  /// Hướng mặc định theo loại giao dịch. Với `Adjustment` phải xét
-  /// thêm dấu của `amount` — dùng [directionFor] thay.
+  /// Hướng mặc định theo loại giao dịch. Với `Adjustment` phải xét thêm
+  /// dấu của `amount` — dùng [directionFor] thay.
   TransactionDirection get defaultDirection {
     switch (this) {
       case TransactionType.topUp:
@@ -143,46 +122,34 @@ extension TransactionTypeDirection on TransactionType {
     }
     return defaultDirection;
   }
-
-  /// True nếu mặc định là khoản cộng (giữ để tương thích ngược).
-  bool get isPositive =>
-      defaultDirection == TransactionDirection.credit;
-
-  /// True nếu mặc định là khoản trừ (giữ để tương thích ngược).
-  bool get isNegative =>
-      defaultDirection == TransactionDirection.debit;
 }
 
-/// Một dòng trong ledger (BR §3.3).
-///
-/// Ledger là append-only — không UPDATE/DELETE dòng đã ghi.
+/// Một dòng trong ledger (append-only).
 class TransactionEntity extends Equatable {
   final String id;
 
-  /// Loại giao dịch
+  /// Loại giao dịch.
   final TransactionType type;
 
-  /// Số BVC. **Bình thường luôn dương** theo BR §3.3 — tuy nhiên với
-  /// `Adjustment` có thể mang dấu âm để biểu diễn "trừ"; UI resolve
-  /// chiều bằng `directionFor(amount)`.
+  /// Số BVC. Với `Adjustment` có thể âm để biểu diễn "trừ".
   final int amount;
 
-  /// ID của lobby liên quan (nếu có)
+  /// ID của lobby liên quan (nếu có).
   final String? relatedLobbyId;
 
-  /// ID của booking/reservation liên quan (nếu có)
+  /// ID của booking/reservation liên quan (nếu có).
   final String? relatedBookingId;
 
-  /// Mã tham chiếu thanh toán (vd: BVC-A1B2C3D4E5 cho top-up)
+  /// Mã tham chiếu thanh toán (vd: BVC-A1B2C3D4E5 cho top-up).
   final String? relatedPaymentRef;
 
-  /// Số dư availableBalance sau giao dịch (snapshot để debug)
+  /// Số dư availableBalance sau giao dịch (snapshot).
   final int balanceSnapshot;
 
-  /// Ghi chú (thường dùng cho admin adjustment)
+  /// Ghi chú (thường dùng cho admin adjustment).
   final String? note;
 
-  /// Thời điểm tạo giao dịch
+  /// Thời điểm tạo giao dịch.
   final DateTime createdAt;
 
   const TransactionEntity({
@@ -197,21 +164,20 @@ class TransactionEntity extends Equatable {
     required this.createdAt,
   });
 
-  /// Chuyển amount sang VND (1 BVC = 1.000 VND).
-  /// Trả về giá trị tuyệt đối để format — dấu đã nằm ở UI qua [direction].
+  /// Quy đổi amount sang VND (1 BVC = 1.000 VND).
+  /// Trả về giá trị tuyệt đối — dấu đã nằm ở UI qua [direction].
   int get amountVndAbs => amount.abs() * 1000;
 
-  /// Chiều ảnh hưởng lên ví hiển thị — UI lấy cái này để quyết định
-  /// đ�/xanh và prefix `+`/`-`.
+  /// Chiều ảnh hưởng lên ví hiển thị.
   TransactionDirection get direction => type.directionFor(amount);
 
-  /// True nếu là khoản CỘNG (xanh, prefix `+`). False = khoản TRỪ
-  /// (đỏ, prefix `-`).
+  /// True nếu là khoản CỘNG.
   bool get isCredit => direction == TransactionDirection.credit;
 
+  /// True nếu là khoản TRỪ.
   bool get isDebit => direction == TransactionDirection.debit;
 
-  /// Mô tả ngắn cho UI
+  /// Mô tả ngắn cho UI.
   String get shortDescription {
     switch (type) {
       case TransactionType.topUp:

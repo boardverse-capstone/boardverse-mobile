@@ -29,6 +29,47 @@ class LobbyCubit extends Cubit<LobbyState> {
   })  : _persistenceService = persistenceService ?? LobbyPersistenceService(),
         super(const LobbyInitial());
 
+  // ─── Refresh (pull-to-refresh) ──────────────────────────────────────
+
+  /// Pull-to-refresh: refresh lobby data KHÔNG emit `LobbyLoading` để giữ
+  /// UI content hiện tại (chỉ update state khi API trả về). Dùng cho
+  /// `RefreshIndicator` ở [LobbyPage] — khác với [initLobbyState] (emit
+  /// loading để hiển thị `LobbyLoadingScaffold` lúc mở page).
+  ///
+  /// Flow:
+  /// 1. Fetch `GET /api/v1/lobbies/{id}` (chi tiết).
+  /// 2. Merge field thiếu từ cached lobby (hostName/cafeName/inviteCode).
+  /// 3. Emit `LobbyUpdatedRealtime` (không phải `LobbyCreated`) — không
+  ///    restart countdown/realtime watchers vì đã chạy rồi.
+  /// 4. Lỗi → silent, KHÔNG emit `LobbyFailure` để tránh thay lobby
+  ///    content bằng error scaffold giữa chừng.
+  Future<void> refreshLobby(String lobbyId) async {
+    await _persistenceService.loadCachedDetails();
+    final cachedLobby = _persistenceService.getCachedLobbyEntity();
+
+    final result = await _repository.getLobbyById(lobbyId);
+    if (isClosed) return;
+
+    await result.fold(
+      (failure) async {
+        // Silent: giữ state hiện tại, không emit failure.
+      },
+      (lobby) async {
+        if (lobby == null) return;
+        final mergedLobby = _mergeWithCached(lobby, cachedLobby);
+        _persistLobby(mergedLobby);
+
+        if (mergedLobby.status.isTerminal) {
+          if (!isClosed) emit(LobbyEnded(lobby: mergedLobby));
+        } else {
+          // `LobbyUpdatedRealtime` (không phải `LobbyCreated`) để không
+          // restart watchers — đã subscribe từ lúc join/init rồi.
+          if (!isClosed) emit(LobbyUpdatedRealtime(lobby: mergedLobby));
+        }
+      },
+    );
+  }
+
   // ─── Create Lobby ─────────────────────────────────────────────────────
   // Legacy `createLobby` / `createLobbyFromBooking` đã bị xoá theo plan
   // migrate Lobby sang Reservation/BVC. Tạo lobby giờ đi qua

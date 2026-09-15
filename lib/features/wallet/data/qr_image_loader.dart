@@ -3,71 +3,32 @@ import 'package:flutter/foundation.dart';
 
 /// Service download ảnh QR SePay/vietqr với custom User-Agent.
 ///
-/// ## Tại sao không dùng `Image.network`?
-///
 /// `Image.network` của Flutter dùng `dart:io HttpClient` mặc định với
-/// User-Agent `"Dart/3.x (dart:io)"`. Nhiều CDN (Cloudflare, vietqr.app,
-/// imgur, ...) block UA này vì cho là bot/script → trả 403 Forbidden
-/// hoặc HTML error page → `Image.network.errorBuilder` chạy → QR trắng
-/// trên UI mobile.
+/// User-Agent "Dart/3.x (dart:io)". Nhiều CDN (vietqr.app, ...) block
+/// UA này và trả HTML error page thay vì ảnh. Dùng `Dio` với UA giống
+/// Chrome để bypass.
 ///
-/// Trong khi đó browser (Chrome, Safari) gửi UA đầy đủ:
-/// ```
-/// Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
-///   (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
-/// ```
-/// → CDN cho qua → ảnh QR hiển thị OK trên web.
-///
-/// ## Fix
-///
-/// Dùng `Dio` với UA giống Chrome để bypass. Decode bytes thành widget
-/// bằng `Image.memory` (lib Flutter tự render PNG/JPEG).
-///
-/// ## Lưu ý quan trọng: Flutter Web CORS
-///
-/// Trên **Flutter Web**, Dio dùng `XMLHttpRequest` của browser. Browser
-/// chặn các header KHÔNG nằm trong [CORS safelist](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests)
-/// — `User-Agent` nằm trong nhóm này. Đặt custom `User-Agent` trên web
-/// sẽ trigger preflight `OPTIONS` request → server không respond
-/// `Access-Control-Allow-Headers` → CORS error.
-///
-/// Trên web browser TỰ ĐỘNG gửi UA `Mozilla/5.0 ... Chrome/...` rồi,
-/// nên KHÔNG CẦN (và KHÔNG ĐƯỢC) set custom UA trên web.
-///
-/// → Logic phân nhánh bằng `kIsWeb`:
+/// Trên Flutter Web, browser tự gửi UA Mozilla nên KHÔNG set custom UA
+/// (sẽ trigger CORS preflight). Logic phân nhánh bằng `kIsWeb`:
 ///
 /// - **Web**: chỉ set `Accept` + `Accept-Language` (CORS-safe headers).
-/// - **Mobile (Android/iOS)**: set thêm `User-Agent` để bypass CDN
-///   block "Dart" UA.
+/// - **Mobile**: set thêm `User-Agent` để bypass CDN block.
 ///
-/// ## Cache
-///
-/// Cache in-memory theo URL trong suốt lifetime app — tránh download
-/// lại khi user đóng/mở bottom sheet nhiều lần. Không cache disk vì
-/// QR có `expiresAt` ngắn (10 phút).
+/// Cache in-memory theo URL — tránh download lại khi user mở/đóng sheet
+/// nhiều lần.
 class QrImageLoader {
   QrImageLoader({Dio? dio}) : _dio = dio ?? _buildDio();
 
   final Dio _dio;
-  static final Map<String, Uint8List> _cache = <String, Uint8List>{}
-
-      // ignore: unused_element
-      ;
+  static final Map<String, Uint8List> _cache = <String, Uint8List>{};
 
   static Dio _buildDio() {
-    // Headers CHỈ chứa các giá trị nằm trong CORS safelist
-    // (Accept, Accept-Language, Content-Language, Content-Type, Range).
-    // KHÔNG set User-Agent trên web — browser tự gửi rồi và sẽ bị
-    // CORS block nếu override.
     final headers = <String, String>{
       'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,'
           '*/*;q=0.8',
       'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
     };
 
-    // Mobile-only: set User-Agent để bypass CDN block "Dart" UA.
-    // Trên mobile Dio dùng `dart:io HttpClient` — KHÔNG có CORS nên
-    // custom header hoạt động bình thường.
     if (!kIsWeb) {
       headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
           'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -96,14 +57,13 @@ class QrImageLoader {
   /// - Network error / timeout
   /// - Response body rỗng
   ///
-  /// Bytes được cache in-memory theo URL — gọi lại với cùng URL trả
-  /// về ngay lập tức (không tốn request).
+  /// Bytes được cache in-memory theo URL — gọi lại với cùng URL trả về
+  /// ngay lập tức.
   Future<Uint8List> loadBytes(String qrUrl) async {
     if (qrUrl.isEmpty) {
       throw const QrImageLoadException('QR URL trống.');
     }
 
-    // In-memory cache.
     final cached = _cache[qrUrl];
     if (cached != null) return cached;
 

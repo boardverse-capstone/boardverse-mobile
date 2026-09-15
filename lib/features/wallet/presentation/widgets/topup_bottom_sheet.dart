@@ -9,35 +9,19 @@ import '../cubit/topup_cubit.dart';
 import '../cubit/topup_state.dart';
 import 'qr_network_image.dart';
 
-/// Bottom sheet nạp BVC inline — được mở từ màn hình đặt cọc khi user
-/// thiếu BVC. Mục tiêu: user không phải rời context, sau khi thanh toán
-/// có thể tự động tiếp tục đặt cọc.
+/// Bottom sheet nạp BVC inline — được mở từ các flow khác khi user thiếu
+/// BVC, giúp user không phải rời context hiện tại.
 ///
-/// **Flow**:
-/// 1. User ấn "Nạp BVC ngay" → mở bottom sheet này.
-/// 2. User chọn số tiền (gợi ý: số tiền còn thiếu + buffer) hoặc nhập tay.
-/// 3. Bấm "Tiếp tục thanh toán" → `TopUpCubit.createTopUp()` tạo đơn.
-/// 4. Hiển thị QR SePay + countdown + auto-polling 5s/lần.
-/// 5. Top-up thành công → cubit emit `TopUpSuccess` → bottom sheet:
-///    - Hiển thị success dialog.
-///    - Auto-close sau 1.5s.
-///    - Gọi `onSuccess()` callback → trigger auto re-quote + confirm
-///      ở màn hình cha.
-///
-/// **Quy tắc style**:
-/// - Neo-brutalism: border + hard offset shadow + icon badges đậm.
-/// - Layout nhỏ gọn (maxHeight 85% screen) — không thay thế toàn bộ UX.
-/// - Tất cả shadow dùng màu semantic, không dùng đen thuần.
+/// Sau khi nạp thành công, sheet tự đóng và gọi `onSuccess` callback để
+/// màn hình phía dưới có thể tiếp tục flow (vd: đặt cọc).
 class TopUpBottomSheet extends StatefulWidget {
   /// Số BVC user đang thiếu (chỉ để hiển thị thông tin).
   final int missingBvc;
 
-  /// Số tiền VND mặc định (gợi ý cho input). Thường là
-  /// `missingBvc * 1000 + buffer`.
+  /// Số tiền VND mặc định cho input.
   final int initialAmountVnd;
 
-  /// Callback khi top-up thành công. Màn hình cha sẽ gọi
-  /// `refreshBalanceAndConfirm(autoConfirm: ...)` để tiếp tục flow đặt cọc.
+  /// Callback khi nạp thành công.
   final VoidCallback onSuccess;
 
   const TopUpBottomSheet({
@@ -50,8 +34,8 @@ class TopUpBottomSheet extends StatefulWidget {
   /// Helper mở bottom sheet với cubit lifecycle đúng.
   ///
   /// Caller KHÔNG cần wrap BlocProvider — hàm này tự tạo `TopUpCubit` mới
-  /// cho session này (TopUpCubit là factory, mỗi lần mở = cubit mới).
-  /// Khi bottom sheet đóng → cubit được `close()` để cleanup polling timer.
+  /// cho mỗi session (mỗi lần mở = cubit mới + polling timer riêng).
+  /// Khi bottom sheet đóng → cubit được `close()` để cleanup polling.
   static Future<void> show({
     required BuildContext context,
     required int missingBvc,
@@ -141,8 +125,7 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
           amountVnd: amountToSend,
           onSuccess: () {
             // Polling phát hiện thanh toán → đã emit TopUpSuccess.
-            // BlocConsumer listener bên dưới sẽ tự xử lý (show dialog + close).
-            // Không cần làm gì thêm ở đây.
+            // BlocConsumer listener bên dưới sẽ tự xử lý.
           },
         );
   }
@@ -211,9 +194,7 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
           );
         }
         if (state is TopUpSuccess) {
-          // Đợi dialog hiển thị 1.4s rồi auto-close sheet → callback onSuccess.
-          // Capture Navigator trước khi vào async gap để tránh dùng
-          // BuildContext sau khi widget có thể đã unmount.
+          // Đợi dialog hiển thị ~1.4s rồi auto-close sheet → callback onSuccess.
           final navigator = Navigator.of(context);
           Future.delayed(const Duration(milliseconds: 1400), () {
             if (mounted) {
@@ -362,10 +343,6 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
       );
     }
 
-    // Đang check status (polling) — TopUpCubit không emit state này
-    // (polling là silent) nên block này defensive-only. Nếu sau này
-    // cubit emit thêm state, render spinner fallback.
-
     // Top-up thành công — hiển thị success card ngay trong sheet (auto-close 1.4s).
     if (state is TopUpSuccess) {
       return _SuccessView(
@@ -422,7 +399,6 @@ class _PackageForm extends StatelessWidget {
     final theme = Theme.of(context);
     final packages = TopUpPackages.suggestedAmountsVnd;
 
-    // TextWatcher: dùng StatefulBuilder để rebuild khi controller thay đổi.
     return StatefulBuilder(
       builder: (context, setLocal) {
         final customRaw = customAmountController.text.replaceAll(',', '');
@@ -752,12 +728,6 @@ class _AwaitingPaymentViewState extends State<_AwaitingPaymentView>
                     width: 2,
                   ),
                 ),
-                // `QrNetworkImage` tự xử lý:
-                // 1. Download ảnh QR từ `qrUrl` bằng Dio + Chrome UA
-                //    (bypass CDN block "Dart" UA — xem `QrImageLoader`).
-                // 2. Render bằng `Image.memory`.
-                // 3. Nếu load fail → fallback `QrImageView(paymentUrl)`.
-                // 4. Nếu cả 2 fail → icon placeholder.
                 child: QrNetworkImage(
                   qrUrl: quote.qrUrl,
                   paymentUrl: quote.paymentUrl,
@@ -1169,7 +1139,7 @@ String _formatVnd(int amount) {
   return '$result VNĐ';
 }
 
-/// Thousands separator formatter (same as TopUpPage).
+/// Thousands separator formatter.
 class _ThousandsFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

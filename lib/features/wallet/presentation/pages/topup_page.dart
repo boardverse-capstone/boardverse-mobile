@@ -10,7 +10,7 @@ import '../cubit/topup_cubit.dart';
 import '../cubit/topup_state.dart';
 import '../widgets/qr_network_image.dart';
 
-/// Neo-brutalism Màn hình nạp BVC.
+/// Màn hình nạp BVC.
 class TopUpPage extends StatefulWidget {
   final int? initialAmountVnd;
   final VoidCallback? onSuccess;
@@ -449,11 +449,8 @@ class _TopUpPageState extends State<TopUpPage> {
         ),
         const SizedBox(height: AppSpacing.lg),
         _buildPaymentInstructions(context, state, textTheme),
-        const SizedBox(height: AppSpacing.lg),
-        // Hủy / Đổi số tiền chỉ enable khi backend đã trả topUpId (Guid).
-        // Nếu backend Swagger phiên bản hiện tại chưa trả field này,
-        // đường dẫn PATCH/DELETE sẽ 404 → UI disable + hiển thị thông báo.
-        if (canCancelOrUpdate)
+        if (canCancelOrUpdate) ...[
+          const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
@@ -476,16 +473,14 @@ class _TopUpPageState extends State<TopUpPage> {
                 ),
               ),
             ],
-          )
-        else
-          _CancelUpdateUnavailableNotice(borderColor: borderColor),
+          ),
+        ],
       ],
     );
   }
 
   /// Nút "TẢI MÃ QR" — download ảnh QR SePay về gallery để player
-  /// mở app ngân hàng quét. Lý do: trên điện thoại, mở SePay web khó
-  /// chuyển sang app ngân hàng hơn so với dùng QR có sẵn.
+  /// mở app ngân hàng quét.
   Widget _buildDownloadQrButton(
     BuildContext context,
     TopUpAwaitingPayment state,
@@ -592,7 +587,7 @@ class _TopUpPageState extends State<TopUpPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
         ),
-        title: const Text('Đổi số tiền đơn top-up'),
+        title: const Text('Đổi số tiền đơn nạp'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -677,11 +672,11 @@ class _TopUpPageState extends State<TopUpPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.black, width: 2),
             ),
-            // Dùng `QrNetworkImage` để bypass UA "Dart" bị CDN block.
-            // Fallback chain:
-            //   1. Download ảnh bằng Dio + Chrome UA → Image.memory.
-            //   2. Fail → generate QR local từ paymentUrl.
-            //   3. Fail nữa → icon placeholder.
+            // `QrNetworkImage` tự xử lý:
+            // 1. Download ảnh QR từ `qrUrl` bằng Dio + Chrome UA
+            //    (bypass CDN block "Dart" UA).
+            // 2. Render bằng `Image.memory`.
+            // 3. Nếu load fail → fallback `QrImageView(paymentUrl)`.
             child: QrNetworkImage(
               qrUrl: qrUrl,
               paymentUrl: state.quote.paymentUrl,
@@ -704,12 +699,8 @@ class _TopUpPageState extends State<TopUpPage> {
     );
   }
 
-  /// Nút "Kiểm tra ngay" — cho phép user ép check trạng thái top-up
-  /// thay vì đợi auto-polling 5s.
-  ///
-  /// Hữu ích khi:
-  /// - User đã thanh toán nhưng chưa thấy BVC cộng sau 5s.
-  /// - Muốn refresh ngay sau khi SePay báo thanh toán xong.
+  /// Nút "Kiểm tra ngay" — cho phép user ép check trạng thái thay vì
+  /// đợi auto-polling 5s.
   Widget _buildManualRefreshButton(BuildContext context, Color borderColor) {
     return Container(
       decoration: BoxDecoration(
@@ -778,9 +769,9 @@ class _TopUpPageState extends State<TopUpPage> {
       if (!mounted) return;
 
       if (!success) {
-        // Trường hợp vẫn chưa có giao dịch (TopUpAwaitingPayment / mạng lỗi).
-        // Nếu cubit emit TopUpExpired thì BlocConsumer listener đã show dialog
-        // rồi — chỉ snackbar khi vẫn đang chờ.
+        // Trường hợp vẫn chưa có giao dịch — chỉ snackbar khi state vẫn
+        // đang chờ. Nếu emit Expired/Success thì BlocConsumer listener đã
+        // xử lý dialog.
         if (cubit.state is TopUpAwaitingPayment) {
           messenger.showSnackBar(
             const SnackBar(
@@ -789,10 +780,7 @@ class _TopUpPageState extends State<TopUpPage> {
             ),
           );
         }
-        // Nếu state là TopUpSuccess → BlocConsumer listener đã show success dialog.
-        // Nếu state là TopUpExpired → BlocConsumer listener đã show expired dialog.
       }
-      // success=true → BlocConsumer listener tự show success dialog.
     } finally {
       if (mounted) setState(() => _isManualChecking = false);
     }
@@ -1206,7 +1194,7 @@ class _PackageTile extends StatelessWidget {
   }
 }
 
-/// Input formatter for thousands separator
+/// Input formatter for thousands separator.
 class _ThousandsSeparatorFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -1239,55 +1227,5 @@ class _ThousandsSeparatorFormatter extends TextInputFormatter {
       result.write(str[i]);
     }
     return result.toString();
-  }
-}
-
-/// Notice hiển thị khi backend chưa trả `topUpId` (Guid) trong response —
-/// lúc đó không thể gọi DELETE/PATCH để hủy/đổi số tiền.
-///
-/// Lý do: Path param `topUpId` của `PATCH/DELETE /api/v1/wallet/topup/{id}`
-/// là Guid (BvcTopUpRequest.Id), không phải `orderId` "BVC-...". Khi
-/// backend Swagger chưa trả field này, mobile không có Guid để cancel nên
-/// disable nút + hiển thị thông báo rõ ràng cho user (thay vì bấm 404).
-class _CancelUpdateUnavailableNotice extends StatelessWidget {
-  const _CancelUpdateUnavailableNotice({required this.borderColor});
-
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.warning,
-          width: NeoBrutalismTheme.borderWidth,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            color: AppColors.warning,
-            size: 18,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Hủy / đổi số tiền đang bảo trì. Đơn sẽ tự hết hạn sau ~10 phút '
-              'nếu bạn không thanh toán. Vui lòng quét QR để hoàn tất.',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.warning,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

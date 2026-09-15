@@ -12,7 +12,6 @@ import 'bottom_button.dart';
 import 'info_card.dart';
 import 'quote_loading_shimmer.dart';
 import 'quote_preview_card.dart';
-import 'summary_row.dart';
 
 /// Tab 4 của LobbyConfigPage — đặt cọc + xác nhận.
 ///
@@ -44,6 +43,11 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
   final String Function(DateTime) formatDate;
   final String Function(TimeOfDay) formatTime;
   final String Function(int) formatBuffer;
+
+  /// Quay lại tab trước (Đặt cọc → Cấu hình). Được wire từ nút
+  /// "Quay lại" ở bottom action bar.
+  final VoidCallback onPrev;
+
   final VoidCallback onConfirm;
   final VoidCallback onRefreshQuote;
   final VoidCallback onLoadQuote;
@@ -68,6 +72,7 @@ class LobbyConfigTabDatCoc extends StatefulWidget {
     required this.formatDate,
     required this.formatTime,
     required this.formatBuffer,
+    required this.onPrev,
     required this.onConfirm,
     required this.onRefreshQuote,
     required this.onLoadQuote,
@@ -189,7 +194,7 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  'Kiểm tra thông tin lobby và chi tiết cọc trước khi xác nhận',
+                  'Kiểm tra chi tiết cọc trước khi xác nhận',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: NeoBrutalismTheme.textSecondaryColor(context),
                   ),
@@ -197,76 +202,7 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // ── Section 1: Tổng quan ──────────────────────────────
-                LobbyConfigInfoCard(
-                  icon: Icons.event_note_rounded,
-                  iconColor: AppColors.primary,
-                  title: 'Tổng quan lobby',
-                  useNeoStyle: true,
-                  child: Column(
-                    children: [
-                      LobbyConfigSummaryRow(
-                          icon: Icons.extension_rounded,
-                          label: 'Game',
-                          value: widget.gameName),
-                      _NeoDivider(),
-                      LobbyConfigSummaryRow(
-                          icon: Icons.local_cafe_rounded,
-                          label: 'Quán',
-                          value: widget.cafeName),
-                      _NeoDivider(),
-                      LobbyConfigSummaryRow(
-                        icon: Icons.calendar_today_rounded,
-                        label: 'Ngày',
-                        value: widget.formatDate(widget.selectedDate),
-                      ),
-                      if (widget.preferredStartTime != null) ...[
-                        _NeoDivider(),
-                        LobbyConfigSummaryRow(
-                          icon: Icons.play_arrow_rounded,
-                          label: 'Giờ bắt đầu',
-                          value:
-                              widget.formatTime(widget.preferredStartTime!),
-                        ),
-                      ],
-                      if (widget.preferredEndTime != null) ...[
-                        _NeoDivider(),
-                        LobbyConfigSummaryRow(
-                          icon: Icons.stop_rounded,
-                          label: 'Giờ kết thúc',
-                          value: widget.formatTime(widget.preferredEndTime!) +
-                              (widget.endCrossesMidnight ? ' (+1 ngày)' : ''),
-                        ),
-                      ],
-                      _NeoDivider(),
-                      LobbyConfigSummaryRow(
-                        icon: Icons.group_rounded,
-                        label: 'Số người',
-                        value: '${widget.maxPlayers} người',
-                      ),
-                      _NeoDivider(),
-                      LobbyConfigSummaryRow(
-                        icon: widget.isPublic
-                            ? Icons.public_rounded
-                            : Icons.lock_rounded,
-                        label: 'Chế độ',
-                        value: widget.isPublic ? 'Công khai' : 'Riêng tư',
-                      ),
-                      if (widget.minimumKarma > 0) ...[
-                        _NeoDivider(),
-                        LobbyConfigSummaryRow(
-                          icon: Icons.star_rounded,
-                          label: 'Karma tối thiểu',
-                          value: '${widget.minimumKarma.toInt()} điểm',
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                // ── Section 2: Quote / Status ─────────────────────────
+                // ── Section: Quote / Status ────────────────────────────
                 LobbyConfigInfoCard(
                   icon: Icons.payments_rounded,
                   iconColor: AppColors.success,
@@ -294,8 +230,16 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
           ),
         ),
 
+        // Tab cuối (Đặt cọc) — chỉ hiển thị 1 nút primary "Tiếp tục"
+        // full-width, KHÔNG có nút "Quay lại" vì:
+        //   - Player đã chốt config ở các tab trước — không cần back.
+        //   - Navigation back dùng tab bar (click lên tab trước) hoặc
+        //     nút X (Đóng) trên header để thoát flow hoàn toàn.
+        //   - 2 nút "Quay lại" + "Tiếp tục" trên màn final khiến user
+        //     lúng túng — không biết "Quay lại" nghĩa là back tab hay
+        //     back page, dễ bấm nhầm → mất tiến trình.
         LobbyConfigBottomButton(
-          label: 'Xác nhận & Đặt cọc',
+          label: 'Tiếp tục',
           // Bỏ block `isBufferTooShort` — cho phép đặt lobby sát giờ
           // (BR §XXI-B.4). Chỉ disable khi quote null / đang loading.
           onPressed: liveQuote == null || widget.isCreatingLobby
@@ -342,18 +286,6 @@ class _LobbyConfigTabDatCocState extends State<LobbyConfigTabDatCoc> {
 
 /// Divider mỏng theo style neo-brutalism: thay vì `Divider` Flutter mặc định
 /// (thickness 1px mờ), dùng container 1.5px với màu border.
-class _NeoDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      height: 1.5,
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      color: isDark ? AppColors.borderDark : AppColors.border,
-    );
-  }
-}
-
 /// Error state khi không tải được quote. Border + hard shadow đỏ nhạt,
 /// icon badge màu error, action button retry theo style neo.
 class _ErrorState extends StatelessWidget {

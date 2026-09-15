@@ -20,8 +20,31 @@ import '../../domain/entities/lobby_entity.dart';
 /// (`docs/apis/lobby.md` §State machine + BR-08 + BR-NEW-11).
 ///
 /// **Host actions:** Khi `isHostViewer == true` VÀ `player.isHost == false`,
-/// card hiển thị icon menu (⋮) ở góc trên-phải. Tap menu → mở action sheet
-/// với "Xóa khỏi phòng" (POST /api/v1/lobbies/{lobbyId}/kick).
+/// card hiển thị icon menu (⋮) ở **góc trên-trái của card** (xem
+/// [_KickMemberMenuButton]). Trước đây nút này nằm overlay trên avatar
+/// (top-right của avatar stack) — bị avatar/host badge che, tap target
+/// nhỏ (~24px), khó bấm. Tap menu → mở action sheet với "Xóa khỏi
+/// phòng" (POST /api/v1/lobbies/{lobbyId}/kick).
+///
+/// ── HELPER: darken status color cho chip text ─────────────────────
+/// Trả về phiên bản tối hơn (~45% darker lightness) của [color]. Cần
+/// thiết vì:
+///   - Chip background dùng `status.color.withValues(alpha: 0.12)` →
+///     rất nhạt, gần như tint nhẹ.
+///   - Nếu text color cũng dùng `status.color` (full opacity) thì
+///     contrast giữa text và bg quá thấp → text "chìm" vào bg, khó
+///     đọc (đặc biệt warning/info màu vàng-cam vốn đã sáng).
+///
+/// Dùng HSLColor.withLightness() để darken ổn định cho MỌI màu (kể
+/// cả `textTertiary` không có `*Dark` variant hardcode).
+Color darkenForChipText(Color color) {
+  final hsl = HSLColor.fromColor(color);
+  final darkened = hsl
+      .withLightness((hsl.lightness * 0.55).clamp(0.05, 0.95))
+      .toColor();
+  return darkened;
+}
+
 class LobbyPlayerCard extends StatelessWidget {
   final LobbyPlayer player;
 
@@ -153,173 +176,251 @@ class LobbyPlayerCard extends StatelessWidget {
         : (isDark ? AppColors.borderDark : AppColors.border);
     final textColor = isDark ? AppColors.white : AppColors.black;
 
-    return Semantics(
-      button: onTap != null,
-      label: '${player.name}, $statusLabel',
-      child: Material(
-        color: Colors.transparent,
-        clipBehavior: Clip.antiAlias,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
+    // Phase 4 2026-09-15: wrap Semantics trong [SizedBox.expand] để
+    // **đảm bảo tuyệt đối** LobbyPlayerCard fill 100% parent size
+    // (parent là SizedBox cardSize × cardSize bên ngoài). Mặc dù
+    // Material widget nhận tight constraints từ parent nhưng trong một
+    // số nested Stack/Container lồng nhau, intrinsic sizing có thể
+    // khiến content không fill hết. `SizedBox.expand()` loại bỏ mọi
+    // ambiguity — nó ép child (Semantics → Material → Stack → …)
+    // nhận tight BoxConstraints(fill parent) rồi mới tính intrinsic.
+    return SizedBox.expand(
+      child: Semantics(
+        button: onTap != null,
+        label: '${player.name}, $statusLabel',
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
           borderRadius: BorderRadius.circular(18),
-          splashColor: AppColors.primary.withValues(alpha: 0.06),
-          child: Container(
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: borderColor,
-                width: isCurrentUser ? 2 : 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isCurrentUser
-                      ? AppColors.primary.withValues(alpha: 0.25)
-                      : Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            splashColor: AppColors.primary.withValues(alpha: 0.06),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: borderColor,
+                  width: isCurrentUser ? 2 : 1.5,
                 ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xs,
-              vertical: AppSpacing.sm,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Avatar + badges stack
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _PlayerAvatar(player: player, isCurrentUser: isCurrentUser),
-                    // Ready badge — chỉ hiển thị khi lobby đang ở phase
-                    // có ready (full/inProgress/ratingOpen). BR-LOBBY-READY-01:
-                    // check `readyAt != null` (DateTime) thay vì bool flag.
-                    if (_showReadyBadge()) ...[
-                      Positioned(
-                        right: -4,
-                        bottom: -4,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.success, Color(0xFF0E8A68)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.success.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: player.readyAt != null
-                              ? const Icon(AppIcons.check,
-                                  size: 14, color: AppColors.white)
-                              : null,
-                        ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isCurrentUser
+                        ? AppColors.primary.withValues(alpha: 0.25)
+                        : Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(
+                // Phase 4 2026-09-15: padding xs (8) ngang + xs (8) dọc.
+                // Card 2-per-row (~174×174 cho 360dp viewport) nên
+                // padding vừa phải — quá to sẽ bóp content, quá nhỏ
+                // sẽ thiếu breathing room. xs là balance tốt.
+                horizontal: AppSpacing.xs,
+                vertical: AppSpacing.xs,
+              ),
+              // ── VERTICAL LAYOUT (Phase 4 2026-09-15 lần 2) ───────
+              // Revert từ Row (horizontal profile) về Column (vertical
+              // profile) sau khi user feedback "tôi muốn 2 card cùng
+              // 1 hàng". Lý do:
+              //   1. Với 2-per-row cards ~174dp wide, horizontal
+              //      layout sẽ quá chật — info column chỉ còn ~50dp
+              //      sau khi trừ avatar + kick menu, không đủ cho
+              //      name + chip.
+              //   2. Vertical layout cho card vuông (174×174) tận
+              //      dụng không gian tốt hơn — avatar centered ở
+              //      trên, name + chip centered dưới.
+              //   3. UI quen thuộc hơn với user (Phase 3 design đã
+              //      chạy ổn định).
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ── Avatar + badges stack (top center) ──────────
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _PlayerAvatar(
+                        player: player,
+                        isCurrentUser: isCurrentUser,
                       ),
-                    ],
-                    // Host badge
-                    if (player.isHost)
-                      Positioned(
-                        left: -4,
-                        top: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(AppSpacing.xxs),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.accent, Color(0xFFFFC107)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(AppIcons.starFilled,
-                              size: 13, color: AppColors.black),
-                        ),
-                      ),
-                    // Kick menu — chỉ hiển thị khi viewer là host VÀ player
-                    // không phải host (host không thể kick chính mình).
-                    if (isHostViewer && !player.isHost)
-                      Positioned(
-                        right: -4,
-                        top: -4,
-                        child: GestureDetector(
-                          onTap: onKickMember,
+                      // Ready badge — góc dưới-phải avatar
+                      if (_showReadyBadge())
+                        Positioned(
+                          right: -4,
+                          bottom: -4,
                           child: Container(
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.error.withValues(alpha: 0.3),
-                                width: 1.5,
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.success,
+                                  Color(0xFF0E8A68),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.success
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            child: const Icon(
-                              AppIcons.moreVertical,
-                              size: 14,
-                              color: AppColors.error,
-                            ),
+                            child: const Icon(AppIcons.check,
+                                size: 14, color: AppColors.white),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                // Name
-                Text(
-                  player.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                    fontSize: 14,
-                    letterSpacing: -0.2,
+                      // Host badge — góc trên-trái avatar
+                      if (player.isHost)
+                        Positioned(
+                          left: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(AppSpacing.xxs),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppColors.accent, Color(0xFFFFC107)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.accent
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(AppIcons.starFilled,
+                                size: 13, color: AppColors.black),
+                          ),
+                        ),
+                      // Kick menu (⋮) — góc trên-phải avatar, đè
+                      // lên border card (top: -10, right: -10)
+                      if (isHostViewer && !player.isHost)
+                        Positioned(
+                          top: -10,
+                          right: -10,
+                          child: _KickMemberMenuButton(onTap: onKickMember),
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                // Status chip
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: status.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    statusLabel,
+                  // Gap giữa avatar và name
+                  const SizedBox(height: AppSpacing.xs),
+                  // Name — centered, font 16 (lớn hơn Phase 3 là 14)
+                  Text(
+                    player.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: status.color,
                       fontWeight: FontWeight.w800,
-                      fontSize: 11,
-                      letterSpacing: 0.1,
-                      height: 1.1,
+                      color: textColor,
+                      fontSize: 16,
+                      letterSpacing: -0.3,
+                      height: 1.2,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.xs),
+                  // Status chip — font 12, padding thoáng
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs + 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: status.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        // Phase 4 2026-09-15: dùng `darkenForChipText`
+                        // thay vì `status.color` thuần để tăng
+                        // contrast text/background. Trước đây text
+                        // "Chờ check-in" (warning orange) và "Sẵn
+                        // sàng" (success green) dễ bị "chìm" vào
+                        // chip background (alpha 12% của cùng màu) →
+                        // user feedback "text status chìm với bg".
+                        // Darken lightness ~45% để text nổi rõ trên
+                        // tinted bg.
+                        color: darkenForChipText(status.color),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 0.1,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút "⋮" (kick member menu) — góc trên-phải avatar trong [LobbyPlayerCard].
+///
+/// Nằm TRONG avatar Stack (không phải card-level Stack), với vị trí
+/// `top: -10, right: -10` để đè lên góc trên-phải avatar (xấp xỉ góc
+/// trên-phải card vì avatar ở giữa card).
+///
+/// `borderRadius: 18` của card bo tròn toàn bộ Material widget, nên
+/// phần button nằm trong vùng bo góc sẽ bị clip bởi Material.clipBehavior.
+/// Giải pháp: kích thước 26×26 với vị trí `top:-10, right:-10` đặt
+/// tâm button cách đỉnh card 13px, trong khi bán kính bo góc ở vị trí
+/// đó chỉ ~2px → button gần như không bị clip.
+///
+/// GestureDetector với `opaque` chặn hit test không lan xuống InkWell
+/// card body → host bấm ⋮ không trigger onTap card.
+class _KickMemberMenuButton extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _KickMemberMenuButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Mở menu thành viên',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Material(
+          color: AppColors.white,
+          shape: const CircleBorder(
+            side: BorderSide(
+              color: AppColors.error,
+              width: 1.5,
+            ),
+          ),
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.2),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Center(
+              child: Icon(
+                AppIcons.moreVertical,
+                size: 18,
+                color: AppColors.error,
+              ),
             ),
           ),
         ),
@@ -345,8 +446,13 @@ class _PlayerAvatar extends StatelessWidget {
         : AppColors.secondary;
 
     return Container(
-      width: 56,
-      height: 56,
+      // Phase 4 2026-09-15: avatar 80 (to hơn 72 — Phase 3) vì giờ card
+      // là full-width 1-per-row, có nhiều horizontal space hơn nên
+      // avatar có thể to hơn mà vẫn cân đối. User feedback "width item
+      // card quá ngắn" → to avatar lên 80 để trở thành điểm nhấn
+      // chính trên card wide.
+      width: 80,
+      height: 80,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -360,7 +466,7 @@ class _PlayerAvatar extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: avatarColor.withValues(alpha: 0.35),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -376,7 +482,7 @@ class _PlayerAvatar extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       color: AppColors.white,
-                      fontSize: 22,
+                      fontSize: 26,
                     ),
                   ),
                 ),
@@ -388,7 +494,7 @@ class _PlayerAvatar extends StatelessWidget {
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   color: AppColors.white,
-                  fontSize: 22,
+                  fontSize: 26,
                 ),
               ),
             ),
@@ -430,56 +536,103 @@ class LobbyPlayerGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final emptySlots = (maxSlots - players.length).clamp(0, maxSlots);
+    final totalSlots = players.length + emptySlots;
+    if (totalSlots == 0) return const SizedBox.shrink();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Phase 3 2026-08-10: chuyển sang **2 card / hàng** (cố định)
-        // thay vì `maxCrossAxisExtent` (sinh ra 3 card khi viewport
-        // ~360dp gây chật, info cắt cụt). Aspect ratio dùng cellWidth
-        // để cell auto-resize cho cả mobile + tablet.
-        const crossAxisCount = 2;
-        const spacing = AppSpacing.md;
-        final availableWidth = constraints.maxWidth -
-            (spacing * (crossAxisCount - 1));
-        final cellWidth = availableWidth / crossAxisCount;
-        // Cell rộng : cao = 1 : 1.05 → đủ chỗ cho avatar + tên + chip.
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: spacing,
-            crossAxisSpacing: spacing,
-            childAspectRatio: cellWidth / (cellWidth * 1.05),
-          ),
-          itemCount: players.length + emptySlots,
-          itemBuilder: (context, index) {
-            if (index < players.length) {
-              final player = players[index];
-              // So sánh cả `id` (mock cũ) và `userId` (response mới) để
-              // highlight đúng người đang đăng nhập.
-              final isCurrentUser =
-                  currentUserId != null &&
-                      (player.userId == currentUserId ||
-                          player.id == currentUserId);
-              return LobbyPlayerCard(
-                player: player,
-                lobbyStatus: lobbyStatus,
-                isCurrentUser: isCurrentUser,
-                isHostViewer: isCurrentUserHost,
-                onKickMember: onKickMember == null
-                    ? null
-                    : () => onKickMember?.call(player),
-                onTap: onPlayerTap == null
-                    ? null
-                    : () => onPlayerTap?.call(player),
-              );
-            }
-            return const _EmptySlotCard();
-          },
-        );
-      },
+    // Phase 4 2026-09-15 (cập nhật lần 2 — sau khi user feedback): revert
+    // về "2 cards-per-row grid" (user feedback "tôi muốn 2 card cùng 1
+    // hàng"), giữ các cải thiện UI:
+    //   - Section padding 4 (xxs) horizontal — giảm từ xs (8) để cards
+    //     rộng hơn (user feedback "card width quá ngắn").
+    //   - Gap giữa cards 4 (xxs) — giảm từ xs (8) để cards rộng hơn.
+    //   - LayoutBuilder + SizedBox tuyệt đối (width + height) — Phase 3.
+    //   - KHÔNG dùng 1-per-row full-width nữa (đã thử nhưng user không
+    //     thích layout này).
+    //
+    // Cách tính:
+    // - `SizedBox(width: double.infinity)` ép tight width constraint.
+    // - `LayoutBuilder` lấy maxWidth, tính `cardSize = (avail - gap) / 2`.
+    // - Từng card là `SizedBox(width: cardSize, height: cardSize)` — fill
+    //   100% row width (2 * cardSize + gap = avail), không thừa
+    //   "khoảng trống thừa" như user feedback trước.
+    return SizedBox(
+      width: double.infinity,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Phase 4 2026-09-15: gap xs (8) → xxs (4) để cards rộng
+          // hơn nữa. Trước: page 360 - padding 8 - gap 8 = 344, card
+          // 344/2 = 172. Sau: page 360 - padding 8 - gap 4 = 348,
+          // card 348/2 = 174. Kết hợp với padding xxs (4) ở
+          // PlayersSection → card 174dp (vs 168dp Phase 3, +6dp).
+          const gap = AppSpacing.xxs; // 4 — khoảng cách giữa 2 card
+          final avail =
+              constraints.hasBoundedWidth ? constraints.maxWidth : 360.0;
+          final cardSize = (avail - gap) / 2;
+
+          final rows = <Widget>[];
+          for (int i = 0; i < totalSlots; i += 2) {
+            // Padding giữa các rows (chỉ insert từ row thứ 2 trở đi).
+            if (i > 0) rows.add(const SizedBox(height: gap));
+
+            final firstCard = _buildSlot(i, players);
+            final hasSecond = i + 1 < totalSlots;
+            final secondCard =
+                hasSecond ? _buildSlot(i + 1, players) : null;
+
+            // Một row với 2 SizedBox tuyệt đối (width + height =
+            // cardSize). Không có `Expanded` nên không có risk bị
+            // shrink.
+            // Tổng: 2 * cardSize + gap = avail → fill chuẩn 100% row.
+            rows.add(
+              Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  SizedBox(width: cardSize, height: cardSize, child: firstCard),
+                  SizedBox(width: gap),
+                  SizedBox(
+                    width: cardSize,
+                    height: cardSize,
+                    child: secondCard ?? const _EmptySlotCard(),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: rows,
+          );
+        },
+      ),
     );
+  }
+
+  /// Build một slot card (player hoặc empty slot) — full width, height
+  /// được set bên ngoài qua `SizedBox(height: cardHeight)`.
+  Widget _buildSlot(int index, List<LobbyPlayer> playersList) {
+    if (index < playersList.length) {
+      final player = playersList[index];
+      // So sánh cả `id` (mock cũ) và `userId` (response mới) để
+      // highlight đúng người đang đăng nhập.
+      final isCurrentUser =
+          currentUserId != null &&
+              (player.userId == currentUserId || player.id == currentUserId);
+      return LobbyPlayerCard(
+        player: player,
+        lobbyStatus: lobbyStatus,
+        isCurrentUser: isCurrentUser,
+        isHostViewer: isCurrentUserHost,
+        onKickMember: onKickMember == null
+            ? null
+            : () => onKickMember?.call(player),
+        onTap: onPlayerTap == null
+            ? null
+            : () => onPlayerTap?.call(player),
+      );
+    }
+    return const _EmptySlotCard();
   }
 }
 

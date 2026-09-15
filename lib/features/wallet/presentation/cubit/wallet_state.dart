@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/entities.dart';
 
-/// Trạng thái của wallet cubit
+/// Trạng thái của wallet cubit.
 sealed class WalletState extends Equatable {
   const WalletState();
 
@@ -10,17 +10,17 @@ sealed class WalletState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state
+/// Trạng thái khởi đầu.
 class WalletInitial extends WalletState {
   const WalletInitial();
 }
 
-/// Loading wallet data
+/// Đang tải dữ liệu ví.
 class WalletLoading extends WalletState {
   const WalletLoading();
 }
 
-/// Wallet loaded successfully
+/// Đã tải ví thành công.
 class WalletLoaded extends WalletState {
   final WalletEntity wallet;
 
@@ -30,7 +30,7 @@ class WalletLoaded extends WalletState {
   List<Object?> get props => [wallet];
 }
 
-/// Error loading wallet
+/// Lỗi tải ví.
 class WalletError extends WalletState {
   final String message;
 
@@ -38,20 +38,4 @@ class WalletError extends WalletState {
 
   @override
   List<Object?> get props => [message];
-}
-
-/// Wallet balance insufficient for operation
-class WalletInsufficientBalance extends WalletState {
-  final WalletEntity wallet;
-  final int required;
-  final int missing;
-
-  const WalletInsufficientBalance({
-    required this.wallet,
-    required this.required,
-    required this.missing,
-  });
-
-  @override
-  List<Object?> get props => [wallet, required, missing];
 }

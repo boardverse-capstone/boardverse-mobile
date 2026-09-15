@@ -15,7 +15,7 @@ import '../widgets/balance_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'topup_page.dart';
 
-/// Neo-brutalism Màn hình ví BVC.
+/// Màn hình ví BVC.
 class WalletPage extends StatelessWidget {
   const WalletPage({super.key});
 
@@ -24,7 +24,7 @@ class WalletPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => GetIt.I<WalletCubit>()..loadWallet(includeHeld: true),
+          create: (_) => GetIt.I<WalletCubit>()..loadWallet(),
         ),
       ],
       child: const _WalletPageContent(),
@@ -395,21 +395,11 @@ class _WalletPageContentState extends State<_WalletPageContent> {
       );
     }
 
-    WalletEntity wallet;
-    if (state is WalletLoaded) {
-      wallet = state.wallet;
-    } else if (state is WalletInsufficientBalance) {
-      wallet = state.wallet;
-    } else {
-      wallet = const WalletEntity(
-        userId: '',
-        availableBalance: 0,
-        heldBalance: 0,
-        riskLevel: RiskLevel.low,
-        isCoolingOff: false,
-        accountStatus: AccountStatus.active,
-      );
-    }
+    final WalletEntity wallet =
+        state is WalletLoaded ? state.wallet : const WalletEntity(
+      userId: '',
+      availableBalance: 0,
+    );
 
     return BalanceCard(
       wallet: wallet,

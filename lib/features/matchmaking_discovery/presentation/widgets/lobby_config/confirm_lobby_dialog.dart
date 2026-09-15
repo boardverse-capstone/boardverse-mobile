@@ -4,7 +4,6 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../reservation/domain/entities/entities.dart';
-import 'dialog_row.dart';
 
 /// Neo-brutalism Dialog xác nhận tạo lobby.
 class LobbyConfigConfirmDialog extends StatelessWidget {
@@ -72,54 +71,6 @@ class LobbyConfigConfirmDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Kiểm tra thông tin trước khi đặt cọc:',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.outline,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            LobbyConfigDialogRow(
-              icon: Icons.extension,
-              label: 'Game',
-              value: gameName,
-            ),
-            LobbyConfigDialogRow(
-              icon: Icons.local_cafe,
-              label: 'Quán',
-              value: cafeName,
-            ),
-            LobbyConfigDialogRow(
-              icon: Icons.calendar_today,
-              label: 'Ngày',
-              value: formatDate(selectedDate),
-            ),
-            if (preferredStartTime != null)
-              LobbyConfigDialogRow(
-                icon: Icons.schedule,
-                label: 'Giờ bắt đầu',
-                value: formatTime(preferredStartTime!),
-              ),
-            if (preferredEndTime != null)
-              LobbyConfigDialogRow(
-                icon: Icons.schedule,
-                label: 'Giờ kết thúc',
-                value: formatTime(preferredEndTime!) +
-                    (endCrossesMidnight ? ' (+1 ngày)' : ''),
-              ),
-            LobbyConfigDialogRow(
-              icon: Icons.people,
-              label: 'Số người',
-              value: '$maxPlayers người',
-            ),
-            LobbyConfigDialogRow(
-              icon: isPublic ? Icons.public : Icons.lock,
-              label: 'Chế độ',
-              value: isPublic ? 'Công khai' : 'Riêng tư',
-            ),
-
             if (quotePreview != null) ...[
               const SizedBox(height: AppSpacing.md),
               const Divider(),

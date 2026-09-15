@@ -6,36 +6,20 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../data/qr_image_loader.dart';
 
-/// Widget hiển thị ảnh QR với 3-tier fallback chain.
+/// Widget hiển thị ảnh QR với fallback chain.
 ///
-/// ## Priority chain (cao → thấp)
-///
+/// Nguồn ảnh (ưu tiên giảm dần):
 /// 1. **`qrImageBase64`** (từ `TopUpQuoteEntity`): backend proxy từ
-///    vietqr.app server-side, embed trong JSON response. Đây là nguồn
-///    tốt nhất — không cần network call (đã có sẵn), bypass CORS trên
-///    Flutter Web, và là ảnh QR đẹp từ VietQR CDN (logo bank + viền).
+///    vietqr.app server-side, embed trong JSON response. Không cần
+///    network, không lo CORS.
+/// 2. **`qrUrl`** (CDN vietqr.app): dùng `QrImageLoader` (Dio + Chrome
+///    UA). Mobile only — web sẽ skip vì CORS.
+/// 3. **`paymentUrl`**: render QR matrix local từ URL này. QR matrix
+///    thuần, vẫn scan được nhưng không có logo/viền.
+/// 4. Placeholder icon nếu cả 3 đều rỗng / fail.
 ///
-/// 2. **`qrUrl`** (CDN vietqr.app): dùng `QrImageLoader` (Dio với UA
-///    giống Chrome) để download bytes, render bằng `Image.memory`.
-///    - **Mobile**: hoạt động (vì Dio dùng `dart:io` không có CORS).
-///    - **Web**: KHÔNG dùng — vietqr.app CDN không trả CORS header nên
-///      browser chặn. (Xem lý do chi tiết trong `QrImageLoader`.)
-///
-/// 3. **`paymentUrl`** (URL VietQR chứa query params): render `QrImageView`
-///    local từ chuỗi URL. QR matrix thuần, vẫn scan được nhưng không có
-///    logo/viền. Đây là fallback cuối — luôn work mọi platform.
-///
-/// 4. **Placeholder icon**: nếu cả 3 đều rỗng / fail.
-///
-/// ## Animation
-///
-/// Bytes load xong (từ base64 hoặc Dio) → fade-in 280ms cho mượt.
-/// QR matrix local render ngay frame đầu (không cần animation).
-///
-/// ## UI polish cho QR matrix local
-///
-/// Bọc trong container có viền + shadow + eye icon overlay → trông
-/// giống ảnh QR card, đỡ trơn so với matrix thuần.
+/// Animation: bytes load xong → fade-in 280ms cho mượt. QR matrix local
+/// render ngay frame đầu.
 class QrNetworkImage extends StatefulWidget {
   const QrNetworkImage({
     required this.qrUrl,
@@ -46,19 +30,13 @@ class QrNetworkImage extends StatefulWidget {
     super.key,
   });
 
-  /// URL ảnh QR từ SePay/vietqr CDN (vd `https://vietqr.app/img?...`).
-  ///
-  /// Tier 2 — mobile only (web sẽ skip vì CORS).
+  /// URL ảnh QR từ SePay/vietqr CDN.
   final String qrUrl;
 
-  /// URL thanh toán — dùng cho `QrImageView` local fallback (Tier 3).
+  /// URL thanh toán — dùng cho `QrImageView` local fallback.
   final String paymentUrl;
 
   /// Ảnh QR PNG đã encode Base64 từ backend.
-  ///
-  /// Tier 1 — ưu tiên cao nhất. Decoded `Uint8List` và render ngay
-  /// không cần network. Có thể null khi backend cũ chưa hỗ trợ hoặc
-  /// proxy thất bại.
   final String? qrImageBase64;
 
   final double size;
@@ -100,8 +78,6 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
   }
 
   void _scheduleLoad() {
-    // Tier 1: base64 → render sync, không cần load.
-    // Tier 2: qrUrl → load async (mobile only).
     final loader = _loader;
     if (loader == null || widget.qrUrl.isEmpty) {
       _future = null;
@@ -117,7 +93,7 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
     final base64Bytes = _base64Bytes;
     final hasBase64 = base64Bytes != null && base64Bytes.isNotEmpty;
 
-    // ── Tier 1: Render ảnh QR từ base64 (NO network) ────────────────
+    // Nguồn 1: Render ảnh QR từ base64 (no network).
     if (hasBase64) {
       return _frameRemoteImage(
         bytes: base64Bytes,
@@ -125,7 +101,7 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
       );
     }
 
-    // ── Tier 2: Mobile — download từ qrUrl qua Dio ─────────────────
+    // Nguồn 2: Mobile — download từ qrUrl qua Dio.
     if (!kIsWeb) {
       final future = _future;
       if (future == null) {
@@ -150,7 +126,6 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
               return _frameRemoteImage(bytes: snapshot.data!, size: size);
             }
 
-            // Fail → fallback qua Tier 3.
             return _fallbackOrLocalQr(
               size: size,
               caption: 'Không tải được ảnh QR — dùng mã này.',
@@ -160,13 +135,13 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
       );
     }
 
-    // ── Tier 3: Web (no base64) — render QR matrix local ────────────
+    // Nguồn 3: Web (no base64) — render QR matrix local.
     return _fallbackOrLocalQr(size: size);
   }
 
   /// Render ảnh QR từ bytes (PNG/JPEG) với fade-in animation.
   ///
-  /// Dùng cho cả base64 (Tier 1) lẫn Dio download (Tier 2 mobile).
+  /// Dùng cho cả base64 lẫn Dio download.
   Widget _frameRemoteImage({
     required Uint8List bytes,
     required double size,
@@ -185,7 +160,6 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
           fit: BoxFit.contain,
           gaplessPlayback: true,
           errorBuilder: (context, error, stack) {
-            // Bytes nhận được nhưng không decode được (rare) → fallback local.
             return _frameLocalQr(size: size);
           },
         ),
@@ -193,12 +167,7 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
     );
   }
 
-  /// Tier 3: fallback local QR matrix (từ `paymentUrl`).
-  ///
-  /// Dùng khi:
-  /// - Web không có base64.
-  /// - Mobile download thất bại.
-  /// - Base64 decode thất bại (invalid PNG).
+  /// Fallback local QR matrix (từ `paymentUrl`).
   Widget _fallbackOrLocalQr({required double size, String? caption}) {
     if (widget.paymentUrl.isEmpty) {
       return _placeholder(icon: Icons.qr_code_2_rounded, size: size);
@@ -223,15 +192,10 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
   }
 
   /// Bọc QR matrix trong container có viền + shadow + eye icon overlay.
-  ///
-  /// Dùng cho cả web (primary) và mobile (fallback) — chỉ cần render
-  /// `QrImageView` local. Container + decoration làm QR trông giống
-  /// "card" — đỡ trơn so với matrix thuần.
   Widget _frameLocalQr({required double size}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Container "card" chứa QR + padding trong.
     final card = Container(
       width: size,
       height: size,
@@ -257,9 +221,7 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
         data: widget.paymentUrl,
         version: QrVersions.auto,
         size: size * 0.88,
-        // Nền ngoài của QrImageView = màu của card (đã set white).
         backgroundColor: widget.backgroundColor,
-        // Module đậm tối đa để tăng contrast scan (kể cả dark mode).
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
           color: Colors.black,
@@ -273,7 +235,6 @@ class _QrNetworkImageState extends State<QrNetworkImage> {
     );
 
     // Eye icon overlay nhỏ ở góc dưới-trái — gợi ý "QR đã sẵn sàng quét".
-    // Icon nằm trong Stack, position cố định trong card.
     return Stack(
       clipBehavior: Clip.none,
       children: [

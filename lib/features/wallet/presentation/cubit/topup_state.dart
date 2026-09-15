@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/entities.dart';
 
-/// Trạng thái của top-up flow
+/// Trạng thái của top-up flow.
 sealed class TopUpState extends Equatable {
   const TopUpState();
 
@@ -10,17 +10,17 @@ sealed class TopUpState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state - user chưa bắt đầu top-up
+/// Trạng thái khởi đầu — user chưa bắt đầu nạp.
 class TopUpInitial extends TopUpState {
   const TopUpInitial();
 }
 
-/// Đang gọi API tạo top-up
+/// Đang gọi API tạo đơn nạp.
 class TopUpCreating extends TopUpState {
   const TopUpCreating();
 }
 
-/// Đã tạo top-up, đang chờ user thanh toán
+/// Đã tạo đơn, đang chờ user thanh toán.
 class TopUpAwaitingPayment extends TopUpState {
   final TopUpQuoteEntity quote;
   final DateTime deadline;
@@ -34,17 +34,17 @@ class TopUpAwaitingPayment extends TopUpState {
   List<Object?> get props => [quote, deadline];
 }
 
-/// Đang kiểm tra trạng thái top-up (polling)
+/// Đang kiểm tra trạng thái (polling).
 class TopUpCheckingStatus extends TopUpState {
   const TopUpCheckingStatus();
 }
 
-/// Đang gọi API hủy top-up
+/// Đang gọi API hủy đơn.
 class TopUpCancelling extends TopUpState {
   const TopUpCancelling();
 }
 
-/// Top-up thành công
+/// Nạp thành công.
 class TopUpSuccess extends TopUpState {
   final int amountBvc;
   final int newBalance;
@@ -58,7 +58,7 @@ class TopUpSuccess extends TopUpState {
   List<Object?> get props => [amountBvc, newBalance];
 }
 
-/// Top-up thất bại
+/// Nạp thất bại.
 class TopUpFailed extends TopUpState {
   final String reason;
 
@@ -68,17 +68,17 @@ class TopUpFailed extends TopUpState {
   List<Object?> get props => [reason];
 }
 
-/// Top-up hết hạn (timeout)
+/// Đơn nạp đã hết hạn.
 class TopUpExpired extends TopUpState {
   const TopUpExpired();
 }
 
-/// Top-up đã bị user hủy thành công
+/// Đơn nạp đã bị user hủy thành công.
 class TopUpCancelled extends TopUpState {
   const TopUpCancelled();
 }
 
-/// Các gói top-up được đề xuất (BR §2.5)
+/// Các gói nạp gợi ý.
 class TopUpPackages {
   static const List<int> suggestedAmountsVnd = [
     20000, // 20 BVC
@@ -88,10 +88,10 @@ class TopUpPackages {
     500000, // 500 BVC
   ];
 
-  /// Số BVC tương ứng với mỗi gói
+  /// Quy đổi VND → BVC (1 BVC = 1.000 VND).
   static int vndToBvc(int amountVnd) => amountVnd ~/ 1000;
 
-  /// Tạo danh sách gói top-up cho UI
+  /// Danh sách gói nạp cho UI.
   static List<TopUpPackageItem> get suggestedPackages {
     return suggestedAmountsVnd.map((vnd) {
       return TopUpPackageItem(

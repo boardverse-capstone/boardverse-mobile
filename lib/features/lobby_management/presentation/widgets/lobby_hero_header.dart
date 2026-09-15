@@ -4,40 +4,33 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
 import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
 
-/// Hero header cho LobbyPage — layout mới (2026-08):
+/// Hero header cho LobbyPage:
 ///
-/// - Cafe info (avatar + tên + địa điểm) ở hàng trên cùng
-/// - Tiêu đề game nổi bật + **QR mini code của lobby** ở góc phải (khi
-///   lobby ready + có reservation) — thay cho nút "Xem chi tiết" cũ để
-///   UX liền mạch: player thấy QR ngay trên hero, không cần scroll xuống.
-///   Khi lobby chưa ready (open), vẫn hiển thị icon info như cũ.
-/// - 3 stat card (Thành viên / Chế độ / Mã mời) ở dưới
+/// - Header solid AppColors.primary với neo-brutalism border
+/// - Cafe info (avatar + tên + thời gian)
+/// - Tiêu đề game nổi bật với decorative underline
+/// - 2 stat card dọc: Chế độ và Mã mời
+/// - QR mini code khi lobby ready
 ///
-/// Style neo-brutalism với border đậm + hard shadow nhưng **ít chen chúc**
-/// hơn bản cũ (bỏ countdown `LobbyCountdownTimer` ở header → chuyển vào
-/// status strip nếu cần sau).
+/// Style: Neo-brutalism với solid brand color.
 class LobbyHeroHeader extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
 
-  /// Reservation hiện tại của player trong lobby (optional). Khi lobby đã
-  /// ready (viable/full) mà reservation đã `Confirmed`/`CheckedIn`, header
-  /// sẽ hiển thị QR mini của `reservation.id` thay cho icon "Xem chi tiết"
-  /// — POS staff có thể quét QR này trực tiếp trên hero header.
+  /// Reservation hiện tại của player trong lobby (optional).
   final res.ReservationEntity? reservation;
 
-  /// Callback khi user bấm icon "Xem chi tiết" (chỉ dùng khi lobby chưa
-  /// ready, hoặc reservation null).
+  /// Callback khi user bấm icon "Xem chi tiết".
   final VoidCallback onShowDetails;
 
   /// Callback khi user bấm copy share code.
   final VoidCallback onShareInviteCode;
 
-  /// Callback khi user bấm vào QR mini (mở full screen QR để staff dễ
-  /// quét hơn — vẫn dùng `reservation.id`).
+  /// Callback khi user bấm vào QR mini.
   final VoidCallback? onShowFullScreenQr;
 
   const LobbyHeroHeader({
@@ -50,25 +43,7 @@ class LobbyHeroHeader extends StatelessWidget {
     this.onShowFullScreenQr,
   });
 
-  /// Lobby đã ready để hiển thị QR mini ở hero header.
-  ///
-  /// Điều kiện (theo yêu cầu):
-  /// 1. **Lobby ready** — `lobby.status.canCheckIn` (viable/full/inProgress)
-  ///    HOẶC tất cả player đã nhấn "Sẵn sàng" (`players.every(isReady)`).
-  /// 2. **Có dữ liệu encode QR** — xem [_qrPayload] (ưu tiên
-  ///    `reservation.id` đã Confirmed/CheckedIn, fallback
-  ///    `lobby.reservationId`, cuối cùng `lobby.id`).
-  ///
-  /// Khi lobby chưa ready (open/pending cafe approval/vv.) → vẫn hiển
-  /// thị icon info cũ, không phá UX.
-  ///
-  /// Vì sao KHÔNG bắt buộc `reservation != null`:
-  ///   Khi user vừa vào LobbyPage, `LobbyReservationCubit` đang ở
-  ///   `Loading`/`Initial` → `reservation` trong BlocBuilder là null. UI
-  ///   sẽ flash "Xem chi tiết" → đợi 200-500ms → flash QR. Bằng cách
-  ///   fallback về `lobby.reservationId` (đã có trong entity), QR hiện
-  ///   ngay frame đầu, UX liền mạch. POS scanner flow `lookup by
-  ///   reservationId` đã chấp nhận dạng UUID này.
+  /// Lobby đã ready để hiển thị QR mini.
   bool get _showQrInsteadOfInfo {
     final players = lobby.players;
     final allPlayersReady =
@@ -78,12 +53,7 @@ class LobbyHeroHeader extends StatelessWidget {
     return _qrPayload != null;
   }
 
-  /// Payload encode vào QR mini — ưu tiên reservation ID, fallback về
-  /// `lobby.reservationId`, cuối cùng là `lobby.id`.
-  ///
-  /// ReservationEntity status Confirmed/CheckedIn được ưu tiên hơn
-  /// `lobby.reservationId` vì ReservationEntity là source of truth cho
-  /// POS check-in (lobby.reservationId chỉ là reference).
+  /// Payload encode vào QR mini.
   String? get _qrPayload {
     if (reservation != null &&
         (reservation!.status == res.ReservationStatus.confirmed ||
@@ -100,9 +70,6 @@ class LobbyHeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final capacityProgress = lobby.maxPlayers == 0
-        ? 0.0
-        : (lobby.currentPlayers / lobby.maxPlayers).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(
@@ -112,28 +79,32 @@ class LobbyHeroHeader extends StatelessWidget {
         0,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryLight],
-        ),
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark ? AppColors.borderDark : AppColors.border,
           width: 3,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.4),
-            blurRadius: 0,
-            offset: const Offset(5, 5),
-          ),
-        ],
+        boxShadow: NeoBrutalismTheme.lightShadow(
+          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Row 1: Cafe info ────────────────────────────────────────
+          // ── Top decorative bar ────────────────────────────────────
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.15),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(17),
+                topRight: Radius.circular(17),
+              ),
+            ),
+          ),
+
+          // ── Row 1: Cafe info + QR/Info button ────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -143,58 +114,14 @@ class LobbyHeroHeader extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.5),
-                      width: 2,
-                    ),
-                  ),
-                  child: const Icon(
-                    AppIcons.cafe,
-                    color: AppColors.white,
-                    size: 24,
-                  ),
-                ),
+                // Cafe avatar với border gradient
+                _CafeAvatar(),
                 const SizedBox(width: AppSpacing.md),
+                // Cafe name + time
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lobby.cafeName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Giờ hẹn: ${lobby.scheduledTime.hour.toString().padLeft(2, '0')}:${lobby.scheduledTime.minute.toString().padLeft(2, '0')}',
-                        style: TextStyle(
-                          color: AppColors.white.withValues(alpha: 0.85),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _CafeInfo(lobby: lobby),
                 ),
-                // QR mini code khi lobby ready — thay cho "Xem chi tiết".
-                // Lý do: khi lobby đã viable/full, điều player quan tâm nhất
-                // là show QR cho staff quét, không phải xem chi tiết. Đặt
-                // QR ngay tại hero header giúp liền mạch với flow check-in
-                // (vẫn có QR đầy đủ ở LobbyCheckInSection bên dưới).
-                //
-                // Payload lấy từ [_qrPayload] — reservation.id nếu đã
-                // Confirmed/CheckedIn, fallback lobby.reservationId / lobby.id.
+                // QR or Info button
                 if (_showQrInsteadOfInfo)
                   _HeroQrBadge(
                     reservationId: _qrPayload!,
@@ -209,7 +136,7 @@ class LobbyHeroHeader extends StatelessWidget {
             ),
           ),
 
-          // ── Row 2: Game title (nổi bật) ───────────────────────────
+          // ── Row 2: Game title với decorative line ────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -217,21 +144,59 @@ class LobbyHeroHeader extends StatelessWidget {
               AppSpacing.md,
               0,
             ),
-            child: Text(
-              lobby.gameName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 22,
-                letterSpacing: -0.5,
-                height: 1.15,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.extension_rounded,
+                        color: AppColors.white,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        lobby.gameName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                          letterSpacing: -0.3,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                // Decorative gradient line
+                Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.white.withValues(alpha: 0.6),
+                        AppColors.white.withValues(alpha: 0.0),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // ── Row 3: 3 stat cards (Thành viên / Chế độ / Mã mời) ───
+          // ── Row 3: Stat cards (vertical) ─────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -239,37 +204,27 @@ class LobbyHeroHeader extends StatelessWidget {
               AppSpacing.md,
               AppSpacing.md,
             ),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: HeroStat(
-                    label: 'Thành viên',
-                    value: '${lobby.currentPlayers}/${lobby.maxPlayers}',
-                    icon: AppIcons.users,
-                    progress: capacityProgress,
+                // Chế độ
+                _StatCard(
+                  icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
+                  label: 'Chế độ',
+                  value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                // Mã mời
+                if (lobby.inviteCode != null)
+                  _InviteCodeCard(
+                    code: lobby.inviteCode!,
+                    onTap: onShareInviteCode,
+                  )
+                else
+                  _StatCard(
+                    icon: AppIcons.userAdd,
+                    label: 'Slot trống',
+                    value: lobby.slotsRemaining.toString(),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: HeroStat(
-                    label: 'Chế độ',
-                    value: lobby.isPublic ? 'Công khai' : 'Riêng tư',
-                    icon: lobby.isPublic ? AppIcons.globe : AppIcons.lock,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: lobby.inviteCode != null
-                      ? InviteCodeStat(
-                          code: lobby.inviteCode!,
-                          onTap: onShareInviteCode,
-                        )
-                      : HeroStat(
-                          label: 'Slot trống',
-                          value: lobby.slotsRemaining.toString(),
-                          icon: AppIcons.userAdd,
-                        ),
-                ),
               ],
             ),
           ),
@@ -279,13 +234,282 @@ class LobbyHeroHeader extends StatelessWidget {
   }
 }
 
-/// Nút icon tròn trong hero header (neo-brutalism mini).
+/// Cafe avatar với gradient border.
+class _CafeAvatar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.white.withValues(alpha: 0.4),
+            AppColors.white.withValues(alpha: 0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.5),
+          width: 2,
+        ),
+      ),
+      child: const Icon(
+        AppIcons.cafe,
+        color: AppColors.white,
+        size: 26,
+      ),
+    );
+  }
+}
+
+/// Cafe info: name + scheduled time range + address.
 ///
-/// Lưu ý: KHÔNG wrap trong [Tooltip] — Tooltip trên Chrome/Web trigger
-/// `mouse_tracker.dart:199:12` assertion khi widget rebuild trong
-/// `CustomScrollView` (mỗi frame Flutter đều re-evaluate Tooltip's
-/// mouse region, gây "An annotation already exists for device X").
-/// Nếu cần tooltip, dùng semanticLabel + showDialog thay thế.
+/// Layout:
+///
+///   [Cafe Name]
+///   [Address line]                       ← BR-NEW-15 / 2026-09-14:
+///                                         backend bổ sung `cafeAddress`
+///                                         trong `/lobbies/{id}` response.
+///   [time badge: HH:mm – HH:mm]          ← BR-NEW-15 / 2026-09-14:
+///                                         backend bổ sung `scheduledEndTime`.
+///                                         Fallback chỉ start nếu end null.
+class _CafeInfo extends StatelessWidget {
+  final LobbyEntity lobby;
+
+  const _CafeInfo({required this.lobby});
+
+  @override
+  Widget build(BuildContext context) {
+    final startLabel = '${lobby.scheduledTime.hour.toString().padLeft(2, '0')}'
+        ':${lobby.scheduledTime.minute.toString().padLeft(2, '0')}';
+    final endTime = lobby.scheduledEndTime;
+    final endLabel = endTime != null
+        ? '${endTime.hour.toString().padLeft(2, '0')}'
+              ':${endTime.minute.toString().padLeft(2, '0')}'
+        : null;
+    final rangeLabel = endLabel != null ? '$startLabel – $endLabel' : startLabel;
+
+    final children = <Widget>[
+      Text(
+        lobby.cafeName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          color: AppColors.white,
+          fontSize: 15,
+        ),
+      ),
+    ];
+
+    // Địa chỉ quán — chỉ render khi backend trả về `cafeAddress` non-empty.
+    // Trước đây địa chỉ chỉ hiện trong LobbyCafeInfoCard (đã bỏ); nay
+    // đưa vào hero header để player thấy ngay mà không cần mở chi tiết.
+    final address = lobby.cafeAddress;
+    if (address != null && address.isNotEmpty) {
+      children.add(const SizedBox(height: 3));
+      children.add(
+        Row(
+          children: [
+            Icon(
+              Icons.location_on_rounded,
+              size: 11,
+              color: AppColors.white.withValues(alpha: 0.75),
+            ),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    children.add(const SizedBox(height: 4));
+    children.add(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 12,
+              color: AppColors.white.withValues(alpha: 0.9),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              rangeLabel,
+              style: TextStyle(
+                color: AppColors.white.withValues(alpha: 0.9),
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+/// Stat card với icon, label, value.
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: AppColors.white.withValues(alpha: 0.85),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.white.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColors.white,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Invite code card với animation hover effect.
+class _InviteCodeCard extends StatelessWidget {
+  final String code;
+  final VoidCallback onTap;
+
+  const _InviteCodeCard({
+    required this.code,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Label row
+              Row(
+                children: [
+                  Icon(
+                    AppIcons.copy,
+                    size: 13,
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Mã mời',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.white.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.touch_app_rounded,
+                    size: 12,
+                    color: AppColors.white.withValues(alpha: 0.6),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Code value
+              Text(
+                code,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút icon tròn trong hero header.
 class _HeroIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -308,13 +532,13 @@ class _HeroIconButton extends StatelessWidget {
           onTap: onTap,
           customBorder: const CircleBorder(),
           child: Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.5),
+                color: AppColors.white.withValues(alpha: 0.4),
                 width: 1.5,
               ),
             ),
@@ -326,15 +550,7 @@ class _HeroIconButton extends StatelessWidget {
   }
 }
 
-/// QR mini badge hiển thị ở góc phải hero header khi lobby ready.
-///
-/// Kích thước 56×56 px (compact) — đủ để staff scanner bắt được trên
-/// thiết bị POS di động, đồng thời không chiếm quá nhiều diện tích
-/// hero header. Bấm vào sẽ mở full-screen QR để staff dễ scan.
-///
-/// Encode `reservation.id` (UUID 36-char) — POS scanner sẽ đọc được UUID
-/// này và gọi `/api/v1/reservations/{reservationId}/check-in` để staff
-/// check-in player (BR §21A.7).
+/// QR mini badge hiển thị khi lobby ready.
 class _HeroQrBadge extends StatelessWidget {
   final String reservationId;
   final VoidCallback? onTap;
@@ -348,185 +564,35 @@ class _HeroQrBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Mã QR check-in cho staff quét',
+      label: 'Mã QR check-in',
       child: Material(
         color: AppColors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             width: 56,
             height: 56,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: AppColors.white,
-                width: 1.5,
+                width: 2,
               ),
             ),
             child: QrImageView(
               data: reservationId,
               version: QrVersions.auto,
-              size: 48,
+              size: 46,
               backgroundColor: AppColors.white,
               errorCorrectionLevel: QrErrorCorrectLevel.M,
               padding: EdgeInsets.zero,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Stat item trong hero header, có thể có progress bar.
-class HeroStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final double? progress;
-
-  const HeroStat({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.4),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: AppColors.white.withValues(alpha: 0.85),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.white,
-              fontSize: 14,
-            ),
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 4,
-                backgroundColor: AppColors.white.withValues(alpha: 0.25),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.white,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Stat card hiển thị mã mời — có thể bấm copy.
-class InviteCodeStat extends StatelessWidget {
-  final String code;
-  final VoidCallback onTap;
-
-  const InviteCodeStat({
-    super.key,
-    required this.code,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.white.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.5),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    AppIcons.copy,
-                    size: 14,
-                    color: AppColors.white.withValues(alpha: 0.85),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Mã mời',
-                    style: TextStyle(
-                      color: AppColors.white.withValues(alpha: 0.85),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                code,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
           ),
         ),
       ),

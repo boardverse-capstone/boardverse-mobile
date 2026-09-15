@@ -244,6 +244,28 @@ class _LobbyPageState extends State<LobbyPage> {
     );
   }
 
+  /// Handler cho pull-to-refresh ở lobby detail (RefreshIndicator bao
+  /// CustomScrollView bên dưới).
+  ///
+  /// Refresh song song 3 nguồn:
+  /// 1. **Lobby state** — `cubit.refreshLobby()` (KHÔNG emit LobbyLoading
+  ///    để tránh flicker UI, chỉ update state khi API trả về).
+  /// 2. **Chat messages** — `cubit.loadChatMessages()` (luôn fetch lại,
+  ///    không có flag như `_chatLoaded` để bypass lần refresh này).
+  /// 3. **Pending outgoing invites** — `_loadPendingInvites()` cho
+  ///    LobbyShareSection hiển thị invite mới nhất.
+  ///
+  /// Lỗi ở bất kỳ nguồn nào KHÔNG chặn các nguồn khác (Future.wait
+  /// không short-circuit). RefreshIndicator spinner sẽ tự ẩn khi tất cả
+  /// Future complete.
+  Future<void> _onPullToRefresh() async {
+    await Future.wait<void>([
+      widget.lobbyCubit.refreshLobby(widget.lobbyId),
+      widget.lobbyCubit.loadChatMessages(widget.lobbyId),
+      _loadPendingInvites(),
+    ]);
+  }
+
   void _loadChatMessages() {
     if (!_chatLoaded) {
       _chatLoaded = true;
@@ -424,12 +446,11 @@ class _LobbyPageState extends State<LobbyPage> {
   void _shareInviteCode(BuildContext context, String? code) {
     if (code == null) return;
     Clipboard.setData(ClipboardData(text: code));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Mã phòng $code đã được sao chép!'),
-        action: SnackBarAction(label: 'OK', onPressed: () {}),
-      ),
-    );
+    // Dùng top snackbar để hiển thị thông báo + tự ẩn sau 2s (không
+    // cần player bấm OK như SnackBar action cũ). Match pattern thống
+    // nhất với các vị trí khác trong cùng file (vd: invite friend,
+    // dissolve lobby, v.v.).
+    context.showTopSnackBar('Mã phòng $code đã được sao chép!');
   }
 
   void _showDismissDialog(BuildContext context, LobbyDismissed state) {
@@ -959,13 +980,23 @@ class _LobbyPageState extends State<LobbyPage> {
     final showDissolve = isHost && lobby.status.canDissolve;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        // Pull-to-refresh cho toàn bộ lobby detail (custom scroll view).
+        // Refresh song song lobby state + chat + pending invites — UI
+        // không bị flicker vì cubit.refreshLobby() không emit LobbyLoading.
+        onRefresh: _onPullToRefresh,
+        // AlwaysScrollableScrollPhysics để RefreshIndicator hoạt động
+        // ngay cả khi content không overflow (vd: lobby chỉ có 1-2 player,
+        // grid ngắn, scroll tới đáy vẫn kéo xuống được để refresh).
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // ── AppBar (chỉ title, không có action — đã chuyển sang hero) ──
           SliverAppBar(
             floating: true,
             pinned: true,
             expandedHeight: 0,
+            automaticallyImplyLeading: false, // Bỏ back button — đã có "Rời phòng" trong bottom bar
             title: Text(
               'Phòng chờ',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -1094,6 +1125,7 @@ class _LobbyPageState extends State<LobbyPage> {
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
+      ), // RefreshIndicator
 
       // ── Bottom Action Bar — chỉ "Rời phòng" (không có CTA cancel/dissolve)
       // Phân biệt nghiệp vụ:
@@ -1341,9 +1373,14 @@ class PlayersSection extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
+        // Phase 4 2026-09-15: horizontal xs (8) → xxs (4) để grid 2
+        // card rộng hơn (user feedback "card width quá ngắn"). Trước:
+        // page 360 - padding 16 = 344, card (344-8)/2 = 168. Sau: page
+        // 360 - padding 8 = 352, card (352-4)/2 = 174 — card rộng hơn
+        // 6dp mỗi bên, tổng +12dp/card.
+        AppSpacing.xxs,
         AppSpacing.lg,
-        AppSpacing.md,
+        AppSpacing.xxs,
         0,
       ),
       child: Column(

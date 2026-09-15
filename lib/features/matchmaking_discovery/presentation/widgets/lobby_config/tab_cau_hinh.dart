@@ -19,6 +19,11 @@ class LobbyConfigTabCauHinh extends StatelessWidget {
   final VoidCallback onToggleAdvanced;
   final ValueChanged<double> onKarmaChanged;
   final ValueChanged<double> onRadiusChanged;
+
+  /// Quay lại tab trước (Cấu hình → Thời gian). Được wire từ nút
+  /// "Quay lại" ở bottom action bar.
+  final VoidCallback onPrev;
+
   final VoidCallback onNext;
 
   const LobbyConfigTabCauHinh({
@@ -35,6 +40,7 @@ class LobbyConfigTabCauHinh extends StatelessWidget {
     required this.onToggleAdvanced,
     required this.onKarmaChanged,
     required this.onRadiusChanged,
+    required this.onPrev,
     required this.onNext,
   });
 
@@ -283,8 +289,10 @@ class LobbyConfigTabCauHinh extends StatelessWidget {
         ),
 
         LobbyConfigBottomButton(
-          label: 'Xem thông tin cọc',
+          label: 'Tiếp tục',
           onPressed: onNext,
+          secondaryLabel: 'Quay lại',
+          secondaryOnPressed: onPrev,
         ),
       ],
     );

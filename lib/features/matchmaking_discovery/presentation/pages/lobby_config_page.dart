@@ -6,6 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/navigation/lobby_flow_navigator.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../core/utils/lobby_time_calculator.dart';
 import '../../../lobby_management/presentation/widgets/lobby_game_picker_sheet.dart';
 import '../../../reservation/domain/entities/entities.dart';
@@ -397,6 +400,16 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     _tabController.animateTo(tabIndex);
   }
 
+  /// Quay lại tab trước đó (nếu đang ở tab đầu tiên thì không làm gì).
+  /// Được gọi từ nút "Quay lại" ở bottom action bar — thay thế cho nút
+  /// back trên AppBar để user chủ động bấm thay vì phản xạ chạm vào góc
+  /// trên-trái (gây pop cả page, mất toàn bộ tiến trình).
+  void _onPreviousTab() {
+    final current = _tabController.index;
+    if (current <= 0) return;
+    _tabController.animateTo(current - 1);
+  }
+
   // Lắng nghe trực tiếp ReservationCubit stream để cập nhật _quotePreview
   StreamSubscription<ReservationState>? _quoteSubscription;
 
@@ -517,121 +530,450 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     });
   }
 
+  /// Confirm trước khi thoát flow lobby nếu user đã nhập thông tin
+  /// (không phải tab 1 mặc định). Tránh mất toàn bộ tiến trình khi
+  /// user lỡ nhấn system back (Android hardware back / edge swipe).
+  ///
+  /// Returns `true` nếu cho phép pop, `false` nếu user huỷ.
+  Future<bool> _confirmExitIfNeeded() async {
+    // Nếu đang ở tab 1 (chưa nhập nhiều) → cho thoát luôn.
+    if (_tabController.index <= 0) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Thoát tạo phòng chờ?',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'Các thông tin đã điền sẽ bị huỷ. Bạn có chắc muốn thoát?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Tiếp tục tạo phòng',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text(
+              'Thoát',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  /// User yêu cầu thoát flow lobby (qua nút X trên header HOẶC system
+  /// back). Sau khi confirm, pop về MainScaffold (màn hình khám phá /
+  /// home) thay vì chỉ pop 1 lần — đảm bảo user không bị kẹt ở các
+  /// page trung gian (cafe selection, board game detail...).
+  Future<void> _onRequestExit() async {
+    final navigator = Navigator.of(context);
+    final shouldExit = await _confirmExitIfNeeded();
+    if (!shouldExit || !mounted) return;
+    // Dùng helper returnToRoot để pop tới MainScaffold an toàn (không
+    // rơi vào màn hình rỗng nếu stack chỉ còn page này).
+    LobbyFlowNavigator.returnToRoot(navigator.context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: widget.matchmakingCubit,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Tạo phòng chờ'),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+      child: PopScope(
+        // Chỉ confirm khi đã vào sâu (tab > 0). Tab 1 cho thoát tự do.
+        canPop: _tabController.index <= 0,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          await _onRequestExit();
+        },
+        child: Scaffold(
+        // Không có AppBar — nút back ở AppBar trước đây dễ bị chạm nhầm
+        // khi user đang focus vào form, dẫn đến pop cả page và mất toàn
+        // bộ tiến trình đã điền. Giờ thay bằng header custom chỉ có
+        // title + step indicator, navigation giữa các tab điều khiển
+        // qua nút "Quay lại" / "Tiếp tục" ở bottom action bar (rõ ràng
+        // về intent, không bị phản xạ chạm nhầm).
+        //
+        // Thoát flow lobby hoàn toàn (huỷ tạo phòng) vẫn có thể dùng
+        // system back gesture / hardware back button — đây là action có
+        // chủ ý chứ không phải thói quen chạm vùng góc trên-trái.
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // ── Custom header ───────────────────────────────────────
+              // Dùng AnimatedBuilder để header rebuild khi đổi tab
+              // (progress dots + step counter cập nhật theo _tabController).
+              AnimatedBuilder(
+                animation: _tabController,
+                builder: (context, _) => _LobbyConfigHeader(
+                  stepIndex: _tabController.index,
+                  totalSteps: 4,
+                  // Nút X (Đóng) — player thoát flow về MainScaffold
+                  // khi đổi ý (có việc bận, muốn khám phá thêm...).
+                  onExit: _onRequestExit,
+                ),
+              ),
+
+              // ── Tab bar ─────────────────────────────────────────────
+              LobbyConfigTabBar(controller: _tabController),
+
+              // ── Tab content ─────────────────────────────────────────
+              Expanded(
+                child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
+                  builder: (context, state) {
+                    final BoardGameDetailEntity? gameDetail =
+                        state is MatchmakingGameDetail ? state.game : null;
+                    final maxPlayers = gameDetail?.maxPlayers ??
+                        _currentGameEntity?.maxPlayers ?? 6;
+                    final minPlayers = gameDetail?.minPlayers ??
+                        _currentGameEntity?.minPlayers ?? 2;
+
+                    return TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Tab 1: Quán & Game — không có nút Quay lại
+                        // (đây là bước đầu tiên trong flow).
+                        LobbyConfigTabQuanVaGame(
+                          cafeName: widget.cafeName,
+                          cafeEntity: widget.cafeEntity,
+                          gameName: _currentGameName,
+                          gameEntity: _currentGameEntity,
+                          gameDetail: gameDetail,
+                          onChangeCafe: _changeCafe,
+                          onChangeGame: _changeGame,
+                          onNext: () => _goToTab(1),
+                        ),
+
+                        // Tab 2: Thời gian — có Quay lại + Tiếp tục
+                        LobbyConfigTabThoiGian(
+                          selectedDate: _selectedDate,
+                          preferredStartTime: _preferredStartTime,
+                          preferredEndTime: _preferredEndTime,
+                          endCrossesMidnight: _endCrossesMidnight,
+                          onDateSelected: _onDateSelected,
+                          onOpenDatePicker: () => _openDatePicker(context),
+                          onPreferredTimeTap: () => _selectPreferredTime(context),
+                          onPreferredEndTimeTap: () => _selectPreferredEndTime(context),
+                          formatDate: _formatDate,
+                          formatTime: _formatTimeOfDay,
+                          bufferMinutes: _bufferMinutes,
+                          isScheduledInPast: _isScheduledInPast,
+                          hasBufferWarning: _hasBufferWarning,
+                          formatBuffer: _formatBuffer,
+                          onPrev: _onPreviousTab,
+                          onNext: () => _goToTab(2),
+                        ),
+
+                        // Tab 3: Cấu hình — có Quay lại + Xem thông tin cọc
+                        LobbyConfigTabCauHinh(
+                          maxPlayers: maxPlayers,
+                          minPlayers: minPlayers,
+                          selectedMaxPlayers: _maxPlayers,
+                          isPublic: _isPublic,
+                          showAdvanced: _showAdvanced,
+                          minimumKarma: _minimumKarma,
+                          searchRadiusKm: _searchRadiusKm,
+                          onMaxPlayersChanged: (v) => setState(() => _maxPlayers = v),
+                          onPublicChanged: (v) => setState(() => _isPublic = v),
+                          onToggleAdvanced: () => setState(() => _showAdvanced = !_showAdvanced),
+                          onKarmaChanged: (v) => setState(() => _minimumKarma = v),
+                          onRadiusChanged: (v) => setState(() => _searchRadiusKm = v),
+                          onPrev: _onPreviousTab,
+                          onNext: () {
+                            _loadQuotePreview();
+                            _goToTab(3);
+                          },
+                        ),
+
+                        // Tab 4: Đặt cọc — có Quay lại + Xác nhận & Đặt cọc
+                        LobbyConfigTabDatCoc(
+                          cafeName: widget.cafeName,
+                          gameName: _currentGameName,
+                          selectedDate: _selectedDate,
+                          preferredStartTime: _preferredStartTime,
+                          preferredEndTime: _preferredEndTime,
+                          endCrossesMidnight: _endCrossesMidnight,
+                          maxPlayers: _maxPlayers,
+                          isPublic: _isPublic,
+                          minimumKarma: _minimumKarma,
+                          quotePreview: _quotePreview,
+                          quoteError: _quoteError,
+                          isQuoteLoading: _isQuoteLoading,
+                          isCreatingLobby: _isCreatingLobby,
+                          bufferMinutes: _bufferMinutes,
+                          hasBufferWarning: _hasBufferWarning,
+                          formatDate: _formatDate,
+                          formatTime: _formatTimeOfDay,
+                          formatBuffer: _formatBuffer,
+                          onPrev: _onPreviousTab,
+                          onConfirm: _confirmAndCreateLobby,
+                          onRefreshQuote: _loadQuotePreview,
+                          onLoadQuote: _loadQuotePreview,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-        body: Column(
-          children: [
-            // Tab bar
-            LobbyConfigTabBar(controller: _tabController),
+      ),
+    ),
+  );
+  }
+}
 
-            // Tab content
-            Expanded(
-              child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
-                builder: (context, state) {
-                  final BoardGameDetailEntity? gameDetail =
-                      state is MatchmakingGameDetail ? state.game : null;
-                  final maxPlayers = gameDetail?.maxPlayers ??
-                      _currentGameEntity?.maxPlayers ?? 6;
-                  final minPlayers = gameDetail?.minPlayers ??
-                      _currentGameEntity?.minPlayers ?? 2;
+// ══════════════════════════════════════════════════════════════════════════
+// CUSTOM HEADER — thay thế AppBar để bỏ nút back dễ chạm nhầm
+// ══════════════════════════════════════════════════════════════════════════
 
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Tab 1: Quán & Game
-                      LobbyConfigTabQuanVaGame(
-                        cafeName: widget.cafeName,
-                        cafeEntity: widget.cafeEntity,
-                        gameName: _currentGameName,
-                        gameEntity: _currentGameEntity,
-                        gameDetail: gameDetail,
-                        onChangeCafe: _changeCafe,
-                        onChangeGame: _changeGame,
-                        onNext: () => _goToTab(1),
-                      ),
+/// Header neo-brutalism cho [LobbyConfigPage].
+///
+/// Layout:
+/// ```
+/// ┌─────────────────────────────────────────────┐
+/// │  [X]    TẠO PHÒNG CHỜ                        │   ← Close (X) + Title đậm
+/// │         Bước 2 / 4 · Thời gian              │   ← Step counter
+/// │         ●━━━●━━━○━━━○                        │   ← Progress dots
+/// └─────────────────────────────────────────────┘
+/// ```
+///
+/// Nút X ở góc trên-trái thay thế cho nút back cũ — cho phép player
+/// chủ động thoát flow lobby về MainScaffold (khám phá) khi đổi ý
+/// (có việc bận, muốn khám phá thêm...). Tap X → confirm dialog →
+///
+/// `[LobbyFlowNavigator.returnToRoot]`.
+///
+/// Navigation giữa các bước KHÔNG đi qua X mà dùng bottom action bar
+/// (rõ ràng về intent: "Quay lại" chỉ chuyển tab, không pop page).
+class _LobbyConfigHeader extends StatelessWidget {
+  final int stepIndex;
+  final int totalSteps;
+  final VoidCallback? onExit;
 
-                      // Tab 2: Thời gian
-                      LobbyConfigTabThoiGian(
-                        selectedDate: _selectedDate,
-                        preferredStartTime: _preferredStartTime,
-                        preferredEndTime: _preferredEndTime,
-                        endCrossesMidnight: _endCrossesMidnight,
-                        onDateSelected: _onDateSelected,
-                        onOpenDatePicker: () => _openDatePicker(context),
-                        onPreferredTimeTap: () => _selectPreferredTime(context),
-                        onPreferredEndTimeTap: () => _selectPreferredEndTime(context),
-                        formatDate: _formatDate,
-                        formatTime: _formatTimeOfDay,
-                        bufferMinutes: _bufferMinutes,
-                        isScheduledInPast: _isScheduledInPast,
-                        hasBufferWarning: _hasBufferWarning,
-                        formatBuffer: _formatBuffer,
-                        onNext: () => _goToTab(2),
-                      ),
+  const _LobbyConfigHeader({
+    required this.stepIndex,
+    required this.totalSteps,
+    this.onExit,
+  });
 
-                      // Tab 3: Cấu hình
-                      LobbyConfigTabCauHinh(
-                        maxPlayers: maxPlayers,
-                        minPlayers: minPlayers,
-                        selectedMaxPlayers: _maxPlayers,
-                        isPublic: _isPublic,
-                        showAdvanced: _showAdvanced,
-                        minimumKarma: _minimumKarma,
-                        searchRadiusKm: _searchRadiusKm,
-                        onMaxPlayersChanged: (v) => setState(() => _maxPlayers = v),
-                        onPublicChanged: (v) => setState(() => _isPublic = v),
-                        onToggleAdvanced: () => setState(() => _showAdvanced = !_showAdvanced),
-                        onKarmaChanged: (v) => setState(() => _minimumKarma = v),
-                        onRadiusChanged: (v) => setState(() => _searchRadiusKm = v),
-                        onNext: () {
-                          _loadQuotePreview();
-                          _goToTab(3);
-                        },
-                      ),
+  /// Tab labels — khớp thứ tự với TabController (length = 4).
+  static const _stepLabels = ['Quán & Game', 'Thời gian', 'Cấu hình', 'Đặt cọc'];
 
-                      // Tab 4: Đặt cọc
-                      LobbyConfigTabDatCoc(
-                        cafeName: widget.cafeName,
-                        gameName: _currentGameName,
-                        selectedDate: _selectedDate,
-                        preferredStartTime: _preferredStartTime,
-                        preferredEndTime: _preferredEndTime,
-                        endCrossesMidnight: _endCrossesMidnight,
-                        maxPlayers: _maxPlayers,
-                        isPublic: _isPublic,
-                        minimumKarma: _minimumKarma,
-                        quotePreview: _quotePreview,
-                        quoteError: _quoteError,
-                        isQuoteLoading: _isQuoteLoading,
-                        isCreatingLobby: _isCreatingLobby,
-                        bufferMinutes: _bufferMinutes,
-                        hasBufferWarning: _hasBufferWarning,
-                        formatDate: _formatDate,
-                        formatTime: _formatTimeOfDay,
-                        formatBuffer: _formatBuffer,
-                        onConfirm: _confirmAndCreateLobby,
-                        onRefreshQuote: _loadQuotePreview,
-                        onLoadQuote: _loadQuotePreview,
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final currentLabel = _stepLabels[stepIndex.clamp(0, _stepLabels.length - 1)];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.border,
+            width: NeoBrutalismTheme.borderWidth,
+          ),
         ),
       ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // ── Center column: title + step + progress ────────────────
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Tạo phòng chờ',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.3,
+                  color: isDark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+
+              // Step counter: "Bước 2 / 4 · Thời gian"
+              Text(
+                'Bước ${stepIndex + 1} / $totalSteps · $currentLabel',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+
+              // Progress dots — neo-brutalism style: filled square (current)
+              // + outline square (chưa tới) + line connector.
+              _ProgressDots(
+                stepIndex: stepIndex,
+                totalSteps: totalSteps,
+              ),
+            ],
+          ),
+
+          // ── Close (X) button — top-left ───────────────────────────
+          // Đặt trong Stack + Align để không chiếm không gian của Column
+          // trung tâm, vẫn neo-brutalism với border đậm + hard shadow.
+          if (onExit != null)
+            Positioned(
+              left: 0,
+              top: 0,
+              child: _CloseButtonNeo(
+                onPressed: onExit!,
+                tooltip: 'Đóng',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nút X (Đóng) neo-brutalism — dùng cho [_LobbyConfigHeader].
+///
+/// Kích thước 40×40, nền surface (light/dark), border đậm 2px, hard
+/// offset shadow 3×3 (no blur), press animation translate (2,2). Icon
+/// `Icons.close_rounded` size 20, màu text primary (subtle — không
+/// dùng màu error để tránh cảm giác destructive).
+class _CloseButtonNeo extends StatefulWidget {
+  final VoidCallback onPressed;
+  final String tooltip;
+
+  const _CloseButtonNeo({
+    required this.onPressed,
+    required this.tooltip,
+  });
+
+  @override
+  State<_CloseButtonNeo> createState() => _CloseButtonNeoState();
+}
+
+class _CloseButtonNeoState extends State<_CloseButtonNeo> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 80),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.border,
+              width: NeoBrutalismTheme.borderWidthBold,
+            ),
+            boxShadow: NeoBrutalismTheme.lightShadow(
+              shadowColor: AppColors.black.withValues(alpha: 0.3),
+            ),
+          ),
+          transform: _isPressed
+              ? (Matrix4.identity()..translateByDouble(2.0, 2.0, 0.0, 1.0))
+              : Matrix4.identity(),
+          child: Center(
+            child: Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: iconColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Row of dots cho progress indicator. Dùng neo-brutalism hard-edge
+/// squares thay vì circles tròn để đồng bộ với design language.
+class _ProgressDots extends StatelessWidget {
+  final int stepIndex;
+  final int totalSteps;
+
+  const _ProgressDots({
+    required this.stepIndex,
+    required this.totalSteps,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = AppColors.primary;
+    final muted = isDark ? AppColors.borderDark : AppColors.border;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(totalSteps * 2 - 1, (i) {
+        // Pattern: [dot, line, dot, line, dot, line, dot]
+        if (i.isEven) {
+          final dotIndex = i ~/ 2;
+          final isDone = dotIndex < stepIndex;
+          final isCurrent = dotIndex == stepIndex;
+          return Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: (isDone || isCurrent) ? accent : Colors.transparent,
+              border: Border.all(
+                color: (isDone || isCurrent) ? accent : muted,
+                width: NeoBrutalismTheme.borderWidth,
+              ),
+              boxShadow: (isDone || isCurrent)
+                  ? NeoBrutalismTheme.lightShadow(
+                      shadowColor: accent.withValues(alpha: 0.5),
+                    )
+                  : null,
+            ),
+          );
+        }
+        // Line connector giữa 2 dots — filled nếu đã qua, outline nếu chưa.
+        final beforeIndex = (i - 1) ~/ 2;
+        final filled = beforeIndex < stepIndex;
+        return Container(
+          width: 32,
+          height: 3,
+          color: filled
+              ? accent
+              : (isDark ? AppColors.borderDark : AppColors.border),
+        );
+      }),
     );
   }
 }

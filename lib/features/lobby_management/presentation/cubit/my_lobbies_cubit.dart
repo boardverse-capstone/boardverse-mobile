@@ -1,7 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../matchmaking_discovery/domain/entities/cafe_detail_entity.dart';
-import '../../../matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../../profile/domain/entities/profile_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/repositories/lobby_repository.dart';
@@ -9,34 +7,62 @@ import 'my_lobbies_state.dart';
 
 /// Cubit cho section "Phòng chờ của tôi" trong Discovery → tab "Phòng chờ".
 ///
-/// Sử dụng real API endpoints:
-/// - `GET /api/v1/lobbies/my` — hợp nhất hosted + joined trong 1 response.
-/// - Backend tự filter theo BR-MEMBER-CLEANUP-01 (chỉ trả lobby còn active).
-/// - `GET /api/cafes/{id}` — chi tiết cafe cho từng lobby.
+/// Sử dụng `GET /api/v1/lobbies/my` với 2 query params:
+///   ?statuses=4,16,1,0,6,14&statusFilter=InProgress,WaitingCheckIn,Full,Open,RatingOpen,Viable
 ///
-/// Endpoint cũ `/hosted` + `/joined` chỉ dùng làm fallback nếu backend
-/// chưa deploy `/my` (xem `_remote.getMyLobbies()`).
+/// Backend sort kết quả:
+///   1. Active: InProgress(4), WaitingCheckIn(16) — đang hoạt động
+///   2. Open: Full(1), Open(0), RatingOpen(6), Viable(14) — sẵn sàng
+///   3. Mỗi nhóm sắp theo thời gian mới nhất.
+/// Client chỉ cần gửi filter → backend sort đúng, không sort thêm.
+///
+/// Tên quán cafe (`cafeName`) đã có sẵn trong response từ
+/// `/api/v1/lobbies/my` nên không cần gọi thêm endpoint `/cafes/{id}`.
 class MyLobbiesCubit extends Cubit<MyLobbiesState> {
   final LobbyRepository repository;
-  final MatchmakingRepository? matchmakingRepository;
 
   MyLobbiesCubit({
     required this.repository,
-    this.matchmakingRepository,
   }) : super(const MyLobbiesInitial());
 
+  /// Active statuses — theo backend spec: "Bỏ trống = trả tất cả
+  /// active statuses". Spec chỉ liệt kê Open=0, Full=1, InProgress=4,
+  /// RatingOpen=6. Gửi đúng 4 giá trị này để backend filter + sort.
+  ///
+  /// Sort order gửi lên backend (chỉ định hướng, backend quyết sort thực tế):
+  ///   InProgress(4) → WaitingCheckIn(16) → Full(1) → Open(0)
+  ///   → RatingOpen(6) → Viable(14)
+  /// Đảm bảo lobby đang chơi / chờ check-in hiện lên trước lobby mới mở.
+  static const _activeStatusInts = [
+    4,  // InProgress — đang chơi
+    16, // WaitingCheckIn — chờ check-in
+    1,  // Full — đã đầy
+    0,  // Open — đang mở
+    6,  // RatingOpen — đang đánh giá
+    14, // Viable — đủ người chơi
+  ];
+
+  /// Filter bằng tên enum — backend union với `statuses` nếu cả 2 cùng truyền.
+  static const _activeStatusFilter = 'InProgress,WaitingCheckIn,Full,Open,RatingOpen,Viable';
+
   /// Load danh sách lobby user hosting + lobby đã tham gia.
-  /// Ưu tiên endpoint `/my` (đã tự filter BR-MEMBER-CLEANUP-01).
-  /// Đồng thời fetch cafe details cho mỗi lobby.
+  ///
+  /// Ưu tiên endpoint `/my` với filter active statuses — backend trả
+  /// kết quả đã sort đúng thứ tự (active trước → terminal sau,
+  /// trong mỗi nhóm theo thời gian mới nhất).
   Future<void> load(ProfileEntity? currentUser) async {
     if (isClosed) return;
     emit(const MyLobbiesLoading());
 
     try {
-      // 1. Ưu tiên gọi `/my` (BVC v2) — server đã filter terminal lobbies.
-      // Nếu backend fallback 404 về hosted/joined, vẫn pass qua được
-      // (vì remote DS đã merge + filter lại).
-      final myResult = await repository.getMyLobbies();
+      // Gọi `/my` với active statuses filter (cả int lẫn string name).
+      // Backend union 2 param nếu cùng truyền → lọc chính xác nhất.
+      // Backend tự sort: InProgress/WaitingCheckIn → Full/Open → Viable,
+      // trong mỗi nhóm theo thời gian mới nhất.
+      final myResult = await repository.getMyLobbies(
+        statuses: _activeStatusInts,
+        statusFilter: _activeStatusFilter,
+      );
 
       final merged = myResult.fold(
         (_) => <LobbyEntity>[],
@@ -45,8 +71,7 @@ class MyLobbiesCubit extends Cubit<MyLobbiesState> {
 
       if (isClosed) return;
 
-      // 2. Phân loại hosted vs joined cho UI — sử dụng flag `isHost`
-      // của currentUser ở mỗi lobby entity (server-trả).
+      // Phân loại hosted vs joined dựa trên hostId.
       final hostedIds = <String>{};
       final joinedIds = <String>{};
       for (final l in merged) {
@@ -59,42 +84,12 @@ class MyLobbiesCubit extends Cubit<MyLobbiesState> {
       final hosted = merged.where((l) => hostedIds.contains(l.id)).toList();
       final joined = merged.where((l) => joinedIds.contains(l.id)).toList();
 
-      // 3. Defensive filter: BR-MEMBER-CLEANUP-01 — backend tự filter,
-      // nhưng nếu backend trả cả lobby đã terminal (vd trong window
-      // giữa hub broadcast và server-side cleanup), vẫn lọc thêm
-      // client-side để UX nhất quán.
-      final hostedFiltered =
-          hosted.where((l) => l.status.isActive).toList(growable: false);
-      final joinedFiltered =
-          joined.where((l) => l.status.isActive).toList(growable: false);
-
-      // 4. Fetch cafe details nếu có matchmakingRepository
-      final cafes = <String, CafeDetailEntity>{};
-      final repo = matchmakingRepository;
-      if (repo != null) {
-        final allLobbies = [...hostedFiltered, ...joinedFiltered];
-        final uniqueCafeIds = allLobbies
-            .map((l) => l.cafeId)
-            .where((id) => id.isNotEmpty)
-            .toSet();
-
-        for (final cafeId in uniqueCafeIds) {
-          final cafeResult = await repo.getCafeDetail(cafeId);
-          cafeResult.fold(
-            (_) {},
-            (cafe) {
-              if (cafe != null) {
-                cafes[cafeId] = cafe;
-              }
-            },
-          );
-        }
-      }
+      // Backend đã filter và sort đúng — không cần filter thêm
+      // client-side. Dữ liệu đã đúng thứ tự ưu tiên.
 
       emit(MyLobbiesLoaded(
-        hosted: hostedFiltered,
-        joined: joinedFiltered,
-        cafes: cafes,
+        hosted: hosted,
+        joined: joined,
       ));
     } catch (e) {
       if (isClosed) return;

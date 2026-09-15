@@ -217,17 +217,20 @@ abstract class LobbyRepository {
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
 
   /// GET /api/v1/lobbies/my
-  /// Trả về cả hosted + joined của user hiện tại trong cùng 1 response.
-  /// Backend tự filter theo BR-MEMBER-CLEANUP-01:
-  /// - Chỉ trả lobby có status thuộc active set:
-  ///   `PendingActivation`, `PendingCafeApproval`, `Open`, `Viable`,
-  ///   `Full`, `InProgress`, `RatingOpen`.
-  /// - Lobby đã terminal (`Closed`, `TimeoutFailed`, `HostCancelled`,
-  ///   `RejectedByCafe`, `ExpiredByCafe`, `Dissolved`) → tự động set
-  ///   `IsActive=false` cho member rows → không xuất hiện trong list.
   ///
-  /// Spec: `lobby.md` §Lobby listing endpoints + BR-MEMBER-CLEANUP-01.
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies();
+  /// **BR-NEW-MY-LOBBY-SORT (2026-09-14):** Backend bổ sung query params:
+  /// - `statuses`: mảng int enum — lọc theo LobbyStatus.
+  /// - `statusFilter`: comma-separated string enum names.
+  ///
+  /// Backend tự sắp xếp: active trước (InProgress, WaitingCheckIn, Viable,
+  /// Full, Open, RatingOpen), rồi terminal, trong mỗi nhóm theo thời gian
+  /// mới nhất.
+  ///
+  /// Nếu không truyền filter, backend trả tất cả.
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    List<int>? statuses,
+    String? statusFilter,
+  });
 
   // ─── Lobby Social ─────────────────────────────────────────────────
 

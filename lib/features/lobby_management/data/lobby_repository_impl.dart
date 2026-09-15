@@ -377,15 +377,21 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
   }
 
   @override
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() {
-    // Endpoint `/my` hợp nhất hosted + joined và đã tự filter theo
-    // BR-MEMBER-CLEANUP-01 — không cần filter lại client-side. Nếu
-    // backend fallback (404) thì `getMyLobbies()` ở remote DS sẽ tự
-    // merge hosted + joined với `status.isActive`. Cache key riêng để
-    // không dedupe với cached `hosted` / `joined` (đã deprecated).
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    List<int>? statuses,
+    String? statusFilter,
+  }) {
+    // BR-NEW-MY-LOBBY-SORT (2026-09-14): backend hỗ trợ lọc + sắp xếp.
+    // Cache key bao gồm filter để mỗi bộ filter có cache riêng.
+    final cacheKey = 'lobbies-my'
+        '${statuses != null ? '-s${statuses.join('_')}' : ''}'
+        '${statusFilter != null ? '-f$statusFilter' : ''}';
     return cache<Either<Failure, List<LobbyEntity>>>(
-      'lobbies-my',
-      () => _remote.getMyLobbies(),
+      cacheKey,
+      () => _remote.getMyLobbies(
+        statuses: statuses,
+        statusFilter: statusFilter,
+      ),
     );
   }
 

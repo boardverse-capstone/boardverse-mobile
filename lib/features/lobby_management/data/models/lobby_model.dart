@@ -186,6 +186,11 @@ class LobbyModel {
   final String hostId;
   final String hostName;
   final DateTime scheduledTime;
+
+  /// BR-NEW-15 / 2026-09-14: backend bổ sung `scheduledEndTime` ở
+  /// `/api/v1/lobbies/{id}` — optional, parse như nullable.
+  final DateTime? scheduledEndTime;
+
   final int currentPlayers;
 
   /// BR-NEW-15 (2026-08-18): cặp `preferredStartTime` + `preferredEndTime`
@@ -227,6 +232,7 @@ class LobbyModel {
     required this.hostId,
     required this.hostName,
     required this.scheduledTime,
+    this.scheduledEndTime,
     required this.currentPlayers,
     this.preferredStartTime,
     this.preferredEndTime,
@@ -347,6 +353,12 @@ class LobbyModel {
       hostName: (json['hostName'] ?? '') as String,
       scheduledTime: _parseDateTime(scheduledTimeRaw),
       currentPlayers: derivedCurrentPlayers,
+      // BR-NEW-15 / 2026-09-14: backend `/lobbies/{id}` bổ sung
+      // `scheduledEndTime` (DateTime ISO 8601). Strip 'Z' suffix khi
+      // parse để giữ local-time semantics giống scheduledTime.
+      scheduledEndTime: _parseDateTimeNullable(
+        json['scheduledEndTime'] as String?,
+      ),
       preferredStartTime: json['preferredStartTime'] as String?,
       preferredEndTime: json['preferredEndTime'] as String?,
       maxPlayers: maxPlayers,
@@ -452,6 +464,7 @@ class LobbyModel {
     'hostId': hostId,
     'hostName': hostName,
     'scheduledTime': scheduledTime.toIso8601String(),
+    'scheduledEndTime': scheduledEndTime?.toIso8601String(),
     'currentPlayers': currentPlayers,
     'preferredStartTime': preferredStartTime,
     'preferredEndTime': preferredEndTime,
@@ -493,6 +506,7 @@ class LobbyModel {
     String? hostId,
     String? hostName,
     DateTime? scheduledTime,
+    Object? scheduledEndTime = _sentinel,
     int? currentPlayers,
     Object? preferredStartTime = _sentinel,
     Object? preferredEndTime = _sentinel,
@@ -536,6 +550,9 @@ class LobbyModel {
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       scheduledTime: scheduledTime ?? this.scheduledTime,
+      scheduledEndTime: identical(scheduledEndTime, _sentinel)
+          ? this.scheduledEndTime
+          : scheduledEndTime as DateTime?,
       currentPlayers: currentPlayers ?? this.currentPlayers,
       preferredStartTime: identical(preferredStartTime, _sentinel)
           ? this.preferredStartTime
@@ -601,6 +618,7 @@ class LobbyModel {
     hostId: hostId,
     hostName: hostName,
     scheduledTime: scheduledTime,
+    scheduledEndTime: scheduledEndTime,
     currentPlayers: currentPlayers,
     preferredStartTime: preferredStartTime,
     preferredEndTime: preferredEndTime,

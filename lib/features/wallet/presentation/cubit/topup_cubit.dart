@@ -8,14 +8,14 @@ import '../../data/qr_download_service.dart';
 import '../../domain/repositories/wallet_repository.dart';
 import 'topup_state.dart';
 
-/// Cubit xử lý luồng top-up BVC
+/// Cubit xử lý luồng nạp BVC.
 ///
 /// Flow:
-/// 1. User chọn số tiền nạp
-/// 2. Tạo top-up quote qua API
-/// 3. Mở SePay URL để thanh toán
-/// 4. Polling kiểm tra transaction history (không phải balance)
-/// 5. Cập nhật ví khi thành công
+/// 1. User chọn số tiền nạp.
+/// 2. Tạo đơn top-up qua API → nhận QR.
+/// 3. User lưu QR về máy, mở app ngân hàng quét thanh toán.
+/// 4. Polling kiểm tra transaction history để phát hiện thanh toán.
+/// 5. Cập nhật ví khi thành công.
 class TopUpCubit extends Cubit<TopUpState> {
   final WalletRepository repository;
   Timer? _pollingTimer;
@@ -24,25 +24,24 @@ class TopUpCubit extends Cubit<TopUpState> {
   int? _lastAmountVnd;
   int? _previousBalance;
 
-  /// Thời điểm tạo quote (UTC). Dùng để fallback detect TopUp transaction
-  /// mới tạo sau thời điểm này — workaround cho bug backend không gắn
-  /// `relatedPaymentRef` cho transaction SePay.
+  /// Thời điểm tạo quote (UTC). Dùng để phát hiện transaction TopUp mới
+  /// sau thời điểm này khi backend không gắn `relatedPaymentRef`.
   DateTime? _quoteCreatedAt;
 
   TopUpCubit({required this.repository}) : super(const TopUpInitial());
 
-  /// Tạo instance mới sử dụng repository từ GetIt. Tiện cho việc mở
-  /// top-up inline từ các flow khác (vd: insufficient balance trong đặt cọc).
+  /// Tạo instance mới dùng repository từ GetIt. Tiện cho các flow inline
+  /// (vd: insufficient balance từ trang đặt cọc).
   factory TopUpCubit.newInstance() {
     return TopUpCubit(repository: GetIt.I<WalletRepository>());
   }
 
-  /// Tạo đơn top-up và mở gateway
+  /// Tạo đơn nạp và bắt đầu polling.
   Future<void> createTopUp({
     required int amountVnd,
     required void Function() onSuccess,
   }) async {
-    // Validate amount (BR §2.3)
+    // Validate số tiền.
     if (amountVnd < 10000) {
       emit(const TopUpFailed(reason: 'Số tiền tối thiểu là 10.000 VND'));
       return;
@@ -56,7 +55,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     _lastAmountVnd = amountVnd;
     emit(const TopUpCreating());
 
-    // Get current balance before topup
+    // Lưu số dư trước khi nạp để detect tăng balance.
     final walletResult = await repository.getWallet();
     if (walletResult.isRight()) {
       _previousBalance = walletResult
@@ -64,7 +63,6 @@ class TopUpCubit extends Cubit<TopUpState> {
           .availableBalance;
     }
 
-    // Generate idempotency key
     final idempotencyKey = generateIdempotencyKey();
 
     final result = await repository.createTopUp(
@@ -83,38 +81,23 @@ class TopUpCubit extends Cubit<TopUpState> {
         _lastExpectedBvc = quote.expectedBvc;
         _quoteCreatedAt = DateTime.now().toUtc();
 
-        // Không auto-mở SePay paymentUrl nữa — player sẽ tải QR về máy
-        // rồi mở app ngân hàng quét (xem [QrDownloadService]).
-
-        // Emit awaiting state with deadline + QR
         emit(TopUpAwaitingPayment(quote: quote, deadline: quote.expiresAt));
-
-        // Start polling with 5 second interval
-        _startPolling(() {
-          onSuccess();
-        });
+        _startPolling(() => onSuccess());
       },
     );
   }
 
-  /// Tạo lại top-up với cùng amount (khi QR hết hạn)
+  /// Tạo lại đơn với cùng số tiền (khi QR hết hạn).
   Future<void> retryTopUp({required void Function() onSuccess}) async {
     if (_lastAmountVnd == null) {
-      emit(const TopUpFailed(reason: 'Không có thông tin top-up trước đó'));
+      emit(const TopUpFailed(reason: 'Không có thông tin nạp trước đó'));
       return;
     }
 
     await createTopUp(amountVnd: _lastAmountVnd!, onSuccess: onSuccess);
   }
 
-  /// Đổi số tiền đơn top-up đang Pending.
-  /// Gọi PATCH /api/v1/wallet/topup/{topUpId}.
-  ///
-  /// **Lưu ý về `topUpId`:**
-  /// Backend lý tưởng phải trả `topUpId` (Guid) trong response. Nếu backend
-  /// phiên bản hiện tại CHƯA trả, model fallback dùng `orderId` làm ID để
-  /// gọi PATCH/DELETE — nếu backend thực sự yêu cầu Guid strict sẽ trả 404,
-  /// UI sẽ nhận error và emit `TopUpFailed`.
+  /// Đổi số tiền đơn đang chờ qua PATCH /api/v1/wallet/topup/{topUpId}.
   Future<void> updateCurrentTopUp({
     required int newAmountVnd,
     required void Function() onSuccess,
@@ -127,8 +110,7 @@ class TopUpCubit extends Cubit<TopUpState> {
       emit(
         const TopUpFailed(
           reason:
-              'Tính năng đổi số tiền đang bảo trì. '
-              'Vui lòng tạo đơn mới.',
+              'Không thể đổi số tiền lúc này. Vui lòng tạo đơn mới.',
         ),
       );
       return;
@@ -162,12 +144,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     );
   }
 
-  /// Hủy đơn top-up đang Pending.
-  /// Gọi DELETE /api/v1/wallet/topup/{topUpId}.
-  ///
-  /// **Lưu ý về `topUpId`:**
-  /// Model fallback dùng `orderId` khi backend chưa trả Guid. Nếu backend
-  /// yêu cầu Guid strict → DELETE sẽ 404, UI sẽ nhận error và emit failed.
+  /// Hủy đơn đang chờ qua DELETE /api/v1/wallet/topup/{topUpId}.
   Future<void> cancelCurrentTopUp({required void Function() onCancel}) async {
     final currentQuote = state is TopUpAwaitingPayment
         ? (state as TopUpAwaitingPayment).quote
@@ -177,8 +154,7 @@ class TopUpCubit extends Cubit<TopUpState> {
       emit(
         const TopUpFailed(
           reason:
-              'Tính năng hủy đang được bảo trì. '
-              'Đơn sẽ tự hết hạn sau khoảng 10 phút hoặc được xử lý tự động.',
+              'Không thể hủy lúc này. Đơn sẽ tự hết hạn sau khoảng 10 phút.',
         ),
       );
       return;
@@ -207,7 +183,6 @@ class TopUpCubit extends Cubit<TopUpState> {
   /// Download QR hiện tại về gallery (gọi từ nút "TẢI MÃ QR").
   ///
   /// Trả về `true` nếu lưu thành công, `false` nếu lỗi (để UI snackbar).
-  /// Không emit state — download là side-effect pure, không thay đổi flow.
   Future<({bool success, String? fileName, String? errorMessage})>
   downloadCurrentQr() async {
     final state = this.state;
@@ -215,7 +190,7 @@ class TopUpCubit extends Cubit<TopUpState> {
       return (
         success: false,
         fileName: null,
-        errorMessage: 'Không có đơn top-up đang chờ để tải QR.',
+        errorMessage: 'Không có đơn nạp đang chờ để tải QR.',
       );
     }
 
@@ -252,20 +227,14 @@ class TopUpCubit extends Cubit<TopUpState> {
     }
   }
 
-  /// User bấm "Kiểm tra ngay" để ép check trạng thái ngay lập tức
-  /// (không phải đợi auto-polling 5s).
+  /// User bấm "Kiểm tra ngay" để ép check trạng thái ngay.
   ///
-  /// Logic giống [_pollOnceSilent] nhưng trả về `true` nếu phát hiện
-  /// thanh toán thành công (đã emit [TopUpSuccess]) — để UI biết
-  /// có nên hiển thị snackbar "chưa nhận được" hay không.
-  ///
-  /// Trả về:
-  /// - `true`  : đã emit [TopUpSuccess] (BlocConsumer sẽ tự show success dialog).
-  /// - `false` : chưa thấy giao dịch / mạng lỗi / đơn hết hạn.
+  /// Trả về `true` nếu phát hiện thanh toán thành công (đã emit
+  /// [TopUpSuccess]).
   Future<bool> manualCheckStatus() async {
     if (_currentOrderId == null) return false;
 
-    // Check expiration first
+    // Check expiration trước.
     if (state is TopUpAwaitingPayment) {
       final currentState = state as TopUpAwaitingPayment;
       if (DateTime.now().isAfter(currentState.deadline)) {
@@ -287,14 +256,14 @@ class TopUpCubit extends Cubit<TopUpState> {
 
     await result.fold(
       (failure) async {
-        // Network error → silently ignore; UI sẽ giữ state hiện tại.
+        // Lỗi mạng → bỏ qua, giữ state hiện tại.
       },
       (isSuccess) async {
         if (isSuccess) {
           successDetected = true;
           _stopPolling();
-          // Lấy balance server-side (BR § III.1) để tránh lệch local.
-          final walletRes = await repository.getWallet(includeHeld: true);
+          // Lấy balance server-side để tránh lệch local.
+          final walletRes = await repository.getWallet();
           final newBalance = walletRes.fold(
             (_) => (_previousBalance ?? 0) + (_lastExpectedBvc ?? 0),
             (w) => w.availableBalance,
@@ -312,7 +281,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     return successDetected;
   }
 
-  /// Reset về initial state
+  /// Reset về initial state.
   void cancel() {
     _stopPolling();
     _currentOrderId = null;
@@ -320,7 +289,7 @@ class TopUpCubit extends Cubit<TopUpState> {
     emit(const TopUpInitial());
   }
 
-  /// Start polling - chỉ kiểm tra ngầm, KHÔNG emit state mới
+  /// Bắt đầu polling — kiểm tra ngầm, KHÔNG emit state trung gian.
   /// Interval 5 giây để giảm tải server.
   void _startPolling(void Function() onSuccess) {
     _pollingTimer?.cancel();
@@ -334,12 +303,11 @@ class TopUpCubit extends Cubit<TopUpState> {
     _pollingTimer = null;
   }
 
-  /// Poll một lần SILENTLY - không emit state trung gian.
+  /// Poll một lần SILENTLY — không emit state trung gian.
   /// Chỉ emit khi có thay đổi thực sự: success hoặc expired.
   Future<void> _pollOnceSilent({required void Function() onSuccess}) async {
     if (_currentOrderId == null) return;
 
-    // Check expiration first
     if (state is TopUpAwaitingPayment) {
       final currentState = state as TopUpAwaitingPayment;
       if (DateTime.now().isAfter(currentState.deadline)) {
@@ -349,7 +317,6 @@ class TopUpCubit extends Cubit<TopUpState> {
       }
     }
 
-    // Call API to check transaction history
     final result = await repository.checkTopUpSuccessByOrderId(
       _currentOrderId!,
       previousBalance: _previousBalance,
@@ -361,14 +328,13 @@ class TopUpCubit extends Cubit<TopUpState> {
 
     await result.fold(
       (failure) async {
-        // Network error → continue silently, don't interrupt user
+        // Lỗi mạng → tiếp tục silent.
       },
       (isSuccess) async {
         if (isSuccess) {
           _stopPolling();
-          // Lấy balance server-side thay vì cộng local (đề phòng lệch
-          // nếu user có nhiều đơn top-up hoặc cộng Karma/bonus).
-          final walletRes = await repository.getWallet(includeHeld: true);
+          // Lấy balance server-side để tránh lệch local.
+          final walletRes = await repository.getWallet();
           final newBalance = walletRes.fold(
             (_) => (_previousBalance ?? 0) + (_lastExpectedBvc ?? 0),
             (w) => w.availableBalance,
@@ -381,7 +347,6 @@ class TopUpCubit extends Cubit<TopUpState> {
           );
           onSuccess();
         }
-        // Otherwise → do nothing, stay in current state
       },
     );
   }

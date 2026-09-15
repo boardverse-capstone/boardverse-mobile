@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/navigation/lobby_flow_navigator.dart';
+import '../../../../core/navigation/lobby_left_signal.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/utils/current_user_resolver.dart';
 import '../../../matchmaking_discovery/domain/entities/board_game_entity.dart';
@@ -85,6 +86,18 @@ class _LobbyHubPageState extends State<LobbyHubPage>
     // xong sau khi list đã render thì setState sẽ rebuild với
     // `currentUserId` đúng → list card tự phân biệt lobby của mình.
     _resolveCurrentUserId();
+
+    // Khi user rời lobby (bấm "Rời phòng"), chuyển sang tab "Của tôi"
+    // để họ thấy lobby vừa rời ngay trong danh sách "Đang tham gia".
+    LobbyLeftSignal.instance.addListener(_handleLobbyLeft);
+  }
+
+  void _handleLobbyLeft() {
+    if (!mounted) return;
+    // Chuyển sang tab "Của tôi" (index 1) nếu chưa ở đó.
+    if (_tabController.index != 1) {
+      _tabController.animateTo(1);
+    }
   }
 
   Future<void> _resolveCurrentUserId() async {
@@ -130,6 +143,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
 
   @override
   void dispose() {
+    LobbyLeftSignal.instance.removeListener(_handleLobbyLeft);
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
