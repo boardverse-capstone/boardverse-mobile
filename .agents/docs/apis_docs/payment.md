@@ -379,11 +379,12 @@ Webhook từ SePay cho thanh toán **per-member** (Split Bill). Tách biệt ho�
 
 **Response 200:** `{ "status": "ok" }`
 
-**Side effects (2026-08-25 update):**
-- Tạo `Transaction` record cho QR payment (**GAP #2 FIX**) — đảm bảo audit trail đầy đủ cho mỗi thanh toán per-member
-- Cập nhật `ActiveSessionMember.PaymentStatus = PaidQr`
-- Tạo `MemberPayment` audit record
-- Check all members → nếu tất cả đã trả → auto finalize session
+**Side effects (2026-08-25 update + 2026-09-19):**
+- Tạo `Transaction` record cho QR payment (**GAP #2 FIX**) — đảm bảo audit trail đầy đủ cho mỗi thanh toán per-member.
+- Cập nhật `ActiveSessionMember.PaymentStatus = PaidQr`.
+- Cập nhật 4 fields QR trên `ActiveSessionMember` (2026-09-19): `QrImageUrl`, `QrPaymentUrl`, `QrOrderId`, `QrTransferContent` — được set khi staff tạo QR cho member qua Split Bill; player mobile truy vấn endpoint để hiển thị QR.
+- Tạo `MemberPayment` audit record.
+- Check all members → nếu tất cả đã trả → auto finalize session.
 
 ---
 
@@ -424,6 +425,22 @@ Staff xác nhận QR per-member đã được chuyển khoản thành công — 
 - Duplicate webhook cho `BookingDeposit.Paid` hoặc `ActiveSession.Paid` → bỏ qua, không cập nhật lại.
 - Amount mismatch → log + dừng xử lý, không cập nhật trạng thái.
 - Lookup ưu tiên: `SePayTransactionId` → `OrderId` → `SessionId`/`OrderId` prefix.
+
+## SePayAccount Webhook Auth (2026-08-27 update)
+
+Cấu hình cách SePay xác thực webhook tại `SePayAccount.WebhookAuthType` (column `int`):
+
+| Mode | Value | Header | Use case |
+|---|---|---|---|
+| `None` | `0` | (none) | **Dev/test only** — production reject |
+| `ApiKey` | `1` | `Authorization: Apikey <WebhookToken>` | Auth đơn giản, không anti-replay |
+| `HmacSha256` | `2` | `X-SePay-Signature` + `X-SePay-Timestamp` | **SePay khuyến nghị**, có anti-replay ±300s |
+
+**Default cho account hiện hữu**: `None` (backward compat — tài khoản dev/test cũ vẫn hoạt động). **Production BẮT BUỘC** admin update sang `ApiKey` hoặc `HmacSha256` trước go-live.
+
+API cấu hình: `PUT /api/sepay-accounts/{id}` với body `{ "webhookAuthType": 2, "secretKey": "...", "webhookToken": "..." }`.
+
+Chi tiết verify flow + format signing → [sepay-webhook.md](./sepay-webhook.md) §"Webhook Signature Verification — 3 mode chi tiết".
 
 ## Session Payment Lifecycle Cleanup
 

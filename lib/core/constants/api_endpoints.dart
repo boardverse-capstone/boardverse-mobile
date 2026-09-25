@@ -605,4 +605,44 @@ class ApiEndpoints {
   /// POST /api/v1/users/ratings/karma
   /// Submit mảng đánh giá chéo Karma (targetUserId + tags) cho 1 lobby.
   static const String usersRatingsKarma = '/api/v1/users/ratings/karma';
+
+  // ─── Discovery (Board Game Recommendations) ───────────────────────────────
+  // Base: /api/v1/discovery — personalized + saved games feedback loop.
+  // Docs: .agents/docs/api_docs_survey/* + swagger.json BoardGameDiscovery tag.
+  //
+  // Lưu ý: Response có 2 format khác nhau:
+  // - Survey / Group:      { success, data, error }
+  // - Solo-Personalized / Saved Games: { statusCode, message, data }
+  // Helper: core/network/dual_format_response.dart.
+
+  /// GET /api/v1/discovery/categories — Danh mục board game dùng cho bộ lọc (public).
+  static const String discoveryCategories = '/api/v1/discovery/categories';
+
+  /// POST /api/v1/discovery/survey — Khảo sát gợi ý solo (filter: playerCount,
+  /// weightRanges, duration, category, searchKeyword). Auth: Optional.
+  static const String discoverySurvey = '/api/v1/discovery/survey';
+
+  /// POST /api/v1/discovery/group — Khảo sát gợi ý cho nhóm. Auth: Required.
+  /// Member có thêm trường userId (optional) → backend tự extract saved-game
+  /// preferences của member để personalize.
+  static const String discoveryGroup = '/api/v1/discovery/group';
+
+  /// POST /api/v1/discovery/solo-personalized — Gợi ý cá nhân hóa từ saved games
+  /// + play history. Yêu cầu user có ≥3 saved games để có userProfile.
+  /// Auth: Required. Query params: latitude, longitude (optional).
+  static const String discoverySoloPersonalized =
+      '/api/v1/discovery/solo-personalized';
+
+  /// GET /api/v1/discovery/saved — Danh sách board game đã lưu. Auth: Required.
+  static const String discoverySavedList = '/api/v1/discovery/saved';
+
+  /// POST /api/v1/discovery/saved/{gameTemplateId} — Toggle save/unsave.
+  /// Auth: Required.
+  static String discoverySavedToggle(String gameTemplateId) =>
+      '/api/v1/discovery/saved/$gameTemplateId';
+
+  /// DELETE /api/v1/discovery/saved/{gameTemplateId} — Xóa khỏi danh sách lưu.
+  /// Auth: Required.
+  static String discoverySavedDelete(String gameTemplateId) =>
+      '/api/v1/discovery/saved/$gameTemplateId';
 }

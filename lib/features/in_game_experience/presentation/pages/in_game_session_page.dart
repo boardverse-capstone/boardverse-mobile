@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:boardverse/core/di/injection.dart';
 import 'package:boardverse/core/theme/app_colors.dart';
+import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse/features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'package:boardverse/features/lobby_management/presentation/pages/lobby_page.dart';
 import 'package:boardverse/features/lobby_management/presentation/pages/lobby_rating_page.dart';
@@ -11,6 +13,7 @@ import '../../../reservation/presentation/pages/reservation_detail_page.dart';
 import '../../../wallet/presentation/cubit/wallet_cubit.dart';
 import '../../../wallet/presentation/cubit/wallet_state.dart';
 import '../../../wallet/presentation/pages/topup_page.dart';
+import '../../../wallet/presentation/widgets/qr_network_image.dart';
 import '../../domain/entities/player_session_entity.dart';
 import '../cubit/in_game_cubit.dart';
 import '../cubit/in_game_state.dart';
@@ -142,14 +145,17 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
           // Map `onRateNow` / `onVoteNoShow` / `onLater` về cùng màn đánh
           // giá Karma — backend mới không còn tách no-show voting riêng,
           // thay vào đó tag NoShow nằm trong availableTags[].
-          final goRating = () => Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => LobbyRatingPage(
-                lobbyId: widget.lobbyId ?? '',
+          void goRating() {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LobbyRatingPage(
+                  lobbyId: widget.lobbyId ?? '',
+                ),
               ),
-            ),
-          );
+            );
+          }
+
           SessionEndedNotificationDialog.show(
             context: context,
             totalDuration: state.totalDuration,
@@ -2167,20 +2173,39 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.border, width: 2),
                         ),
-                        child: const Icon(Icons.receipt_long, color: AppColors.white, size: 24),
+                        child: const Icon(
+                          Icons.receipt_long,
+                          color: AppColors.white,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.md),
                       const Expanded(
-                        child: Text(
-                          'Chia Bill - Thanh toán cá nhân',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'CHIA BILL',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Thanh toán cá nhân theo phần của bạn',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(AppIcons.close),
                         onPressed: () {
                           // Khôi phục lại state session trước khi đóng
                           if (savedSession != null) {
@@ -2222,9 +2247,18 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: AppColors.primary),
+              CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 3,
+              ),
               SizedBox(height: AppSpacing.md),
-              Text('Đang tải thông tin chia bill...'),
+              Text(
+                'Đang tải thông tin chia bill...',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -2238,16 +2272,39 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: NeoBrutalismTheme.autoBox(
+                  context,
+                  backgroundColor: AppColors.error.withValues(alpha: 0.1),
+                  borderColor: AppColors.error,
+                  bold: true,
+                  borderRadius: 16,
+                  shadowColor: AppColors.error.withValues(alpha: 0.3),
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: AppColors.error,
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
-              Text(state.message, textAlign: TextAlign.center),
+              Text(
+                state.message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _NeoOutlineButton(
                     label: 'Đóng',
-                    icon: Icons.close,
+                    icon: AppIcons.close,
                     color: AppColors.textSecondary,
                     onPressed: () {
                       _inGameCubit.restoreSessionAfterSplitBill();
@@ -2257,7 +2314,7 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                   const SizedBox(width: AppSpacing.sm),
                   _NeoFilledButton(
                     label: 'Thử lại',
-                    icon: Icons.refresh,
+                    icon: AppIcons.refresh,
                     color: AppColors.primary,
                     onPressed: () => _inGameCubit.refreshSplitBill(),
                   ),
@@ -2271,68 +2328,103 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
 
     if (state is InGameSplitBillNotFound) {
       final session = state.session;
-      
+
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.info_outline, size: 48, color: AppColors.textSecondary),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: NeoBrutalismTheme.autoBox(
+                  context,
+                  backgroundColor: AppColors.info.withValues(alpha: 0.1),
+                  borderColor: AppColors.info,
+                  bold: true,
+                  borderRadius: 16,
+                  shadowColor: AppColors.info.withValues(alpha: 0.3),
+                ),
+                child: const Icon(
+                  AppIcons.info,
+                  size: 48,
+                  color: AppColors.info,
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
               const Text(
-                'Chưa có thông tin chia bill',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                'CHƯA CÓ THÔNG TIN CHIA BILL',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               const Text(
-                'Staff chưa tạo QR thanh toán riêng cho bạn.',
+                'Staff chưa tạo QR thanh toán riêng cho nhóm.\nVui lòng đợi staff xử lý.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
               ),
-              
+
               // Nếu session có thể thanh toán, hiển thị option trả hết
               if (session.canBePaid) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                  decoration: NeoBrutalismTheme.autoBox(
+                    context,
+                    backgroundColor: AppColors.success.withValues(alpha: 0.10),
+                    borderColor: AppColors.success,
+                    bold: true,
+                    borderRadius: 12,
+                    shadowColor: AppColors.success.withValues(alpha: 0.25),
                   ),
                   child: Column(
                     children: [
                       const Text(
-                        'Bạn có thể trả hết bill một mình',
-                        style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.success),
+                        'HOẶC BẠN CÓ THỂ TRẢ HẾT',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                          color: AppColors.success,
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
+                      const SizedBox(height: 4),
                       Text(
                         session.costEstimate.formattedTotalDue,
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.w900,
                           color: AppColors.success,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
+                      const SizedBox(height: 2),
                       const Text(
-                        '(Tất cả thành viên cùng chia)',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        '(Thay mặt tất cả thành viên)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
-              
+
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   Expanded(
                     child: _NeoOutlineButton(
                       label: 'Đóng',
-                      icon: Icons.close,
+                      icon: AppIcons.close,
                       color: AppColors.textSecondary,
                       onPressed: () {
                         _inGameCubit.restoreSessionAfterSplitBill();
@@ -2345,7 +2437,7 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                     Expanded(
                       child: _NeoFilledButton(
                         label: 'Trả hết',
-                        icon: Icons.account_balance_wallet,
+                        icon: AppIcons.money,
                         color: AppColors.success,
                         onPressed: () {
                           Navigator.pop(context); // Đóng bottom sheet
@@ -2373,36 +2465,41 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
               ? state.currentUserPayment
               : null;
 
+      // Tính progress (paid/total) cho header member list.
+      final paidCount = members.where((m) => m.isPaid).length;
+      final totalCount = members.length;
+      final allPaid = totalCount > 0 && paidCount == totalCount;
+
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thông tin phiên
+            // ── Session info card (cafe + game) ─────────────────────
             if (state is InGameSplitBillLoaded) ...[
               _buildSessionInfoCard(context, state.session),
               const SizedBox(height: AppSpacing.md),
             ],
 
-            // Thông tin thanh toán của user hiện tại
+            // ── Thông tin thanh toán của user hiện tại ─────────────
             if (currentUserPayment != null) ...[
               _buildCurrentUserPaymentCard(context, currentUserPayment),
               const SizedBox(height: AppSpacing.md),
             ],
 
-            // Danh sách member và trạng thái thanh toán
+            // ── Member list ─────────────────────────────────────────
             if (members.isNotEmpty) ...[
-              const Text(
-                'Trạng thái thanh toán',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
+              // Header với progress
+              _buildMemberListHeader(
+                context,
+                paidCount: paidCount,
+                totalCount: totalCount,
+                allPaid: allPaid,
               ),
               const SizedBox(height: AppSpacing.sm),
               ...members.map((m) => _buildMemberPaymentItem(context, m)),
             ],
 
-            // Polling indicator
+            // ── Polling indicator ───────────────────────────────────
             if (state is InGameSplitBillPolling) ...[
               const SizedBox(height: AppSpacing.md),
               _buildPollingIndicator(context, state),
@@ -2410,7 +2507,7 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
 
             const SizedBox(height: AppSpacing.lg),
 
-            // Action buttons
+            // ── Action buttons ──────────────────────────────────────
             _buildSplitBillActions(context, state, currentUserPayment),
           ],
         ),
@@ -2420,32 +2517,141 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildSessionInfoCard(BuildContext context, PlayerSessionEntity session) {
+  /// Header cho danh sách member — hiển thị progress (X/Y đã trả).
+  /// Khi tất cả đã trả → highlight success color.
+  Widget _buildMemberListHeader(
+    BuildContext context, {
+    required int paidCount,
+    required int totalCount,
+    required bool allPaid,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = allPaid ? AppColors.success : AppColors.primary;
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.secondary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderColor: accentColor,
+        bold: true,
+        borderRadius: 10,
+        shadowColor: accentColor.withValues(alpha: 0.25),
       ),
       child: Row(
         children: [
-          const Icon(Icons.business, color: AppColors.secondary),
+          Icon(
+            allPaid ? AppIcons.check : AppIcons.users,
+            color: accentColor,
+            size: 18,
+          ),
           const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'Thành viên đã thanh toán',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                letterSpacing: 0.5,
+                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+              ),
+            ),
+          ),
+          // Progress badge: X/Y
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.border, width: 1.5),
+            ),
+            child: Text(
+              '$paidCount / $totalCount',
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionInfoCard(BuildContext context, PlayerSessionEntity session) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: AppColors.secondary.withValues(alpha: isDark ? 0.15 : 0.10),
+        borderColor: AppColors.secondary,
+        bold: true,
+        borderRadius: 12,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.25),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: const BoxDecoration(
+              color: AppColors.secondary,
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+            ),
+            child: const Icon(
+              AppIcons.cafe,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   session.cafeName,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  session.gameName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimary,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      AppIcons.boardGame,
+                      size: 12,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        session.gameName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -2456,13 +2662,19 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
   }
 
   Widget _buildCurrentUserPaymentCard(BuildContext context, MemberPaymentInfo payment) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // ── Case A: Đã thanh toán xong ─────────────────────────────────────
     if (payment.isPaid) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        decoration: NeoBrutalismTheme.autoBox(
+          context,
+          backgroundColor: AppColors.success.withValues(alpha: 0.12),
+          borderColor: AppColors.success,
+          bold: true,
+          borderRadius: 14,
+          shadowColor: AppColors.success.withValues(alpha: 0.25),
         ),
         child: Row(
           children: [
@@ -2472,7 +2684,7 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                 color: AppColors.success,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check, color: AppColors.white, size: 20),
+              child: const Icon(AppIcons.check, color: AppColors.white, size: 22),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -2480,12 +2692,31 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Bạn đã thanh toán!',
-                    style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.success),
+                    'BẠN ĐÃ THANH TOÁN!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                      color: AppColors.success,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    payment.formattedAmountVnd,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimary,
+                    ),
                   ),
                   Text(
-                    payment.formattedAmountDue,
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    '= ${payment.formattedAmountBvc}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -2495,16 +2726,25 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
       );
     }
 
+    // ── Case B: Chưa thanh toán ────────────────────────────────────────
+    final hasQr = payment.hasQr;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: isDark
+            ? AppColors.warning.withValues(alpha: 0.08)
+            : AppColors.warning.withValues(alpha: 0.10),
+        borderColor: AppColors.warning,
+        bold: true,
+        borderRadius: 14,
+        shadowColor: AppColors.warning.withValues(alpha: 0.25),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: icon + label + amount
           Row(
             children: [
               Container(
@@ -2513,23 +2753,43 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                   color: AppColors.warning,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.pending, color: AppColors.white, size: 20),
+                child: Icon(
+                  hasQr ? AppIcons.qrCode : AppIcons.pending,
+                  color: AppColors.white,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thanh toán của bạn',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
                     Text(
-                      payment.formattedAmountDue,
+                      'PHẦN CỦA BẠN',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                        letterSpacing: 1.0,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      payment.formattedAmountVnd,
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: AppColors.warning,
+                      ),
+                    ),
+                    Text(
+                      '= ${payment.formattedAmountBvc}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -2537,59 +2797,89 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
               ),
             ],
           ),
-          if (payment.hasPendingQr && payment.qrImageBase64 != null) ...[
+
+          // QR Code section (chỉ hiển thị khi staff đã tạo QR)
+          if (hasQr) ...[
             const SizedBox(height: AppSpacing.md),
-            // QR Code display
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border, width: 2),
-                ),
-                child: Image.memory(
-                  Uri.parse(payment.qrImageBase64!).data!.contentAsBytes(),
-                  width: 200,
-                  height: 200,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.qr_code,
-                    size: 200,
-                    color: AppColors.black,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: NeoBrutalismTheme.brutalBox(
+                backgroundColor: AppColors.white,
+                borderColor: AppColors.border,
+                bold: true,
+                borderRadius: 12,
+                shadowColor: AppColors.black.withValues(alpha: 0.4),
+              ),
+              child: Column(
+                children: [
+                  QrNetworkImage(
+                    qrUrl: payment.qrUrl ?? '',
+                    paymentUrl: '',
+                    qrImageBase64: payment.qrImageBase64,
+                    size: 220,
+                    backgroundColor: AppColors.white,
                   ),
-                ),
+                ],
               ),
             ),
-            if (payment.qrExpiresAt != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.timer, size: 16, color: AppColors.error),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Hết hạn sau: ${payment.formattedQrRemainingTime}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.info.withValues(alpha: 0.3),
                 ),
               ),
-            ],
+              child: Row(
+                children: [
+                  const Icon(AppIcons.info, size: 16, color: AppColors.info),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      'Mở app ngân hàng → Quét QR để thanh toán',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.info,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Khi staff chưa tạo QR
+          if (!hasQr) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.info.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(AppIcons.pending, size: 18, color: AppColors.info),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Đang chờ staff tạo mã QR thanh toán cho bạn...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.info,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -2599,44 +2889,101 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
   Widget _buildMemberPaymentItem(BuildContext context, MemberPaymentInfo member) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Status chip theo neo-brutalism (design_system.md §12.2).
+    final (chipBg, chipFg, chipIcon, chipLabel) = member.isPaid
+        ? (
+            AppColors.success,
+            AppColors.white,
+            AppIcons.check,
+            member.paymentStatus == PaymentStatus.paidCash
+                ? 'ĐÃ TRẢ (TIỀN MẶT)'
+                : 'ĐÃ TRẢ (QR)',
+          )
+        : (
+            AppColors.warning,
+            AppColors.white,
+            AppIcons.pending,
+            'ĐANG CHỜ',
+          );
+
+    // Initials cho avatar fallback (design_system.md §12.5).
+    final initials = (member.displayName ?? 'U').isNotEmpty
+        ? (member.displayName ?? 'U')[0].toUpperCase()
+        : '?';
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.border,
-        ),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderColor: isDark ? AppColors.borderDark : AppColors.border,
+        bold: true,
+        borderRadius: 12,
+        shadowColor: AppColors.black.withValues(alpha: 0.3),
       ),
       child: Row(
         children: [
-          // Avatar
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-            backgroundImage: member.avatarUrl != null
-                ? NetworkImage(member.avatarUrl!)
-                : null,
-            child: member.avatarUrl == null
-                ? Text(
-                    (member.displayName ?? 'U')[0].toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  )
-                : null,
+          // ── Avatar với neo-brutalism border ────────────────────────
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: member.isCurrentUser
+                    ? AppColors.primary
+                    : (isDark ? AppColors.borderDark : AppColors.border),
+                width: member.isCurrentUser ? 3 : 2,
+              ),
+            ),
+            child: ClipOval(
+              child: member.avatarUrl != null && member.avatarUrl!.isNotEmpty
+                  ? Image.network(
+                      member.avatarUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Center(
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ),
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
 
-          // Name
+          // ── Name + amount ──────────────────────────────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(
-                      member.displayName ?? 'Unknown',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    Flexible(
+                      child: Text(
+                        member.displayName ?? 'Thành viên',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     if (member.isCurrentUser) ...[
                       const SizedBox(width: AppSpacing.xs),
@@ -2646,59 +2993,66 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.2),
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: AppColors.border,
+                            width: 1.5,
+                          ),
                         ),
                         child: const Text(
-                          'Bạn',
+                          'BẠN',
                           style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            color: AppColors.white,
                           ),
                         ),
                       ),
                     ],
                   ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  member.formattedAmountDue,
-                  style: const TextStyle(
+                  member.formattedAmountVnd,
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Payment status
+          // ── Status chip ────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
+              vertical: AppSpacing.xxs,
             ),
-            decoration: BoxDecoration(
-              color: member.isPaid
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : AppColors.warning.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+            decoration: NeoBrutalismTheme.brutalBox(
+              backgroundColor: chipBg,
+              borderColor: AppColors.border,
+              bold: true,
+              borderRadius: 8,
+              shadowColor: chipBg.withValues(alpha: 0.4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  member.isPaid ? Icons.check_circle : Icons.pending,
-                  size: 14,
-                  color: member.isPaid ? AppColors.success : AppColors.warning,
-                ),
+                Icon(chipIcon, size: 12, color: chipFg),
                 const SizedBox(width: 4),
                 Text(
-                  member.isPaid ? 'Đã trả' : 'Chưa trả',
+                  chipLabel,
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: member.isPaid ? AppColors.success : AppColors.warning,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: chipFg,
                   ),
                 ),
               ],
@@ -2712,18 +3066,21 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
   Widget _buildPollingIndicator(BuildContext context, InGameSplitBillPolling state) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      decoration: NeoBrutalismTheme.autoBox(
+        context,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.10),
+        borderColor: AppColors.primary,
+        bold: true,
+        borderRadius: 12,
+        shadowColor: AppColors.primary.withValues(alpha: 0.25),
       ),
       child: Row(
         children: [
           const SizedBox(
-            width: 20,
-            height: 20,
+            width: 24,
+            height: 24,
             child: CircularProgressIndicator(
-              strokeWidth: 2,
+              strokeWidth: 3,
               color: AppColors.primary,
             ),
           ),
@@ -2734,27 +3091,32 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
               children: [
                 const Text(
                   'Đang chờ thanh toán...',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                  ),
                 ),
                 Text(
-                  'Kiểm tra lần ${state.pollCount}/60',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  'Tự động kiểm tra mỗi 5 giây',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          _NeoOutlineButton(
-            label: 'Hủy',
-            icon: Icons.close,
-            color: AppColors.textSecondary,
+          IconButton(
+            icon: const Icon(AppIcons.close, color: AppColors.textSecondary),
             onPressed: () {
               _inGameCubit.stopQrPaymentPolling();
               _inGameCubit.restoreSessionAfterSplitBill();
               Navigator.pop(context);
             },
+            tooltip: 'Hủy chờ',
           ),
         ],
       ),
@@ -2767,51 +3129,112 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
     MemberPaymentInfo? currentUserPayment,
   ) {
     if (state is InGameSplitBillPaymentSuccess) {
+      // ── Case: Player đã thanh toán xong phần của mình ──────────────
+      // Theo yêu cầu: "Player pay xong thì phiên chơi hoàn tất, cái đó
+      // chỉ cần xử lý UI, backend xử lý phần hệ thống."
+      //
+      // → Show success card + 2 action:
+      //   1. "Đánh giá ngay" → navigate LobbyRatingPage (giống flow
+      //      pay-with-BVC hiện tại).
+      //   2. "Đóng" → user muốn xem lại trước khi rate.
       return Column(
         children: [
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+            decoration: NeoBrutalismTheme.autoBox(
+              context,
+              backgroundColor: AppColors.success.withValues(alpha: 0.12),
+              borderColor: AppColors.success,
+              bold: true,
+              borderRadius: 14,
+              shadowColor: AppColors.success.withValues(alpha: 0.25),
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, color: AppColors.success),
+                Icon(Icons.check_circle, color: AppColors.success, size: 28),
                 SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Thanh toán thành công!',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.success,
+                Flexible(
+                  child: Text(
+                    'BẠN ĐÃ THANH TOÁN THÀNH CÔNG!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                      color: AppColors.success,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _NeoFilledButton(
-            label: 'Hoàn tất',
-            icon: Icons.check,
-            color: AppColors.primary,
-            onPressed: () {
-              _inGameCubit.restoreSessionAfterSplitBill();
-              Navigator.pop(context);
-            },
-          ),
+          // Nếu có lobbyId → cho đi đánh giá luôn
+          if (widget.lobbyId != null && widget.lobbyId!.isNotEmpty) ...[
+            _NeoFilledButton(
+              label: 'Đánh giá ngay',
+              icon: AppIcons.rating,
+              color: AppColors.primary,
+              expand: true,
+              onPressed: () {
+                final lobbyId = widget.lobbyId!;
+                _inGameCubit.restoreSessionAfterSplitBill();
+                Navigator.pop(context); // Đóng bottom sheet
+                // Navigate sang LobbyRatingPage thay thế page hiện tại.
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LobbyRatingPage(lobbyId: lobbyId),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _NeoOutlineButton(
+              label: 'Để sau',
+              icon: AppIcons.close,
+              color: AppColors.textSecondary,
+              onPressed: () {
+                _inGameCubit.restoreSessionAfterSplitBill();
+                Navigator.pop(context);
+              },
+            ),
+          ] else
+            _NeoFilledButton(
+              label: 'Hoàn tất',
+              icon: AppIcons.check,
+              color: AppColors.success,
+              expand: true,
+              onPressed: () {
+                _inGameCubit.restoreSessionAfterSplitBill();
+                Navigator.pop(context);
+              },
+            ),
         ],
       );
     }
 
     if (currentUserPayment != null && !currentUserPayment.isPaid) {
+      // ── Case: Member chưa thanh toán ──────────────────────────────
+      // Chỉ enable button "Quét QR" khi staff đã tạo QR cho member này
+      // (có qrImageBase64 hoặc qrUrl). Nếu chưa có → disable + hint
+      // "đang chờ staff".
+      final hasQrReady = currentUserPayment.hasQr;
+      final buttonLabel = !hasQrReady
+          ? 'Đang chờ staff tạo QR'
+          : (currentUserPayment.hasPendingQr
+              ? 'Đang theo dõi thanh toán...'
+              : 'Bắt đầu chờ thanh toán');
+      final buttonIcon =
+          !hasQrReady ? AppIcons.pending : AppIcons.qrScan;
+      final buttonColor = hasQrReady ? AppColors.primary : AppColors.textSecondary;
+
       return Row(
         children: [
           Expanded(
             child: _NeoOutlineButton(
               label: 'Đóng',
-              icon: Icons.close,
+              icon: AppIcons.close,
               color: AppColors.textSecondary,
               onPressed: () {
                 _inGameCubit.restoreSessionAfterSplitBill();
@@ -2822,26 +3245,26 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: _NeoFilledButton(
-              label: currentUserPayment.hasPendingQr ? 'Đang theo dõi...' : 'Quét QR để thanh toán',
-              icon: currentUserPayment.hasPendingQr ? Icons.sync : Icons.qr_code_scanner,
-              color: AppColors.primary,
-              onPressed: currentUserPayment.hasPendingQr
-                  ? null
-                  : () {
-                      if (currentUserPayment.qrImageBase64 != null) {
-                        _inGameCubit.startQrPaymentPolling(currentUserPayment);
-                      }
-                    },
+              label: buttonLabel,
+              icon: buttonIcon,
+              color: buttonColor,
+              onPressed: hasQrReady
+                  ? () {
+                      _inGameCubit.startQrPaymentPolling(currentUserPayment);
+                    }
+                  : null,
             ),
           ),
         ],
       );
     }
 
+    // ── Default: Member đã paid hoặc không có currentUserPayment ──
     return _NeoFilledButton(
       label: 'Đóng',
-      icon: Icons.close,
+      icon: AppIcons.close,
       color: AppColors.primary,
+      expand: true,
       onPressed: () {
         _inGameCubit.restoreSessionAfterSplitBill();
         Navigator.pop(context);

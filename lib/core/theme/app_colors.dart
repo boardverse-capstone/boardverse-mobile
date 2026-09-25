@@ -64,6 +64,24 @@ class AppColors {
     Color(0xFFFFD54F),
   ];
 
+  /// Gradient Personalization - Tím (dùng cho "Cá nhân hóa", AI insights)
+  static const List<Color> cardGradientPurple = [
+    Color(0xFF7B2FF7),
+    Color(0xFFB968F1),
+  ];
+
+  /// Gradient Discovery - Cam → Vàng (banner hero cho khảo sát)
+  static const List<Color> cardGradientDiscovery = [
+    Color(0xFFFF5722),
+    Color(0xFFFFC107),
+  ];
+
+  /// Gradient Group - Teal → Cyan (gợi ý cho nhóm)
+  static const List<Color> cardGradientGroup = [
+    Color(0xFF00BCD4),
+    Color(0xFF26C6DA),
+  ];
+
   // ========================
   // SEMANTIC - SỐNG ĐỘNG
   // ========================

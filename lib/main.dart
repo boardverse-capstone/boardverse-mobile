@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/deeplink/deep_link_handler.dart';
 import 'core/di/injection.dart';
@@ -30,6 +31,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
+
+  // Khởi tạo SharedPreferences trước khi setupDependencies() — SavedGamesCache
+  // cần instance này để register. Phải gọi trước setupDependencies vì
+  // injection.dart dùng `sl<SharedPreferences>()`.
+  final prefs = await SharedPreferences.getInstance();
+  sl.registerSingleton<SharedPreferences>(prefs);
+
   setupDependencies();
 
   // Khởi tạo locale data cho `intl.DateFormat` — tránh LocaleDataException

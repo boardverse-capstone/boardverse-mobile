@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../network/auth_interceptor.dart';
 import '../network/dio_client.dart';
@@ -21,6 +22,13 @@ import '../../features/matchmaking_discovery/data/datasources/remote/matchmaking
 import '../../features/matchmaking_discovery/domain/repositories/matchmaking_repository.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import '../../features/matchmaking_discovery/presentation/cubit/cafe_detail_cubit.dart';
+import '../../features/discovery/data/datasources/base/discovery_datasource.dart';
+import '../../features/discovery/data/datasources/remote/discovery_remote_datasource_impl.dart';
+import '../../features/discovery/data/discovery_repository_impl.dart';
+import '../../features/discovery/domain/repositories/discovery_repository.dart';
+import '../../features/discovery/presentation/cubit/survey_cubit.dart';
+import '../../features/discovery/presentation/cubit/saved_games_cubit.dart';
+import '../storage/saved_games_cache.dart';
 import '../../features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/datasources/remote/real_lobby_remote_datasource.dart';
 import '../../features/lobby_management/data/lobby_persistence_service.dart';
@@ -145,6 +153,46 @@ void setupDependencies() {
     () => ProfileCubit(
       repository: sl<ProfileRepository>(),
       cache: sl<ProfileCacheService>(),
+    ),
+  );
+
+  // ─── Feature: Discovery (Board Game Recommendations) ────────────────────
+  // Personalization + Saved Games feedback loop. Endpoints ở
+  // /api/v1/discovery/* — backend đã implement ở BE.
+  //
+  // Lưu ý: [SharedPreferences] được register ở `main()` (trước khi gọi
+  // `setupDependencies`) — không register lại ở đây, nếu không GetIt sẽ
+  // throw "Type SharedPreferences is already registered".
+  // SavedGamesCache resolve `sl<SharedPreferences>()` qua instance đã có.
+  sl.registerLazySingleton<SavedGamesCache>(
+    () => SavedGamesCache(sl<SharedPreferences>()),
+  );
+
+  sl.registerLazySingleton<DiscoveryDatasource>(
+    () => DiscoveryRemoteDatasourceImpl(dio: sl<Dio>()),
+  );
+
+  sl.registerLazySingleton<DiscoveryRepository>(
+    () => DiscoveryRepositoryImpl(
+      datasource: sl<DiscoveryDatasource>(),
+      cache: sl<SavedGamesCache>(),
+    ),
+  );
+
+  // Factory cubit — mỗi page mount sẽ tạo instance mới.
+  sl.registerFactory<SurveyCubit>(
+    () => SurveyCubit(
+      repository: sl<DiscoveryRepository>(),
+      cache: sl<SavedGamesCache>(),
+    ),
+  );
+
+  // LazySingleton — SharedPreferences cache để state kéo dài qua các lần
+  // mount nhiều BoardGameCard, không bị reset mỗi lần widget rebuild.
+  sl.registerLazySingleton<SavedGamesCubit>(
+    () => SavedGamesCubit(
+      repository: sl<DiscoveryRepository>(),
+      cache: sl<SavedGamesCache>(),
     ),
   );
 

@@ -11,7 +11,6 @@ class MemberPaymentInfoModel {
   final int? amountDue;
   final String? qrUrl;
   final String? qrImageBase64;
-  final DateTime? qrExpiresAt;
   final DateTime? paidAt;
   final bool isCurrentUser;
 
@@ -24,7 +23,6 @@ class MemberPaymentInfoModel {
     this.amountDue,
     this.qrUrl,
     this.qrImageBase64,
-    this.qrExpiresAt,
     this.paidAt,
     this.isCurrentUser = false,
   });
@@ -39,9 +37,6 @@ class MemberPaymentInfoModel {
       amountDue: (json['amountDue'] as num?)?.toInt(),
       qrUrl: json['qrUrl'] as String?,
       qrImageBase64: json['qrImageBase64'] as String?,
-      qrExpiresAt: json['qrExpiresAt'] != null
-          ? DateTime.parse(json['qrExpiresAt'] as String)
-          : null,
       paidAt: json['paidAt'] != null
           ? DateTime.parse(json['paidAt'] as String)
           : null,
@@ -58,6 +53,10 @@ class MemberPaymentInfoModel {
       case 'paidqr':
       case 'paid_qr':
         return PaymentStatus.paidQr;
+      case 'notpaid':
+      case 'not_paid':
+      case 'pending':
+        return PaymentStatus.notPaid;
       default:
         return PaymentStatus.notPaid;
     }
@@ -70,6 +69,7 @@ class MemberPaymentInfoModel {
         return PaymentMethod.cash;
       case 'qr_code':
       case 'qrcode':
+      case 'qr':
         return PaymentMethod.qrCode;
       default:
         return null;
@@ -86,7 +86,6 @@ class MemberPaymentInfoModel {
       'amountDue': amountDue,
       'qrUrl': qrUrl,
       'qrImageBase64': qrImageBase64,
-      'qrExpiresAt': qrExpiresAt?.toIso8601String(),
       'paidAt': paidAt?.toIso8601String(),
       'isCurrentUser': isCurrentUser,
     };
@@ -101,7 +100,6 @@ class MemberPaymentInfoModel {
         amountDue: amountDue,
         qrUrl: qrUrl,
         qrImageBase64: qrImageBase64,
-        qrExpiresAt: qrExpiresAt,
         paidAt: paidAt,
         isCurrentUser: isCurrentUser,
       );
@@ -117,8 +115,8 @@ class SplitBillSessionModel {
   final String sessionId;
   final String cafeId;
   final String? lobbyId;
-  final String cafeName;
-  final String gameName;
+  final String? cafeName;
+  final String? gameName;
   final SessionSplitStatus sessionStatus;
   final List<MemberPaymentInfoModel> members;
   final DateTime? lastUpdated;
@@ -127,8 +125,8 @@ class SplitBillSessionModel {
     required this.sessionId,
     required this.cafeId,
     this.lobbyId,
-    required this.cafeName,
-    required this.gameName,
+    this.cafeName,
+    this.gameName,
     required this.sessionStatus,
     required this.members,
     this.lastUpdated,
@@ -137,10 +135,10 @@ class SplitBillSessionModel {
   factory SplitBillSessionModel.fromJson(Map<String, dynamic> json) {
     return SplitBillSessionModel(
       sessionId: json['sessionId'] as String,
-      cafeId: json['cafeId'] as String,
+      cafeId: json['cafeId'] as String? ?? '',
       lobbyId: json['lobbyId'] as String?,
-      cafeName: json['cafeName'] as String,
-      gameName: json['gameName'] as String,
+      cafeName: json['cafeName'] as String?,
+      gameName: json['gameName'] as String?,
       sessionStatus: _parseSessionStatus(json['sessionStatus'] as String?),
       members: (json['members'] as List<dynamic>?)
               ?.map((e) =>
@@ -164,6 +162,8 @@ class SplitBillSessionModel {
         return SessionSplitStatus.pending;
       case 'paid':
         return SessionSplitStatus.paid;
+      case 'closed':
+        return SessionSplitStatus.closed;
       default:
         return SessionSplitStatus.unknown;
     }
@@ -198,13 +198,38 @@ class SplitBillSessionModel {
   /// Get count of pending members
   int get pendingMembersCount =>
       members.where((m) => !m.isPaid).length;
+
+  /// True nếu tất cả thành viên đã thanh toán.
+  bool get allPaid =>
+      members.isNotEmpty && pendingMembersCount == 0;
+
+  /// Tổng tiền cả nhóm (sum amountDue của tất cả members).
+  /// Dùng để hiển thị progress "X / Y VNĐ đã thanh toán".
+  int get totalGroupAmountVnd => members.fold<int>(
+        0,
+        (sum, m) => sum + (m.amountDue ?? 0),
+      );
+
+  /// Số tiền đã được thanh toán trong group.
+  int get paidAmountVnd => members.fold<int>(
+        0,
+        (sum, m) => sum + (m.isPaid ? (m.amountDue ?? 0) : 0),
+      );
 }
 
-/// Session split status enum
+/// Session split status enum.
+///
+/// Theo docs swagger, session status từ `GetCurrentSessionResponseDto`
+/// (`Active | Checking | Unpaid | Paid | Closed`) là enum `GroupSessionStatus`.
+/// Split bill endpoint trả thêm `sessionStatus` ở root — ta map
+/// 1-1 để UI dùng chung.
+///
+/// Khi split bill chưa khả dụng hoặc backend chưa trả → `unknown`.
 enum SessionSplitStatus {
   unknown,
   active,
   unpaid,
   pending,
   paid,
+  closed,
 }

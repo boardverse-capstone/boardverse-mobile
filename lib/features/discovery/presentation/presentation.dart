@@ -1,0 +1,19 @@
+// Presentation barrel export — discovery feature
+export 'cubit/survey_cubit.dart';
+export 'cubit/survey_state.dart';
+export 'cubit/saved_games_cubit.dart';
+export 'cubit/saved_games_state.dart';
+export 'pages/survey_page.dart';
+export 'pages/saved_games_page.dart';
+export 'widgets/survey_hero_cta.dart';
+export 'widgets/survey_mode_tabs.dart';
+export 'widgets/solo_mode_inner_toggle.dart';
+export 'widgets/survey_filter_sheet.dart';
+export 'widgets/weight_range_selector.dart';
+export 'widgets/recommended_game_card.dart';
+export 'widgets/group_score_breakdown_card.dart';
+export 'widgets/personalized_score_breakdown.dart';
+export 'widgets/play_history_badge.dart';
+export 'widgets/personalization_hint_card.dart';
+export 'widgets/save_button.dart';
+export 'widgets/discovery_shimmer.dart';

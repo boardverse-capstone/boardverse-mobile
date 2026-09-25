@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../features/discovery/presentation/cubit/saved_games_cubit.dart';
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/setup_profile_gate.dart';
 import '../../../features/lobby_management/lobby_routes.dart';
+import '../../di/injection.dart';
 import '../lobby_join_signal.dart';
 import '../lobby_left_signal.dart';
 import '../lobby_suggestion_signal.dart';
@@ -76,6 +78,11 @@ class _MainScaffoldState extends State<MainScaffold> {
       final cubit = context.read<ProfileCubit>();
       cubit.hydrateFromCache();
       cubit.getProfile();
+
+      // Khởi tạo SavedGamesCubit — load cache để ActivityPage render
+      // personalization eligibility (≥3 saved games) ngay khi mở app.
+      final savedCubit = context.read<SavedGamesCubit>();
+      savedCubit.loadSavedGames();
     });
   }
 
@@ -194,8 +201,11 @@ class _MainScaffoldState extends State<MainScaffold> {
 
 @override
 Widget build(BuildContext context) {
-  return BlocProvider<NavigationCubit>.value(
-    value: _navigationCubit,
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<NavigationCubit>.value(value: _navigationCubit),
+      BlocProvider<SavedGamesCubit>.value(value: getIt<SavedGamesCubit>()),
+    ],
     child: BlocBuilder<NavigationCubit, NavigationState>(
       buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,
       builder: (context, state) {

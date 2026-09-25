@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../features/discovery/presentation/cubit/saved_games_cubit.dart';
+import '../../../features/discovery/presentation/cubit/saved_games_state.dart';
+import '../../../features/discovery/presentation/pages/survey_page.dart';
+import '../../../features/discovery/presentation/widgets/survey_hero_cta.dart';
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/tournament/domain/entities/tournament_entity.dart';
 import '../../../features/tournament/presentation/cubit/tournament_list_cubit.dart';
@@ -25,11 +29,7 @@ class ActivityPage extends StatefulWidget {
   /// [BlocListener] on a transient navigation cubit.
   final VoidCallback? onReselect;
 
-  const ActivityPage({
-    super.key,
-    this.onSwitchTab,
-    this.onReselect,
-  });
+  const ActivityPage({super.key, this.onSwitchTab, this.onReselect});
 
   @override
   State<ActivityPage> createState() => _ActivityPageState();
@@ -58,7 +58,8 @@ class _ActivityPageState extends State<ActivityPage>
     // the Activity tab. Treat any callback invocation as a
     // reselection signal: it would never fire on the very first
     // mount because the parent only assigns it on user tap.
-    if (widget.onReselect != null && widget.onReselect != oldWidget.onReselect) {
+    if (widget.onReselect != null &&
+        widget.onReselect != oldWidget.onReselect) {
       _refreshAll();
     }
   }
@@ -151,9 +152,7 @@ class _ActivityPageState extends State<ActivityPage>
           IconButton(
             icon: Icon(
               Icons.notifications_none_rounded,
-              color: isDark
-                  ? AppColors.textPrimaryDark
-                  : AppColors.textPrimary,
+              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
             ),
             onPressed: () {},
           ),
@@ -162,9 +161,7 @@ class _ActivityPageState extends State<ActivityPage>
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            await context
-                .read<TournamentListCubit>()
-                .loadOpenTournamentsOnly();
+            await context.read<TournamentListCubit>().loadOpenTournamentsOnly();
             _refreshHelper.markRefreshed();
           },
           child: SingleChildScrollView(
@@ -175,17 +172,17 @@ class _ActivityPageState extends State<ActivityPage>
               children: [
                 _buildGreetingCard(context),
                 const SizedBox(height: AppSpacing.lg),
-                _buildQuickActionsSection(context),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildTournamentSection(context),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildRecentActivitySection(context),
-                ],
-              ),
+                _buildSurveyHeroCta(context),
+                const SizedBox(height: AppSpacing.lg),
+                _buildTournamentSection(context),
+                const SizedBox(height: AppSpacing.lg),
+                _buildRecentActivitySection(context),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildGreetingCard(BuildContext context) {
@@ -203,7 +200,10 @@ class _ActivityPageState extends State<ActivityPage>
         // Khác với home_overview_page.dart dùng fallback, Activity page
         // (entry tab sau login) cần rõ ràng "đang tải" cho user đợi.
         if (!hasProfile) {
-          return _GreetingCardSkeleton(isDark: isDark, isSmallScreen: isSmallScreen);
+          return _GreetingCardSkeleton(
+            isDark: isDark,
+            isSmallScreen: isSmallScreen,
+          );
         }
 
         final username = state.profile.username;
@@ -281,63 +281,40 @@ class _ActivityPageState extends State<ActivityPage>
     );
   }
 
-  Widget _buildQuickActionsSection(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 380;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'THAO TÁC NHANH',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: AppColors.primary,
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: isSmallScreen ? 1.4 : 1.3,
-          mainAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
-          crossAxisSpacing: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
-          children: [
-            _QuickActionCard(
-              icon: Icons.groups_rounded,
-              label: 'Tạo phòng',
-              color: AppColors.primary,
-              isSmallScreen: isSmallScreen,
-              onTap: () => widget.onSwitchTab?.call(3), // Go to Lobbies tab
-            ),
-            _QuickActionCard(
-              icon: Icons.search_rounded,
-              label: 'Tìm phòng',
-              color: AppColors.secondary,
-              isSmallScreen: isSmallScreen,
-              onTap: () => widget.onSwitchTab?.call(2), // Go to Explore tab
-            ),
-            _QuickActionCard(
-              icon: Icons.calendar_month_rounded,
-              label: 'Đặt bàn',
-              color: AppColors.accent,
-              isSmallScreen: isSmallScreen,
-              onTap: () => widget.onSwitchTab?.call(1), // Go to Bookings tab
-            ),
-            _QuickActionCard(
-              icon: Icons.emoji_events_rounded,
-              label: 'Giải đấu',
-              color: AppColors.success,
-              isSmallScreen: isSmallScreen,
-              onTap: () => _openTournaments(),
-            ),
-          ],
-        ),
-      ],
+  Widget _buildSurveyHeroCta(BuildContext context) {
+    return BlocBuilder<SavedGamesCubit, SavedGamesState>(
+      builder: (context, savedState) {
+        // ≥3 saved games → eligible cho personalization.
+        final hasEligible = _resolveSavedCount(savedState) >= 3;
+        return SurveyHeroCta(
+          hasPersonalizationEligible: hasEligible,
+          onTap: () => _openSurvey(context),
+        );
+      },
     );
+  }
+
+  /// Extract saved count từ mọi SavedGamesState subclass.
+  int _resolveSavedCount(SavedGamesState state) {
+    if (state is SavedGamesLoaded) {
+      return state.savedIds.length;
+    }
+    if (state is SavedGamesLoadingFromCache) {
+      return state.cachedIds.length;
+    }
+    if (state is SavedGamesRefreshing) {
+      return state.totalCount;
+    }
+    if (state is SavedGamesError) {
+      return state.savedIds?.length ?? 0;
+    }
+    return 0;
+  }
+
+  void _openSurvey(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SurveyPage()));
   }
 
   Widget _buildTournamentSection(BuildContext context) {
@@ -349,17 +326,43 @@ class _ActivityPageState extends State<ActivityPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'GIẢI ĐẤU NỔI BẬT',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    color: AppColors.success,
+                // Icon badge + Title
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.emoji_events_rounded,
+                        size: 14,
+                        color: AppColors.success,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'GIẢI ĐẤU NỔI BẬT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                          color: AppColors.success,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const Spacer(),
                 TextButton(
                   onPressed: () => _openTournaments(),
                   style: TextButton.styleFrom(
@@ -418,13 +421,35 @@ class _ActivityPageState extends State<ActivityPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'HOẠT ĐỘNG GẦN ĐÂY',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: AppColors.primary,
+        // Header: icon badge + title
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.25),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history_rounded, size: 14, color: AppColors.primary),
+              const SizedBox(width: 4),
+              Text(
+                'HOẠT ĐỘNG GẦN ĐÂY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -503,7 +528,7 @@ class _TournamentListContent extends StatelessWidget {
   }
 }
 
-class _TournamentMiniCard extends StatelessWidget {
+class _TournamentMiniCard extends StatefulWidget {
   const _TournamentMiniCard({
     required this.tournament,
     required this.isDark,
@@ -515,105 +540,154 @@ class _TournamentMiniCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_TournamentMiniCard> createState() => _TournamentMiniCardState();
+}
+
+class _TournamentMiniCardState extends State<_TournamentMiniCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: NeoBrutalismTheme.autoBox(
-          context,
-          backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-          borderRadius: 16,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 80),
+        curve: Curves.easeOut,
+        child: Container(
+          decoration: NeoBrutalismTheme.autoBox(
+            context,
+            backgroundColor: widget.isDark
+                ? AppColors.surfaceDark
+                : AppColors.surface,
+            borderRadius: 16,
+            shadowColor: AppColors.success.withValues(alpha: 0.15),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    tournament.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: isDark
-                          ? AppColors.textPrimaryDark
-                          : AppColors.textPrimary,
+                // Colored left accent bar
+                Container(
+                  width: 5,
+                  constraints: const BoxConstraints(minHeight: 90),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.success,
+                        AppColors.success.withValues(alpha: 0.6),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                TournamentStatusPill(status: tournament.status),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Icon(
-                  Icons.videogame_asset_rounded,
-                  size: 14,
-                  color: AppColors.success,
-                ),
-                const SizedBox(width: 4),
+                // Card content
                 Expanded(
-                  child: Text(
-                    tournament.gameTemplateName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.textSecondaryDark
-                          : AppColors.textSecondary,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.tournament.title,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: widget.isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            TournamentStatusPill(
+                              status: widget.tournament.status,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.videogame_asset_rounded,
+                              size: 14,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.tournament.gameTemplateName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: widget.isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 14,
+                              color: widget.isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormatter.dateTime(
+                                widget.tournament.startTime,
+                              ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: widget.isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.people_rounded,
+                              size: 14,
+                              color: widget.isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.tournament.currentParticipants}/${widget.tournament.maxParticipants}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: widget.isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 14,
-                  color: isDark
-                      ? AppColors.textSecondaryDark
-                      : AppColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  DateFormatter.dateTime(tournament.startTime),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? AppColors.textSecondaryDark
-                        : AppColors.textSecondary,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.people_rounded,
-                  size: 14,
-                  color: isDark
-                      ? AppColors.textSecondaryDark
-                      : AppColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${tournament.currentParticipants}/${tournament.maxParticipants}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppColors.textSecondaryDark
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -724,7 +798,10 @@ class _TournamentLoadingCard extends StatelessWidget {
 /// không bị "jump" layout. Phần text/avatar thay bằng shimmer box
 /// để user biết app đang tải.
 class _GreetingCardSkeleton extends StatelessWidget {
-  const _GreetingCardSkeleton({required this.isDark, this.isSmallScreen = false});
+  const _GreetingCardSkeleton({
+    required this.isDark,
+    this.isSmallScreen = false,
+  });
 
   final bool isDark;
   final bool isSmallScreen;
@@ -842,20 +919,33 @@ class _TournamentEmptyCard extends StatelessWidget {
         context,
         backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
         borderRadius: 16,
+        shadowColor: AppColors.success.withValues(alpha: 0.1),
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.emoji_events_rounded,
-            size: 40,
-            color: AppColors.success.withValues(alpha: 0.5),
+          // Neo-Brutalist icon badge
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.success.withValues(alpha: 0.35),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              Icons.emoji_events_rounded,
+              size: 36,
+              color: AppColors.success,
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Chưa có giải đấu nào',
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
             ),
           ),
@@ -928,92 +1018,6 @@ class _AvatarWithBorder extends StatelessWidget {
   }
 }
 
-class _QuickActionCard extends StatefulWidget {
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-    this.isSmallScreen = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  final bool isSmallScreen;
-
-  @override
-  State<_QuickActionCard> createState() => _QuickActionCardState();
-}
-
-class _QuickActionCardState extends State<_QuickActionCard> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Responsive sizing
-    final iconSize = widget.isSmallScreen ? 22.0 : 28.0;
-    final iconPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.sm + 2;
-    final cardPadding = widget.isSmallScreen ? AppSpacing.sm : AppSpacing.md;
-    final titleFontSize = widget.isSmallScreen ? 11.0 : 13.0;
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 80),
-        curve: Curves.easeOut,
-        child: Container(
-          decoration: NeoBrutalismTheme.autoBox(
-            context,
-            backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-            shadowColor: widget.color.withValues(alpha: 0.2),
-            borderRadius: 16,
-          ),
-          padding: EdgeInsets.all(cardPadding),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(iconPadding),
-                decoration: BoxDecoration(
-                  color: widget.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? AppColors.borderDark : AppColors.border,
-                    width: 2,
-                  ),
-                ),
-                child: Icon(widget.icon, color: widget.color, size: iconSize),
-              ),
-              SizedBox(height: widget.isSmallScreen ? AppSpacing.xs : AppSpacing.sm),
-              Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w700,
-                  color: isDark
-                      ? AppColors.textPrimaryDark
-                      : AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyActivityCard extends StatelessWidget {
   const _EmptyActivityCard({
     required this.icon,
@@ -1036,27 +1040,36 @@ class _EmptyActivityCard extends StatelessWidget {
         context,
         backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
         borderRadius: 16,
+        shadowColor: AppColors.primary.withValues(alpha: 0.1),
       ),
       child: Column(
         children: [
+          // Neo-Brutalist icon badge
           Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(AppSpacing.md + 2),
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  offset: const Offset(2, 2),
+                  blurRadius: 0,
+                ),
+              ],
             ),
-            child: Icon(
-              icon,
-              size: 48,
-              color: AppColors.primary.withValues(alpha: 0.5),
-            ),
+            child: Icon(icon, size: 36, color: AppColors.primary),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
             title,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
               color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
             ),
           ),
@@ -1064,7 +1077,7 @@ class _EmptyActivityCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               color: isDark
                   ? AppColors.textSecondaryDark
                   : AppColors.textSecondary,
