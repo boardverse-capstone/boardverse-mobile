@@ -6,21 +6,18 @@ import 'package:boardverse/core/theme/theme.dart';
 import 'package:boardverse/core/utils/current_user_resolver.dart';
 import 'package:boardverse/features/tournament/domain/entities/tournament_entity.dart';
 import 'package:boardverse/features/tournament/domain/entities/tournament_participant_entity.dart';
-import 'package:boardverse/features/tournament/domain/entities/tournament_match_entity.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_cubit.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_detail_state.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_engagement_cubit.dart';
 import 'package:boardverse/features/tournament/presentation/cubit/tournament_engagement_state.dart';
 import 'package:boardverse/features/tournament/presentation/tabs/tournament_info_tab.dart';
 import 'package:boardverse/features/tournament/presentation/tabs/tournament_participants_tab.dart';
-import 'package:boardverse/features/tournament/presentation/tabs/tournament_matches_tab.dart';
 import 'package:boardverse/features/tournament/presentation/widgets/tournament_error_state.dart';
 import 'package:boardverse/features/tournament/presentation/widgets/tournament_skeleton.dart';
 
-/// Full-page view of a single tournament with three tabs:
+/// Full-page view of a single tournament with two tabs:
 /// 1) Info + Register/Withdraw
 /// 2) Participants list (taps open ParticipantDetailPage)
-/// 3) Matches / Brackets (taps open MatchDetailPage)
 class TournamentDetailPage extends StatelessWidget {
   final String tournamentId;
   final TournamentEntity? initialTournament;
@@ -128,7 +125,7 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -175,7 +172,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
       builder: (context, state) {
         final tournament = _resolveTournament(state, widget.initialTournament);
         final participants = _resolveParticipants(state);
-        final matches = _resolveMatches(state);
         final isRegistering = state is TournamentDetailRegistering;
 
         // Listen riêng cho EngagementCubit để show toast cho các action
@@ -222,7 +218,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
             state: state,
             tournament: tournament,
             participants: participants,
-            matches: matches,
             isRegistering: isRegistering,
             title: tournament?.title ?? 'Chi tiết giải đấu',
           ),
@@ -237,7 +232,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
     required TournamentDetailState state,
     required TournamentEntity? tournament,
     required List<TournamentParticipantEntity> participants,
-    required List<TournamentMatchEntity> matches,
     required bool isRegistering,
     required String title,
   }) {
@@ -285,7 +279,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
               tabs: [
                 const Tab(text: 'Thông tin'),
                 Tab(text: 'Người tham gia (${participants.length})'),
-                Tab(text: 'Bàn đấu (${matches.length})'),
               ],
             ),
           ),
@@ -316,10 +309,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
                   tournamentId: tournament.id,
                   participants: participants,
                 ),
-                TournamentMatchesTab(
-                  tournamentId: tournament.id,
-                  matches: matches,
-                ),
               ],
             ),
     );
@@ -341,13 +330,6 @@ class _TournamentDetailViewState extends State<_TournamentDetailView>
     if (state is TournamentDetailLoaded) return state.participants;
     if (state is TournamentDetailRegistering) return state.participants;
     if (state is TournamentDetailError) return state.participants ?? const [];
-    return const [];
-  }
-
-  List<TournamentMatchEntity> _resolveMatches(TournamentDetailState state) {
-    if (state is TournamentDetailLoaded) return state.matches;
-    if (state is TournamentDetailRegistering) return state.matches;
-    if (state is TournamentDetailError) return state.matches ?? const [];
     return const [];
   }
 

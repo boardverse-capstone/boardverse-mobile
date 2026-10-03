@@ -345,6 +345,7 @@ class TournamentTestFixtures {
       registrationDeadline: _daysFromNow(5),
       status: status,
       currentParticipants: 8,
+      checkedInParticipants: 8,
       maxParticipants: 16,
       minKarmaRequirement: 0,
       registrationFee: null,

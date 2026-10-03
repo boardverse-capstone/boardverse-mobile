@@ -25,17 +25,12 @@ class TournamentUtils {
   /// Filter indices correspond to labels in `TournamentFilterSection`:
   ///   0 = Tất cả
   ///   1 = Đang mở           (RegistrationOpen — chưa đăng ký + đã đăng ký)
-  ///   2 = Đã đóng đăng ký   (RegistrationClosed — player đã đăng ký, đang
-  ///                          chờ manager bấm Start, vẫn có thể rút lui)
-  ///   3 = Đang diễn ra     (OnGoing — player đã đăng ký)
-  ///   4 = Đã kết thúc      (Completed — player đã tham gia)
-  ///   5 = Đã hủy           (Cancelled — player đã đăng ký)
+  ///   2 = Đang diễn ra     (OnGoing — player đã đăng ký)
+  ///   3 = Đã kết thúc      (Completed — player đã tham gia)
+  ///   4 = Đã hủy           (Cancelled — player đã đăng ký)
   ///
-  /// Mục đích của việc tách "Đã đóng đăng ký" / "Đã hủy" thành filter
-  /// riêng: player đã đăng ký nhưng giải đã chuyển trạng thái vẫn phải
-  /// hiển thị để player xem thông tin / rút lui. Trước đây các giải này
-  /// "biến mất" khỏi tab Tournament vì `loadTournaments()` chỉ fetch
-  /// OnGoing + Completed từ `/my-registrations`.
+  /// Lưu ý: "Đã đóng đăng ký" không còn là filter riêng — các giải đã
+  /// đóng đăng ký vẫn nằm trong "Tất cả" để player xem thông tin.
   static List<TournamentEntity> filterTournaments(
     TournamentListLoaded state,
     int selectedFilter,
@@ -44,12 +39,10 @@ class TournamentUtils {
       case 1:
         return state.openTournaments;
       case 2:
-        return state.closedTournaments;
-      case 3:
         return state.ongoingTournaments;
-      case 4:
+      case 3:
         return state.completedTournaments;
-      case 5:
+      case 4:
         return state.cancelledTournaments;
       default:
         return [

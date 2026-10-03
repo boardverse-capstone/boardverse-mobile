@@ -80,32 +80,10 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
 
   bool _initialized = false;
 
-  /// Cờ reload-in-progress. Set = true khi user bấm "Tải lại" trên
-  /// bottom bar hoặc header → hiển thị spinner feedback trên button.
-  /// Reset = false khi API trả về (dù success hay failure).
-  bool _isReloading = false;
-
   /// Cờ đánh dấu đã start polling session hay chưa. Tránh gọi
   /// `startSessionPolling()` nhiều lần khi state phát ra liên tục
-  /// (vd: mỗi tick reload → state mới → re-enter listener).
+  /// (vd: mỗi tick timer → state mới → re-enter listener).
   bool _pollingStarted = false;
-
-  /// Reload session data khi user bấm "Tải lại".
-  ///
-  /// Gọi `refreshSession()` (fetch API mà KHÔNG emit InGameLoading) để:
-  ///   1. Staff check-out / mở phiên tính tiền → player tap "Tải lại"
-  ///      → thấy thông tin mới nhất (trạng thái, chi phí, v.v.).
-  ///   2. Không có full-screen loading → UI không bị blank.
-  ///
-  /// `_isReloading` được set = true ngay để hiển thị spinner feedback trên
-  /// button "Tải lại". Reset về false trong BlocConsumer khi có state mới.
-  Future<void> _onReload() async {
-    if (_isReloading) return;
-    setState(() => _isReloading = true);
-    await _inGameCubit.refreshSession();
-    if (!mounted) return;
-    setState(() => _isReloading = false);
-  }
 
   @override
   void dispose() {
@@ -119,17 +97,8 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
   Widget build(BuildContext context) {
     return BlocConsumer<InGameCubit, InGameState>(
       listener: (context, state) {
-        // Reset `_isReloading` khi cubit emit state mới sau khi
-        // `refreshSession()` chạy xong (dù success hay failure) —
-        // đảm bảo spinner trên button "Tải lại" biến mất.
-        if (_isReloading) {
-          // ignore: prefer-null-aware-operators — setState bên trong listener
-          // là pattern hợp lệ: state đã đổi → rebuild để reflect flag.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            setState(() => _isReloading = false);
-          });
-        }
+        // (Reload button đã ẩn tạm thời nên không cần reset
+        // `_isReloading` ở đây nữa.)
         if (state is InGameCheckoutComplete) {
           // POS thanh toán xong → mở màn đánh giá Karma (real API).
           Navigator.pushReplacement(
@@ -860,7 +829,6 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildCostItem(context, 'Thời gian', '${cost.baseMinutes} phút'),
-              _buildCostItem(context, 'Đơn giá', '${(cost.ratePerMinute / 1000).ceil()} BVC/p'),
             ],
           ),
           const Divider(height: AppSpacing.md),
@@ -1244,44 +1212,32 @@ class _InGameSessionPageState extends State<InGameSessionPage> {
               ),
             ],
 
-            // ─── Reload (Manual Refresh) ─────────────────────────────
-            // Nút "Tải lại" — cho player refresh dữ liệu phiên chơi thủ
-            // công khi staff vừa check-out hoặc mở phiên tính tiền và
-            // player muốn xem thông tin cập nhật ngay mà không cần pull.
+            // (Button "Tải lại" đã được ẩn tạm thời — sẽ bật lại sau khi
+            // staff check-out flow hoàn thiện.)
             //
-            // Hiển thị khi session chưa thanh toán (`!session.isPaid`).
-            // Disable khi đang extending/payment để tránh xung đột.
-            // Tap → gọi `inGameCubit.refreshSession()` (silent —
-            // không emit InGameLoading) → UI update mượt khi state mới
-            // về. Spinner feedback trên button trong khi chờ API.
-            if (!session.isPaid && !isExtending && !isProcessingPayment) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _NeoOutlineButton(
-                label: 'Tải lại',
-                loadingLabel: 'Đang tải...',
-                icon: Icons.refresh,
-                color: AppColors.info,
-                isLoading: _isReloading,
-                onPressed: _isReloading ? null : _onReload,
-              ),
-            ],
-
-            // Back to reservation + back to lobby buttons
-            if (widget.lobbyId != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _NeoOutlineButton(
-                label: 'Vào phòng chờ',
-                icon: Icons.meeting_room,
-                color: AppColors.primary,
-                onPressed: () => _navigateToLobby(context),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            _NeoOutlineButton(
-              label: 'Quay về lịch hẹn',
-              icon: Icons.calendar_today,
-              color: AppColors.textSecondary,
-              onPressed: () => _navigateToReservationDetail(context),
+            // Back to reservation + back to lobby buttons (cùng hàng)
+            Row(
+              children: [
+                if (widget.lobbyId != null) ...[
+                  Expanded(
+                    child: _NeoOutlineButton(
+                      label: 'Vào phòng chờ',
+                      icon: Icons.meeting_room,
+                      color: AppColors.primary,
+                      onPressed: () => _navigateToLobby(context),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                ],
+                Expanded(
+                  child: _NeoOutlineButton(
+                    label: 'Quay về lịch hẹn',
+                    icon: Icons.calendar_today,
+                    color: AppColors.textSecondary,
+                    onPressed: () => _navigateToReservationDetail(context),
+                  ),
+                ),
+              ],
             ),
           ],
           ),
@@ -3348,9 +3304,8 @@ class _NeoOutlineButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   /// `true` → render spinner thay icon + thay label thành `loadingLabel`
-  /// (mặc định = `label`). Dùng cho button "Tải lại" — khi user bấm,
-  /// button không cho tap thêm lần nữa và hiển thị spinner feedback
-  /// cho tới khi API trả về.
+  /// (mặc định = `label`). Khi user bấm, button không cho tap thêm
+  /// lần nữa và hiển thị spinner feedback cho tới khi callback trả về.
   ///
   /// Nullable để tương thích với hot-reload cũ — nếu parent build lại
   /// trước khi default `false` được propagate, build method treat

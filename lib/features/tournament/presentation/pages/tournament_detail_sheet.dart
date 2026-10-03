@@ -362,6 +362,7 @@ class _TournamentDetailSheetState extends State<TournamentDetailSheet> {
       registrationDeadline: now,
       status: TournamentStatus.upcoming,
       currentParticipants: 0,
+      checkedInParticipants: 0,
       maxParticipants: 0,
       minKarmaRequirement: 0,
       registrationFee: null,

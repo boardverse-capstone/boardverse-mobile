@@ -178,7 +178,7 @@ class _TournamentListCardState extends State<TournamentListCard>
                     const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: Text(
-                        '${widget.tournament.currentParticipants}/${widget.tournament.maxParticipants} người tham gia',
+                        '${widget.tournament.checkedInParticipants}/${widget.tournament.maxParticipants} người tham gia',
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -212,7 +212,7 @@ class _TournamentListCardState extends State<TournamentListCard>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: LinearProgressIndicator(
-                      value: widget.tournament.fillRatio,
+                      value: widget.tournament.attendanceRatio,
                       minHeight: 8,
                       backgroundColor: AppColors.surfaceVariant,
                       valueColor: AlwaysStoppedAnimation<Color>(statusColor),

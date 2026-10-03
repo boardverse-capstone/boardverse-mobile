@@ -18,7 +18,6 @@ class TournamentFilterSection extends StatelessWidget {
   static const _filterLabels = <String>[
     'Tất cả',
     'Đang mở',
-    'Đã đóng ĐK',
     'Đang thi đấu',
     'Hoàn thành',
     'Đã hủy',

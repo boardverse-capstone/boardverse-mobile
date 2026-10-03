@@ -15,7 +15,6 @@ import 'weight_range_selector.dart';
 /// mở popup riêng.
 ///
 /// Nội dung form gồm:
-/// - Search field
 /// - Player count selector
 /// - Weight range (độ phức tạp)
 /// - Duration selector (thời gian chơi)
@@ -53,7 +52,6 @@ class _SurveyFilterFormState extends State<SurveyFilterForm> {
   late List<int> _weightRanges;
   late List<String> _preferredDurations;
   late List<String> _selectedCategoryIds;
-  late TextEditingController _searchController;
 
   @override
   void initState() {
@@ -64,15 +62,6 @@ class _SurveyFilterFormState extends State<SurveyFilterForm> {
         List.from(widget.currentRequest.preferredDurations ?? []);
     _selectedCategoryIds =
         List.from(widget.currentRequest.categoryIds ?? []);
-    _searchController = TextEditingController(
-      text: widget.currentRequest.searchKeyword ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   void _resetFilters() {
@@ -81,7 +70,6 @@ class _SurveyFilterFormState extends State<SurveyFilterForm> {
       _weightRanges = [];
       _preferredDurations = [];
       _selectedCategoryIds = [];
-      _searchController.clear();
     });
   }
 
@@ -92,8 +80,6 @@ class _SurveyFilterFormState extends State<SurveyFilterForm> {
       preferredDurations:
           _preferredDurations.isEmpty ? null : _preferredDurations,
       weightRanges: _weightRanges.isEmpty ? null : _weightRanges,
-      searchKeyword:
-          _searchController.text.isEmpty ? null : _searchController.text,
     );
     widget.onApply(request);
   }
@@ -156,10 +142,6 @@ class _SurveyFilterFormState extends State<SurveyFilterForm> {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-
-        // ─── Search field ──────────────────────────────────────────
-        _SearchField(controller: _searchController),
-        const SizedBox(height: AppSpacing.xl),
 
         // ─── Player count ──────────────────────────────────────────
         const _SectionTitle(
@@ -311,63 +293,6 @@ class _SectionTitle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Search field
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SearchField extends StatelessWidget {
-  final TextEditingController controller;
-  const _SearchField({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.surfaceContainerDark
-            : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 2.5),
-      ),
-      child: TextField(
-        controller: controller,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: isDark
-              ? AppColors.textPrimaryDark
-              : AppColors.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Tìm kiếm game...',
-          hintStyle: TextStyle(
-            color: isDark
-                ? AppColors.textTertiaryDark
-                : AppColors.textTertiary,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            size: 22,
-            color: isDark
-                ? AppColors.textSecondaryDark
-                : AppColors.textSecondary,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.md + 2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Reset pill button
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -429,9 +354,9 @@ class _PlayerCountSelector extends StatelessWidget {
   final int value;
   final ValueChanged<int> onChanged;
 
-  /// Min/max bounds cua slider. Co dinh 1-10.
+  /// Min/max bounds cua slider. Co dinh 1-5.
   static const int minValue = 1;
-  static const int maxValue = 10;
+  static const int maxValue = 5;
 
   /// Kich thuoc cua thumb de can chinh vi tri floating chip
   /// (phai khop voi SliderTheme ben duoi).

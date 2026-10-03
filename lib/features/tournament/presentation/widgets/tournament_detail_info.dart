@@ -59,7 +59,7 @@ class TournamentDetailInfo extends StatelessWidget {
               _InfoRow(
                 icon: AppIcons.users,
                 label: 'Người tham gia',
-                value: '${tournament.currentParticipants}/${tournament.maxParticipants}',
+                value: '${tournament.checkedInParticipants}/${tournament.maxParticipants}',
               ),
               if (tournament.requiresKarma)
                 _InfoRow(

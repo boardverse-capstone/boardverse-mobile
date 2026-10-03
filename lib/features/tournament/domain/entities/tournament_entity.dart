@@ -12,6 +12,7 @@ class TournamentEntity {
   final DateTime registrationDeadline;
   final TournamentStatus status;
   final int currentParticipants;
+  final int checkedInParticipants;
   final int maxParticipants;
   final int minKarmaRequirement;
   final int? registrationFee;
@@ -34,6 +35,7 @@ class TournamentEntity {
     required this.registrationDeadline,
     required this.status,
     required this.currentParticipants,
+    required this.checkedInParticipants,
     required this.maxParticipants,
     required this.minKarmaRequirement,
     this.registrationFee,
@@ -58,6 +60,7 @@ class TournamentEntity {
       registrationDeadline: registrationDeadline,
       status: status,
       currentParticipants: currentParticipants,
+      checkedInParticipants: checkedInParticipants,
       maxParticipants: maxParticipants,
       minKarmaRequirement: minKarmaRequirement,
       registrationFee: registrationFee,
@@ -81,6 +84,13 @@ class TournamentEntity {
   double get fillRatio {
     if (maxParticipants <= 0) return 0;
     return (currentParticipants / maxParticipants).clamp(0.0, 1.0);
+  }
+
+  /// Attendance ratio based on check-in count (số người đang có mặt tại quán).
+  /// Dùng cho hiển thị "số người đang tham gia" và progress bar tương ứng.
+  double get attendanceRatio {
+    if (maxParticipants <= 0) return 0;
+    return (checkedInParticipants / maxParticipants).clamp(0.0, 1.0);
   }
 
   /// Whether this tournament requires minimum karma to register.

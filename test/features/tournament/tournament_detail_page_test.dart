@@ -1,10 +1,9 @@
-// Widget tests cho TournamentDetailPage (3 tabs).
+// Widget tests cho TournamentDetailPage (2 tabs).
 //
 // Verify:
-//   - 3 tabs được render (Thông tin / Người tham gia / Bàn đấu).
+//   - 2 tabs được render (Thông tin / Người tham gia).
 //   - Info tab hiển thị tournament title.
 //   - Participants tab hiển thị danh sách participants.
-//   - Matches tab hiển thị rounds + matches.
 
 import 'dart:typed_data';
 
@@ -55,7 +54,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
   }
 
-  testWidgets('renders 3 tabs when data loaded', (tester) async {
+  testWidgets('renders 2 tabs when data loaded', (tester) async {
     repository.tournamentDetail = TournamentTestFixtures.tournament(id: 't1');
     final cubit = TournamentDetailCubit(repository: repository);
     await cubit.loadDetail('t1');
@@ -65,7 +64,6 @@ void main() {
 
     expect(find.text('Thông tin'), findsAtLeastNWidgets(1));
     expect(find.textContaining('Người tham gia'), findsAtLeastNWidgets(1));
-    expect(find.textContaining('Bàn đấu'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('info tab shows tournament title', (tester) async {
@@ -103,25 +101,6 @@ void main() {
 
     expect(find.text('Player p1'), findsOneWidget);
     expect(find.text('Player p2'), findsOneWidget);
-  });
-
-  testWidgets('matches tab lists rounds', (tester) async {
-    repository.tournamentDetail = TournamentTestFixtures.tournament(id: 't1');
-    repository.matches = {
-      't1': [TournamentTestFixtures.match(id: 'm1')],
-    };
-    final cubit = TournamentDetailCubit(repository: repository);
-    await cubit.loadDetail('t1');
-
-    await pumpDetail(tester, cubit: cubit);
-    await tester.pump(const Duration(milliseconds: 300));
-
-    // Tap "Bàn đấu" tab — match the tab label which has count suffix.
-    await tester.tap(find.text('Bàn đấu (1)'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Vòng 1'), findsAtLeastNWidgets(1));
   });
 
   test('participant model preserves half-point Swiss scores', () {
@@ -233,8 +212,39 @@ void main() {
     final entity = model.toEntity();
 
     expect(entity.currentParticipants, 3);
+    expect(entity.checkedInParticipants, 0);
     expect(entity.maxParticipants, 32);
     expect(entity.isUserRegistered, true);
+  });
+
+  test('tournament model reads checkedInCount separately from registeredCount',
+      () {
+    // Repro cho bug: response có registeredCount = 0 nhưng checkedInCount = 8
+    // (giải đang OnGoing, tất cả player đã check-in tại quán). Trước đây UI
+    // hiển thị "0/8 người tham gia" vì chỉ đọc registeredCount.
+    final json = {
+      'id': '3b88a0e9-8d97-4025-9d12-54fd46d4a603',
+      'cafeId': '3b2bdcd2-518e-47f7-b4ba-2e484cd7983e',
+      'cafeName': 'lenguyedangkhoa cafe',
+      'title': 'Phase 2 Opn new',
+      'gameTemplateId': 'cc4588e0-b43e-44c5-9f29-e88d178c217c',
+      'gameName': 'Splendor',
+      'startTime': '2026-10-03T18:55:00Z',
+      'registrationDeadline': '2026-10-03T18:50:00Z',
+      'roundDurationMinutes': 45,
+      'minParticipants': 4,
+      'maxParticipants': 8,
+      'status': 'OnGoing',
+      'registeredCount': 0,
+      'checkedInCount': 8,
+      'currentUserRegistered': true,
+    };
+
+    final entity = TournamentModel.fromJson(json).toEntity();
+
+    expect(entity.currentParticipants, 0); // vẫn theo registeredCount
+    expect(entity.checkedInParticipants, 8); // đọc từ checkedInCount
+    expect(entity.attendanceRatio, 1.0); // thanh tiến trình đầy
   });
 
   test('match model accepts numeric and aliased payload fields', () {

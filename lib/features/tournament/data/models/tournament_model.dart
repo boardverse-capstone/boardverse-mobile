@@ -11,6 +11,7 @@ class TournamentModel {
   final DateTime registrationDeadline;
   final String status;
   final int currentParticipants;
+  final int checkedInParticipants;
   final int maxParticipants;
   final int minKarmaRequirement;
   final int? registrationFee;
@@ -31,6 +32,7 @@ class TournamentModel {
     required this.registrationDeadline,
     required this.status,
     required this.currentParticipants,
+    required this.checkedInParticipants,
     required this.maxParticipants,
     required this.minKarmaRequirement,
     this.registrationFee,
@@ -66,6 +68,14 @@ class TournamentModel {
           'currentParticipants',
           'participantCount',
           'registeredParticipantCount',
+        ],
+        0,
+      ),
+      checkedInParticipants: _readInt(
+        json,
+        const [
+          'checkedInCount',
+          'checkedInParticipants',
         ],
         0,
       ),
@@ -110,6 +120,7 @@ class TournamentModel {
       'registrationDeadline': registrationDeadline.toIso8601String(),
       'status': status,
       'currentParticipants': currentParticipants,
+      'checkedInParticipants': checkedInParticipants,
       'maxParticipants': maxParticipants,
       'minKarmaRequirement': minKarmaRequirement,
       'registrationFee': registrationFee,
@@ -136,6 +147,7 @@ class TournamentModel {
       registrationDeadline: registrationDeadline,
       status: TournamentStatus.fromBackendStatus(status),
       currentParticipants: currentParticipants,
+      checkedInParticipants: checkedInParticipants,
       maxParticipants: maxParticipants,
       minKarmaRequirement: minKarmaRequirement,
       registrationFee: registrationFee,

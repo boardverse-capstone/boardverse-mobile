@@ -460,16 +460,6 @@ class _TimeCard extends StatelessWidget {
       children: [
         _InfoRow(label: 'Ngày', value: playDateStr),
         _InfoRow(
-          label: 'Khung giờ',
-          value: r.timeSlot.displayName,
-          trailing: Text(
-            '${r.timeSlot.startTime} - ${r.timeSlot.endTime}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-        ),
-        _InfoRow(
           label: 'Giờ bắt đầu',
           value: r.preferredStartTime != null
               ? DateFormatter.stripSeconds(r.preferredStartTime)
