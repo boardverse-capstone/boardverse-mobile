@@ -19,6 +19,16 @@ import '../widgets/cafe_selection/selectable_cafe_card.dart';
 import '../widgets/lobby_cafe_selection/lobby_cafe_selection_shimmer.dart';
 import 'lobby_config_page.dart';
 
+/// Chế độ lọc cafe trên màn hình `LobbyCafeSelectionPage`.
+///
+/// - [gps] (mặc định): dùng vị trí GPS đã lưu của player — sort theo
+///   `distanceMeters` tăng dần, lọc trong bán kính 15km.
+/// - [city]: lấy toàn bộ quán ACTIVE trên toàn quốc rồi filter
+///   client-side theo `PlayerLocationEntity.city` — giải quyết case player
+///   muốn đặt chỗ ở nơi không có quán trong bán kính GPS (vd: đi công
+///   tác tỉnh khác, hoặc ở vùng ven chưa có quán).
+enum _CafeFilterMode { gps, city }
+
 /// Neo-brutalism Lobby Cafe Selection Page.
 class LobbyCafeSelectionPage extends StatefulWidget {
   final BoardGameEntity game;
@@ -40,6 +50,11 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
   double? _manualLongitude;
   bool _isUpdatingLocation = false;
   bool _hasUpdatedLocation = false;
+
+  /// Chế độ filter hiện tại. Mặc định GPS để không phá vỡ UX hiện tại —
+  /// player vẫn thấy quán gần trước, có thể switch sang "Trong thành phố"
+  /// khi cần.
+  _CafeFilterMode _filterMode = _CafeFilterMode.gps;
 
   @override
   void initState() {
@@ -71,11 +86,103 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
   }
 
   Future<void> _refresh() async {
+    if (_filterMode == _CafeFilterMode.city) {
+      final location = _readPlayerLocation();
+      final city = location?.city;
+      if (city == null || city.trim().isEmpty) {
+        // Fallback về GPS mode + thông báo.
+        await _switchToGpsMode(notify: true);
+        return;
+      }
+      await widget.matchmakingCubit.loadCafesByCity(
+        city: city,
+        cityDisplayName: city.trim(),
+      );
+      return;
+    }
     if (_manualLatitude != null && _manualLongitude != null) {
       await _loadWithManualLocation();
     } else {
       widget.matchmakingCubit.loadNearbyCafesForCurrentUser(
         gameId: widget.game.id,
+      );
+    }
+  }
+
+  /// Đọc `PlayerLocationEntity` hiện tại từ `ProfileCubit` (nếu đã load).
+  /// Trả về `null` khi chưa có state location — caller phải xử lý.
+  PlayerLocationEntity? _readPlayerLocation() {
+    if (!mounted) return null;
+    final profileState = context.read<ProfileCubit>().state;
+    if (profileState is ProfileLocationLoaded) {
+      return profileState.location;
+    }
+    return null;
+  }
+
+  /// Switch sang chế độ "Trong thành phố". Lấy `city` từ
+  /// `ProfileLocationEntity.city` (đã được backend resolve sau
+  /// reverse-geocode).
+  ///
+  /// Edge case:
+  /// - `city == null` (chưa GPS / reverse-geocode fail) → giữ chế độ
+  ///   GPS, hiển thị snackbar hướng dẫn player bật GPS / cập nhật vị trí.
+  /// - State Profile chưa load xong → cố gắng trigger load rồi retry 1 lần.
+  Future<void> _switchToCityMode() async {
+    if (!mounted) return;
+
+    var location = _readPlayerLocation();
+    if (location == null) {
+      // ProfileCubit có thể chưa từng được gọi getLocation ở flow này —
+      // thử load nhanh (best-effort, không block UI).
+      final profileCubit = context.read<ProfileCubit>();
+      try {
+        await profileCubit.getLocation();
+      } catch (_) {
+        // ignore: bỏ qua lỗi, fallback snackbar
+      }
+      if (!mounted) return;
+      location = _readPlayerLocation();
+    }
+
+    final city = location?.city;
+    if (city == null || city.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chưa tìm được thành phố của bạn. Bật GPS hoặc cập nhật vị trí '
+            'rồi thử lại nhé!',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _filterMode = _CafeFilterMode.city);
+    await widget.matchmakingCubit.loadCafesByCity(
+      city: city,
+      cityDisplayName: city.trim(),
+    );
+  }
+
+  /// Switch về chế độ "Gần bạn" (GPS). Khi [notify] = true thì hiển thị
+  /// snackbar (dùng khi auto-fallback từ city mode do thiếu city info).
+  Future<void> _switchToGpsMode({bool notify = false}) async {
+    if (!mounted) return;
+    setState(() => _filterMode = _CafeFilterMode.gps);
+    if (_manualLatitude != null && _manualLongitude != null) {
+      await _loadWithManualLocation();
+    } else {
+      await widget.matchmakingCubit.loadNearbyCafesForCurrentUser(
+        gameId: widget.game.id,
+      );
+    }
+    if (notify && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã chuyển về "Gần bạn".'),
+        ),
       );
     }
   }
@@ -320,6 +427,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
         body: BlocConsumer<MatchmakingCubit, MatchmakingState>(
           listenWhen: (prev, curr) =>
               curr is MatchmakingNearbyCafesLoaded ||
+              curr is MatchmakingCafesByCityLoaded ||
               curr is MatchmakingFailure,
           listener: (context, state) {
             if (state is MatchmakingFailure) {
@@ -333,6 +441,7 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
           },
           buildWhen: (prev, curr) =>
               curr is MatchmakingNearbyCafesLoaded ||
+              curr is MatchmakingCafesByCityLoaded ||
               curr is MatchmakingInitial ||
               curr is MatchmakingLoading ||
               curr is MatchmakingFailure,
@@ -349,7 +458,16 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   children: [
-                    if (!_hasUpdatedLocation)
+                    _CafeFilterChipsRow(
+                      currentMode: _filterMode,
+                      onGpsSelected: () {
+                        if (_filterMode == _CafeFilterMode.gps) return;
+                        _switchToGpsMode();
+                      },
+                      onCitySelected: _switchToCityMode,
+                    ),
+                    if (!_hasUpdatedLocation &&
+                        _filterMode == _CafeFilterMode.gps)
                       CafeSelectionLocationBanner(
                         hasManualLocation:
                             _manualLatitude != null && _manualLongitude != null,
@@ -440,6 +558,83 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
               );
             }
 
+            if (state is MatchmakingCafesByCityLoaded) {
+              final cafes = state.cafes;
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  children: [
+                    _CafeFilterChipsRow(
+                      currentMode: _filterMode,
+                      onGpsSelected: () {
+                        if (_filterMode == _CafeFilterMode.gps) return;
+                        _switchToGpsMode();
+                      },
+                      onCitySelected: _switchToCityMode,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xxs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.border,
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          cafes.isEmpty
+                              ? 'Chưa tìm thấy quán ở ${state.cityDisplayName}'
+                              : '${cafes.length} quán ở ${state.cityDisplayName}',
+                          style: const TextStyle(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (cafes.isEmpty)
+                      CafeSelectionEmptyState(
+                        title: 'Chưa có quán nào ở ${state.cityDisplayName}',
+                        message:
+                            'BoardVerse chưa có quán nào đang mở cửa ở '
+                            '${state.cityDisplayName} phục vụ game "${widget.game.name}". '
+                            'Bạn thử chuyển về "Gần bạn" hoặc đổi sang game khác nhé!',
+                      )
+                    else
+                      for (final cafe in cafes)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.sm,
+                            0,
+                            AppSpacing.sm,
+                            AppSpacing.xs,
+                          ),
+                          child: SelectableCafeCard(
+                            cafe: cafe,
+                            onTap: () => _openConfigWithCafe(cafe),
+                          ),
+                        ),
+                  ],
+                ),
+              );
+            }
+
             if (state is MatchmakingFailure) {
               return CafeSelectionErrorRetryView(
                 message: state.message,
@@ -451,6 +646,136 @@ class _LobbyCafeSelectionPageState extends State<LobbyCafeSelectionPage> {
 
             return const SizedBox.shrink();
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill-style segmented control cho 2 chế độ lọc: "Gần bạn" / "Trong
+/// thành phố". Neo-brutalism style — pill đơn, 2 chip với viền đậm, chip
+/// đang chọn có nền primary.
+class _CafeFilterChipsRow extends StatelessWidget {
+  final _CafeFilterMode currentMode;
+  final VoidCallback onGpsSelected;
+  final VoidCallback onCitySelected;
+
+  const _CafeFilterChipsRow({
+    required this.currentMode,
+    required this.onGpsSelected,
+    required this.onCitySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        0,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _FilterChip(
+              label: 'Gần bạn',
+              icon: Icons.my_location,
+              selected: currentMode == _CafeFilterMode.gps,
+              onTap: onGpsSelected,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: _FilterChip(
+              label: 'Trong thành phố',
+              icon: Icons.location_city,
+              selected: currentMode == _CafeFilterMode.city,
+              onTap: onCitySelected,
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary
+                : (isDark ? AppColors.surfaceDark : AppColors.surface),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.borderDark : AppColors.border),
+              width: 2,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: selected
+                    ? AppColors.white
+                    : (isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimary)
+                        .withValues(alpha: 0.75),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.3,
+                    color: selected
+                        ? AppColors.white
+                        : (isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimary),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

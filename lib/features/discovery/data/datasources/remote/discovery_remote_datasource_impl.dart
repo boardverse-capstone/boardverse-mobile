@@ -148,7 +148,9 @@ class DiscoveryRemoteDatasourceImpl implements DiscoveryDatasource {
 
     return parsed.fold(
       (failure) => throw Exception(failure.message),
-      (data) => SavedGamesResponseModel.fromJson(data as Map<String, dynamic>),
+      // BE mới (2026-10): `data` là List trực tiếp. `SavedGamesResponseModel
+      // .fromJson` đã hỗ trợ cả List lẫn Map nên không cast cứng ở đây.
+      (data) => SavedGamesResponseModel.fromJson(data),
     );
   }
 
@@ -157,11 +159,15 @@ class DiscoveryRemoteDatasourceImpl implements DiscoveryDatasource {
     final response = await _dio.post(
       ApiEndpoints.discoverySavedToggle(gameTemplateId),
     );
-    final parsed = DualFormatResponse.parse(response);
+    // Dung parseWithMessage de bat ca `message` tu envelope format 2
+    // (vi du: "Da luu board game." / "Da bo luu board game.").
+    final parsed = DualFormatResponse.parseWithMessage(response);
 
     return parsed.fold(
       (failure) => throw Exception(failure.message),
-      (data) => BoardGameSaveResultModel.fromJson(data as Map<String, dynamic>),
+      (result) => BoardGameSaveResultModel.fromJson(
+        result.data as Map<String, dynamic>,
+      ).copyWith(message: result.message),
     );
   }
 

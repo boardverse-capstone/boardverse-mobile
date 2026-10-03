@@ -16,6 +16,7 @@ import 'features/lobby_management/lobby_routes.dart';
 import 'features/lobby_management/presentation/cubit/lobby_cubit.dart';
 import 'features/lobby_management/presentation/cubit/lobby_search_cubit.dart';
 import 'features/lobby_management/presentation/cubit/my_lobbies_cubit.dart';
+import 'features/discovery/presentation/cubit/saved_games_cubit.dart';
 import 'features/in_game_experience/presentation/pages/in_game_session_page.dart';
 import 'features/matchmaking_discovery/presentation/cubit/matchmaking_cubit.dart';
 import 'features/profile/presentation/cubit/profile_cubit.dart';
@@ -75,6 +76,20 @@ class BoardVerseApp extends StatelessWidget {
           create: (_) => sl<TournamentListCubit>(),
         ),
         BlocProvider<ThemeCubit>(create: (_) => sl<ThemeCubit>()..load()),
+        // SavedGamesCubit phải ở root (không phải trong MainScaffold) để
+        // các route push qua Navigator (vd: BoardGameDetailPage, CafeDetailPage)
+        // có thể `context.read<SavedGamesCubit>()` thành công — Navigator
+        // root nằm ngoài widget tree của MainScaffold nên các cubit
+        // chỉ được provide trong MainScaffold sẽ không visible cho route
+        // pushed. Khi đó `toggleSave` throw ProviderNotFoundException → UI
+        // catch hiển thị "Không thể lưu game. Vui lòng thử lại sau." dù
+        // chưa có API call nào.
+        //
+        // LazySingleton trong `getIt` → chỉ tạo 1 instance duy nhất,
+        // không tốn thêm chi phí. `loadSavedGames()` được trigger từ
+        // MainScaffold.initState() (sau khi user đã auth) để tránh
+        // gọi API với user chưa đăng nhập.
+        BlocProvider<SavedGamesCubit>.value(value: sl<SavedGamesCubit>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, themeState) {

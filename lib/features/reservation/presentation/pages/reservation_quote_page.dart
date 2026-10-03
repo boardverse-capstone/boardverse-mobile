@@ -434,6 +434,21 @@ class _LoadedBody extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // Tính buffer động: thời gian từ bây giờ đến giờ lobby bắt đầu.
+    // Dùng scheduledStartTime thay vì quote.bufferMinutes (static backend)
+    // để luôn hiển thị đúng thời gian thực.
+    final bufferDuration = quote.scheduledStartTime.difference(DateTime.now());
+    final bufferMinutes = bufferDuration.inMinutes;
+
+    // Warning level theo ngưỡng ở buffer_info_card.dart (BR §XXI-B.6):
+    // ≥ 120p → none, 60–119p → warning, < 60p → rejected.
+    String? computedBufferWarningText;
+    if (bufferMinutes < 60) {
+      computedBufferWarningText = 'Thời gian tuyển người quá ngắn. Vui lòng cân nhắc lựa chọn thời gian khác phù hợp.';
+    } else if (bufferMinutes < 120) {
+      computedBufferWarningText = 'Thời gian tuyển người ngắn. Khuyến nghị chọn slot xa hơn.';
+    }
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -441,17 +456,16 @@ class _LoadedBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Risk / warning banner ───────────────────────────────
-            if (quote.riskMultiplier > 1.0 || quote.warnings.isNotEmpty) ...[
+            if (quote.riskMultiplier > 1.0 ||
+                quote.warnings.isNotEmpty ||
+                computedBufferWarningText != null) ...[
               _WarningBanner(
                 riskLevel: quote.riskLevel,
                 riskMultiplier: quote.riskMultiplier,
                 warnings: quote.warnings,
-                baseDeposit: quote.baseDeposit,
-                depositRatePerPerson: quote.depositRatePerPerson,
-                minDepositApplied: quote.minDepositApplied,
-                bufferMinutes: quote.bufferMinutes,
-                bufferWarning: quote.bufferWarning,
-                bufferWarningText: quote.bufferWarningLevel.message,
+                bufferMinutes: bufferMinutes,
+                bufferWarning: computedBufferWarningText != null,
+                bufferWarningText: computedBufferWarningText,
               ),
               const SizedBox(height: AppSpacing.md),
             ],
@@ -517,19 +531,21 @@ class _LoadedBody extends StatelessWidget {
               child: Column(
                 children: [
                   // Deposit breakdown rows
+                  // BR-DEPOSIT-02 (2026-08-27 chỉnh): bỏ row "Cọc / người"
+                  // vì backend không còn trả `depositRatePerPerson`. Thay
+                  // bằng row "Giá vé cơ bản" hiển thị `cafeBasePriceVnd`
+                  // (VND/người) — đây là cách duy nhất để FE hiển thị
+                  // breakdown mới.
+                  if (quote.cafeBasePriceVnd != null) ...[
+                    LobbyConfigQuoteRow(
+                      label: 'Giá vé cơ bản',
+                      value: '${_formatVnd(quote.cafeBasePriceVnd!)} đ/người',
+                    ),
+                    _NeoDivider(isDark: isDark),
+                  ],
                   LobbyConfigQuoteRow(
-                    label: 'Cọc / người',
-                    value: '${quote.depositRatePerPerson} BVC',
-                  ),
-                  _NeoDivider(isDark: isDark),
-                  LobbyConfigQuoteRow(
-                    label: 'Số người',
-                    value: '${quote.minPlayers} – ${quote.maxPlayers}',
-                  ),
-                  _NeoDivider(isDark: isDark),
-                  LobbyConfigQuoteRow(
-                    label: 'Base deposit',
-                    value: '${quote.baseDeposit} BVC',
+                    label: 'Số người tối đa',
+                    value: '${quote.maxPlayers}',
                   ),
                   if (quote.riskMultiplier > 1.0) ...[
                     _NeoDivider(isDark: isDark),
@@ -540,8 +556,8 @@ class _LoadedBody extends StatelessWidget {
                   ],
                   _NeoDivider(isDark: isDark),
                   LobbyConfigQuoteRow(
-                    label: 'Buffer',
-                    value: _formatBuffer(quote.bufferMinutes),
+                    label: 'Thời gian tuyển người',
+                    value: _formatBuffer(bufferMinutes),
                   ),
 
                   const SizedBox(height: AppSpacing.md),
@@ -736,6 +752,16 @@ class _LoadedBody extends StatelessWidget {
     final ss = (d.inSeconds % 60).toString().padLeft(2, '0');
     return '$hh:$mm:$ss';
   }
+
+  /// BR-DEPOSIT-02 (2026-08-27 chỉnh): format `cafeBasePriceVnd` (VND)
+  /// theo chuẩn tiếng Việt — `12.500` / `1.250.000`. Thêm dấu chấm
+  /// phân cách hàng nghìn.
+  String _formatVnd(int v) {
+    return v.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+  }
 }
 
 /// Neo-brutalism divider: 1.5px solid line.
@@ -757,13 +783,15 @@ class _NeoDivider extends StatelessWidget {
 /// Banner cảnh báo BR-NEW-15 — render `warnings[]` từ backend kèm risk
 /// info. Show trước panel quote chính để user biết tại sao cọc cao / có
 /// buffer / sắp chạm cap, v.v.
+///
+/// BR-DEPOSIT-02 (2026-08-27 chỉnh): bỏ các field `baseDeposit`/
+/// `depositRatePerPerson`/`minDepositApplied` khỏi banner — backend không
+/// còn trả các giá trị này trong quote response. Banner chỉ còn show
+/// risk level + warning codes + buffer info.
 class _WarningBanner extends StatelessWidget {
   final RiskLevel riskLevel;
   final double riskMultiplier;
   final List<String> warnings;
-  final int baseDeposit;
-  final int depositRatePerPerson;
-  final int minDepositApplied;
   final int bufferMinutes;
   final bool bufferWarning;
   final String? bufferWarningText;
@@ -772,9 +800,6 @@ class _WarningBanner extends StatelessWidget {
     required this.riskLevel,
     required this.riskMultiplier,
     required this.warnings,
-    required this.baseDeposit,
-    required this.depositRatePerPerson,
-    required this.minDepositApplied,
     required this.bufferMinutes,
     required this.bufferWarning,
     this.bufferWarningText,

@@ -5,13 +5,23 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
 
 /// Neo-brutalism Empty state khi không có cafe nào trong khu vực.
+///
+/// Widget này hiển thị icon + title + message. Mặc định title là "Chưa
+/// có quán cafe nào" — caller có thể override bằng [title] để phù hợp
+/// với ngữ cảnh (vd: "Chưa có quán nào tại Hồ Chí Minh" khi filter
+/// "Trong thành phố" trống).
 class CafeSelectionEmptyState extends StatelessWidget {
   final String message;
-  const CafeSelectionEmptyState({super.key, required this.message});
+
+  /// Tiêu đề empty state. Mặc định là câu chung chung để giữ backward
+  /// compat — code mới nên truyền title cụ thể hơn (vd: theo thành phố).
+  final String? title;
+  const CafeSelectionEmptyState({super.key, required this.message, this.title});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xxl,
@@ -41,9 +51,12 @@ class CafeSelectionEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Chưa có quán cafe nào',
+            title ?? 'Chưa có quán cafe nào',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w900,
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -52,8 +65,14 @@ class CafeSelectionEmptyState extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
+              // Dùng `textPrimary` thay vì `outline` để đảm bảo contrast
+              // đủ lớn cho body text — `outline` trong Material 3 quá nhạt,
+              // khó đọc trên thiết bị di động, đặc biệt dưới ánh sáng mạnh.
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
               height: 1.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/alternative_game_suggestion_entity.dart';
+import '../../domain/entities/board_game_active_cafe_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
@@ -74,6 +75,22 @@ class MatchmakingSearchResults extends MatchmakingState {
 class MatchmakingGameDetail extends MatchmakingState {
   final BoardGameDetailEntity game;
   final List<CafeEntity> nearbyCafes;
+
+  /// Danh sách quán cafe ACTIVE có board game này trong kho — populate
+  /// từ `GET /api/v1/board-games/{id}/active-cafes` (chiều ngược của
+  /// `/api/cafes/{cafeId}/active-games`).
+  ///
+  /// Thay thế `nearbyCafes` (quán gần theo GPS) cho mục đích hiển thị
+  /// trên [BoardGameDetailPage] — section "QUÁN CÓ BOARD GAME NÀY".
+  ///
+  /// `nearbyCafes` được giữ lại cho backward compat (code path khác
+  /// trong cubit vẫn populate), nhưng UI board-game-detail chỉ đọc
+  /// `activeCafes` để render.
+  ///
+  /// Nếu truyền lat/lng khi gọi endpoint, backend sort theo khoảng
+  /// cách + populate `distanceMeters`. Nếu không, sort theo tên A→Z
+  /// + `distanceMeters = null`.
+  final List<BoardGameActiveCafeEntity> activeCafes;
   final bool isGpsEnabled;
   final bool isOutOfRadius;
   final List<BoardGameEntity>? similarGames;
@@ -90,13 +107,25 @@ class MatchmakingGameDetail extends MatchmakingState {
 
   /// AC 5.2 — gợi ý game cùng thể loại còn hàng ([AlternativeGameSuggestionEntity]).
   /// Backend trả `[]` khi có quán nào đó.
+  ///
+  /// **Deprecated cho flow mới**: section "QUÁN CÓ BOARD GAME NÀY" không
+  /// còn phụ thuộc vị trí player, nên alternative suggestions (chỉ hiện
+  /// khi out-of-radius) không còn ý nghĩa. Field này chỉ còn để
+  /// backward compat với code cũ.
   final List<AlternativeGameSuggestionEntity> alternativeSuggestions;
+
+  /// Game hiện tại có nằm trong danh sách yêu thích của user hay không.
+  /// Lấy từ `isSaved` trong response `GET /api/v1/board-games/{id}/active-cafes`
+  /// (build 2026-10-03+). UI dùng để hiển thị icon save/unsave trên
+  /// header trang chi tiết. `false` khi user chưa login hoặc backend cũ.
+  final bool isSaved;
 
   const MatchmakingGameDetail({
     required this.game,
     required this.nearbyCafes,
     required this.isGpsEnabled,
     required this.isOutOfRadius,
+    this.activeCafes = const [],
     this.similarGames,
     this.selectedCafeSeats,
     this.isCheckingSeats = false,
@@ -104,6 +133,7 @@ class MatchmakingGameDetail extends MatchmakingState {
     this.selectedCafeId,
     this.emptyResultMessage,
     this.alternativeSuggestions = const [],
+    this.isSaved = false,
   });
 
   MatchmakingGameDetail copyWith({
@@ -111,6 +141,7 @@ class MatchmakingGameDetail extends MatchmakingState {
     List<CafeEntity>? nearbyCafes,
     bool? isGpsEnabled,
     bool? isOutOfRadius,
+    List<BoardGameActiveCafeEntity>? activeCafes,
     List<BoardGameEntity>? similarGames,
     SeatAvailabilityEntity? selectedCafeSeats,
     bool? isCheckingSeats,
@@ -119,12 +150,14 @@ class MatchmakingGameDetail extends MatchmakingState {
     bool clearSeatError = false,
     String? emptyResultMessage,
     List<AlternativeGameSuggestionEntity>? alternativeSuggestions,
+    bool? isSaved,
   }) {
     return MatchmakingGameDetail(
       game: game ?? this.game,
       nearbyCafes: nearbyCafes ?? this.nearbyCafes,
       isGpsEnabled: isGpsEnabled ?? this.isGpsEnabled,
       isOutOfRadius: isOutOfRadius ?? this.isOutOfRadius,
+      activeCafes: activeCafes ?? this.activeCafes,
       similarGames: similarGames ?? this.similarGames,
       selectedCafeSeats: selectedCafeSeats ?? this.selectedCafeSeats,
       isCheckingSeats: isCheckingSeats ?? this.isCheckingSeats,
@@ -133,6 +166,7 @@ class MatchmakingGameDetail extends MatchmakingState {
       emptyResultMessage: emptyResultMessage ?? this.emptyResultMessage,
       alternativeSuggestions:
           alternativeSuggestions ?? this.alternativeSuggestions,
+      isSaved: isSaved ?? this.isSaved,
     );
   }
 
@@ -142,6 +176,7 @@ class MatchmakingGameDetail extends MatchmakingState {
         nearbyCafes,
         isGpsEnabled,
         isOutOfRadius,
+        activeCafes,
         similarGames,
         selectedCafeSeats,
         isCheckingSeats,
@@ -149,6 +184,7 @@ class MatchmakingGameDetail extends MatchmakingState {
         selectedCafeId,
         emptyResultMessage,
         alternativeSuggestions,
+        isSaved,
       ];
 }
 
@@ -369,6 +405,47 @@ class MatchmakingCafeSearchResults extends MatchmakingState {
         alternativeSuggestions,
         fallbackGameName,
       ];
+}
+
+// ─── Cafes By City (client-side filter) ──────────────────────────
+
+/// Kết quả "Trong thành phố" filter — lấy toàn bộ quán ACTIVE rồi filter
+/// client-side theo `PlayerLocationEntity.city`.
+///
+/// Lý do cần state riêng (thay vì dùng `MatchmakingNearbyCafesLoaded`):
+/// - Khác `radiusKm`/`distanceMeters` semantics: list "Trong thành phố"
+///   không tính khoảng cách, sort theo tên A→Z (khớp với backend
+///   `GET /api/cafes`).
+/// - Khác `source` để UI render chip filter đúng trạng thái (khi user
+///   switch về "Gần bạn" sẽ dùng state khác).
+/// - Khác `emptyResultMessage` semantics: "Trong thành phố" trống có thể
+///   do thành phố player không có quán ACTIVE nào (hiếm nhưng khả thi),
+///   cần message khác với "chưa có quán trong bán kính 15km".
+class MatchmakingCafesByCityLoaded extends MatchmakingState {
+  /// Thành phố đã filter (đã normalize — lowercase, trim).
+  final String city;
+
+  /// Label hiển thị cho UI (giữ nguyên casing gốc từ `PlayerLocationEntity.city`).
+  final String cityDisplayName;
+
+  /// Danh sách quán có `address` chứa `city` (case-insensitive).
+  /// Tổng quán ACTIVE trên hệ thống được trả trong [totalActiveCafes].
+  final List<CafeEntity> cafes;
+
+  /// Tổng quán ACTIVE backend trả về (trước khi filter city) — dùng để
+  /// hiển thị "Hiển thị X / Y quán trên toàn quốc" cho UX minh bạch.
+  final int totalActiveCafes;
+
+  const MatchmakingCafesByCityLoaded({
+    required this.city,
+    required this.cityDisplayName,
+    required this.cafes,
+    required this.totalActiveCafes,
+  });
+
+  @override
+  List<Object?> get props =>
+      [city, cityDisplayName, cafes, totalActiveCafes];
 }
 
 // ─── Time Slots Defaults ──────────────────────────────────────────

@@ -11,6 +11,8 @@ class RecommendedBoardGameModel extends Equatable {
   final int playTimeMinutes;
   final List<String> categories;
   final double score;
+  final bool isSaved;
+  final bool hasOpenLobby;
   final List<String> matchReasons;
 
   const RecommendedBoardGameModel({
@@ -23,7 +25,9 @@ class RecommendedBoardGameModel extends Equatable {
     required this.playTimeMinutes,
     required this.categories,
     required this.score,
-    required this.matchReasons,
+    this.isSaved = false,
+    this.hasOpenLobby = false,
+    this.matchReasons = const [],
   });
 
   factory RecommendedBoardGameModel.fromJson(Map<String, dynamic> json) {
@@ -44,7 +48,12 @@ class RecommendedBoardGameModel extends Equatable {
               ?.map((e) => e is String ? e : e['name'] as String? ?? '')
               .toList() ??
           [],
-      score: (json['score'] as num?)?.toDouble() ?? 0,
+      // BE survey tra ca `score` va `matchScore` — uu tien `matchScore`
+      // (ten chinh thuc cho survey endpoint), fallback `score` cho
+      // backward-compat voi response cuid tha hon.
+      score: (json['matchScore'] ?? json['score'] as num?)?.toDouble() ?? 0,
+      isSaved: json['isSaved'] as bool? ?? false,
+      hasOpenLobby: json['hasOpenLobby'] as bool? ?? false,
       matchReasons: (json['matchReasons'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -55,7 +64,7 @@ class RecommendedBoardGameModel extends Equatable {
   @override
   List<Object?> get props => [
         id, name, imageUrl, weight, minPlayers, maxPlayers,
-        playTimeMinutes, categories, score, matchReasons,
+        playTimeMinutes, categories, score, isSaved, hasOpenLobby, matchReasons,
       ];
 }
 

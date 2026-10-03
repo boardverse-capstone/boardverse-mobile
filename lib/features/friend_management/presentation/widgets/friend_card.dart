@@ -29,10 +29,10 @@ class FriendCard extends StatelessWidget {
 
     return OutlinedCard(
       onTap: onTap,
-      radius: 14,
+      radius: 16,
       shadowColor: AppColors.black.withValues(alpha: 0.06),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -56,12 +56,6 @@ class FriendCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  _ActivityChip(
-                    label: badge.label,
-                    color: badge.color ?? theme.colorScheme.outline,
-                    isInLobby: friend.isInLobby,
-                  ),
                   if (friend.karmaPoints > 0 ||
                       (friend.mutualFriendsCount ?? 0) > 0) ...[
                     const SizedBox(height: AppSpacing.xs),
@@ -70,10 +64,25 @@ class FriendCard extends StatelessWidget {
                       mutualFriendsCount: friend.mutualFriendsCount,
                     ),
                   ],
+                  if (badge.color != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    _ActivityChip(
+                      label: badge.label,
+                      color: badge.color!,
+                      isInLobby: friend.isInLobby,
+                    ),
+                  ] else if (friend.isInLobby) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    _ActivityChip(
+                      label: badge.label,
+                      color: theme.colorScheme.outline,
+                      isInLobby: true,
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.xs),
             _ActionButton(
               isInLobby: friend.isInLobby,
               onPressed: onInviteToLobby,
@@ -119,7 +128,7 @@ class _AvatarSection extends StatelessWidget {
               username: username,
               avatarUrl: avatarUrl,
               borderColor: tierColor,
-              radius: 26,
+              radius: 28,
               borderWidth: 2,
             ),
           ),

@@ -19,6 +19,12 @@ class BoardGameDetailEntity extends Equatable {
   final List<GameCategoryEntity> categories;
   final List<GameComponentEntity> components;
 
+  /// Game có nằm trong danh sách yêu thích của user hay không.
+  /// Từ response `GET /api/v1/board-games/{id}` (build 2026-10-03+).
+  /// UI dùng để hiển thị icon save/unsave trên header trang chi tiết.
+  /// `false` khi user chưa login hoặc backend cũ.
+  final bool isSaved;
+
   const BoardGameDetailEntity({
     required this.id,
     required this.name,
@@ -31,6 +37,7 @@ class BoardGameDetailEntity extends Equatable {
     this.updatedAt,
     this.categories = const [],
     this.components = const [],
+    this.isSaved = false,
   });
 
   /// Định dạng hiển thị số người chơi — tránh "2-2 người" khó hiểu.
@@ -87,5 +94,6 @@ class BoardGameDetailEntity extends Equatable {
         updatedAt,
         categories,
         components,
+        isSaved,
       ];
 }

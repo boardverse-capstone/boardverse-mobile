@@ -149,5 +149,52 @@ void main() {
       // Empty slot widget — find children of grid.
       // (Test pass nếu không có overflow exception.)
     });
+
+    // Regression test (2026-10-02): Khi `maxPlayers` lẻ và chỉ có 1
+    // host (vd: `maxPlayers = 3`, `players = [host]`), grid **KHÔNG
+    // ĐƯỢC** render thêm 1 `_EmptySlotCard()` ở row orphan. Trước
+    // đây loop manual rows có `secondCard ?? _EmptySlotCard()` → grid
+    // hiển thị 4 cells thay vì 3 (vượt maxPlayers), user feedback
+    // "Thành viên 1/3 nhưng UI có 4 card".
+    //
+    // Expected sau fix: 3 cells total (1 player + 2 empty), 2 rows
+    // (row 0 có 2 card, row 1 chỉ 1 orphan empty card).
+    testWidgets('Orphan row: maxPlayers lẻ + chỉ có host → đúng maxPlayers',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final players = [player('1', 'Host', isHost: true)];
+
+      await tester.pumpWidget(wrap(
+        SizedBox(
+          width: 360,
+          child: LobbyPlayerGrid(
+            players: players,
+            maxSlots: 3,
+            lobbyStatus: LobbyStatus.open,
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      // 1 player card (host).
+      expect(find.byType(LobbyPlayerCard), findsNWidgets(1));
+
+      // Grid dùng `Wrap` thay vì loop rows manual — đếm tổng children
+      // để đảm bảo đúng `maxPlayers` (3 = 1 host + 2 empty). Trước
+      // bug fix, loop render thủng 4 children (1 host + 3 empty) vì
+      // row cuối luôn có 1 phantom empty slot.
+      final wrapFinder = find.descendant(
+        of: find.byType(LobbyPlayerGrid),
+        matching: find.byType(Wrap),
+      );
+      expect(wrapFinder, findsOneWidget);
+      final wrapWidget = tester.widget<Wrap>(wrapFinder);
+      expect(wrapWidget.children.length, 3,
+          reason:
+              'Grid phải đúng maxPlayers cells, không có phantom empty slot thừa.');
+    });
   });
 }

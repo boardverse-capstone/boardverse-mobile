@@ -577,6 +577,11 @@ class LobbyPlayer extends Equatable {
   /// BR-10: điểm uy tín hiện tại của player (chỉ dùng cho filter & hiển thị).
   final double karma;
 
+  /// Lobby Merge (2026-09-23): ID của lobby gốc mà member tham gia trước
+  /// khi được ghép vào lobby đích. `null` cho member không qua merge.
+  /// UI dùng để hiển thị badge "Từ phòng khác" cho member này.
+  final String? previousLobbyId;
+
   const LobbyPlayer({
     required this.id,
     required this.userId,
@@ -586,10 +591,15 @@ class LobbyPlayer extends Equatable {
     required this.joinedAt,
     this.readyAt,
     this.karma = 70,
+    this.previousLobbyId,
   });
 
   /// Derive `isReady` từ `readyAt != null` — UI/business rule BR-LOBBY-READY-01.
   bool get isReady => readyAt != null;
+
+  /// Member được ghép vào lobby đích từ lobby khác qua Lobby Merge flow.
+  /// Hiển thị badge "Từ phòng khác" để other members biết nguồn gốc.
+  bool get isMergedFromOtherLobby => previousLobbyId != null;
 
   @override
   List<Object?> get props => [
@@ -601,5 +611,6 @@ class LobbyPlayer extends Equatable {
     joinedAt,
     readyAt,
     karma,
+    previousLobbyId,
   ];
 }

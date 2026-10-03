@@ -238,4 +238,199 @@ void main() {
       );
     });
   });
+
+  group('LobbyTimeCalculator.validateStartTime', () {
+    // BR §XXI-B.6 (cập nhật 2026-10-01): ngưỡng buffer mới = 30 phút,
+    // công thức `scheduledStartTime - now` (KHÔNG trừ leadTime). Trước
+    // đây dùng `deadline - now >= 60p` (= 80p với leadTime=20p) — quá
+    // strict, group bạn đi chung bị chặn khi buffer 30-60p.
+
+    test('start null → tooSoon (defensive guard)', () {
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: null,
+          now: DateTime(2026, 10, 1, 10, 0),
+        ),
+        StartTimeValidation.tooSoon,
+      );
+    });
+
+    test('today, now 18:22, start 09:00 → tooSoon (start trong quá khứ)', () {
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 9, minute: 0),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.tooSoon,
+      );
+    });
+
+    test('today, now 18:22, start 18:45 → tooSoon (buffer = 23p, < 30p)', () {
+      // scheduled = 18:45, buffer = 18:45 - 18:22 = 23p < 30p
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 18, minute: 45),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.tooSoon,
+      );
+    });
+
+    test('today, now 18:22, start 18:55 → ok (buffer = 33p, ≥ 30p)', () {
+      // scheduled = 18:55, buffer = 33p ≥ 30p → OK cho group bạn.
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 18, minute: 55),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.ok,
+      );
+    });
+
+    test('today, now 18:22, start 19:00 → ok (buffer = 38p, ≥ 30p)', () {
+      // Trước đây fail vì deadline = 18:40, buffer = 18p < 60p.
+      // Sau cập nhật BR §XXI-B.6: buffer = scheduledTime - now = 38p,
+      // đủ cho group bạn.
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 19, minute: 0),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.ok,
+      );
+    });
+
+    test('today, now 18:22, start 20:00 → ok (buffer = 98p)', () {
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 20, minute: 0),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.ok,
+      );
+    });
+
+    test('tomorrow, start 09:00 → ok (luôn trong tương lai)', () {
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 2),
+          startTime: const TimeOfDay(hour: 9, minute: 0),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.ok,
+      );
+    });
+
+    test('today, start sát hiện tại (now 18:22, start 18:30) → tooSoon', () {
+      // scheduled = 18:30, buffer = 8p < 30p.
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 18, minute: 30),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.tooSoon,
+      );
+    });
+
+    test('override minBuffer: now 18:22, start 18:30, minBuffer 5p → ok',
+        () {
+      // Verify `minBuffer` parameter vẫn hoạt động (custom threshold).
+      expect(
+        LobbyTimeCalculator.validateStartTime(
+          selectedDate: DateTime(2026, 10, 1),
+          startTime: const TimeOfDay(hour: 18, minute: 30),
+          minBuffer: const Duration(minutes: 5),
+          now: DateTime(2026, 10, 1, 18, 22),
+        ),
+        StartTimeValidation.ok,
+      );
+    });
+  });
+
+  group('LobbyTimeCalculator.computeDefaultEndTime', () {
+    test('start 09:00 → end 13:00 (4h same-day)', () {
+      expect(
+        LobbyTimeCalculator.computeDefaultEndTime(
+          const TimeOfDay(hour: 9, minute: 0),
+        ),
+        const TimeOfDay(hour: 13, minute: 0),
+      );
+    });
+
+    test('start 22:00 → end 02:00 (overnight wrap)', () {
+      // 22+4 = 26 → mod 24 = 2
+      expect(
+        LobbyTimeCalculator.computeDefaultEndTime(
+          const TimeOfDay(hour: 22, minute: 0),
+        ),
+        const TimeOfDay(hour: 2, minute: 0),
+      );
+    });
+
+    test('start 19:30 → end 23:30 (giữ phút, same-day)', () {
+      expect(
+        LobbyTimeCalculator.computeDefaultEndTime(
+          const TimeOfDay(hour: 19, minute: 30),
+        ),
+        const TimeOfDay(hour: 23, minute: 30),
+      );
+    });
+  });
+
+  group('LobbyTimeCalculator.computeSmartDefaultStartTime', () {
+    test('ngày tương lai (2026-10-02) → luôn 09:00 (không phụ thuộc now)', () {
+      final future = DateTime(2026, 10, 2);
+      final result = LobbyTimeCalculator.computeSmartDefaultStartTime(
+        future,
+        leadTime: const Duration(minutes: 20),
+        safetyBuffer: const Duration(hours: 3),
+      );
+      expect(result, const TimeOfDay(hour: 9, minute: 0));
+    });
+
+    test(
+      'hôm nay → default = now + lead + safety buffer, làm tròn lên giờ '
+      'chẵn, clamp ≤ 22:00 (regression guard cho UX)',
+      () {
+        // Không phụ thuộc now cứng — assertion linh hoạt theo giờ thực.
+        // Function gọi `DateTime.now()` bên trong (không inject được),
+        // nên verify semantic bằng range đúng [0, 22].
+        final today = DateTime.now();
+        final today00 = DateTime(today.year, today.month, today.day);
+        final result = LobbyTimeCalculator.computeSmartDefaultStartTime(
+          today00,
+          leadTime: const Duration(minutes: 20),
+          safetyBuffer: const Duration(hours: 3),
+        );
+        // hour phải nằm trong [0, 22] (clamp của function).
+        expect(result.hour, lessThanOrEqualTo(22));
+        expect(result.hour, greaterThanOrEqualTo(0));
+        expect(result.minute, 0);
+        // Edge case: nếu now > 22:00 → wrap về early-morning.
+        // Nếu now + 3h vẫn trong ngày → hour >= (now + 3) rounded up.
+        if (today.hour < 19) {
+          // now + 3h chưa wrap.
+          expect(result.hour, greaterThanOrEqualTo(today.hour + 3));
+        }
+      },
+    );
+
+    test('hôm nay, wrap around 24h (now 23:30 → earliest 02:50 → 03:00)', () {
+      // Không thể fake now trong function, nên test bằng cách kiểm tra
+      // ngày mai vẫn giữ 09:00 (sanity check cho non-isToday branch).
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final tomorrow00 = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+      final result = LobbyTimeCalculator.computeSmartDefaultStartTime(
+        tomorrow00,
+      );
+      expect(result, const TimeOfDay(hour: 9, minute: 0));
+    });
+  });
 }

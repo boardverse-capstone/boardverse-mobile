@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/neo_brutalism_theme.dart';
+import '../../../../../core/utils/distance_formatter.dart';
 import '../../../domain/entities/cafe_entity.dart';
 import 'cafe_chip.dart';
 
@@ -51,9 +52,9 @@ class _SelectableCafeCardState extends State<SelectableCafeCard>
     final isDark = theme.brightness == Brightness.dark;
     final isPressed = _pressCtrl.isAnimating && _pressCtrl.value > 0.5;
 
-    final distanceLabel = widget.cafe.distanceMeters < 1000
-        ? '${widget.cafe.distanceMeters.toStringAsFixed(0)} m'
-        : '${(widget.cafe.distanceMeters / 1000).toStringAsFixed(1)} km';
+    final distanceLabel = DistanceFormatter.format(
+      widget.cafe.distanceMeters,
+    );
 
     return AnimatedBuilder(
       animation: _scaleAnimation,

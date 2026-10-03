@@ -46,7 +46,56 @@ class ApiEndpoints {
   // Xem chi tiết: .agents/docs/apis_docs/board-games.md
   static const String boardGames = '/api/v1/board-games';
   static const String boardGameCategories = '/api/v1/board-games/categories';
+
+  /// GET /api/v1/board-games/top5 — Top 5 board game được chơi nhiều nhất
+  /// trong hệ thống (widget "Top hot" trên UI mobile).
+  /// Public — không cần JWT. Đếm `playCount` từ `ActiveSession.GameTemplateId`
+  /// + `ActiveSessionGame.GameTemplateId` (StartedAt != null).
+  /// Response: `TopBoardGameDto[]` với field `playCount` mới (build 2026-09-10).
+  /// Docs: `.agents/docs/apis_docs/board-games.md` §GET /top5
+  static const String boardGamesTop5 = '/api/v1/board-games/top5';
+
+  /// GET /api/v1/board-games/thumbnail-proxy — Proxy ảnh thumbnail từ
+  /// BoardGameGeek CDN (và các host được whitelist) để bypass CORS cho
+  /// Flutter Web (CanvasKit taint canvas khi load ảnh không có
+  /// `Access-Control-Allow-Origin`).
+  ///
+  /// Whitelist host (chống SSRF):
+  /// - `cf.geekdo-images.com`
+  /// - `cf.geekdo.com`
+  /// - `images.boardgamegeek.com`
+  /// - `boardgamegeek.com`
+  ///
+  /// Mobile (Android/iOS) load trực tiếp từ upstream vẫn OK; chỉ cần dùng
+  /// proxy khi `kIsWeb`. Backend cache 24h (`Cache-Control: public, max-age=86400`).
+  ///
+  /// URL ngoài whitelist → 502; URL rỗng / non-http → 400; size > 5MB → 502.
+  /// Docs: `.agents/docs/apis_docs/board-games.md` §GET /thumbnail-proxy
+  static const String boardGameThumbnailProxy =
+      '/api/v1/board-games/thumbnail-proxy';
+
   static const String boardGameDetail = '/api/v1/board-games/{id}';
+
+  /// GET /api/v1/board-games/{boardgameId}/active-cafes — Lấy danh sách
+  /// quán cafe đang ACTIVE có board game này trong kho (`Status ∈ {Available,
+  /// InUse}`). Đây là chiều ngược của
+  /// `GET /api/cafes/{cafeId}/active-games` — player hỏi "chơi game này ở
+  /// đâu?". Public — không cần token.
+  ///
+  /// Query params:
+  /// - `name`: lọc theo tên quán (case-insensitive partial).
+  /// - `latitude`, `longitude`: dùng để sort theo khoảng cách. Bỏ trống →
+  ///   sort theo tên A→Z.
+  /// - `pageNumber`, `pageSize`: phân trang (mặc định pageSize=20).
+  ///
+  /// Response: `PaginatedResponse<BoardGameActiveCafeDto>` — mỗi item gồm
+  /// thông tin quán (`cafeId`, `cafeName`, `cafeAddress`, ...) + thông tin
+  /// kho (`inventoryId`, `availableGameBoxCount`, `status`).
+  ///
+  /// Docs: `.agents/docs/apis_docs/board-games.md` §GET /api/v1/board-games/{id}/active-cafes
+  static String boardGameActiveCafes(String boardgameId) =>
+      '/api/v1/board-games/$boardgameId/active-cafes';
+
   static const String boardGamePlayConfiguration =
       '/api/v1/board-games/{id}/play-configuration';
   static const String boardGamePlayNavigation =
@@ -57,6 +106,7 @@ class ApiEndpoints {
   // ──────────────────────────────────────────────
   // Base: /api/cafes — phục vụ luồng Khám phá Quán cho Player.
   // Xem chi tiết: .agents/docs/apis_docs/cafe.md
+  static const String cafes = '/api/cafes';
   static const String cafesNearby = '/api/cafes/nearby';
   static const String cafesNearbyMe = '/api/cafes/nearby/me';
   static const String cafeDetail = '/api/cafes/{id}';
@@ -240,10 +290,22 @@ class ApiEndpoints {
   /// POST /api/v1/lobbies/{id}/report — Báo cáo phòng chờ vi phạm.
   static String lobbyReport(String id) => '/api/v1/lobbies/$id/report';
 
-  /// POST /api/v1/lobbies/{id}/change-timeslot — Host đổi khung giờ lobby
+  /// POST /api/v1/lobbies/{id}/change-time — Host đổi giờ lobby
   /// (BR-NEW-15 — quán vẫn phải open trong khoảng mới).
+  ///
+  /// **Lưu ý path (2026-10-03):** Endpoint trên swagger.json là
+  /// `/change-time`, KHÔNG phải `/change-timeslot`. Trước đây code
+  /// gọi `/change-timeslot` khiến server trả 500 / 404 và nút "Đổi
+  /// giờ" trên mobile không có phản hồi.
+  static String lobbyChangeTime(String id) =>
+      '/api/v1/lobbies/$id/change-time';
+
+  /// @deprecated Endpoint không tồn tại trên backend. Dùng
+  /// [lobbyChangeTime] thay thế. Giữ alias tránh vỡ các chỗ gọi cũ
+  /// ngoài ý muốn — sẽ bị xoá trong cleanup tiếp theo.
+  @Deprecated('Endpoint không tồn tại; dùng lobbyChangeTime() thay thế.')
   static String lobbyChangeTimeslot(String id) =>
-      '/api/v1/lobbies/$id/change-timeslot';
+      '/api/v1/lobbies/$id/change-time';
 
   /// POST /api/v1/lobbies/{id}/boost — Tăng visibility (cooldown 6h, BR-LOBBY-BOOST-01).
   static String lobbyBoost(String id) => '/api/v1/lobbies/$id/boost';

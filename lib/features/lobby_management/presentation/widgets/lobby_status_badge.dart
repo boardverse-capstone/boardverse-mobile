@@ -21,6 +21,7 @@ enum LobbyStatusBadgeVariant {
   inProgress,
   ratingOpen,
   closed,
+  noShow,
   timeoutFailed,
   hostCancelled,
   expired,
@@ -52,7 +53,7 @@ LobbyStatusBadgeVariant resolveBadgeVariant({
       case res.ReservationStatus.expired:
         return LobbyStatusBadgeVariant.expiredByCafe;
       case res.ReservationStatus.noShow:
-        return LobbyStatusBadgeVariant.closed;
+        return LobbyStatusBadgeVariant.noShow;
       case res.ReservationStatus.completed:
         return LobbyStatusBadgeVariant.closed;
       default:
@@ -235,6 +236,13 @@ class LobbyStatusBadge extends StatelessWidget {
           label: 'Đã đóng',
           icon: AppIcons.lock,
           background: AppColors.textTertiary,
+          foreground: AppColors.white,
+        );
+      case LobbyStatusBadgeVariant.noShow:
+        return const _BadgeStyle(
+          label: 'Vắng mặt',
+          icon: Icons.person_off_outlined,
+          background: AppColors.error,
           foreground: AppColors.white,
         );
       case LobbyStatusBadgeVariant.timeoutFailed:

@@ -6,7 +6,6 @@ import '../../../features/discovery/presentation/cubit/saved_games_cubit.dart';
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../../features/profile/presentation/pages/setup_profile_gate.dart';
 import '../../../features/lobby_management/lobby_routes.dart';
-import '../../di/injection.dart';
 import '../lobby_join_signal.dart';
 import '../lobby_left_signal.dart';
 import '../lobby_suggestion_signal.dart';
@@ -204,7 +203,10 @@ Widget build(BuildContext context) {
   return MultiBlocProvider(
     providers: [
       BlocProvider<NavigationCubit>.value(value: _navigationCubit),
-      BlocProvider<SavedGamesCubit>.value(value: getIt<SavedGamesCubit>()),
+      // SavedGamesCubit đã được provide ở root MultiBlocProvider trong
+      // main.dart → bỏ qua ở đây để tránh shadowing. Cubit là LazySingleton
+      // trong `getIt` nên cả root và MainScaffold (nếu còn) đều tham chiếu
+      // cùng 1 instance — không cần provide lại.
     ],
     child: BlocBuilder<NavigationCubit, NavigationState>(
       buildWhen: (prev, curr) => prev.currentIndex != curr.currentIndex,

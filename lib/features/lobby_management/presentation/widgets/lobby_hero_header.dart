@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
 import 'package:boardverse/core/theme/neo_brutalism_theme.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
-import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
 
 /// Hero header cho LobbyPage:
 ///
@@ -14,24 +12,50 @@ import 'package:boardverse/features/reservation/domain/entities/entities.dart' a
 /// - Cafe info (avatar + tên + thời gian)
 /// - Tiêu đề game nổi bật với decorative underline
 /// - 2 stat card dọc: Chế độ và Mã mời
-/// - QR mini code khi lobby ready
+/// - **2 quick-access icon cố định ở góc trên-phải** (Phase 4
+///   2026-10-02 — bidirectional linking):
+///   1. Icon "Xem lịch hẹn chi tiết" (booking/calendar) — mở
+///      `ReservationDetailPage`. Cặp với nút "Vào phòng chờ" trong
+///      `ReservationDetailPage._PrimaryActionStrip` (đường về).
+///   2. Icon "Xem chi tiết phòng" (info) — mở `LobbyDetailsSheet`
+///      (overview mô tả, địa chỉ, thành viên, ...).
+///   Trước đây khi lobby ready (viable/full/waitingCheckIn) header tự
+///   đổi icon info thành QR mini code cho liền mạch flow check-in.
+///   User feedback 2026-10-02: icon "Xem chi tiết" là nút duy nhất
+///   để player mở bảng tổng quan (mô tả, địa chỉ quán, thành viên,
+///   ...) — bị đổi thành QR khiến player không truy cập được. Giữ
+///   nguyên icon info mọi lúc; QR full-screen vẫn truy cập được qua
+///   entry point khác (`_LobbyCheckInSection` ở dưới).
 ///
 /// Style: Neo-brutalism với solid brand color.
 class LobbyHeroHeader extends StatelessWidget {
   final LobbyEntity lobby;
   final ThemeData theme;
 
-  /// Reservation hiện tại của player trong lobby (optional).
-  final res.ReservationEntity? reservation;
-
-  /// Callback khi user bấm icon "Xem chi tiết".
+  /// Callback khi user bấm icon "Xem chi tiết" (góc trên-phải hero).
   final VoidCallback onShowDetails;
 
   /// Callback khi user bấm copy share code.
   final VoidCallback onShareInviteCode;
 
-  /// Callback khi user bấm vào QR mini.
+  /// (Không còn dùng ở hero — giữ để tương thích caller.) Có thể được
+  /// dùng cho entry point khác ở tương lai.
   final VoidCallback? onShowFullScreenQr;
+
+  /// Callback khi user bấm icon "Xem lịch hẹn" (góc trên-phải hero,
+  /// nằm cạnh icon "Xem chi tiết"). Đây là **đường liên kết ngược** từ
+  /// lobby → reservation detail page — đảm bảo bidirectional linking
+  /// với nút "Vào phòng chờ" trong `ReservationDetailPage` (xem
+  /// `_PrimaryActionStrip` ở `reservation_detail_page.dart`).
+  ///
+  /// Optional: chỉ hiển thị icon khi callback được truyền (parent chỉ
+  /// truyền khi `lobby.bookingId != null` — BR-XXI-B.1: backend
+  /// `LobbyResponseDto.bookingId` = reservation ID; field
+  /// `lobby.reservationId` là vestigial, luôn null). Lý do ẩn khi
+  /// không có reservationId: lobby draft (chưa reserve) hoặc lobby
+  /// đã terminal chưa map vào reservation → bấm vào sẽ noop, UX
+  /// kỳ vọng bị phá.
+  final VoidCallback? onShowReservation;
 
   const LobbyHeroHeader({
     super.key,
@@ -39,33 +63,9 @@ class LobbyHeroHeader extends StatelessWidget {
     required this.theme,
     required this.onShowDetails,
     required this.onShareInviteCode,
-    this.reservation,
     this.onShowFullScreenQr,
+    this.onShowReservation,
   });
-
-  /// Lobby đã ready để hiển thị QR mini.
-  bool get _showQrInsteadOfInfo {
-    final players = lobby.players;
-    final allPlayersReady =
-        players.isNotEmpty && players.every((p) => p.isReady);
-    final lobbyReady = lobby.status.canCheckIn || allPlayersReady;
-    if (!lobbyReady) return false;
-    return _qrPayload != null;
-  }
-
-  /// Payload encode vào QR mini.
-  String? get _qrPayload {
-    if (reservation != null &&
-        (reservation!.status == res.ReservationStatus.confirmed ||
-            reservation!.status == res.ReservationStatus.checkedIn)) {
-      return reservation!.id;
-    }
-    if (lobby.reservationId != null && lobby.reservationId!.isNotEmpty) {
-      return lobby.reservationId;
-    }
-    if (lobby.id.isNotEmpty) return lobby.id;
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +104,7 @@ class LobbyHeroHeader extends StatelessWidget {
             ),
           ),
 
-          // ── Row 1: Cafe info + QR/Info button ────────────────────
+          // ── Row 1: Cafe info + Info button (luôn là icon chi tiết) ─
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -121,17 +121,26 @@ class LobbyHeroHeader extends StatelessWidget {
                 Expanded(
                   child: _CafeInfo(lobby: lobby),
                 ),
-                // QR or Info button
-                if (_showQrInsteadOfInfo)
-                  _HeroQrBadge(
-                    reservationId: _qrPayload!,
-                    onTap: onShowFullScreenQr,
-                  )
-                else
+                // Icon "Xem lịch hẹn chi tiết" — nằm cạnh icon
+                // "Xem chi tiết", tạo cặp quick-access ở góc trên-phải
+                // hero header. Đây là **đường liên kết từ lobby → reservation
+                // detail page** (bidirectional linking với nút "Vào phòng chờ"
+                // trong ReservationDetailPage). Chỉ hiển thị khi parent
+                // truyền `onShowReservation` (= lobby có reservationId).
+                if (onShowReservation != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
                   _HeroIconButton(
-                    icon: AppIcons.info,
-                    onTap: onShowDetails,
+                    icon: AppIcons.booking,
+                    semanticLabel: 'Xem lịch hẹn chi tiết',
+                    onTap: onShowReservation!,
                   ),
+                ],
+                // Icon "Xem chi tiết" — luôn hiển thị (xem comment class).
+                _HeroIconButton(
+                  icon: AppIcons.info,
+                  semanticLabel: 'Xem chi tiết phòng',
+                  onTap: onShowDetails,
+                ),
               ],
             ),
           ),
@@ -512,18 +521,26 @@ class _InviteCodeCard extends StatelessWidget {
 /// Nút icon tròn trong hero header.
 class _HeroIconButton extends StatelessWidget {
   final IconData icon;
+
+  /// Nhãn accessibility cho TalkBack/VoiceOver. Mặc định "Xem chi tiết"
+  /// cho tương thích với caller cũ — widget chỉ render 1 icon info ở
+  /// hero header. Khi thêm icon mới (vd: "Xem lịch hẹn chi tiết"), truyền
+  /// `semanticLabel` riêng để user screen reader phân biệt được action.
+  final String semanticLabel;
+
   final VoidCallback onTap;
 
   const _HeroIconButton({
     required this.icon,
     required this.onTap,
+    this.semanticLabel = 'Xem chi tiết',
   });
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Xem chi tiết',
+      label: semanticLabel,
       child: Material(
         color: AppColors.white.withValues(alpha: 0.2),
         shape: const CircleBorder(),
@@ -543,56 +560,6 @@ class _HeroIconButton extends StatelessWidget {
               ),
             ),
             child: Icon(icon, size: 20, color: AppColors.white),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// QR mini badge hiển thị khi lobby ready.
-class _HeroQrBadge extends StatelessWidget {
-  final String reservationId;
-  final VoidCallback? onTap;
-
-  const _HeroQrBadge({
-    required this.reservationId,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Mã QR check-in',
-      child: Material(
-        color: AppColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 56,
-            height: 56,
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.white,
-                width: 2,
-              ),
-            ),
-            child: QrImageView(
-              data: reservationId,
-              version: QrVersions.auto,
-              size: 46,
-              backgroundColor: AppColors.white,
-              errorCorrectionLevel: QrErrorCorrectLevel.M,
-              padding: EdgeInsets.zero,
-            ),
           ),
         ),
       ),

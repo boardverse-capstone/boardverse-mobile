@@ -178,6 +178,11 @@ class CafeSelectionErrorRetryView extends StatelessWidget {
               title,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w900,
+                // Bỏ qua màu mặc định (có thể là outline nhạt trong
+                // Material 3) — dùng textPrimary để đảm bảo readable.
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -188,10 +193,13 @@ class CafeSelectionErrorRetryView extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
+                // Dùng textPrimary + weight 600 thay vì textSecondary mặc
+                // định — đảm bảo contrast WCAG AA cho body text.
                 color: isDark
-                    ? AppColors.textSecondaryDark
-                    : AppColors.textSecondary,
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimary,
                 height: 1.5,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

@@ -7,29 +7,49 @@ import '../../domain/entities/discovery_request_entity.dart';
 import '../../domain/entities/game_category_discovery_entity.dart';
 import 'weight_range_selector.dart';
 
-/// Modal bottom sheet chứa bộ lọc cho survey — neo-brutalism style.
+/// Form bộ lọc khảo sát — dùng inline trên trang khảo sát.
 ///
-/// Header có gradient + nút "Đặt lại" pill.
-/// Body có search field, player count selector, weight, duration, categories.
-/// Apply button lớn full-width với gradient cam.
-class SurveyFilterSheet extends StatefulWidget {
+/// Trước đây nội dung này được bọc trong `DraggableScrollableSheet` (popup).
+/// Nay đã được tách ra để nhúng trực tiếp vào `_SoloTabContent`, cho phép
+/// player chọn thông tin khảo sát ngay trên màn hình chính thay vì phải
+/// mở popup riêng.
+///
+/// Nội dung form gồm:
+/// - Search field
+/// - Player count selector
+/// - Weight range (độ phức tạp)
+/// - Duration selector (thời gian chơi)
+/// - Categories chip multi-select
+/// - Nút "Đặt lại" và "Áp dụng"
+class SurveyFilterForm extends StatefulWidget {
   final DiscoveryRequestEntity currentRequest;
   final List<GameCategoryDiscoveryEntity> categories;
   final ValueChanged<DiscoveryRequestEntity> onApply;
 
-  const SurveyFilterSheet({
+  /// Optional: nhãn nút áp dụng. Mặc định là 'ÁP DỤNG'.
+  final String applyLabel;
+
+  /// Optional: ẩn nút reset (khi dùng trong card nhỏ).
+  final bool showResetButton;
+
+  const SurveyFilterForm({
     super.key,
     required this.currentRequest,
     required this.categories,
     required this.onApply,
+    this.applyLabel = 'ÁP DỤNG',
+    this.showResetButton = true,
   });
 
   @override
-  State<SurveyFilterSheet> createState() => _SurveyFilterSheetState();
+  State<SurveyFilterForm> createState() => _SurveyFilterFormState();
 }
 
-class _SurveyFilterSheetState extends State<SurveyFilterSheet> {
-  late int? _playerCount;
+class _SurveyFilterFormState extends State<SurveyFilterForm> {
+  /// Default so nguoi choi khi chua co filter hoac sau khi reset.
+  static const int _defaultPlayerCount = 4;
+
+  late int _playerCount;
   late List<int> _weightRanges;
   late List<String> _preferredDurations;
   late List<String> _selectedCategoryIds;
@@ -38,7 +58,7 @@ class _SurveyFilterSheetState extends State<SurveyFilterSheet> {
   @override
   void initState() {
     super.initState();
-    _playerCount = widget.currentRequest.playerCount;
+    _playerCount = widget.currentRequest.playerCount ?? _defaultPlayerCount;
     _weightRanges = List.from(widget.currentRequest.weightRanges ?? []);
     _preferredDurations =
         List.from(widget.currentRequest.preferredDurations ?? []);
@@ -55,206 +75,9 @@ class _SurveyFilterSheetState extends State<SurveyFilterSheet> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDark : AppColors.surface,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(
-              top: BorderSide(color: borderColor, width: 3),
-              left: BorderSide(color: borderColor, width: 3),
-              right: BorderSide(color: borderColor, width: 3),
-            ),
-            boxShadow: NeoBrutalismTheme.lightShadow(
-              shadowColor: AppColors.primary.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Column(
-            children: [
-              // Drag handle
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.borderDark
-                      : AppColors.border,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.sm,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: borderColor,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: borderColor, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.tune_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'BỘ LỌC',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          Text(
-                            'Tinh chỉnh gợi ý',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.3,
-                              color: isDark
-                                  ? AppColors.textPrimaryDark
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _ResetPillButton(onPressed: _resetFilters),
-                  ],
-                ),
-              ),
-              // Content
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  children: [
-                    // Search
-                    _SearchField(controller: _searchController),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Player count
-                    _SectionTitle(
-                      title: 'Số người chơi',
-                      icon: Icons.people_rounded,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _PlayerCountSelector(
-                      value: _playerCount,
-                      onChanged: (v) => setState(() => _playerCount = v),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Weight range
-                    _SectionTitle(
-                      title: 'Độ phức tạp',
-                      icon: Icons.scale_rounded,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    WeightRangeSelector(
-                      selectedValues: _weightRanges,
-                      onChanged: (v) => setState(() => _weightRanges = v),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Duration
-                    _SectionTitle(
-                      title: 'Thời gian chơi',
-                      icon: Icons.timer_outlined,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _DurationSelector(
-                      selected: _preferredDurations,
-                      onChanged: (v) =>
-                          setState(() => _preferredDurations = v),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Categories
-                    _SectionTitle(
-                      title: 'Thể loại',
-                      icon: Icons.category_rounded,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: widget.categories.map((cat) {
-                        final selected = _selectedCategoryIds.contains(cat.id);
-                        return _CategoryChip(
-                          label: cat.name,
-                          isSelected: selected,
-                          onTap: () {
-                            setState(() {
-                              if (selected) {
-                                _selectedCategoryIds.remove(cat.id);
-                              } else {
-                                _selectedCategoryIds.add(cat.id);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-                ),
-              ),
-              // Apply button
-              Container(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  MediaQuery.of(context).padding.bottom + AppSpacing.md,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: borderColor, width: 2),
-                  ),
-                ),
-                child: _ApplyButton(onPressed: _applyFilters),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _resetFilters() {
     setState(() {
-      _playerCount = null;
+      _playerCount = _defaultPlayerCount;
       _weightRanges = [];
       _preferredDurations = [];
       _selectedCategoryIds = [];
@@ -273,7 +96,142 @@ class _SurveyFilterSheetState extends State<SurveyFilterSheet> {
           _searchController.text.isEmpty ? null : _searchController.text,
     );
     widget.onApply(request);
-    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ─── Header row (title + reset pill) ────────────────────────
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor, width: 2.5),
+              ),
+              child: const Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'BỘ LỌC',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  Text(
+                    'Tinh chỉnh gợi ý',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.3,
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (widget.showResetButton)
+              _ResetPillButton(onPressed: _resetFilters),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // ─── Search field ──────────────────────────────────────────
+        _SearchField(controller: _searchController),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ─── Player count ──────────────────────────────────────────
+        const _SectionTitle(
+          title: 'Số người chơi',
+          icon: Icons.people_rounded,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _PlayerCountSelector(
+          value: _playerCount,
+          onChanged: (v) => setState(() => _playerCount = v),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ─── Weight range ──────────────────────────────────────────
+        const _SectionTitle(
+          title: 'Độ phức tạp',
+          icon: Icons.scale_rounded,
+          hint: 'Chọn 1',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        WeightRangeSelector(
+          selectedValues: _weightRanges,
+          onChanged: (v) => setState(() => _weightRanges = v),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ─── Duration ──────────────────────────────────────────────
+        const _SectionTitle(
+          title: 'Thời gian chơi',
+          icon: Icons.timer_outlined,
+          hint: 'Chọn 1',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _DurationSelector(
+          selected: _preferredDurations,
+          onChanged: (v) => setState(() => _preferredDurations = v),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ─── Categories ────────────────────────────────────────────
+        const _SectionTitle(
+          title: 'Thể loại',
+          icon: Icons.category_rounded,
+          hint: 'Chọn nhiều',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.xs + 2,
+          runSpacing: AppSpacing.xs + 2,
+          children: widget.categories.map((cat) {
+            final selected = _selectedCategoryIds.contains(cat.id);
+            return _CategoryChip(
+              label: cat.name,
+              isSelected: selected,
+              onTap: () {
+                setState(() {
+                  if (selected) {
+                    _selectedCategoryIds.remove(cat.id);
+                  } else {
+                    _selectedCategoryIds.add(cat.id);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ─── Apply button ──────────────────────────────────────────
+        _ApplyButton(label: widget.applyLabel, onPressed: _applyFilters),
+      ],
+    );
   }
 }
 
@@ -285,7 +243,15 @@ class _SectionTitle extends StatelessWidget {
   final String title;
   final IconData icon;
 
-  const _SectionTitle({required this.title, required this.icon});
+  /// Optional subtitle ngắn hiển thị bên phải (vd: '(Chọn 1)') để gợi ý
+  /// người dùng biết field này single-select.
+  final String? hint;
+
+  const _SectionTitle({
+    required this.title,
+    required this.icon,
+    this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +260,7 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 14,
+          size: 18,
           color: isDark
               ? AppColors.textSecondaryDark
               : AppColors.textSecondary,
@@ -303,7 +269,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: FontWeight.w900,
             color: isDark
                 ? AppColors.textSecondaryDark
@@ -311,6 +277,34 @@ class _SectionTitle extends StatelessWidget {
             letterSpacing: 1.0,
           ),
         ),
+        if (hint != null) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              hint!,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: isDark
+                    ? AppColors.primary.withValues(alpha: 0.9)
+                    : AppColors.primary,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -334,11 +328,18 @@ class _SearchField extends StatelessWidget {
         color: isDark
             ? AppColors.surfaceContainerDark
             : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 2.5),
       ),
       child: TextField(
         controller: controller,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: isDark
+              ? AppColors.textPrimaryDark
+              : AppColors.textPrimary,
+        ),
         decoration: InputDecoration(
           hintText: 'Tìm kiếm game...',
           hintStyle: TextStyle(
@@ -346,9 +347,11 @@ class _SearchField extends StatelessWidget {
                 ? AppColors.textTertiaryDark
                 : AppColors.textTertiary,
             fontWeight: FontWeight.w600,
+            fontSize: 15,
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
+            size: 22,
             color: isDark
                 ? AppColors.textSecondaryDark
                 : AppColors.textSecondary,
@@ -356,7 +359,7 @@ class _SearchField extends StatelessWidget {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
-            vertical: AppSpacing.md,
+            vertical: AppSpacing.md + 2,
           ),
         ),
       ),
@@ -381,8 +384,8 @@ class _ResetPillButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
             color: AppColors.error.withValues(alpha: 0.12),
@@ -397,7 +400,7 @@ class _ResetPillButton extends StatelessWidget {
             children: [
               Icon(
                 Icons.refresh_rounded,
-                size: 14,
+                size: 16,
                 color: AppColors.error,
               ),
               const SizedBox(width: 4),
@@ -406,7 +409,7 @@ class _ResetPillButton extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.error,
                   fontWeight: FontWeight.w900,
-                  fontSize: 11,
+                  fontSize: 13,
                   letterSpacing: 0.3,
                 ),
               ),
@@ -423,8 +426,16 @@ class _ResetPillButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PlayerCountSelector extends StatelessWidget {
-  final int? value;
-  final ValueChanged<int?> onChanged;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  /// Min/max bounds cua slider. Co dinh 1-10.
+  static const int minValue = 1;
+  static const int maxValue = 10;
+
+  /// Kich thuoc cua thumb de can chinh vi tri floating chip
+  /// (phai khop voi SliderTheme ben duoi).
+  static const double _thumbRadius = 13.0;
 
   const _PlayerCountSelector({
     required this.value,
@@ -433,19 +444,173 @@ class _PlayerCountSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: [null, 2, 3, 4, 5, 6, 7, 8].map((v) {
-        final label = v == null ? 'Tất cả' : '$v người';
-        final isSelected = value == v;
-        return _NeoChoiceChip(
-          label: label,
-          isSelected: isSelected,
-          color: AppColors.primary,
-          onTap: () => onChanged(v),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Track thuc su = tong width tru di 2 dau thumb.
+        final trackWidth =
+            constraints.maxWidth - _thumbRadius * 2;
+        final ratio = (value - minValue) / (maxValue - minValue);
+        // Vi tri tam cua thumb trong he toa do widget.
+        final thumbCenterX = _thumbRadius + trackWidth * ratio;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ─── Floating chip (bam theo thumb) ─────────────────
+            SizedBox(
+              height: 30,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Dung FractionalTranslation de chip luon can giua
+                  // tren thumb, khong phu thuoc vao width cua chip.
+                  Positioned(
+                    left: thumbCenterX,
+                    top: 0,
+                    child: FractionalTranslation(
+                      translation: const Offset(-0.5, 0),
+                      child: _ValueChip(value: value),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.xs),
+
+            // ─── Slider ────────────────────────────────────────
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: AppColors.primary,
+                inactiveTrackColor:
+                    AppColors.primary.withValues(alpha: 0.18),
+                thumbColor: Colors.white,
+                overlayColor:
+                    AppColors.primary.withValues(alpha: 0.18),
+                trackHeight: 7,
+                valueIndicatorColor: AppColors.primary,
+                valueIndicatorTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 13,
+                  elevation: 2,
+                  pressedElevation: 4,
+                ),
+                overlayShape: const RoundSliderOverlayShape(
+                  overlayRadius: 24,
+                ),
+                // Khong hien indicator mac dinh - chip noi tren
+                // da hien thi gia tri lien tuc.
+                showValueIndicator: ShowValueIndicator.never,
+                tickMarkShape: SliderTickMarkShape.noTickMark,
+              ),
+              child: Slider(
+                value: value.toDouble(),
+                min: minValue.toDouble(),
+                max: maxValue.toDouble(),
+                divisions: maxValue - minValue,
+                onChanged: (v) => onChanged(v.round()),
+              ),
+            ),
+
+            // ─── Min / Max labels ──────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '$minValue',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    '$maxValue',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
-      }).toList(),
+      },
+    );
+  }
+}
+
+/// Pill nhỏ hiển thị số người chơi — chip nổi phía trên thumb.
+///
+/// Layout:
+/// ```
+///   [3 người]   ← chip (border + rounded-pill bg primary)
+///   ────●────── ← thumb slider
+/// ```
+class _ValueChip extends StatelessWidget {
+  final int value;
+
+  const _ValueChip({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            offset: const Offset(2, 2),
+            blurRadius: 0,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(width: 3),
+          const Text(
+            'người',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -481,13 +646,13 @@ class _DurationSelector extends StatelessWidget {
           isSelected: isSelected,
           color: AppColors.secondary,
           onTap: () {
-            final next = List<String>.from(selected);
+            // Single-select: bấm lại chip đang chọn sẽ bỏ chọn,
+            // bấm chip khác sẽ thay thế lựa chọn cũ.
             if (isSelected) {
-              next.remove(opt.value);
+              onChanged(const <String>[]);
             } else {
-              next.add(opt.value);
+              onChanged(<String>[opt.value]);
             }
-            onChanged(next);
           },
         );
       }).toList(),
@@ -541,14 +706,16 @@ class _NeoChoiceChipState extends State<_NeoChoiceChip> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs + 2,
+            horizontal: AppSpacing.md + 2,
+            vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: widget.isSelected ? borderColor : widget.color.withValues(alpha: 0.3),
+              color: widget.isSelected
+                  ? borderColor
+                  : widget.color.withValues(alpha: 0.3),
               width: widget.isSelected
                   ? NeoBrutalismTheme.borderWidthBold
                   : NeoBrutalismTheme.borderWidth,
@@ -564,7 +731,7 @@ class _NeoChoiceChipState extends State<_NeoChoiceChip> {
             style: TextStyle(
               color: fgColor,
               fontWeight: FontWeight.w900,
-              fontSize: 12,
+              fontSize: 14,
               letterSpacing: 0.2,
             ),
           ),
@@ -607,12 +774,12 @@ class _CategoryChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm + 2,
-          vertical: AppSpacing.xs + 2,
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isSelected ? borderColor : AppColors.borderLight,
             width: isSelected
@@ -631,7 +798,7 @@ class _CategoryChip extends StatelessWidget {
             if (isSelected) ...[
               const Icon(
                 Icons.check_rounded,
-                size: 12,
+                size: 14,
                 color: Color(0xFF3D1E00),
               ),
               const SizedBox(width: 4),
@@ -639,7 +806,7 @@ class _CategoryChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: fgColor,
                 letterSpacing: 0.2,
@@ -657,8 +824,9 @@ class _CategoryChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ApplyButton extends StatefulWidget {
+  final String label;
   final VoidCallback onPressed;
-  const _ApplyButton({required this.onPressed});
+  const _ApplyButton({required this.label, required this.onPressed});
 
   @override
   State<_ApplyButton> createState() => _ApplyButtonState();
@@ -679,14 +847,14 @@ class _ApplyButtonState extends State<_ApplyButton> {
         duration: const Duration(milliseconds: 100),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md + 2),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md + 4),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [AppColors.primary, AppColors.accentDark],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: AppColors.border, width: 3),
             boxShadow: NeoBrutalismTheme.lightShadow(
               shadowColor: AppColors.primary.withValues(alpha: 0.5),
@@ -698,16 +866,16 @@ class _ApplyButtonState extends State<_ApplyButton> {
               const Icon(
                 Icons.check_rounded,
                 color: Colors.white,
-                size: 22,
+                size: 26,
               ),
-              const SizedBox(width: AppSpacing.xs),
+              const SizedBox(width: AppSpacing.sm),
               Text(
-                'ÁP DỤNG',
+                widget.label,
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  letterSpacing: 1.2,
+                  fontSize: 17,
+                  letterSpacing: 1.4,
                   shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.25),

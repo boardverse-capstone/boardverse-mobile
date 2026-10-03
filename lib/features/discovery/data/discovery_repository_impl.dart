@@ -203,6 +203,11 @@ class DiscoveryRepositoryImpl implements DiscoveryRepository {
           .map((e) => e.toString())
           .toList(),
       score: model.score as double,
+      // API `isSaved` la canonical truth tu server (DB dã commit).
+      // Neu API tra null (older BE) → fallback cache local (nhu
+      // Personalized). Dam bao icon hien thi dung ngay khi render
+      // (truoc khi SavedGamesCubit load xong danh sach saved).
+      isSaved: model.isSaved as bool? ?? _cache.isSaved(model.id as String),
       matchReasons: (model.matchReasons as List<dynamic>)
           .map((e) => e.toString())
           .toList(),
@@ -324,6 +329,7 @@ class DiscoveryRepositoryImpl implements DiscoveryRepository {
       gameName: model.gameName as String,
       isSaved: model.isSaved as bool,
       savedAt: model.savedAt as DateTime?,
+      message: model.message as String?,
     );
   }
 }

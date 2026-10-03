@@ -61,7 +61,9 @@ class LobbyReservationCubit extends Cubit<LobbyReservationState> {
 
   /// Bắt đầu load + poll reservation detail.
   ///
-  /// - [reservationId]: ID của reservation (lấy từ `LobbyEntity.reservationId`).
+  /// - [reservationId]: ID của reservation (lấy từ `LobbyEntity.bookingId`
+  ///   — xem BR-XXI-B.1: backend `LobbyResponseDto.bookingId` là ID
+  ///   reservation; `LobbyEntity.reservationId` là vestigial, luôn null).
   /// - [initialReservation]: optional — nếu cubit cha đã có data thì truyền
   ///   vào để hiển thị ngay, tránh flash "loading".
   void startWatching({

@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:boardverse/core/error/failures.dart';
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
 import '../../data/realtime/lobby_realtime_service.dart';
+import '../../domain/entities/dissolve_lobby_result.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_invite_entity.dart';
 import '../../domain/entities/lobby_invitable_friend.dart';
@@ -82,6 +83,12 @@ abstract class LobbyRepository {
   /// (chỉ member mới xem được).
   Future<Either<Failure, LobbyShareInfo>> getLobbyShareInfo(String lobbyId);
 
+  /// POST /api/v1/lobbies/{lobbyId}/share-code/regenerate — Host tạo
+  /// lại mã share code mới (invalidate mã cũ, dùng khi bị leak hoặc
+  /// muốn reset). Chỉ áp dụng khi lobby đang Open hoặc Full.
+  /// Docs: `.agents/docs/apis_docs/lobby.md` §POST /share-code/regenerate.
+  Future<Either<Failure, LobbyShareInfo>> regenerateShareCode(String lobbyId);
+
   /// POST /api/v1/lobbies/join-by-code — Join lobby bằng share code.
   Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode);
 
@@ -105,15 +112,22 @@ abstract class LobbyRepository {
     String? preferredEndTime,
   });
 
-  /// Host giải tán lobby (hard delete toàn bộ records).
+  /// Host giải tán lobby (soft delete theo BR §XXI-A.6, fix 2026-08-27).
   /// `DELETE /api/v1/lobbies/{lobbyId}`.
   ///
-  /// Khác với `closeLobby`: endpoint này xoá vĩnh viễn lobby khỏi DB.
-  /// Chỉ áp dụng khi lobby chưa booking thành công. Backend trả 409 nếu
-  /// lobby đã đặt cọc hoặc đang trong phiên chơi.
+  /// **Quan trọng (cập nhật 2026-08-27):** Backend đã chuyển từ hard delete
+  /// sang soft delete. Lobby vẫn còn trong DB nhưng `Lobby.Status =
+  /// Dissolved` (terminal). Không áp dụng khi lobby đã check-in tại quán /
+  /// đã đóng / đang rating. Backend trả 409 nếu lobby không ở trạng thái
+  /// cho phép dissolve.
+  ///
+  /// Host dissolve lobby **ngoài grace** (đã có member join HOẶC > 15 phút
+  /// từ tạo) sẽ bị ghi `KarmaShortPlayRecord` với `ViolationType =
+  /// HostDissolve` (GAP-4 fix) — backend tự xử lý, FE chỉ cần nhận
+  /// `DissolveLobbyResult` và refresh lobby list để thấy status Dissolved.
   ///
   /// Body (optional): { reason: "string" }
-  Future<Either<Failure, void>> dissolveLobby({
+  Future<Either<Failure, DissolveLobbyResult>> dissolveLobby({
     required String lobbyId,
     String? reason,
   });
@@ -216,15 +230,23 @@ abstract class LobbyRepository {
   /// **Deprecated (BVC v2)**: Ưu tiên dùng [getMyLobbies].
   Future<Either<Failure, List<LobbyEntity>>> getJoinedLobbies();
 
-  /// GET /api/v1/lobbies/my
+  /// Lấy danh sách phòng chờ mà user đang host hoặc tham gia (gồm cả
+  /// lobby liên kết tới reservation).
   ///
-  /// **BR-NEW-MY-LOBBY-SORT (2026-09-14):** Backend bổ sung query params:
-  /// - `statuses`: mảng int enum — lọc theo LobbyStatus.
-  /// - `statusFilter`: comma-separated string enum names.
+  /// Sử dụng `GET /api/v1/lobbies/my` với 2 query params:
+  ///   ?statuses=0,1,4,6,14,16&statusFilter=TimeoutFailed
   ///
-  /// Backend tự sắp xếp: active trước (InProgress, WaitingCheckIn, Viable,
-  /// Full, Open, RatingOpen), rồi terminal, trong mỗi nhóm theo thời gian
-  /// mới nhất.
+  /// **BR-NEW-MY-LOBBY-SORT (2026-09-14):** Backend hỗ trợ 2 query params
+  /// cùng lúc — BE tự union kết quả và sắp xếp theo thứ tự ưu tiên.
+  ///
+  /// **BR-NEW-MY-LOBBY-FILTER-FIX (2026-10-02):** `statuses` bind là
+  /// `List<int>` — chỉ whitelist per swagger. `TimeoutFailed=7` và
+  /// `HostCancelled=8` bị loại cố ý, gửi int 7 → 400. Bù bằng
+  /// `statusFilter` (CSV enum names).
+  ///
+  /// Backend sort: active trước (InProgress, WaitingCheckIn, Viable,
+  /// Full, Open, RatingOpen), rồi terminal (Closed, TimeoutFailed,
+  /// HostCancelled, ...), trong mỗi nhóm theo thời gian mới nhất.
   ///
   /// Nếu không truyền filter, backend trả tất cả.
   Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({

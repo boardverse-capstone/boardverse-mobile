@@ -67,21 +67,29 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
 
           LobbyConfigQuoteRow(
-            label: 'Tiền cọc/người',
-            value: '${quote.depositRatePerPerson} BVC',
+            label: 'Giá vé cơ bản',
+            // BR-DEPOSIT-02 (2026-08-27 chỉnh): hiển thị giá vé cơ bản
+            // của cafe (VND/người) thay cho công thức cũ
+            // `% × giá × số người`. Null cho response cũ → ẩn row.
+            value: quote.cafeBasePriceVnd != null
+                ? '${_formatVnd(quote.cafeBasePriceVnd!)} đ/người'
+                : '—',
           ),
           LobbyConfigQuoteRow(
-            label: 'Số người',
-            value: quote.playerRangeDisplay,
+            label: 'Số người tối đa',
+            value: '${quote.maxPlayers}',
           ),
-          LobbyConfigQuoteRow(
-            label: 'Base deposit',
-            value: '${quote.baseDeposit} BVC',
-          ),
-          LobbyConfigQuoteRow(
-            label: 'Risk multiplier',
-            value: '${quote.riskMultiplier}x',
-          ),
+          // Hệ số rủi ro CHỈ hiện khi > 1.0 (= tài khoản có rủi ro
+          // cao, user cần biết để quyết định). Trường hợp 1x là bình
+          // thường → ẩn để UI gọn. Lưu ý (BR-DEPOSIT-02 2026-08-27):
+          // BE không còn trả riskMultiplier nhưng giữ default 1.0 cho
+          // backward-compat → render vẫn chính xác.
+          if (quote.riskMultiplier > 1.0)
+            LobbyConfigQuoteRow(
+              label: 'Hệ số rủi ro',
+              value: '×${quote.riskMultiplier.toStringAsFixed(2)}',
+              valueColor: AppColors.warning,
+            ),
 
           const SizedBox(height: AppSpacing.sm),
           Container(height: 2, color: AppColors.primary.withValues(alpha: 0.2)),
@@ -98,7 +106,7 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'TỔNG CỌC',
+                  'BẠN CẦN CỌC',
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     color: AppColors.white,
@@ -120,7 +128,7 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.md),
 
-          // Buffer info
+          // Buffer info — copy thân thiện, không dùng "buffer" thuật ngữ.
           Container(
             padding: AppSpacing.paddingAllSm,
             decoration: BoxDecoration(
@@ -141,12 +149,14 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Buffer: ${formatBuffer(quote.bufferMinutes)} để tuyển người',
-                  style: TextStyle(
-                    color: _getBufferColor(quote.bufferWarningLevel),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
+                Expanded(
+                  child: Text(
+                    'Còn ${formatBuffer(quote.bufferMinutes)} để tuyển người',
+                    style: TextStyle(
+                      color: _getBufferColor(quote.bufferWarningLevel),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -177,5 +187,16 @@ class LobbyConfigQuotePreviewCard extends StatelessWidget {
       case BufferWarningLevel.none:
         return Icons.check_circle;
     }
+  }
+
+  /// BR-DEPOSIT-02 (2026-08-27 chỉnh): format giá vé cơ bản VND/người
+  /// theo chuẩn tiếng Việt — `12.500` / `1.250.000`. Dùng locale
+  /// `vi_VN` để hiển thị dấu chấm phân cách hàng nghìn.
+  String _formatVnd(int v) {
+    final formatted = v.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+    return formatted;
   }
 }

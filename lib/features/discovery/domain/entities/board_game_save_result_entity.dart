@@ -11,13 +11,18 @@ class BoardGameSaveResultEntity extends Equatable {
   /// Thời điểm lưu (chỉ có khi isSaved = true).
   final DateTime? savedAt;
 
+  /// Message từ backend (format 2 envelope: {statusCode, message, data}).
+  /// Dùng để hiển thị toast cho user sau khi save/unsave.
+  final String? message;
+
   const BoardGameSaveResultEntity({
     required this.gameTemplateId,
     required this.gameName,
     required this.isSaved,
     this.savedAt,
+    this.message,
   });
 
   @override
-  List<Object?> get props => [gameTemplateId, gameName, isSaved, savedAt];
+  List<Object?> get props => [gameTemplateId, gameName, isSaved, savedAt, message];
 }

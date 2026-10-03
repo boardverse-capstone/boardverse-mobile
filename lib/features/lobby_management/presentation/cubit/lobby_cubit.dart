@@ -382,7 +382,22 @@ class LobbyCubit extends Cubit<LobbyState> {
   /// Khác với `closeLobby` (chỉ set Closed): endpoint này xoá vĩnh viễn
   /// lobby khỏi DB. Chỉ gọi được khi lobby chưa booking thành công.
   /// Backend trả 409 nếu lobby đã đặt cọc / đang trong phiên chơi /
-  /// đã đóng — trong trường hợp đó emit `LobbyFailure` để UI hiển thị
+  /// Host giải tán lobby (soft delete theo BR §XXI-A.6, fix 2026-08-27).
+  /// `DELETE /api/v1/lobbies/{lobbyId}`.
+  ///
+  /// Backend đã chuyển từ hard delete sang soft delete (`Lobby.Status =
+  /// Dissolved`). Repository trả về `DissolveLobbyResult` để cubit có
+  /// thể:
+  /// - emit `LobbyDissolved` với `dissolvedAt` timestamp cho UI.
+  /// - log `reservationId` để debug khi cần trace lại flow đặt cọc.
+  /// - biết được liệu Host có bị Karma penalty (server-side, không cần
+  ///   xử lý FE — backend đã ghi `KarmaShortPlayRecord` nếu dissolve
+  ///   ngoài grace period theo GAP-4 fix 2026-08-27).
+  ///
+  /// Khác với `closeLobby` (chỉ set Closed): endpoint này ẩn lobby khỏi
+  /// discovery nhưng giữ row trong DB (audit trail). Backend trả 409 nếu
+  /// lobby đã check-in tại quán / đang trong phiên chơi / đã đóng /
+  /// đã terminal — trong trường hợp đó emit `LobbyFailure` để UI hiển thị
   /// message cho player biết không thể giải tán.
   Future<void> dissolveLobby(String lobbyId, {String? reason}) async {
     _stopCountdown();
@@ -398,12 +413,15 @@ class LobbyCubit extends Cubit<LobbyState> {
 
     result.fold(
       (failure) {
-        // 409: lobby đã booking / đang phiên chơi / đã đóng.
+        // 409: lobby đã check-in / đang phiên chơi / đã đóng / đã terminal.
         // Hiển thị message cho player biết không thể giải tán.
         emit(LobbyFailure(message: failure.message));
       },
-      (_) {
-        emit(LobbyDissolved(lobbyId: lobbyId));
+      (dissolveResult) {
+        emit(LobbyDissolved(
+          lobbyId: dissolveResult.lobbyId,
+          dissolvedAt: dissolveResult.dissolvedAt,
+        ));
       },
     );
   }
@@ -829,19 +847,42 @@ class LobbyCubit extends Cubit<LobbyState> {
   }
 
   /// Host kick thành viên khỏi lobby.
-  Future<void> kickMember(String lobbyId, String targetUserId, {String? reason}) async {
+  ///
+  /// Trả về `Either<Failure, LobbyEntity>` để caller (UI) xử lý failure
+  /// trực tiếp — vd: hiển thị snackbar nổi bật khi backend trả 409
+  /// "Không thể kick thành viên khi phòng đã đóng." thay vì nuốt vào
+  /// state chung.
+  ///
+  /// Vẫn emset `LobbyFailure` / `LobbyMemberKicked` cho các listener
+  /// cũ (vd: history tab cần refresh list) — không breaking change.
+  Future<Either<Failure, LobbyEntity>> kickMember(
+    String lobbyId,
+    String targetUserId, {
+    String? reason,
+  }) async {
     final result = await _repository.kickMember(
       lobbyId: lobbyId,
       targetUserId: targetUserId,
       reason: reason,
     );
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(LobbyFailure(message: failure.message)),
-      (lobby) => emit(LobbyMemberKicked(
-        lobby: lobby,
-        kickedMemberId: targetUserId,
-      )),
+    if (isClosed) {
+      return result;
+    }
+    return result.fold(
+      (failure) {
+        // Phát LobbyFailure để các subscriber khác (vd: history tab
+        // refresh) vẫn nhận tín hiệu. UI caller có thể dùng Either
+        // trả về để hiển thị message rõ ràng hơn.
+        emit(LobbyFailure(message: failure.message));
+        return Left<Failure, LobbyEntity>(failure);
+      },
+      (lobby) {
+        emit(LobbyMemberKicked(
+          lobby: lobby,
+          kickedMemberId: targetUserId,
+        ));
+        return Right<Failure, LobbyEntity>(lobby);
+      },
     );
   }
 
@@ -901,6 +942,24 @@ class LobbyCubit extends Cubit<LobbyState> {
     result.fold(
       (failure) => emit(LobbyFailure(message: failure.message)),
       (lobby) => emit(LobbyUpdatedRealtime(lobby: lobby)),
+    );
+  }
+
+  /// Host tạo lại mã share code mới (invalidate mã cũ).
+  ///
+  /// Endpoint: `POST /api/v1/lobbies/{lobbyId}/share-code/regenerate`
+  /// - Chỉ áp dụng khi lobby đang Open hoặc Full (server trả 409 nếu
+  ///   không đúng trạng thái).
+  /// - Phát `LobbyShareCodeRegenerated(info)` để UI update share code
+  ///   trong `LobbyShareSection` ngay lập tức.
+  /// - Phát `LobbyFailure(message)` nếu lỗi (vd: 403 không phải host,
+  ///   409 lobby không ở trạng thái cho phép, 401 hết phiên).
+  Future<void> regenerateShareCode(String lobbyId) async {
+    final result = await _repository.regenerateShareCode(lobbyId);
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(LobbyFailure(message: failure.message)),
+      (info) => emit(LobbyShareCodeRegenerated(info: info)),
     );
   }
 
@@ -991,7 +1050,7 @@ class LobbyCubit extends Cubit<LobbyState> {
         },
         (lobbies) async {
           final match = lobbies.cast<LobbyEntity?>().firstWhere(
-                (l) => l?.reservationId == reservationId,
+                (l) => l?.bookingId == reservationId,
                 orElse: () => null,
               );
           if (match != null) {

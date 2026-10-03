@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
+import '../entities/board_game_active_cafe_entity.dart';
 import '../entities/board_game_detail_entity.dart';
 import '../entities/board_game_entity.dart';
 import '../entities/cafe_detail_entity.dart';
@@ -59,6 +60,12 @@ abstract class MatchmakingRepository {
   /// Lấy tất cả games
   Future<Either<Failure, List<BoardGameEntity>>> getAllGames();
 
+  /// Lấy Top 5 board game được chơi nhiều nhất trong hệ thống.
+  /// Map thẳng vào `GET /api/v1/board-games/top5` (build 2026-09-10).
+  /// Public — không cần token. Mỗi item kèm `playCount` để UI hiển thị
+  /// badge "Hot" hoặc icon 🔥.
+  Future<Either<Failure, List<BoardGameEntity>>> getTopPlayedBoardGames();
+
   // ─── Cafes ─────────────────────────────────────────────────────────
 
   /// Tìm quán gần theo toạ độ GPS — dùng cho Mock (legacy).
@@ -115,6 +122,19 @@ abstract class MatchmakingRepository {
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
+  });
+
+  /// Lấy tất cả quán cafe đang ACTIVE trên toàn hệ thống —
+  /// `GET /api/cafes?pageSize=...` (cần auth Player).
+  ///
+  /// Backend không hỗ trợ filter `city` trực tiếp — mobile sẽ filter
+  /// client-side theo `PlayerLocationEntity.city` để hiển thị "Cùng
+  /// thành phố" filter. Trả về `NearCafesSearchResultEntity` để tái sử
+  /// dụng model & cấu trúc state cho UI.
+  Future<Either<Failure, NearbyCafesSearchResultEntity>>
+      getAllActiveCafes({
+    int pageNumber = 1,
+    int pageSize = 100,
   });
 
   /// Lấy thông tin quán theo ID — `GET /api/cafes/{id}`.
@@ -181,6 +201,30 @@ abstract class MatchmakingRepository {
   Future<Either<Failure, GamePlayNavigationEntity>> resolvePlayNavigation({
     required String gameId,
     required PlayMode mode,
+  });
+
+  /// `GET /api/v1/board-games/{boardgameId}/active-cafes` — chiều ngược
+  /// của `/api/cafes/{cafeId}/active-games`. Trả danh sách quán ACTIVE
+  /// có board game này trong kho (status Available/InUse).
+  ///
+  /// Public — không cần token. Nếu truyền [latitude]/[longitude] → backend
+  /// sort theo khoảng cách + trả `distanceMeters`. Bỏ trống → sort theo
+  /// tên A→Z, `distanceMeters = null`.
+  ///
+  /// Dùng cho [BoardGameDetailPage] — thay thế "QUÁN CAFE GẦN BẠN" bằng
+  /// "QUÁN CÓ BOARD GAME NÀY" (player xem quán nào có sẵn board game
+  /// này để chơi, không phụ thuộc vị trí).
+  ///
+  /// Docs: `.agents/docs/apis_docs/board-games.md`
+  /// §GET /api/v1/board-games/{id}/active-cafes
+  Future<Either<Failure, ActiveCafesSearchResultEntity>>
+      getBoardGameActiveCafes(
+    String boardgameId, {
+    String? name,
+    double? latitude,
+    double? longitude,
+    int pageNumber = 1,
+    int pageSize = 20,
   });
 
   // BR-NEW (2026-08-27): `getDefaultTimeSlots()` đã bị xoá — backend không

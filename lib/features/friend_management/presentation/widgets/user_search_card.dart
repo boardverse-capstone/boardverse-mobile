@@ -24,16 +24,16 @@ class UserSearchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedCard(
       onTap: onTap,
-      radius: 12,
+      radius: 16,
       shadowColor: AppColors.black.withValues(alpha: 0.05),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             UserAvatar(
               username: user.username,
               avatarUrl: user.avatarUrl,
-              radius: 22,
+              radius: 24,
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -50,15 +50,17 @@ class UserSearchCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  MetaRow(
-                    karmaPoints: user.karmaPoints,
-                    mutualFriendsCount: user.mutualFriendsCount,
-                  ),
+                  if (user.karmaPoints > 0 || user.mutualFriendsCount > 0) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    MetaRow(
+                      karmaPoints: user.karmaPoints,
+                      mutualFriendsCount: user.mutualFriendsCount,
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.xs),
             _buildAction(),
           ],
         ),

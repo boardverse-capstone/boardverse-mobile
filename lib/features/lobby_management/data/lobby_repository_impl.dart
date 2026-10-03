@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:boardverse/core/cache/cacheable_repository.dart';
 import 'package:boardverse/core/error/failures.dart';
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import '../domain/entities/dissolve_lobby_result.dart';
 import '../domain/entities/lobby_entity.dart';
 import '../domain/entities/lobby_invite_entity.dart';
 import '../domain/entities/lobby_invitable_friend.dart';
@@ -129,6 +130,12 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
       _remote.getShareInfo(lobbyId);
 
   @override
+  Future<Either<Failure, LobbyShareInfo>> regenerateShareCode(
+    String lobbyId,
+  ) =>
+      _remote.regenerateShareCode(lobbyId);
+
+  @override
   Future<Either<Failure, LobbyEntity>> joinLobbyByCode(String shareCode) =>
       _remote.joinLobbyByCode(shareCode);
 
@@ -155,7 +162,7 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
       );
 
   @override
-  Future<Either<Failure, void>> dissolveLobby({
+  Future<Either<Failure, DissolveLobbyResult>> dissolveLobby({
     required String lobbyId,
     String? reason,
   }) =>
@@ -382,6 +389,8 @@ class LobbyRepositoryImpl extends CacheableRepository implements LobbyRepository
     String? statusFilter,
   }) {
     // BR-NEW-MY-LOBBY-SORT (2026-09-14): backend hỗ trợ lọc + sắp xếp.
+    // BR-NEW-MY-LOBBY-FILTER-FIX (2026-10-02): `statuses` chỉ whitelist
+    // int, TimeoutFailed phải đi qua `statusFilter` string.
     // Cache key bao gồm filter để mỗi bộ filter có cache riêng.
     final cacheKey = 'lobbies-my'
         '${statuses != null ? '-s${statuses.join('_')}' : ''}'

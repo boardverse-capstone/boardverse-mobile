@@ -5,6 +5,7 @@ import '../../../../../core/error/exceptions.dart';
 import '../../../../../core/network/api_response.dart';
 import '../../../domain/entities/search_filter_entity.dart';
 import '../../../domain/entities/game_play_configuration_entity.dart';
+import '../../models/active_cafes_paginated_result_model.dart';
 import '../../models/board_game_model.dart';
 import '../../models/board_game_detail_model.dart';
 import '../../models/cafe_active_game_model.dart';
@@ -162,6 +163,22 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
   }
 
   @override
+  Future<List<BoardGameModel>> getTopPlayedBoardGames() async {
+    // `GET /api/v1/board-games/top5` (build 2026-09-10)
+    // Public, không cần token. Response:
+    //   { "statusCode": 200, "message": "...", "data": [ ... 5 games ... ] }
+    // Mỗi game có thêm field `playCount` (tổng lượt chơi).
+    try {
+      final response = await _dio.get(ApiEndpoints.boardGamesTop5);
+      // top5 trả `data: []` (array) thay vì object phân trang — dùng
+      // helper _parsePaginatedBoardGames (đã support cả 2 format).
+      return _parsePaginatedBoardGames(response.data);
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
   Future<GamePlayConfigurationModel?> getGamePlayConfiguration(
       String gameId) async {
     try {
@@ -197,6 +214,75 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
       );
       if (envelope.data == null) {
         throw ServerException(message: 'Empty play-navigation response');
+      }
+      return envelope.data!;
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<ActiveCafesPaginatedResultModel> getBoardGameActiveCafes(
+    String boardgameId, {
+    String? name,
+    double? latitude,
+    double? longitude,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      // Gọi `GET /api/v1/board-games/{id}/active-cafes` — endpoint public
+      // (không cần JWT). Query params:
+      //   - `name`: filter theo tên quán (case-insensitive partial).
+      //   - `latitude`/`longitude`: nếu truyền → backend sort theo khoảng
+      //     cách tăng dần + trả `distanceMeters` cho từng item. Bỏ trống
+      //     → sort theo tên A→Z, `distanceMeters = null` trên từng item.
+      //   - `pageNumber`/`pageSize`: phân trang (mặc định 20).
+      //
+      // Endpoint này là chiều ngược của `GET /api/cafes/{cafeId}/active-games`
+      // — player hỏi "chơi game này ở đâu?" thay vì "quán này có game nào?".
+      // Docs: `.agents/docs/apis_docs/board-games.md`
+      // §GET /api/v1/board-games/{id}/active-cafes
+      final queryParameters = <String, dynamic>{
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      };
+      if (name != null && name.isNotEmpty) {
+        queryParameters['name'] = name;
+      }
+      if (latitude != null) {
+        queryParameters['latitude'] = latitude;
+      }
+      if (longitude != null) {
+        queryParameters['longitude'] = longitude;
+      }
+
+      final response = await _dio.get(
+        ApiEndpoints.boardGameActiveCafes(boardgameId),
+        queryParameters: queryParameters,
+      );
+
+      final envelope = ApiResponse.fromJson(
+        response.data as Map<String, dynamic>,
+        fromJsonT: (json) {
+          // `data` có thể trả paginated wrapper `{ data: [...], meta: {...} }`
+          // hoặc flat array (single-page edge case) — delegate cho
+          // `ActiveCafesPaginatedResultModel.fromJson` xử lý cả 2 shape.
+          return ActiveCafesPaginatedResultModel.fromJson(
+            json as Map<String, dynamic>,
+          );
+        },
+      );
+      if (envelope.data == null) {
+        // Backend trả 200 nhưng `data = null` → coi như rỗng (không có quán
+        // ACTIVE có game này). Trả về paginated wrapper rỗng để UI vẫn
+        // render được empty state thay vì crash.
+        return ActiveCafesPaginatedResultModel(
+          cafes: const [],
+          page: pageNumber,
+          pageSize: pageSize,
+          totalCount: 0,
+        );
       }
       return envelope.data!;
     } on DioException catch (e) {
@@ -329,6 +415,30 @@ class MatchmakingRemoteDatasourceImpl implements MatchmakingDatasource {
       final response = await _dio.get(
         ApiEndpoints.cafeSearch,
         queryParameters: queryParameters,
+      );
+      final envelope = ApiResponse.fromJson(
+        response.data as Map<String, dynamic>,
+        fromJsonT: (json) => NearbyCafesSearchResultModel.fromJson(
+            json as Map<String, dynamic>),
+      );
+      return envelope.data ?? const NearbyCafesSearchResultModel();
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
+  @override
+  Future<NearbyCafesSearchResultModel> getAllActiveCafes({
+    int pageNumber = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.cafes,
+        queryParameters: {
+          'pageNumber': pageNumber,
+          'pageSize': pageSize,
+        },
       );
       final envelope = ApiResponse.fromJson(
         response.data as Map<String, dynamic>,

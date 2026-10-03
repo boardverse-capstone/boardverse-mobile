@@ -22,6 +22,11 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
     required super.riskMultiplier,
     required super.minDepositApplied,
     required super.finalDeposit,
+    // BR-DEPOSIT-02 (2026-08-27 chỉnh): field mới thay thế công thức
+    // `% × giá × số người`. Optional ở entity → ở model cũng optional
+    // (`super.cafeBasePriceVnd` không có `required`). Null cho response
+    // cũ (pre-2026-08-27).
+    super.cafeBasePriceVnd,
     required super.currentBalance,
     required super.missingAmount,
     required super.bufferMinutes,
@@ -70,12 +75,22 @@ class ReservationQuoteModel extends ReservationQuoteEntity {
           DateTime.tryParse(strOpt(data['recruitmentDeadline']) ?? '') ?? DateTime.now(),
       minPlayers: (data['minPlayers'] as num?)?.toInt() ?? 2,
       maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 4,
+      // BR-DEPOSIT-02 (2026-08-27 chỉnh): các field cũ
+      // (`depositRatePerPerson`, `baseDeposit`, `riskMultiplier`,
+      // `minDepositApplied`) đã bị backend bỏ khỏi response — BE trả về
+      // mặc định = 0 cho backward-compat. FE bỏ qua các giá trị này,
+      // chỉ hiển thị `finalDeposit` + `cafeBasePriceVnd` + `maxPlayers`.
+      // Giữ parse ở đây để chịu lỗi im lặng nếu backend cũ trả về.
       depositRatePerPerson: (data['depositRatePerPerson'] as num?)?.toInt() ?? 0,
       baseDeposit: (data['baseDeposit'] as num?)?.toInt() ?? 0,
       riskMultiplier:
           (data['riskMultiplier'] as num?)?.toDouble() ?? 1.0,
       minDepositApplied: (data['minDepositApplied'] as num?)?.toInt() ?? 0,
       finalDeposit: (data['finalDeposit'] as num?)?.toInt() ?? 0,
+      // BR-DEPOSIT-02 (2026-08-27 chỉnh): field mới thay thế công thức
+      // `% × giá × số người` mà FE tự tính trước đây. Null cho response
+      // cũ (pre-2026-08-27) — UI fallback hiển thị `finalDeposit` đơn lẻ.
+      cafeBasePriceVnd: (data['cafeBasePriceVnd'] as num?)?.toInt(),
       currentBalance: (data['currentBalance'] as num?)?.toInt() ?? 0,
       missingAmount: (data['missingAmount'] as num?)?.toInt() ?? 0,
       bufferMinutes: (data['bufferMinutes'] as num?)?.toInt() ?? 0,

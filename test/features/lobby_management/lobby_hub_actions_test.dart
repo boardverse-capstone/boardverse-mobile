@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/dissolve_lobby_result.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_share_info.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_summary.dart';
@@ -131,10 +132,17 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       throw UnimplementedError();
 
   @override
-  Future<Either<Failure, void>> dissolveLobby({
+  Future<Either<Failure, DissolveLobbyResult>> dissolveLobby({
     required String lobbyId,
     String? reason,
-  }) async => Right<Failure, void>(null);
+  }) async => Right<Failure, DissolveLobbyResult>(
+        DissolveLobbyResult(
+          lobbyId: lobbyId,
+          reservationId: null,
+          reason: reason,
+          dissolvedAt: DateTime.utc(2026, 8, 18),
+        ),
+      );
 
   @override
   Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId) async =>
@@ -157,8 +165,10 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       Right<Failure, List<LobbyEntity>>(const []);
 
   @override
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async =>
-      Right<Failure, List<LobbyEntity>>(const []);
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    List<int>? statuses,
+    String? statusFilter,
+  }) async => Right<Failure, List<LobbyEntity>>(const []);
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
@@ -196,6 +206,11 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, LobbyShareInfo>> getShareInfo(String lobbyId) async =>
       throw UnimplementedError();
+
+  @override
+  Future<Either<Failure, LobbyShareInfo>> regenerateShareCode(
+    String lobbyId,
+  ) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, LobbyChatMessage>> sendChatMessage({

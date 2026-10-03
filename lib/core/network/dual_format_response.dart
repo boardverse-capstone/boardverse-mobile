@@ -50,6 +50,46 @@ class DualFormatResponse {
     return _mapToFailure(response.statusCode, response.data);
   }
 
+  /// Parse response và trả về cả data lẫn `message` (format 2 envelope).
+  ///
+  /// Dùng cho các endpoints cần hiển thị message từ BE làm toast
+  /// (ví dụ: save/unsave board game).
+  ///
+  /// - Format 2 (`{statusCode, message, data}`) → `Right((data, message))`
+  /// - Format 1 (`{success, data, error}`) → `Right((data, null))`
+  /// - Non-2xx → `Left(Failure)` (giống [parse])
+  static Either<Failure, ({dynamic data, String? message})>
+      parseWithMessage(Response response) {
+    if (response.statusCode != null &&
+        response.statusCode! >= 200 &&
+        response.statusCode! < 300) {
+      final body = response.data;
+      if (body is Map) {
+        // Format 2: { statusCode, message, data }
+        if (body.containsKey('message') && body.containsKey('data')) {
+          return Right((
+            data: body['data'],
+            message: body['message'] as String?,
+          ));
+        }
+        // Format 1: { success, data, error }
+        if (body.containsKey('success') && body['success'] == true) {
+          return Right((data: body['data'], message: null));
+        }
+      }
+      // Không nhận diện được format → trả data gốc
+      return Right((data: response.data, message: null));
+    }
+
+    // Non-2xx → failure
+    return _mapToFailure(response.statusCode, response.data).fold(
+      (Failure f) => Left<Failure, ({dynamic data, String? message})>(f),
+      (_) => const Left<Failure, ({dynamic data, String? message})>(
+        ServerFailure(message: 'Yêu cầu thất bại.'),
+      ),
+    );
+  }
+
   /// Parse response trong trường hợp gọi request mà không cần body
   /// (ví dụ DELETE /saved/{id}, GET /saved).
   static Either<Failure, bool> parseNoContent(Response response) {

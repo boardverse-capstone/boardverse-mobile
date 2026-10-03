@@ -2,6 +2,20 @@
 
 > **DEPRECATED (05/08/2026):** Controller này đã được **xóa khỏi codebase**. Toàn bộ endpoint `/api/cafes/{cafeId}/sessions/*` cũ đã được gộp vào [CafePosController](./cafe-pos.md) dưới base route `/api/cafes/{cafeId}/pos/sessions/*`.
 
+> **Cập nhật 2026-09-23:** Entity `ActiveSessionMember` có 2 field mới phục vụ luồng ghép nhóm (Lobby Merge):
+> - `OriginalLobbyId` (Guid?): Lobby gốc mà member tham gia trước khi ghép nhóm. Dùng để trace nguồn gốc member trong session đích và Karma aggregation đúng (BR-REFUND-05).
+> - `OriginalReservationId` (Guid?): Reservation gốc trước khi bị absorb vào reservation đích.
+>
+> Chi tiết luồng ghép nhóm: [lobby-merge.md](./lobby-merge.md).
+>
+> **Cập nhật 2026-09-19:** Entity `ActiveSessionMember` đã được bổ sung 4 columns QR mới cho Split Bill mobile display: `QrImageUrl`, `QrPaymentUrl`, `QrOrderId`, `QrTransferContent`. Xem [cafe-pos.md](./cafe-pos.md) §"Split Bill — Thanh toán per-member" + [payment.md](./payment.md) §"sepay/webhook/member-payment".
+
+> **Cập nhật 2026-10-01 (BR-13 permanent fix):** Entity `ActiveSession` có 2 columns mới để phân biệt walk-in staff-created vs online Reservation/Booking session:
+> - `IsWalkInSession` (bool, default false): true khi session do POS staff tạo (không qua Reservation/Booking).
+> - `StartedByStaffId` (Guid?, nullable): FK về staff user đã tạo walk-in session. Audit field.
+>
+> Tương ứng `Lobby` entity cũng có `IsWalkInLobby` + `StartedByStaffId` (mirror). Apply SQL migration `sql/add_walk_in_session_audit_fields.sql`. Xem [cafe-pos.md § Walk-in Lobby & Session Creation](./cafe-pos.md#walk-in-lobby--session-creation-circular-fk-fix-2026-09-29) + §"POST /sessions/{sessionId}/guest-slots §Field mới: HostName".
+
 Tài liệu này được giữ lại làm **lịch sử tham chiếu** cho các phiên bản trước.
 
 ---

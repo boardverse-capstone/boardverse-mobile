@@ -108,16 +108,15 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
 
     final gameResult = await repository.getBoardGameDetails(gameId);
 
-    // Theo spec `cafe.md` (luồng mobile được recommend):
-    //   1. PUT /api/userprofile/me/location — lưu vị trí server
-    //   2. GET /api/cafes/nearby/me?gameTemplateId=... — không cần gửi
-    //      lat/lng vì server dùng LastKnownLocation trên profile.
-    // Nếu user chưa lưu vị trí (`/nearby/me` trả 400), fallback về
-    // public `GET /api/cafes/nearby` với hardcode HCMC.
-    final cafesResult = await _loadNearbyCafesWithFallback(
-      gameId: gameId,
-      latitude: latitude,
-      longitude: longitude,
+    // Luồng mới: dùng `GET /api/v1/board-games/{id}/active-cafes` —
+    // chiều ngược của `/api/cafes/{cafeId}/active-games`.
+    // Player hỏi "chơi game này ở đâu?" thay vì "quán nào gần tôi?".
+    // Nếu truyền lat/lng → backend sort theo khoảng cách, ngược lại
+    // sort theo tên A→Z.
+    final activeCafesResult = await repository.getBoardGameActiveCafes(
+      gameId,
+      latitude: isGpsEnabled ? latitude : null,
+      longitude: isGpsEnabled ? longitude : null,
     );
 
     if (isClosed) return;
@@ -130,22 +129,21 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
           return;
         }
 
-        await cafesResult.fold(
+        await activeCafesResult.fold(
           (failure) async => emit(_createFailure(failure)),
           (searchResult) async {
-            // Theo AC 2.1 của `cafe.md`, server đã filter `cafes` theo
-            // `gameTemplateId` (quán có ít nhất 1 hộp game của `gameId`,
-            // trạng thái Available hoặc InUse). Theo AC 3.1, quán vẫn hiển
-            // thị khi tất cả hộp đang InUse (UI: "Chờ game ~X phút").
-            //
-            // Vì vậy filter phải dựa trên `totalGameBoxCount` (Available +
-            // InUse) thay vì `availableGameCount` (chỉ Available) — trước
-            // đây filter chỉ `availableGameCount > 0` đã loại bỏ nhầm quán
-            // có hộp đang InUse → gây bug "không có quán" trên UI dù server
-            // trả 200 đầy đủ.
-            final nearbyCafes = searchResult.cafes
-                .where((c) => c.totalGameBoxCount > 0)
-                .toList();
+            final activeCafes = searchResult.cafes;
+            final emptyMsg = searchResult.emptyResultMessage;
+            // **Source of truth ưu tiên cho `isSaved`** (build 2026-10-03+):
+            // - 1. `gameDetail.isSaved` — endpoint `/board-games/{id}` luôn
+            //   fetch mỗi lần mở trang chi tiết, không cache → đảm bảo
+            //   freshness ngay cả khi user vừa save/unsave ở tab khác và
+            //   quay lại trang này.
+            // - 2. `searchResult.isSaved` (active-cafes) — fallback. Cached
+            //   30s qua `CacheableRepository` nên có thể stale. Chỉ dùng
+            //   khi detail thiếu field (backward compat với BE cũ).
+            // - Default `false` khi cả 2 đều thiếu (user chưa login).
+            final isSaved = gameDetail.isSaved || searchResult.isSaved;
 
             if (!isGpsEnabled) {
               emit(MatchmakingGpsDisabled(
@@ -154,47 +152,48 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
               return;
             }
 
-            // Gộp tất cả trường hợp về `MatchmakingGameDetail` (kể cả khi
-            // không có quán trong bán kính). State class này đã có sẵn
-            // `isOutOfRadius` + `alternativeSuggestions` đủ để render UI
-            // thống nhất, không cần state riêng `MatchmakingOutOfRadius`.
+            // Luồng mới: `nearbyCafes` (gần theo GPS) được thay thế bằng
+            // `activeCafes` (quán có board game này trong kho, có thể ở
+            // bất kỳ đâu). Vẫn giữ field `nearbyCafes` (rỗng) để không
+            // vỡ các consumer khác (vd: [selectCafe], [canBookNow]).
             //
-            // Lý do thống nhất:
-            // 1. Trước đây code tách thành `OutOfRadius` riêng + gọi thêm API
-            //    `getSimilarGames(...)` để lấy game tương tự. Nhưng data
-            //    này đã có sẵn trong `searchResult.alternativeSuggestions`
-            //    từ API `/api/cafes/nearby` (AC 5.2). Gọi API riêng là
-            //    duplicate + tăng latency.
-            // 2. Case "có quán nhưng quá xa" (vd: 22.8km, xa hơn 15km) và
-            //    case "không có quán nào" trước đây hiển thị 2 UI khác nhau:
-            //    - Có quán xa → `_buildOutOfRadiusView` (icon to + message
-            //      "Không có quán nào trong bán kính 15km" + carousel game
-            //      tương tự). Khi `similarGames = []` (backend không gợi ý)
-            //      thì carousel rỗng → UI "đề xuất lại chính game này" vô
-            //      nghĩa.
-            //    - Không có quán → `_buildGameDetailView` với empty state +
-            //      alternatives (UI đẹp hơn, user thích).
-            //    → Thống nhất về 1 UI giống case "không có quán".
-            final hasInRadius =
-                nearbyCafes.any((c) => (c.distanceMeters / 1000.0) <= 15);
-            final isOutOfRadius =
-                !hasInRadius; // Cả 2 case (có quán xa hoặc không có quán)
+            // `isOutOfRadius` semantics mới: chỉ true khi `activeCafes` rỗng
+            // → UI vẫn hiển thị empty state đúng kiểu.
+            final isOutOfRadius = activeCafes.isEmpty;
 
             emit(
               MatchmakingGameDetail(
                 game: gameDetail,
-                nearbyCafes: nearbyCafes,
+                nearbyCafes: const [],
+                activeCafes: activeCafes,
                 isGpsEnabled: isGpsEnabled,
                 isOutOfRadius: isOutOfRadius,
-                emptyResultMessage: searchResult.emptyResultMessage,
-                alternativeSuggestions:
-                    searchResult.alternativeSuggestions,
+                emptyResultMessage: emptyMsg,
+                alternativeSuggestions: const [],
+                isSaved: isSaved,
               ),
             );
           },
         );
       },
     );
+  }
+
+  /// Optimistic update trạng thái save/unsave cho board game hiện tại.
+  ///
+  /// Được gọi từ UI (icon bookmark trên header) sau khi `SavedGamesCubit`
+  /// hoàn tất toggle API. Mục đích: header icon (ở `BoardGameDetailPage`)
+  /// phản ánh đúng trạng thái ngay lập tức mà không cần re-fetch toàn bộ
+  /// detail (gồm `getBoardGameDetails` + `getBoardGameActiveCafes`).
+  ///
+  /// No-op nếu state hiện tại không phải [MatchmakingGameDetail] (vd:
+  /// user đã back ra khỏi page trước khi toggle hoàn tất).
+  void setIsSaved({required String gameId, required bool isSaved}) {
+    if (isClosed) return;
+    final current = state;
+    if (current is MatchmakingGameDetail && current.game.id == gameId) {
+      emit(current.copyWith(isSaved: isSaved));
+    }
   }
 
   // ─── Load Cafes Without GPS ────────────────────────────────────────────
@@ -251,35 +250,6 @@ class MatchmakingCubit extends Cubit<MatchmakingState> {
       latitude: latitude,
       longitude: longitude,
       isGpsEnabled: true,
-    );
-  }
-
-  /// Helper: thử `/api/cafes/nearby/me` trước (dùng vị trí lưu trên profile
-  /// — chính xác với user thật). Nếu fail (vd: user chưa PUT location → 400),
-  /// fallback `/api/cafes/nearby` với lat/lng truyền vào (public).
-  ///
-  /// Trả về `Either<Failure, NearbyCafesSearchResultEntity>` — không throw
-  /// để caller có thể emit từ trong `Either.fold`.
-  Future<Either<Failure, NearbyCafesSearchResultEntity>>
-      _loadNearbyCafesWithFallback({
-    required String gameId,
-    required double latitude,
-    required double longitude,
-  }) async {
-    final meResult = await repository.getNearbyCafesForCurrentUser(
-      gameId: gameId,
-      radiusKm: 50.0,
-    );
-    return meResult.fold(
-      (failure) async {
-        // Fallback sang `/nearby` với lat/lng tham số.
-        return await repository.getNearbyCafesWithGameSearch(
-          gameId: gameId,
-          latitude: latitude,
-          longitude: longitude,
-        );
-      },
-      (data) async => Right(data),
     );
   }
 
@@ -649,6 +619,158 @@ Future<void> loadNearbyCafesWithCoordinates({
     )),
   );
 }
+
+/// Lấy tất cả quán ACTIVE trên toàn hệ thống và filter client-side
+  /// theo `city` — map vào `GET /api/cafes?pageSize=100`.
+  ///
+  /// **Lý do tồn tại:**
+  /// - `/api/cafes/nearby/me` chỉ trả quán trong bán kính 15km (mặc định).
+  ///   Nếu player ở tỉnh xa, không có quán nào trong bán kính → màn hình
+  ///   `LobbyCafeSelectionPage` rỗng → không đặt được chỗ.
+  /// - `/api/cafes/nearby` có thể truyền `radiusKm` lên 50, nhưng vẫn là
+  ///   GPS-based — player muốn đặt ở TP khác (vd: đi công tác) vẫn khó.
+  /// - Backend **không hỗ trợ filter `city`** (Swagger không có field city/
+  ///   district/province trong CafeDto, chỉ có `address` free-form).
+  ///
+  /// **Giải pháp:** lấy full list ACTIVE rồi filter
+  /// `cafe.address.contains(cityNormalized)` phía client.
+  ///
+  /// **Lưu ý quan trọng về `city`:**
+  /// - Phải là `city` đã được resolve bởi backend (sau reverse-geocode),
+  ///   không phải tự player nhập. Format backend trả về đã chuẩn hoá
+  ///   (xem `PlayerLocationEntity.city`).
+  /// - `city` có thể là `null` nếu backend chưa reverse-geocode được —
+  ///   caller phải fallback về GPS flow và báo cho player (xem
+  ///   `LobbyCafeSelectionPage._onCityFilterPressed`).
+  ///
+  /// Phát state [MatchmakingCafesByCityLoaded] với 2 trường hợp:
+  /// - `cafes.isNotEmpty` → render list bình thường.
+  /// - `cafes.isEmpty` → render empty state riêng (message khác với
+  ///   nearby để player không bị nhầm "không có quán trong bán kính").
+  Future<void> loadCafesByCity({
+    required String city,
+    required String cityDisplayName,
+  }) async {
+    final cityNormalized = city.trim().toLowerCase();
+    if (cityNormalized.isEmpty) {
+      // Defensive: caller phải check trước, nhưng nếu city rỗng → fail
+      // sang empty state để UI không bị stuck ở Loading.
+      emit(MatchmakingCafesByCityLoaded(
+        city: cityNormalized,
+        cityDisplayName: cityDisplayName,
+        cafes: const [],
+        totalActiveCafes: 0,
+      ));
+      return;
+    }
+
+    emit(const MatchmakingLoading());
+
+    final result = await repository.getAllActiveCafes(pageSize: 100);
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => emit(_createFailure(failure)),
+      (data) {
+        final filtered = _filterCafesByCityToken(
+          allCafes: data.cafes,
+          cityToken: cityNormalized,
+        );
+        emit(MatchmakingCafesByCityLoaded(
+          city: cityNormalized,
+          cityDisplayName: cityDisplayName,
+          cafes: filtered,
+          totalActiveCafes: data.cafes.length,
+        ));
+      },
+    );
+  }
+
+  /// Filter quán có `address` chứa token thành phố (case-insensitive).
+  ///
+  /// Hỗ trợ alias phổ biến ở Việt Nam (vd: "Hồ Chí Minh" ↔ "TP.HCM",
+  /// "Ho Chi Minh City" ↔ "Sài Gòn") để tăng độ chính xác khi các quán
+  /// nhập địa chỉ không đồng nhất. Nếu token là 1 thành phố "chuẩn"
+  /// trong map alias → match theo cả alias.
+  ///
+  /// **Lưu ý quan trọng:** danh sách variant phải *symmetric* — bất kỳ
+  /// biến thể nào backend có thể trả về (vd: `"TP.HCM"`,
+  /// `"Ho Chi Minh City"`, `"Thành phố Hồ Chí Minh"`) đều phải có mặt
+  /// trong list để reverse-lookup bên dưới phân giải được về full set.
+  /// Thiếu 1 variant → miss các quán dùng variant đó trong `address`.
+  ///
+  /// Sort theo `name` A→Z (giống backend `GET /api/cafes`).
+  List<CafeEntity> _filterCafesByCityToken({
+    required List<CafeEntity> allCafes,
+    required String cityToken,
+  }) {
+    // Map canonical → variants hay gặp trong `address` (backend không
+    // chuẩn hoá format address nên mỗi quán nhập 1 kiểu — "Ho Chi Minh
+    // City" (English), "Hồ Chí Minh" (VN có dấu), "TP.HCM" (viết tắt),
+    // "Thành phố Hồ Chí Minh" (VN có prefix), "Sài Gòn" (tên cũ), ...
+    const aliases = <String, List<String>>{
+      'hồ chí minh': [
+        'hồ chí minh', // VN có dấu
+        'ho chi minh', // EN (substring match "ho chi minh city")
+        'ho chi minh city', // EN đầy đủ
+        'thành phố hồ chí minh', // VN có prefix "Thành phố"
+        'thành phố ho chi minh',
+        'tp. hồ chí minh',
+        'tp hồ chí minh',
+        'tp. ho chi minh',
+        'tp ho chi minh',
+        'tp.hcm',
+        'tp hcm',
+        'tp.hồ chí minh',
+        'tp hồ chí minh',
+        'hcmc',
+        'sài gòn',
+        'saigon',
+      ],
+      'hà nội': [
+        'hà nội',
+        'ha noi',
+        'hn',
+        'thành phố hà nội',
+      ],
+      'đà nẵng': ['đà nẵng', 'da nang'],
+      'hải phòng': ['hải phòng', 'hai phong'],
+      'cần thơ': ['cần thơ', 'can tho'],
+      'bình dương': [
+        'bình dương',
+        'binh duong',
+        'thủ dầu một',
+        'thu dau mot',
+      ],
+    };
+
+    // Reverse-lookup: bất kỳ variant nào cũng map về full set của
+    // canonical (canonical + toàn bộ variants). Trước đây chỉ lookup
+    // thẳng `aliases[cityToken]` — chỉ trúng khi token khớp ĐÚNG
+    // canonical key. Khi backend trả `'TP.HCM'` / `'Ho Chi Minh City'` /
+    // `'Thành phố Hồ Chí Minh'` thì miss → player chỉ thấy 1 phần nhỏ
+    // quán, gây hiểu nhầm "BoardVerse chỉ có vài quán ở HCM".
+    final aliasIndex = <String, Set<String>>{};
+    for (final entry in aliases.entries) {
+      final fullSet = <String>{entry.key, ...entry.value};
+      aliasIndex[entry.key] = fullSet;
+      for (final variant in entry.value) {
+        aliasIndex[variant] = fullSet;
+      }
+    }
+
+    // Fallback khi cityToken không khớp canonical nào: dùng chính token
+    // làm matcher duy nhất (vẫn match được quán có địa chỉ chứa đúng
+    // cụm đó, vd player ở Hạ Long → match "hạ long" trong address).
+    final matchers = aliasIndex[cityToken] ?? <String>{cityToken};
+
+    final filtered = allCafes.where((cafe) {
+      final address = cafe.address.toLowerCase();
+      return matchers.any((m) => address.contains(m));
+    }).toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return filtered;
+  }
 
 /// Reset state về [MatchmakingInitial] khi player ấn "Đổi game" từ
 /// [LobbyCafeSelectionPage].

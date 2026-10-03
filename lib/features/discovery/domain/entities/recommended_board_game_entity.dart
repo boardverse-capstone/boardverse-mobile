@@ -24,6 +24,13 @@ class RecommendedBoardGameEntity extends Equatable {
   /// Điểm match score (0-100).
   final double score;
 
+  /// Trạng thái đã lưu vào danh sách yêu thích — map từ field `isSaved`
+  /// trong response của survey/personalized. Dùng làm "icon hint" hiển thị
+  /// ban đầu khi [SavedGamesCubit] chưa load xong (SavedGamesInitial /
+  /// SavedGamesError không có savedIds) → tránh trường hợp user thấy icon
+  /// "chưa lưu" dù DB đã có bản ghi save.
+  final bool isSaved;
+
   /// Các lý do game này được gợi ý.
   /// Ví dụ: ["Số người chơi phù hợp", "Weight phù hợp mức độ phức tạp mong muốn"]
   final List<String> matchReasons;
@@ -38,7 +45,8 @@ class RecommendedBoardGameEntity extends Equatable {
     required this.playTimeMinutes,
     required this.categories,
     required this.score,
-    required this.matchReasons,
+    this.isSaved = false,
+    this.matchReasons = const [],
   });
 
   String get playerRangeDisplay =>
@@ -47,6 +55,6 @@ class RecommendedBoardGameEntity extends Equatable {
   @override
   List<Object?> get props => [
         id, name, imageUrl, weight, minPlayers, maxPlayers,
-        playTimeMinutes, categories, score, matchReasons,
+        playTimeMinutes, categories, score, isSaved, matchReasons,
       ];
 }

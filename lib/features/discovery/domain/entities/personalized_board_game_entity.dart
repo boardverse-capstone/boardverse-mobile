@@ -19,8 +19,8 @@ class PersonalizedBoardGameEntity extends RecommendedBoardGameEntity {
   /// Lý do cá nhân hóa (ví dụ: "Khớp với thể loại bạn thường chơi").
   final String? matchReason;
 
-  /// Game có đang được lưu không.
-  final bool isSaved;
+  /// `isSaved` duoc ke thua tu [RecommendedBoardGameEntity] (thanh
+  /// tuong thich voi parent sau khi parent duoc them field nay).
 
   /// Có lobby đang mở cho game này không.
   final bool hasOpenLobby;
@@ -39,13 +39,13 @@ class PersonalizedBoardGameEntity extends RecommendedBoardGameEntity {
     required super.categories,
     required super.score,
     required super.matchReasons,
+    super.isSaved,
     required this.baseScore,
     required this.personalizationBoost,
     required this.playHistoryPenalty,
     required this.personalizedScore,
     this.matchReason,
-    required this.isSaved,
-    required this.hasOpenLobby,
+    this.hasOpenLobby = false,
     this.openLobbyId,
   });
 
@@ -61,7 +61,7 @@ class PersonalizedBoardGameEntity extends RecommendedBoardGameEntity {
   List<Object?> get props => [
         ...super.props,
         baseScore, personalizationBoost, playHistoryPenalty,
-        personalizedScore, matchReason, isSaved,
+        personalizedScore, matchReason,
         hasOpenLobby, openLobbyId,
       ];
 }

@@ -47,7 +47,7 @@ class FriendRequestCard extends StatelessWidget {
       borderWidth: request.isRead
           ? NeoBrutalismTheme.borderWidth
           : NeoBrutalismTheme.borderWidthBold,
-      radius: 14,
+      radius: 16,
       shadowColor: request.isRead
           ? AppColors.black.withValues(alpha: 0.05)
           : AppColors.primary.withValues(alpha: 0.3),
@@ -67,7 +67,7 @@ class FriendRequestCard extends StatelessWidget {
               karmaPoints: request.karmaPoints,
             ),
             if (request.message != null && request.message!.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               _MessageBubble(message: request.message!),
             ],
             if (request.mutualFriendsCount != null &&

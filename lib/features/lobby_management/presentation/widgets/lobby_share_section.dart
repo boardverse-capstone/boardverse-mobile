@@ -21,6 +21,11 @@ class LobbyShareSection extends StatefulWidget {
   final String currentUserId;
   final String? shareCode;
   final bool isPrivate;
+
+  /// true khi người xem là host của lobby — bật nút "Tạo mã mới"
+  /// (gọi `POST /share-code/regenerate`). Mặc định `false` cho member.
+  final bool isHost;
+
   final List<LobbyInviteEntity> pendingInvites;
 
   /// Được gọi khi user bấm cancel 1 invite.
@@ -32,6 +37,11 @@ class LobbyShareSection extends StatefulWidget {
   /// Được gọi khi user bấm "Mời bạn bè" (mở sheet invite mới).
   final VoidCallback? onInviteFriends;
 
+  /// Được gọi khi host bấm "Tạo mã mới" trong share code card. Chỉ hiển
+  /// thị khi [isHost] = true. Trả về share code mới để caller update state
+  /// (`LobbyPage._shareCode`) — UI sẽ tự re-render qua BlocListener.
+  final Future<String?> Function() onRegenerateShareCode;
+
   const LobbyShareSection({
     super.key,
     required this.lobbyId,
@@ -41,7 +51,9 @@ class LobbyShareSection extends StatefulWidget {
     required this.pendingInvites,
     required this.onCancelInvite,
     required this.onRefresh,
+    required this.onRegenerateShareCode,
     this.onInviteFriends,
+    this.isHost = false,
   });
 
   @override
@@ -50,6 +62,73 @@ class LobbyShareSection extends StatefulWidget {
 
 class _LobbyShareSectionState extends State<LobbyShareSection> {
   bool _cancelling = false;
+
+  /// Loading flag cho nút "Tạo mã mới" trong share code card — tránh
+  /// user spam click trong khi request regenerate đang bay tới server.
+  /// Type là `Future<String?>` (không phải bool) để khớp với callback
+  /// `onRegenerateShareCode: Future<String?> Function()` — share code
+  /// mới sẽ được return từ cubit để client copy vào clipboard.
+  Future<String?> _regenerating = Future<String?>.value(null);
+
+  /// Host bấm "Tạo mã mới" → confirm dialog → gọi callback.
+  ///
+  /// Flow:
+  /// 1. Show dialog giải thích effect (mã cũ hết hiệu lực, mã mới được
+  ///    copy tự động vào clipboard cho tiện share tiếp).
+  /// 2. Disable nút trong khi gọi API (`_regenerating = Future(...)`).
+  /// 3. Callback (`onRegenerateShareCode`) → LobbyPage gọi cubit →
+  ///    cubit emit `LobbyShareCodeRegenerated(info)` → parent update
+  ///    `_shareCode` qua BlocListener.
+  /// 4. Show snackbar thành công/thất bại.
+  Future<void> _handleRegenerateShareCode(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLgAll),
+        title: const Text('Tạo lại mã phòng?'),
+        content: const Text(
+          'Mã chia sẻ hiện tại sẽ hết hiệu lực ngay lập tức. Người chưa vào '
+          'phòng bằng mã cũ sẽ không thể dùng mã đó nữa. Bạn chắc chắn?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tạo mã mới'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || !context.mounted) return;
+
+    setState(() {
+      _regenerating = widget.onRegenerateShareCode();
+    });
+
+    final newCode = await _regenerating;
+    if (!mounted) return;
+
+    // Reset future (luôn thành `null` để nút có thể bấm lại).
+    setState(() {
+      _regenerating = Future<String?>.value(null);
+    });
+
+    if (!context.mounted) return;
+    if (newCode != null && newCode.isNotEmpty) {
+      // Sau khi backend tạo mã mới, auto-copy vào clipboard cho host
+      // tiện share ngay — tiết kiệm 1 thao tác copy thủ công.
+      await Clipboard.setData(ClipboardData(text: newCode));
+      if (!context.mounted) return;
+      context.showTopSnackBar('Đã tạo mã mới và sao chép vào bộ nhớ tạm');
+    } else {
+      // null = cubit không emit LobbyShareCodeRegenerated (vd: 403/409).
+      // LobbyPage đã show snackbar lỗi riêng qua BlocListener, nên ở
+      // đây không cần làm gì thêm.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +193,11 @@ Expanded(
           _ShareCodeCard(
             code: widget.shareCode,
             isPrivate: widget.isPrivate,
+            isHost: widget.isHost,
+            onRegenerate: widget.isHost
+                ? () => _handleRegenerateShareCode(context)
+                : null,
+            regenerating: _regenerating,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -210,9 +294,21 @@ class _ShareCodeCard extends StatelessWidget {
   final String? code;
   final bool isPrivate;
 
+  /// true khi viewer là host — hiển thị nút "Tạo mã mới" (POST
+  /// `/share-code/regenerate`). `null` callback = không hiển thị nút.
+  final bool isHost;
+  final VoidCallback? onRegenerate;
+
+  /// `Future<String?>` từ parent để disable nút trong khi gọi API.
+/// Mặc định `Future<String?>.value(null)` = sẵn sàng.
+  final Future<String?>? regenerating;
+
   const _ShareCodeCard({
     required this.code,
     required this.isPrivate,
+    this.isHost = false,
+    this.onRegenerate,
+    this.regenerating,
   });
 
   @override

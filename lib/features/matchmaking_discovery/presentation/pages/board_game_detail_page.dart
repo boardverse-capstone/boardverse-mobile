@@ -6,6 +6,8 @@ import '../../../../core/navigation/lobby_suggestion_signal.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
+import '../../../discovery/presentation/cubit/saved_games_cubit.dart';
+import '../../../discovery/presentation/cubit/saved_games_state.dart';
 import '../../../profile/domain/entities/player_location_entity.dart';
 import '../../../profile/presentation/cubit/profile_cubit.dart';
 import '../../domain/entities/alternative_game_suggestion_entity.dart';
@@ -67,23 +69,104 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Nếu parent widget tree đã có `SavedGamesCubit` (vd: navigate từ
+    // DiscoveryResultsPage) → cung cấp lại trong scope trang này để
+    // BlocListener + `_HeaderSaveButton` có thể `context.read` được.
+    // Nếu không có (vd: navigate từ SearchPage chỉ cung cấp
+    // SavedGamesCubit được provide ở root MultiBlocProvider (main.dart)
+    // nên LUÔN có sẵn trong scope bất kể route nào push tới đây. Nếu
+    // vì lý do nào đó provider bị thiếu (test env / setup wrapper
+    // custom), `_tryFindSavedGamesCubit` trả về `null` → header vẫn
+    // render ở "static mode" (xem `_HeaderSaveButton._computeIsSaved`
+    // fallback về `initialIsSaved` từ API) nhưng `toggleSave` sẽ throw
+    // và UI catch hiển thị toast lỗi.
+    final savedGamesCubit = _tryFindSavedGamesCubit(context);
+
     return BlocProvider.value(
       value: widget.matchmakingCubit,
-      child: Scaffold(
-        body: MultiBlocListener(
-          listeners: [
-            BlocListener<MatchmakingCubit, MatchmakingState>(
-              listenWhen: (prev, curr) =>
-                  curr is MatchmakingPlayNavigationResolved ||
-                  curr is MatchmakingFailure,
+      child: savedGamesCubit != null
+          ? BlocProvider.value(value: savedGamesCubit, child: _buildScaffold())
+          : _buildScaffold(),
+    );
+  }
+
+  /// Tìm `SavedGamesCubit` trong widget tree cha. Trả về `null` nếu
+  /// không có (vd: test env thiếu BlocProvider). Bình thường luôn non-null
+  /// vì cubit được provide ở root MultiBlocProvider.
+  SavedGamesCubit? _tryFindSavedGamesCubit(BuildContext context) {
+    try {
+      return context.read<SavedGamesCubit>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Trích xuất `savedIds` set từ `SavedGamesState` (nếu cubit có data
+  /// đáng tin). Trả về set rỗng cho các state không expose IDs trực tiếp
+  /// (Initial / Error không có savedIds) — listener sẽ skip vì 2 empty
+  /// sets bằng nhau → không emit không cần thiết.
+  Set<String> _idsOf(SavedGamesState state) {
+    if (state is SavedGamesLoaded) return state.savedIds;
+    if (state is SavedGamesRefreshing && state.games.isNotEmpty) {
+      return state.games.map((g) => g.gameTemplateId).toSet();
+    }
+    if (state is SavedGamesLoadingFromCache) return state.cachedIds;
+    if (state is SavedGamesError && state.savedIds != null) {
+      return state.savedIds!;
+    }
+    return const <String>{};
+  }
+
+  Widget _buildScaffold() {
+    return Scaffold(
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<MatchmakingCubit, MatchmakingState>(
+            listenWhen: (prev, curr) =>
+                curr is MatchmakingPlayNavigationResolved ||
+                curr is MatchmakingFailure,
+            listener: (context, state) {
+              if (state is MatchmakingPlayNavigationResolved) {
+                _handlePlayNavigation(context, state);
+              }
+            },
+          ),
+          // Đồng bộ trạng thái save/unsave từ `SavedGamesCubit` về
+          // `MatchmakingCubit` khi user tap bookmark icon trên header.
+          //
+          // Lý do cần sync:
+          // - Header (trong trang này) dùng `isSaved` từ
+          //   `MatchmakingGameDetail` state làm initial value.
+          // - Tap → `SavedGamesCubit.toggleSave()` thay đổi state riêng
+          //   → icon header flip ngay (reactive qua BlocBuilder).
+          // - Nhưng `MatchmakingGameDetail.isSaved` không tự cập nhật
+          //   → nếu user back ra rồi vào lại trang, `loadGameDetail`
+          //   sẽ phải gọi lại API mới có data mới. Sync giúp state
+          //   matchmaking luôn khớp với cubit save (single source of
+          //   truth cho `isSaved` của user hiện tại).
+          //
+          // `BlocListener` này được add khi `SavedGamesCubit` có trong scope.
+          // Cubit được provide ở root MultiBlocProvider nên bình thường
+          // luôn có — check phòng trường hợp wrapper test thiếu provider.
+          if (_tryFindSavedGamesCubit(context) != null)
+            BlocListener<SavedGamesCubit, SavedGamesState>(
+              listenWhen: (prev, curr) {
+                // Chỉ emit khi `savedIds` set thay đổi (toggle action).
+                final prevIds = _idsOf(prev);
+                final currIds = _idsOf(curr);
+                return prevIds != currIds;
+              },
               listener: (context, state) {
-                if (state is MatchmakingPlayNavigationResolved) {
-                  _handlePlayNavigation(context, state);
-                }
+                final ids = _idsOf(state);
+                final isSaved = ids.contains(widget.gameId);
+                widget.matchmakingCubit.setIsSaved(
+                  gameId: widget.gameId,
+                  isSaved: isSaved,
+                );
               },
             ),
-          ],
-          child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
+        ],
+        child: BlocBuilder<MatchmakingCubit, MatchmakingState>(
             builder: (context, state) {
               if (state is MatchmakingLoading) {
                 return const BoardGameDetailShimmer();
@@ -149,8 +232,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             },
           ),
         ),
-      ),
-    );
+      );
   }
 
   /// Mở dialog chọn vị trí, gọi PUT /api/userprofile/me/location, rồi
@@ -282,7 +364,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     return CustomScrollView(
       slivers: [
         if (state.selectedGame != null)
-          GameDetailHeader(game: state.selectedGame!),
+          GameDetailHeader(game: state.selectedGame!, isSaved: false),
         SliverToBoxAdapter(
           child: GpsWarningBanner(
             onEnableGps: () {
@@ -317,26 +399,30 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
         CustomScrollView(
           controller: _scrollController,
           slivers: [
-            GameDetailHeader(game: gameAsEntity),
+            GameDetailHeader(game: gameAsEntity, isSaved: state.isSaved),
             SliverToBoxAdapter(
               child: GameInfoSection.fromDetail(state.game),
             ),
-            // Section "QUÁN CAFE GẦN BẠN" — đổi tiêu đề theo trường hợp:
-            // - Có quán trong bán kính → "QUÁN CAFE GẦN BẠN" (mặc định).
-            // - Có quán nhưng xa (out-of-radius) → "QUÁN CAFE TRONG KHU VỰC"
-            //   để user biết quán này xa hơn bán kính ưu tiên.
-            // - Không có quán nào → ẩn section này (UI empty state đã
-            //   thông báo rồi).
-            if (state.nearbyCafes.isNotEmpty)
+            // Section "QUÁN CÓ BOARD GAME NÀY" — thay thế section
+            // "QUÁN CAFE GẦN BẠN" cũ (quán gần theo GPS). Endpoint
+            // mới `/api/v1/board-games/{id}/active-cafes` trả danh sách
+            // quán ACTIVE có board game này trong kho (status Available
+            // hoặc InUse) — không phụ thuộc vị trí player.
+            //
+            // 3 trường hợp hiển thị:
+            // 1. Có quán trong danh sách → render tiêu đề + list cards.
+            // 2. Rỗng nhưng có empty message → render empty state thân
+            //    thiện (icon + message từ server).
+            // 3. Đang loading hoặc lỗi → bỏ qua section (UI loading/error
+            //    đã được handle ở BlocBuilder rồi).
+            if (state.activeCafes.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.md),
                   child: Padding(
                     padding: AppSpacing.paddingHorizontalMd,
                     child: Text(
-                      state.isOutOfRadius
-                          ? 'QUÁN CAFE TRONG KHU VỰC'
-                          : 'QUÁN CAFE GẦN BẠN',
+                      'QUÁN CÓ BOARD GAME NÀY',
                       style:
                           Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w900,
@@ -346,9 +432,9 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                   ),
                 ),
               ),
-            if (state.nearbyCafes.isEmpty)
+            if (state.activeCafes.isEmpty)
               SliverToBoxAdapter(
-                child: _buildNearbyEmptyState(
+                child: _buildActiveCafesEmptyState(
                   context,
                   emptyMessage: state.emptyResultMessage,
                 ),
@@ -357,7 +443,13 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final cafe = state.nearbyCafes[index];
+                    final activeCafe = state.activeCafes[index];
+                    // Chuyển sang [CafeEntity] để tái sử dụng
+                    // [CafeCard] hiện có. `toCafeEntity()` map đầy đủ
+                    // các field inventory (`availableGameBoxCount`,
+                    // `status`, `estimatedWaitMinutes`, ...) sang
+                    // [CafeEntity] để card hiển thị đúng.
+                    final cafe = activeCafe.toCafeEntity();
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md,
@@ -378,7 +470,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                       ),
                     );
                   },
-                  childCount: state.nearbyCafes.length,
+                  childCount: state.activeCafes.length,
                 ),
               ),
             // Khi out-of-radius (kể cả có hoặc không có quán) mà backend
@@ -387,6 +479,11 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
             // → hiển thị notice "Hiện chưa có gợi ý game tương tự" để user
             // biết là backend không phải frontend bug, thay vì để carousel
             // rỗng (gây hiểu nhầm UI không hoạt động).
+            //
+            // Lưu ý: với luồng mới (active-cafes), `isOutOfRadius` chỉ true
+            // khi `activeCafes.isEmpty`. Section này giữ để tương thích
+            // với code cũ / fallback; nếu backend trả rỗng alternative
+            // thì notice sẽ hiển thị.
             if (state.isOutOfRadius)
               SliverToBoxAdapter(
                 child: Padding(
@@ -618,13 +715,14 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
     );
   }
 
-  Widget _buildNearbyEmptyState(
+  Widget _buildActiveCafesEmptyState(
     BuildContext context, {
     required String? emptyMessage,
   }) {
     final theme = Theme.of(context);
     final message = emptyMessage ??
-        'Không có quán nào có game này gần bạn. Hãy thử chọn game khác.';
+        'Chưa có quán cafe nào đang có sẵn board game này trong kho. '
+            'Bạn có thể thử tìm kiếm board game khác ở tab Khám phá.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -653,7 +751,7 @@ class _BoardGameDetailPageState extends State<BoardGameDetailPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.location_off,
+                Icons.sports_esports_outlined,
                 color: AppColors.error,
                 size: AppSpacing.xl,
               ),

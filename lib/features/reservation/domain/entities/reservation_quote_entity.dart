@@ -29,6 +29,17 @@ class ReservationQuoteEntity extends Equatable {
   final double riskMultiplier;
   final int minDepositApplied;
   final int finalDeposit;
+
+  /// BR-DEPOSIT-02 (2026-08-27): giá vé cơ bản của cafe (VND/người).
+  /// FE chỉ cần `FinalDeposit` + `CafeBasePriceVnd` + `MaxPlayers` để
+  /// hiển thị breakdown cho user (xem docs `.agents/docs/apis_docs/reservation.md`
+  /// §POST /quote → Deposit breakdown). Field mới này thay thế công thức
+  /// `% × giá × số người` FE tự tính trước đây.
+  ///
+  /// `null` cho response cũ (pre-2026-08-27) để backward-compat — UI sẽ
+  /// fallback hiển thị giá trị `finalDeposit` đơn lẻ.
+  final int? cafeBasePriceVnd;
+
   final int currentBalance;
   final int missingAmount;
   final int bufferMinutes;
@@ -63,6 +74,7 @@ class ReservationQuoteEntity extends Equatable {
     required this.riskMultiplier,
     required this.minDepositApplied,
     required this.finalDeposit,
+    this.cafeBasePriceVnd,
     required this.currentBalance,
     required this.missingAmount,
     required this.bufferMinutes,
@@ -107,6 +119,7 @@ class ReservationQuoteEntity extends Equatable {
         minPlayers,
         maxPlayers,
         finalDeposit,
+        cafeBasePriceVnd,
         currentBalance,
         missingAmount,
         bufferMinutes,
@@ -134,7 +147,7 @@ enum BufferWarningLevel {
       case BufferWarningLevel.warning:
         return 'Thời gian tuyển người ngắn. Khuyến nghị chọn slot xa hơn.';
       case BufferWarningLevel.rejected:
-        return 'Thời gian tuyển người quá ngắn. Vui lòng chọn slot khác.';
+        return 'Thời gian tuyển người quá ngắn. Vui lòng cân nhắc lựa chọn thời gian khác phù hợp.';
     }
   }
 }

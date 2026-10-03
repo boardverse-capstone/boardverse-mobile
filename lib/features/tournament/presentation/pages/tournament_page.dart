@@ -86,6 +86,26 @@ class _TournamentPageContentState extends State<_TournamentPageContent> {
                 foregroundColor: AppColors.white,
                 elevation: 0,
                 scrolledUnderElevation: 0,
+                leading: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.black, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppColors.black,
+                        blurRadius: 0,
+                        offset: Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    tooltip: 'Trở về Hoạt động',
+                    icon: const Icon(AppIcons.back, color: AppColors.black),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ),
                 actions: [
                   Container(
                     margin: const EdgeInsets.only(right: 8),

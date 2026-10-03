@@ -12,6 +12,45 @@ API phòng chờ trực tuyến: tạo phòng, tham gia, rời phòng, tìm phò
 > - [../time-slot-fixed-end-design.md](../time-slot-fixed-end-design.md) — Time-slot + fixed-end design (FE-facing v2.0)
 > - [lobby-invite.md](./lobby-invite.md) — Invite + share code
 > - [friend.md](./friend.md) — Friend system (cho invite private lobby)
+> - [lobby-merge.md](./lobby-merge.md) — Ghép nhóm lobby (Lobby Merge): POS workflow, merge request, merge approval, audit log
+
+---
+
+## Schema — `LobbyResponseDto`
+
+Tất cả endpoint trả về lobby đều dùng schema này (xem `BoardVerse.Core/DTOs/Lobby/LobbyResponseDto.cs`):
+
+| Field | Type | Nullable | Mô tả |
+|---|---|---|---|
+| `id` | Guid | ❌ | Lobby ID |
+| `hostUserId` | Guid | ❌ | User ID của host |
+| `gameTemplateId` | Guid | ❌ | Game ID |
+| `gameName` | string | ✅ | Tên game (vd "Splendor"), join sẵn từ `GameTemplate` |
+| `cafeId` | Guid | ✅ | Cafe ID; `null` cho lobby không gắn quán (legacy/test) |
+| `cafeName` | string | ✅ | **Tên cafe** — join sẵn từ `Cafe.Name`. `null` khi cafe đã bị ẩn/xóa. |
+| `cafeAddress` | string | ✅ | **Địa chỉ cafe** — join sẵn từ `Cafe.Address`. `null` khi cafe đã bị ẩn/xóa. |
+| `bookingId` | Guid | ✅ | Booking Deposit ID (BR-22 flow). `null` nếu lobby không qua Booking. |
+| `scheduledStartTime` | DateTime | ✅ | Giờ dự kiến chơi |
+| `maxMembers` | int | ❌ | Số người tối đa |
+| `minPlayers` | int | ❌ | Số người tối thiểu để confirmed |
+| `seatCount` | int | ✅ | BR-22 deposit quota; `null` cho legacy lobby |
+| `activeSessionId` | Guid | ✅ | Session ID khi `status = InProgress` |
+| `status` | `LobbyStatus` enum | ❌ | `PendingActivation` / `Open` / `Viable` / `Full` / `InProgress` / `Closed` / ... |
+| `latitude` / `longitude` | double | ✅ | Toạ độ lobby (search geo) |
+| `distanceKm` | double | ✅ | Haversine distance; chỉ có khi search có geo |
+| `isPrivate` | bool | ❌ | Private (chỉ invite) hay public |
+| `shareCode` | string | ❌ | 8-char alphanumeric share code |
+| `description` | string | ✅ | Host's note |
+| `coverImageUrl` | string | ✅ | URL ảnh lobby |
+| `cancellationLeadTimeMinutes` | int | ❌ | Phút trước giờ chơi mà host vẫn được hủy full-refund |
+| `minKarmaScore` | int | ✅ | BR-10: Karma tối thiểu (null = không yêu cầu) |
+| `closedAt` / `closedReason` | DateTime / string | ✅ | Terminal status info |
+| `createdAt` / `updatedAt` | DateTime | ❌ | Audit |
+| `members` | `LobbyMemberDto[]` | ❌ | Danh sách thành viên active (host + members); join sẵn `User.Profile` (avatar, karma) |
+
+**Note quan trọng cho Flutter:**
+- Từ trước tới nay frontend phải gọi thêm `GET /api/v1/cafes/{cafeId}` để hiển thị tên + địa chỉ quán. Hiện tại `cafeName` và `cafeAddress` đã có sẵn trong mọi response → bỏ được round-trip phụ.
+- `members[].avatarUrl` và `members[].karmaPoints` đã chính xác (fix bug include Profile navigation ngày 2026-08-26).
 
 > **⚠️ DEPRECATION NOTICE — Phase 2 (BR §XXI-B.1)**
 >
@@ -19,6 +58,26 @@ API phòng chờ trực tuyến: tạo phòng, tham gia, rời phòng, tìm phò
 > - Tạo lobby phải qua flow mới: `POST /api/v1/reservations/quote` → `POST /api/v1/reservations/confirm` (xem `docs/api/reservation.md`).
 > - Lobby hiện chỉ được tạo bởi `ReservationService.ConfirmAsync` (atomic transaction BR-REQUIRED §17.4).
 > - Toàn bộ endpoint khác (join, leave, search, cancel, transfer-host, kick, ready, messages…) vẫn hoạt động bình thường.
+
+### Validation chain cho `POST /reservations/confirm` (fix 2026-09-01)
+
+Server validate theo thứ tự trước khi hold BVC:
+
+1. Cafe mở cửa ngày `playDate` (`CafeScheduleResolver.IsClosed`) → 400.
+2. Preferred times hợp lệ với `CafeSchedule` (xử lý overnight, G3 fix).
+3. `playDate ∈ [today, today+7]` (G2 fix) → 400 `PlayDateOutOfRange`.
+4. `scheduledStartTime > now()` (G11 fix) → 400 `StartTimeInPast`.
+5. `scheduledEndTime > scheduledStartTime` → 400 `PreferredTimesMustDiffer`.
+6. Duration 30 phút ≤ d ≤ 12 giờ (G7/G8 fix) → 400.
+7. Overnight rule / Same-day rule → 400 nếu vi phạm.
+8. Buffer `recruitmentDeadline - now()`:
+   - `< 60 phút` → 400 `BufferTooShort` (BR-LOBBY-01b).
+   - `60–120 phút` → 200 với `bufferWarning = true` (BR-LOBBY-01c).
+   - `≥ 120 phút` → 200 (BR-LOBBY-01a).
+9. User eligibility (BR-USER-LIMIT-*, BR-NEW-05, BR-RISK-04, BR-NEW-10).
+10. `availableBalance ≥ finalDeposit` (BR-DEPOSIT-01).
+11. Seat + Game copy availability (BR-RESERVATION-01/02, Serializable retry tối đa 3 lần, G12).
+12. Atomic transaction: trừ BVC + insert Reservation + insert Lobby + hold seat + hold game.
 
 Tuân thủ business rules:
 - **BR-07:** `MaxMembers <= SeatCount` của booking liên kết
@@ -255,11 +314,26 @@ BR-USER-LIMIT-02: Nếu `excludeSelfOverlapping = true`, loại bỏ các lobby 
 
 ## GET /api/v1/lobbies/discoverable
 
-Khám phá tất cả lobby **public + đang mở** (`IsPrivate = false`, `Status = Open`) để bất kỳ player nào cũng có thể thấy và join.
+Khám phá tất cả lobby **public + CHƯA VÀO PHIÊN CHƠI** (`IsPrivate = false`) để bất kỳ player nào cũng có thể thấy và join.
+
+Status được trả về (theo yêu cầu UX 2026-08-27):
+
+| Status | Hiển thị? | Lý do |
+|---|---|---|
+| `Open` | ✅ | Đang tuyển người |
+| `Viable` | ✅ | Đạt `minPlayers`, vẫn nhận thêm đến `maxPlayers` |
+| `Full` | ✅ | Đã đạt `maxPlayers`, chưa tới quán |
+| `WaitingCheckIn` | ✅ | Tất cả members đã Ready, đang chờ check-in tại quán |
+| `InProgress` | ❌ | Đã vào phiên chơi tại quán |
+| `Closed` / `RatingOpen` | ❌ | Phiên chơi đã kết thúc |
+| `TimeoutFailed` / `HostCancelled` / `Dissolved` | ❌ | Lobby đã giải tán |
+| `RejectedByCafe` / `ExpiredByCafe` | ❌ | Lobby bị cafe từ chối |
+| `PendingActivation` / `PendingCafeApproval` | ❌ | Lobby chưa publish — chỉ host thấy qua `/{lobbyId}` |
+| Private (`IsPrivate = true`) | ❌ | Ẩn hoàn toàn khỏi search/discovery |
 
 Khác với `POST /search`, endpoint này **không bắt buộc `gameTemplateId`** — phù hợp cho màn hình "Browse lobbies" trên mobile. Có thể filter optional theo game + bán kính địa lý, sort theo khoảng cách khi có geo.
 
-BR-USER-LIMIT-02: Nếu `excludeSelfOverlapping = true`, loại bỏ các lobby trùng lịch với user (+30 phút buffer).
+BR-USER-LIMIT-02: Nếu `excludeSelfOverlapping = true`, loại bỏ các lobby trùng lịch với user (+30 phút buffer). Lobby user đã join/host vẫn hiển thị cho chính user đó.
 
 **Role:** Player — đã đăng nhập
 
@@ -285,10 +359,11 @@ Authorization: Bearer <jwt>
 
 **Behavior:**
 - Lobby private bị **loại hoàn toàn** khỏi kết quả.
-- Lobby status khác `Open` (Full / InProgress / TimeoutFailed / Closed / HostCancelled) bị loại.
+- Lobby status CHƯA VÀO PHIÊN CHƠI (`Open`, `Viable`, `Full`, `WaitingCheckIn`) hiển thị.
+- Lobby status `InProgress` trở lên (Closed / RatingOpen / TimeoutFailed / HostCancelled / Dissolved / RejectedByCafe / ExpiredByCafe) bị loại.
 - Nếu có geo: áp dụng bounding-box pre-filter ở DB, sau đó Haversine precise + filter `distanceKm <= radiusKm`, sort theo distance asc.
 - Không có geo: sort theo `CreatedAt` desc.
-- Nếu `excludeSelfOverlapping = true`: loại bỏ các lobby trùng `playDate + timeSlot` với lịch hiện tại của user (+30 phút buffer).
+- Nếu `excludeSelfOverlapping = true`: loại bỏ các lobby trùng `playDate + timeSlot` với lịch hiện tại của user (+30 phút buffer). Lobby user đã join/host vẫn hiển thị.
 
 **Response codes:**
 - `200` — Trả về danh sách (có thể rỗng)
@@ -378,6 +453,7 @@ Giải phóng `Reservation` về `Holding` (nếu có) để host tạo lobby m�
 - `LobbyInvite` chuyển sang cancelled (qua `CancelAllPendingForLobbyAsync`).
 - `LobbyMessage` + `LobbyReport` **giữ nguyên** (audit trail).
 - `Reservation.Status` chuyển về `Holding` (nếu đang `Confirmed`).
+- **Karma penalty cho Host (GAP-4 fix 2026-08-27):** Nếu host dissolve lobby sau grace period (đã có member join HOẶC > 15 phút từ tạo) mà BVC không đủ refund → `PlayerKarmaService.RecordHostDissolveAsync` ghi `KarmaShortPlayRecord` với `ViolationType = HostDissolve`, `ReservationId` được set (nullable FK — legacy dissolve không có reservation sẽ null). Trigger warning/restriction nếu đủ 5+ violations (BR-KARMA-03). Karma aggregation chạy qua `TriggerKarmaAggregationAsync` sau khi record được persist.
 
 **Trạng thái không cho phép dissolve:**
 - `InProgress` — đang chơi
@@ -458,6 +534,8 @@ SignalR tự negotiate: client gọi `POST /hubs/lobby/negotiate?access_token=<j
 | `LobbyCancelled` | `{ LobbyId, Reason, Timestamp }` | Host hủy lobby | — |
 | `LobbyTimeout` | `{ LobbyId, Message, Timestamp }` | Timeout do thiếu người | BR-08 |
 | `BookingConfirmed` | `{ LobbyId, BookingId, Message, Timestamp }` | Booking cọc thành công → chuyển sang cafe | BR-05 |
+| `LobbyMergedInto` | `{ LobbyId, MergedFromLobbyId, MergedMemberUserId, MergedMemberName, Timestamp }` | Member ghép thành công vào lobby (Lobby Merge) | Lobby Merge |
+| `MemberJoinedFromMerge` | `{ LobbyId, Member: LobbyMemberDto, Timestamp }` | Member xuất hiện trong lobby đích sau merge (để client refresh) | Lobby Merge |
 
 ### Client subscribe flow
 
@@ -474,6 +552,8 @@ connection.on("MemberLeft", (e) => removeMember(e.MemberId));
 connection.on("LobbyFull", (e) => navigateToBooking(e.LobbyId));
 connection.on("LobbyTimeout", (e) => showTimeoutMessage());
 connection.on("BookingConfirmed", (e) => navigateToCafeCheckIn(e.BookingId));
+connection.on("LobbyMergedInto", (e) => refreshLobbyInfo(e.LobbyId));
+connection.on("MemberJoinedFromMerge", (e) => refreshLobbyMembers(e.Member));
 
 // 3. Start
 await connection.start();
@@ -538,10 +618,78 @@ Lấy tất cả lobby của user hiện tại (host hoặc member, chỉ active
 
 **Response codes:**
 - `200` — Trả danh sách (có thể rỗng)
+- `400` — `statuses` hoặc `statusFilter` không hợp lệ
 - `401` — Thiếu token
 - `500` — Lỗi hệ thống
 
 **Use case:** Mobile tab "Phòng của tôi" — hiển thị lobby user đang host hoặc tham gia.
+
+**Query parameters (filter & sort):**
+
+| Param | Type | Required | Mô tả |
+|---|---|---|---|
+| `statuses` | `int[]` | Không | Lọc theo 1 hoặc nhiều `LobbyStatus` enum int nằm trong **whitelist của swagger**. Truyền nhiều lần (`?statuses=0&statuses=6`) hoặc comma-separated (`?statuses=0,6`). **Hợp lệ:** `Open=0`, `Full=1`, `InProgress=4`, `Closed=5`, `RatingOpen=6`, `PendingActivation=10`, `PendingCafeApproval=11`, `RejectedByCafe=12`, `ExpiredByCafe=13`, `Viable=14`, `Dissolved=15`, `WaitingCheckIn=16`. **TimeoutFailed=7 và HostCancelled=8 bị loại cố ý khỏi whitelist** — gửi int 7 → BE 400 "Giá trị status không hợp lệ: 7". Hai status này phải đi qua `statusFilter` (string CSV). **BE bind `List<int>`** — gửi string `'InProgress'` → ModelState 400 "The value 'InProgress' is not valid.". |
+| `statusFilter` | `string` | Không | Comma-separated **enum `LobbyStatus` names** (vd `"Open,Viable"`), case-insensitive. Dùng để bổ sung `TimeoutFailed` và `HostCancelled` (vì 2 status này bị loại khỏi whitelist int của `statuses`). Nếu truyền cả 2 tham số thì union lại. |
+
+**Thứ tự ưu tiên sort (2026-09-14):** `Open` → `InProgress` → `PendingActivation` → `PendingCafeApproval` → `Viable` → `Full` → `WaitingCheckIn` → `RatingOpen` → `Closed` → `TimeoutFailed` → `HostCancelled` → `RejectedByCafe` → `ExpiredByCafe` → `Dissolved`. Trong cùng status, sắp theo `ScheduledStartTime` desc (gần nhất trước). Tối đa **50 lobby** trả về.
+
+> Lý do thay đổi: tab "Phòng của tôi" cần ưu tiên 2 trạng thái mà user phải theo dõi trực tiếp — `Open` (đang tuyển người) và `InProgress` (đang chơi tại quán) — trước các trạng thái trung gian ít cần hành động (`PendingActivation`, `PendingCafeApproval`, ...).
+
+**Ví dụ response:**
+
+```json
+[
+  {
+    "id": "a383c615-2012-41e7-8989-132f9602cb36",
+    "hostUserId": "82f49998-d57e-4fdf-b37c-3a14f9c5b76c",
+    "gameTemplateId": "44444444-4444-4444-4444-444444444444",
+    "gameName": "Splendor",
+    "cafeId": "a1aae9db-4f1b-44af-ac86-6038d085df94",
+    "cafeName": "BoardVerse Cafe Thủ Đức",
+    "cafeAddress": "Số 12 đường Võ Văn Ngân, Thủ Đức, TP.HCM",
+    "bookingId": null,
+    "scheduledStartTime": "2026-08-24T23:00:00Z",
+    "maxMembers": 2,
+    "minPlayers": 2,
+    "seatCount": null,
+    "activeSessionId": null,
+    "status": "InProgress",
+    "latitude": null,
+    "longitude": null,
+    "distanceKm": null,
+    "isPrivate": false,
+    "shareCode": "J2T2GE9F",
+    "description": null,
+    "coverImageUrl": null,
+    "cancellationLeadTimeMinutes": 120,
+    "minKarmaScore": null,
+    "closedAt": null,
+    "closedReason": null,
+    "createdAt": "2026-08-24T15:11:45.660112Z",
+    "updatedAt": "2026-08-24T16:10:44.450078Z",
+    "members": [
+      {
+        "id": "1a25abf2-94e8-4dd1-b618-a20c158937e3",
+        "userId": "82f49998-d57e-4fdf-b37c-3a14f9c5b76c",
+        "userName": "player7",
+        "avatarUrl": "https://...",
+        "karmaPoints": 100,
+        "joinedAt": "2026-08-24T15:11:45.660112Z",
+        "readyAt": "2026-08-24T16:08:29.615235Z",
+        "isActive": true,
+        "isHost": true,
+        "status": "Ready",
+        "previousLobbyId": null
+      }
+    ]
+  }
+]
+```
+
+**Lưu ý cho Flutter:**
+- Từ 2026-08-26, response đã bao gồm `cafeName` và `members[].avatarUrl` / `members[].karmaPoints`. Bỏ qua call `GET /api/v1/cafes/{cafeId}` khi đã có `cafeId`.
+- Từ 2026-09-14, response còn có thêm `cafeAddress` (địa chỉ cafe) — hiển thị trực tiếp trên lobby card, không cần gọi thêm `/api/v1/cafes/{cafeId}`.
+- Từ 2026-09-23, `members[].previousLobbyId` được set khi member ghép nhóm (Lobby Merge). Giá trị `null` cho member không qua merge.
 
 ---
 
@@ -953,6 +1101,10 @@ stateDiagram-v2
 | `Viable` | Đạt minPlayers, vẫn nhận thêm | — |
 
 > **Chi tiết Cafe Approval:** Xem [reservation.md](./reservation.md#get-idcafe-approval)
+
+### Host tự động thêm làm LobbyMember khi cafe approve (fix 2026-09-08)
+
+Khi `ConfirmAsync` tạo lobby ở trạng thái `PendingCafeApproval`, step 18 skip insert host vào `LobbyMember` (vì lobby chưa publish). Khi cafe approve qua `POST /api/v1/reservations/{id}/cafe-approval` với `approve: true`, `HandleCafeApprovalAsync` tự động thêm host làm `LobbyMember` (`IsHost=true, IsActive=true, Status=Joined`) — idempotent, không tạo duplicate. Điều này đảm bảo host có thể gọi `GET /api/v1/users/ratings/karma/lobbies/{id}` và `POST /api/v1/users/ratings/karma` mà không bị 403 "không phải thành viên".
 
 ---
 

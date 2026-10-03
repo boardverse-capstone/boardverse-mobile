@@ -194,7 +194,12 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     cache = SavedGamesCache(prefs);
     mockRepo = MockDiscoveryRepository();
-    cubit = SurveyCubit(repository: mockRepo, cache: cache);
+    cubit = SurveyCubit(
+      repository: mockRepo,
+      cache: cache,
+      // Skip minimum loading delay trong test để chạy nhanh.
+      minimumLoadingDuration: Duration.zero,
+    );
   });
 
   tearDown(() {
@@ -415,6 +420,43 @@ void main() {
         isA<SurveyCategoriesLoaded>()
             .having((s) => s.soloMode, 'soloMode', SoloMode.survey),
       ],
+    );
+  });
+
+  group('minimumLoadingDuration', () {
+    test(
+      'runSurvey chờ đủ minimumLoadingDuration trước khi emit results '
+      'kể cả khi API trả về nhanh',
+      () async {
+        // Cubit riêng với duration ngắn để test chạy nhanh.
+        final slowCubit = SurveyCubit(
+          repository: mockRepo,
+          cache: cache,
+          minimumLoadingDuration: const Duration(milliseconds: 400),
+        );
+        addTearDown(slowCubit.close);
+
+        mockRepo.stubCategories([_makeCategory('c1', 'Strategy')]);
+        mockRepo.stubSurveyGames([_makeGame('g1', 'Catan', 80)]);
+
+        await slowCubit.loadCategories();
+
+        final started = DateTime.now();
+        await slowCubit.runSurvey(const DiscoveryRequestEntity());
+        final elapsed = DateTime.now().difference(started);
+
+        // API mock trả về gần như tức thì → elapsed phải >= duration
+        // vì cubit phải chờ thêm trước khi emit SurveySoloResults.
+        expect(
+          elapsed.inMilliseconds,
+          greaterThanOrEqualTo(400),
+          reason:
+              'Cubit phải giữ loading state tối thiểu minimumLoadingDuration '
+              'để user kịp thấy BeautifulDiscoveryLoader animation.',
+        );
+        // Nhưng không nên chờ quá lâu (cap ~600ms cho overhead).
+        expect(elapsed.inMilliseconds, lessThan(800));
+      },
     );
   });
 }

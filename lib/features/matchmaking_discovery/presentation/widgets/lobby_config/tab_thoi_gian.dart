@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import 'bottom_button.dart';
@@ -34,6 +35,22 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   final int bufferMinutes;
   final bool isScheduledInPast;
   final bool hasBufferWarning;
+
+  /// `true` khi buffer nằm trong vùng "không đủ thời gian tuyển người"
+  /// (30–60 phút, BR §XXI-B.6). UI sẽ hiển thị warning màu warningDark
+  /// trên buffer info card.
+  final bool isBufferInsufficient;
+
+  /// `false` khi nút "Tiếp tục" phải disable (BR §XXI-B.6):
+  /// - scheduledTime ở quá khứ, HOẶC
+  /// - buffer < 30 phút (không đủ thời gian chuẩn bị cho group), HOẶC
+  /// - preferredEndTime == preferredStartTime (BR-PreferredTimesMustDiffer).
+  final bool canProceed;
+
+  /// Lý do disable (hiển thị trong banner đỏ ngay trên nút "Tiếp tục").
+  /// `null` khi [canProceed] = true.
+  final String? cannotProceedReason;
+
   final String Function(int) formatBuffer;
 
   /// Quay lại tab trước (Thời gian → Quán & Game). Được wire từ
@@ -59,6 +76,9 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
     required this.bufferMinutes,
     required this.isScheduledInPast,
     required this.hasBufferWarning,
+    required this.isBufferInsufficient,
+    required this.canProceed,
+    required this.cannotProceedReason,
     required this.onPrev,
     required this.onNext,
   });
@@ -289,6 +309,7 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
                 LobbyConfigBufferInfoCard(
                   bufferMinutes: bufferMinutes,
                   hasBufferWarning: hasBufferWarning,
+                  isInsufficient: isBufferInsufficient,
                   formatBuffer: formatBuffer,
                 ),
               ],
@@ -296,12 +317,26 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
           ),
         ),
 
+        // Banner lý do disable nút "Tiếp tục" — chỉ hiển thị khi
+        // [canProceed] = false. Đặt NGOÀI (icon báo + text) để
+        // player thấy ngay khi scroll xuống.
+        if (!canProceed && cannotProceedReason != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
+            child: _CannotProceedBanner(message: cannotProceedReason!),
+          ),
+
         LobbyConfigBottomButton(
-          // CHỈ disable khi `scheduledTime` đã ở quá khứ. Buffer ngắn
-          // (< 60 phút) chỉ hiển thị warning — vẫn cho user đặt lobby
-          // sát giờ theo BR §XXI-B.4.
+          // Disable khi [canProceed] = false (quá khứ, buffer < 30p,
+          // hoặc endTime == startTime). Xem [_canProceed] trong
+          // `lobby_config_page.dart` (BR §XXI-B.6, cập nhật 2026-10-01).
           label: 'Tiếp tục',
-          onPressed: isScheduledInPast ? null : onNext,
+          onPressed: canProceed ? onNext : null,
           secondaryLabel: 'Quay lại',
           secondaryOnPressed: onPrev,
         ),
@@ -312,6 +347,52 @@ class LobbyConfigTabThoiGian extends StatelessWidget {
   String _getWeekdayShort(int weekday) {
     const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     return days[weekday % 7];
+  }
+}
+
+/// Banner inline hiển thị lý do KHÔNG cho phép tiếp tục (buffer quá
+/// ngắn hoặc quá khứ). Style: error (đỏ) nền nhạt + icon + text.
+/// Đặt ngay trên nút "Tiếp tục" để player thấy ngay khi scroll xuống.
+class _CannotProceedBanner extends StatelessWidget {
+  final String message;
+  const _CannotProceedBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.error,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_rounded,
+            color: AppColors.error,
+            size: 18,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w800,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

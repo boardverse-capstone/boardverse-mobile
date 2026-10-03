@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
 import '../../domain/entities/lobby_entity.dart';
+import '../../domain/entities/lobby_share_info.dart';
 import '../../domain/entities/lobby_summary.dart';
 import '../../domain/entities/lobby_chat_message.dart';
 
@@ -173,10 +174,15 @@ class LobbyListEmpty extends LobbyState {
 class LobbyDissolved extends LobbyState {
   final String lobbyId;
 
-  const LobbyDissolved({required this.lobbyId});
+  /// Timestamp backend confirm dissolve (BR §XXI-A.6 soft-delete).
+  /// Optional — chỉ có khi repository trả về `DissolveLobbyResult`. UI dùng
+  /// để log audit trail hoặc hiển thị "Đã giải tán lúc X" trong toast.
+  final DateTime? dissolvedAt;
+
+  const LobbyDissolved({required this.lobbyId, this.dissolvedAt});
 
   @override
-  List<Object?> get props => [lobbyId];
+  List<Object?> get props => [lobbyId, dissolvedAt];
 }
 
 /// Host đã chuyển quyền host thành công.
@@ -226,6 +232,21 @@ class LobbyReadyStatusChanged extends LobbyState {
 /// Report đã được gửi thành công.
 class LobbyReportSubmitted extends LobbyState {
   const LobbyReportSubmitted();
+}
+
+/// Host đã tạo lại mã share code thành công.
+///
+/// UI dùng `info.shareCode` để update state local của LobbyPage (vì
+/// LobbyEntity không chứa trường shareCode — share code được load
+/// riêng qua `GET /share-info` hoặc `POST /share-code/regenerate`).
+class LobbyShareCodeRegenerated extends LobbyState {
+  /// Thông tin share code mới từ backend.
+  final LobbyShareInfo info;
+
+  const LobbyShareCodeRegenerated({required this.info});
+
+  @override
+  List<Object?> get props => [info];
 }
 
 // ─── My Lobbies States ─────────────────────────────────────────────────

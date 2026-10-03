@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
+import '../../../../core/utils/distance_formatter.dart';
 import '../../../../core/widgets/safe_network_image.dart';
 import '../../domain/entities/cafe_entity.dart';
 
@@ -375,7 +376,7 @@ class _DistanceChip extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            _format(distanceMeters),
+            DistanceFormatter.format(distanceMeters),
             style: const TextStyle(
               color: AppColors.white,
               fontSize: 11,
@@ -388,11 +389,7 @@ class _DistanceChip extends StatelessWidget {
     );
   }
 
-  String _format(double meters) {
-    if (meters <= 0) return '—';
-    if (meters < 1000) return '${meters.toStringAsFixed(0)} m';
-    return '${(meters / 1000).toStringAsFixed(1)} km';
-  }
+  // Distance format dùng chung — xem `core/utils/distance_formatter.dart`.
 }
 
 /// Status chip overlay — dùng AppColors.success / warning / error

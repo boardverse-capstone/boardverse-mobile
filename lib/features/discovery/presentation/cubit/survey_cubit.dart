@@ -14,12 +14,43 @@ class SurveyCubit extends Cubit<SurveyState> {
   // ignore: unused_field
   final SavedGamesCache _cache;
 
+  /// Thời điểm (UTC) cubit chuyển sang [SurveySearching] lần gần nhất.
+  ///
+  /// Dùng để enforce [minimumLoadingDuration] — giữ loading screen
+  /// hiển thị đủ lâu để user kịp "cảm nhận" animation (nếu API trả về
+  /// quá nhanh, ta delay thêm cho đủ tối thiểu).
+  DateTime? _searchStartedAt;
+
+  /// Thời gian tối thiểu mà [BeautifulDiscoveryLoader] phải hiển thị
+  /// sau khi player nhấn "ÁP DỤNG". Đặt 8 giây để user kịp thấy
+  /// dice xoay, orbit, rotating tips trước khi chuyển sang kết quả.
+  ///
+  /// Có thể override qua constructor (test set [Duration.zero] để
+  /// không bị stuck 8s khi chạy unit test).
+  final Duration minimumLoadingDuration;
+
   SurveyCubit({
     required DiscoveryRepository repository,
     required SavedGamesCache cache,
+    this.minimumLoadingDuration = const Duration(seconds: 8),
   })  : _repository = repository,
         _cache = cache,
         super(const SurveyInitial());
+
+  /// Chờ thêm nếu loading screen chưa hiển thị đủ [minimumLoadingDuration]
+  /// kể từ lúc emit [SurveySearching]. Trả về ngay nếu đã đủ hoặc
+  /// cubit đã bị đóng.
+  Future<void> _enforceMinLoadingDuration() async {
+    final started = _searchStartedAt;
+    if (started == null) return;
+    if (minimumLoadingDuration == Duration.zero) return;
+
+    final elapsed = DateTime.now().difference(started);
+    final remaining = minimumLoadingDuration - elapsed;
+    if (remaining > Duration.zero) {
+      await Future.delayed(remaining);
+    }
+  }
 
   /// Load categories và check eligibility cho personalization.
   Future<void> loadCategories() async {
@@ -53,6 +84,7 @@ class SurveyCubit extends Cubit<SurveyState> {
     final baseData = _extractBaseData();
     if (baseData == null) return;
 
+    _searchStartedAt = DateTime.now();
     emit(SurveySearching(
       categories: baseData.categories,
       currentRequest: request,
@@ -62,6 +94,11 @@ class SurveyCubit extends Cubit<SurveyState> {
 
     final result = await _repository.runSurvey(request);
 
+    if (isClosed) return;
+
+    // Đảm bảo loading screen hiển thị tối thiểu minimumLoadingDuration
+    // kể cả khi API trả về nhanh hơn.
+    await _enforceMinLoadingDuration();
     if (isClosed) return;
 
     result.fold(
@@ -105,6 +142,7 @@ class SurveyCubit extends Cubit<SurveyState> {
     final baseData = _extractBaseData();
     if (baseData == null) return;
 
+    _searchStartedAt = DateTime.now();
     emit(SurveySearching(
       categories: baseData.categories,
       currentRequest: request,
@@ -118,6 +156,9 @@ class SurveyCubit extends Cubit<SurveyState> {
       longitude: longitude,
     );
 
+    if (isClosed) return;
+
+    await _enforceMinLoadingDuration();
     if (isClosed) return;
 
     result.fold(
@@ -154,6 +195,7 @@ class SurveyCubit extends Cubit<SurveyState> {
     final baseData = _extractBaseData();
     if (baseData == null) return;
 
+    _searchStartedAt = DateTime.now();
     emit(SurveySearching(
       categories: baseData.categories,
       currentRequest: const DiscoveryRequestEntity(),
@@ -163,6 +205,9 @@ class SurveyCubit extends Cubit<SurveyState> {
 
     final result = await _repository.discoverForGroup(members: members);
 
+    if (isClosed) return;
+
+    await _enforceMinLoadingDuration();
     if (isClosed) return;
 
     result.fold(
@@ -265,6 +310,72 @@ class SurveyCubit extends Cubit<SurveyState> {
     } else {
       await runPersonalized(request: request);
     }
+  }
+
+  /// Re-run the current search / re-load data dựa trên state hiện tại.
+  ///
+  /// Dùng cho **pull-to-refresh**:
+  /// - Trên survey filter page → refresh categories list.
+  /// - Trên results page → re-run search với cùng request (cập nhật
+  ///   gợi ý mới nhất từ backend).
+  ///
+  /// Behavior theo state:
+  /// - [SurveySearching] / [SurveyLoading] → ignore (đang busy, tránh
+  ///   reset loading timer / duplicate request).
+  /// - [SurveyCategoriesLoaded] → gọi `loadCategories()` (refresh nhẹ).
+  /// - [SurveySoloResults] / [SurveyEmpty] với `soloMode == survey`
+  ///   → `runSurvey(currentRequest)`.
+  /// - [SurveyPersonalizedResults] / [SurveyEmpty] với
+  ///   `soloMode == personalized` → `runPersonalized(request)`.
+  /// - [SurveyError]:
+  ///   - Có `currentRequest` → re-run search theo `soloMode`.
+  ///   - Không có (lỗi load categories ban đầu) → `loadCategories()`.
+  Future<void> refresh() async {
+    final s = state;
+
+    // Đang loading / searching → ignore để không reset loading screen
+    // và không trigger duplicate request.
+    if (s is SurveySearching || s is SurveyLoading) return;
+
+    if (s is SurveyCategoriesLoaded) {
+      await loadCategories();
+      return;
+    }
+    if (s is SurveySoloResults) {
+      if (s.soloMode == SoloMode.personalized) {
+        await runPersonalized(request: s.currentRequest);
+      } else {
+        await runSurvey(s.currentRequest);
+      }
+      return;
+    }
+    if (s is SurveyPersonalizedResults) {
+      await runPersonalized(request: s.currentRequest);
+      return;
+    }
+    if (s is SurveyEmpty) {
+      if (s.soloMode == SoloMode.personalized) {
+        await runPersonalized(request: s.currentRequest);
+      } else {
+        await runSurvey(s.currentRequest);
+      }
+      return;
+    }
+    if (s is SurveyError) {
+      if (s.currentRequest != null) {
+        if (s.soloMode == SoloMode.personalized) {
+          await runPersonalized(request: s.currentRequest!);
+        } else {
+          await runSurvey(s.currentRequest!);
+        }
+      } else {
+        // Lỗi từ `loadCategories()` ban đầu — không có request nào
+        // để re-run, chỉ refresh lại categories.
+        await loadCategories();
+      }
+      return;
+    }
+    // `SurveyInitial` → chưa có gì để refresh, no-op.
   }
 
   /// Trích xuất categories + personalizationEligible từ state hiện tại

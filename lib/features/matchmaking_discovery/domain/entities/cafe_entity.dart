@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'cafe_detail_entity.dart';
+
 /// Trạng thái ghế ngồi theo business rules (BR-01)
 enum CafeSeatStatus {
   available, // Trống khả dụng - có thể đặt
@@ -15,6 +17,26 @@ enum SelectedGameAvailabilityStatus {
 
   /// Tất cả hộp đang `InUse` — UI: "Chờ game ~X phút".
   waitingForGame,
+}
+
+/// Parse `BillingModel` từ BE string (vd: "TIME_BASED" → timeBased).
+///
+/// **Public** (không underscore) để data/model layer có thể gọi khi
+/// map JSON response → entity. Default `timeBased` nếu BE trả giá trị
+/// lạ hoặc null (giả định phổ biến nhất).
+///
+/// Build 2026-10-03: dùng cho parse `billingModel` từ response
+/// `/api/v1/board-games/{id}/active-cafes`.
+BillingModel billingModelFromString(String? raw) {
+  switch (raw) {
+    case 'FIXED':
+      return BillingModel.fixed;
+    case 'TIERED':
+      return BillingModel.tiered;
+    case 'TIME_BASED':
+    default:
+      return BillingModel.timeBased;
+  }
 }
 
 class CafeEntity extends Equatable {
@@ -44,6 +66,19 @@ class CafeEntity extends Equatable {
   final SelectedGameAvailabilityStatus
       selectedGameAvailabilityStatus; // AC 3.2
 
+  // ─── Pricing (build 2026-10-03) ─────────────────────────────────────
+  /// Giá cơ bản (VNĐ) — map từ `basePrice` trong response `.../active-cafes`
+  /// và `GET /cafes/{id}`. Dùng để hiển thị "Giá" stat box trên card.
+  ///
+  /// Default 0 khi BE cũ chưa trả field này — UI hiển thị "—" thay vì số.
+  final double basePrice;
+
+  /// Billing model — quyết định suffix hiển thị giá (`/giờ` | `/lượt` | `/Xph`).
+  final BillingModel billingModel;
+
+  /// Block minutes cho `tiered` billing. Null khi billing model khác `tiered`.
+  final int? tieredBlockMinutes;
+
   const CafeEntity({
     required this.id,
     required this.name,
@@ -68,6 +103,10 @@ class CafeEntity extends Equatable {
     this.availableGameCount = 0,
     this.selectedGameAvailabilityStatus =
         SelectedGameAvailabilityStatus.gameAvailable,
+    // Pricing (build 2026-10-03)
+    this.basePrice = 0,
+    this.billingModel = BillingModel.timeBased,
+    this.tieredBlockMinutes,
   });
 
   /// Backward-compat getter: chuyển `distanceMeters` → `distanceKm` cho UI
@@ -94,6 +133,45 @@ class CafeEntity extends Equatable {
       selectedGameAvailabilityStatus ==
       SelectedGameAvailabilityStatus.waitingForGame;
 
+  /// Format giá hiển thị trên stat box "Giá".
+  ///
+  /// - Nếu `basePrice == 0` (BE cũ không trả) → trả "—" thay vì số.
+  /// - Ngược lại → format theo billing model:
+  ///   - `timeBased` → "{X}k/giờ"
+  ///   - `fixed`     → "{X}k/lượt"
+  ///   - `tiered`    → "{X}k/{N}ph"
+  ///
+  /// Quy ước chia 1000 + suffix "k" (vd: 60000 → "60k") theo pattern đã
+  /// có ở [CafeDetailEntity.priceDisplay]. BE trả basePrice theo VNĐ.
+  String get priceDisplay {
+    if (basePrice <= 0) return '—';
+    final priceStr = _formatPriceK(basePrice);
+    switch (billingModel) {
+      case BillingModel.timeBased:
+        return '$priceStr/giờ';
+      case BillingModel.fixed:
+        return '$priceStr/lượt';
+      case BillingModel.tiered:
+        return '$priceStr/${tieredBlockMinutes ?? 15}ph';
+    }
+  }
+
+  /// Format số tiền dạng "Xk" (chia 1000 + làm tròn).
+  /// - `60000` → "60k"
+  /// - `10`    → "10" (giữ nguyên vì < 1000 — tránh hiển thị "0k")
+  static String _formatPriceK(double price) {
+    if (price >= 1000) {
+      // Chia 1000 rồi làm tròn. Nếu có phần thập phân > 0 → giữ 1 chữ số.
+      final k = price / 1000;
+      if (k == k.truncateToDouble()) {
+        return '${k.toInt()}k';
+      }
+      return '${k.toStringAsFixed(1)}k';
+    }
+    // < 1000 (vd: 10 VND) — hiển thị nguyên giá trị, không ép "k".
+    return price.toStringAsFixed(0);
+  }
+
   @override
   List<Object?> get props => [
         id,
@@ -118,5 +196,9 @@ class CafeEntity extends Equatable {
         totalGameBoxCount,
         availableGameCount,
         selectedGameAvailabilityStatus,
+        // Pricing (build 2026-10-03)
+        basePrice,
+        billingModel,
+        tieredBlockMinutes,
       ];
 }

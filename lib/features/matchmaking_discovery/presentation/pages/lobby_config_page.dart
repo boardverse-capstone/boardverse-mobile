@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
@@ -11,19 +10,15 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/neo_brutalism_theme.dart';
 import '../../../../core/utils/lobby_time_calculator.dart';
 import '../../../lobby_management/presentation/widgets/lobby_game_picker_sheet.dart';
-import '../../../reservation/domain/entities/entities.dart';
 import '../../../reservation/presentation/cubit/reservation_cubit.dart';
-import '../../../reservation/presentation/cubit/reservation_state.dart';
 import '../../../reservation/presentation/pages/reservation_quote_page.dart';
 import '../../domain/entities/board_game_entity.dart';
 import '../../domain/entities/board_game_detail_entity.dart';
 import '../../domain/entities/cafe_entity.dart';
 import '../cubit/matchmaking_cubit.dart';
 import '../cubit/matchmaking_state.dart';
-import '../widgets/lobby_config/confirm_lobby_dialog.dart';
 import '../widgets/lobby_config/lobby_config_tab_bar.dart';
 import '../widgets/lobby_config/tab_cau_hinh.dart';
-import '../widgets/lobby_config/tab_dat_coc.dart';
 import '../widgets/lobby_config/tab_quan_va_game.dart';
 import '../widgets/lobby_config/tab_thoi_gian.dart';
 import 'lobby_cafe_selection_page.dart';
@@ -69,33 +64,52 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
   TimeOfDay? _preferredEndTime;
   bool _isPublic = true;
   int _maxPlayers = 4;
-  bool _isCreatingLobby = false;
   bool _showAdvanced = false;
 
   double _searchRadiusKm = 5.0;
   double _minimumKarma = 0.0;
 
-  // Quote preview - cache local từ cubit stream
-  ReservationQuoteEntity? _quotePreview;
-  String? _quoteError;
-  bool _isQuoteLoading = false;
-
   final Duration _leadTime = const Duration(minutes: 20);
 
-  /// Default start time nếu player chưa chọn giờ. 09:00 là khung giờ hẹn
-  /// phổ biến cho board game (sáng sớm sau khi quán mở cửa).
-  static const TimeOfDay _defaultStartTime = TimeOfDay(hour: 9, minute: 0);
+  /// Default start time nếu player chưa chọn giờ. LUÔN được tính dựa
+  /// trên `_selectedDate` + giờ hiện tại — không phải const cứng — để:
+  /// - Ngày tương lai → 09:00 (khuôn mặc định).
+  /// - Hôm nay → `now + leadTime + 3h safety buffer` (làm tròn lên giờ
+  ///   chẵn, clamp ≤ 22:00). Tránh bug UX "default 09:00 nằm trong quá
+  ///   khứ → backend trả 400 → UI flash lỗi ~1s trước khi user kịp
+  ///   chỉnh tay".
+  /// Xem [LobbyTimeCalculator.computeSmartDefaultStartTime].
+  TimeOfDay get _defaultStartTime =>
+      LobbyTimeCalculator.computeSmartDefaultStartTime(
+        _selectedDate,
+        leadTime: _leadTime,
+      );
 
-  /// Default end time nếu player không chọn giờ kết thúc. 13:00 (~4 tiếng)
-  /// là đủ dài cho 1 phiên board game trung bình.
-  static const TimeOfDay _defaultEndTime = TimeOfDay(hour: 13, minute: 0);
+  /// Default end time dựa theo start time + 4 tiếng (chuẩn board game
+  /// session). Xem [LobbyTimeCalculator.computeDefaultEndTime].
+  TimeOfDay get _defaultEndTime =>
+      LobbyTimeCalculator.computeDefaultEndTime(
+        _preferredStartTime ?? _defaultStartTime,
+      );
 
   /// Số phút từ `now` tới `scheduledTime - leadTime` (deadline BR-08).
+  /// Số phút từ BÂY GIỜ đến giờ chơi (`scheduledStartTime - now`). KHÔNG
+  /// trừ `leadTime` ở đây — `leadTime` chỉ dùng cho validation backend
+  /// (`recruitmentDeadline`) và cho `computeSmartDefaultStartTime`,
+  /// không phải semantic của buffer hiển thị trên UI.
+  ///
+  /// UI semantic: "thời gian tuyển người = thời gian còn lại trước khi
+  /// lobby bắt đầu". VD: now=19:30, scheduled=20:00 → buffer=30p.
+  /// Player thấy đúng với expectation, dễ tính nhẩm.
+  ///
+  /// Trước đây tính `scheduledTime - leadTime - now` (= 9p cho 19:30 →
+  /// 20:00 với leadTime=20p) — khiến UI hiển thị buffer âm/ngắn bất
+  /// thường, gây hiểu nhầm. Backend vẫn tự validate `recruitmentDeadline`
+  /// theo lead time của riêng nó, FE không cần replicate.
   int get _bufferMinutes {
     final now = DateTime.now();
     final scheduledTime = _getScheduledDateTime();
-    final deadline = scheduledTime.subtract(_leadTime);
-    return deadline.difference(now).inMinutes;
+    return scheduledTime.difference(now).inMinutes;
   }
 
   /// `true` nếu `scheduledTime < now` (lobby sẽ chơi ở quá khứ).
@@ -119,15 +133,93 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       LobbyTimeCalculator.isOvernight(_preferredStartTime, _preferredEndTime);
 
   /// Cảnh báo buffer ngắn (< 60 phút) — CHỈ để hiển thị warning trên
-  /// UI, KHÔNG block user khỏi việc đặt lobby.
+  /// UI, KHÔNG block user khỏi việc đặt lobby (BR §XXI-B.6, cập nhật
+  /// 2026-10-01: đồng bộ với ngưỡng cảnh báo "insufficient").
   bool get _hasBufferWarning =>
       !_isScheduledInPast && _bufferMinutes >= 0 && _bufferMinutes < 60;
+
+  /// Ngưỡng tối thiểu `scheduledStartTime - now` để cho phép player
+  /// chuyển sang bước tiếp theo. Nếu buffer < [_minutesAheadMin] thì:
+  /// - Disable nút "Tiếp tục".
+  /// - Hiển thị lý do ("không đủ thời gian chuẩn bị") để player hiểu
+  ///   vì sao không bấm được.
+  ///
+  /// Lý do đặt 30 phút (BR §XXI-B.6, cập nhật 2026-10-01):
+  /// - Đủ để bạn bè trong group nhận invite + di chuyển đến quán.
+  /// - Đồng bộ với `validateStartTime` ở
+  ///   `lib/core/utils/lobby_time_calculator.dart` để tránh "UI cho
+  ///   đi tiếp nhưng server reject" gây UX khó chịu.
+  /// - Trước đây là 5 phút (UI guard) + 60 phút (validation) → user
+  ///   có thể qua UI nhưng fail ở server. Đã hợp nhất về 30 phút.
+  static const int _minutesAheadMin = 30;
+
+  /// Ngưỡng warning "không đủ thời gian chuẩn bị" (BR §XXI-B.6, cập nhật
+  /// 2026-10-01). Dưới 60 phút = cảnh báo (group bạn đi chung vẫn đặt
+  /// được nhưng nên chọn slot xa hơn nếu muốn tuyển thêm thành viên),
+  /// trên 60 phút = không cảnh báo.
+  static const int _minutesAheadWarning = 60;
+
+  /// `true` khi player có thể chuyển sang bước tiếp theo (đặt lobby).
+  /// `false` khi một trong các điều kiện nghiệp vụ bị vi phạm (BR §XXI-B.6,
+  /// cập nhật 2026-10-01):
+  ///   - `scheduledTime` ở quá khứ (user chọn giờ đã qua hôm nay).
+  ///   - `buffer < 30 phút` (không đủ thời gian chuẩn bị cho group).
+  ///   - `preferredEndTime == preferredStartTime` (BR-PreferredTimesMustDiffer
+  ///     — backend reject với 400, mobile phải chặn trước ở tab Thời gian).
+  bool get _canProceed {
+    if (_isScheduledInPast) return false;
+    if (_bufferMinutes < _minutesAheadMin) return false;
+    if (_preferredEndTime != null &&
+        _preferredStartTime != null &&
+        LobbyTimeCalculator.validateEndTime(
+              _preferredStartTime!,
+              _preferredEndTime!,
+            ) ==
+            LobbyEndTimeValidation.equal) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Lý do KHÔNG cho phép tiếp tục (khi `_canProceed == false`).
+  /// Hiển thị trong banner đỏ ngay phía trên nút "Tiếp tục" ở tab
+  /// Thời gian để player hiểu tại sao bị disable (BR §XXI-B.6).
+  /// Trả về `null` nếu có thể tiếp tục.
+  String? get _cannotProceedReason {
+    if (_isScheduledInPast) {
+      return 'Giờ bắt đầu đã ở trong quá khứ — vui lòng chọn khung giờ '
+          'khác hoặc đổi sang ngày mai.';
+    }
+    if (_bufferMinutes < _minutesAheadMin) {
+      return 'Chỉ còn ${_formatBuffer(_bufferMinutes)} trước giờ chơi — '
+          'không đủ thời gian chuẩn bị (cần ít nhất $_minutesAheadMin phút). '
+          'Vui lòng chọn khung giờ xa hơn.';
+    }
+    if (_preferredEndTime != null &&
+        _preferredStartTime != null &&
+        LobbyTimeCalculator.validateEndTime(
+              _preferredStartTime!,
+              _preferredEndTime!,
+            ) ==
+            LobbyEndTimeValidation.equal) {
+      return 'Giờ kết thúc phải khác giờ bắt đầu — vui lòng chọn lại giờ '
+          'kết thúc (mặc định sẽ là +4 giờ so với giờ bắt đầu).';
+    }
+    return null;
+  }
+
+  /// `true` khi buffer nằm trong "vùng cảnh báo" — player VẪN CÓ THỂ
+  /// đặt lobby nhưng UI cảnh báo họ rằng thời gian chuẩn bị rất ngắn
+  /// (30 ≤ buffer < 60 phút). Nút "Tiếp tục" vẫn enabled ở mức này.
+  bool get _isBufferInsufficient =>
+      !_isScheduledInPast &&
+      _bufferMinutes >= _minutesAheadMin &&
+      _bufferMinutes < _minutesAheadWarning;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(_onTabChanged);
+    _tabController = TabController(length: 3, vsync: this);
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _preferredStartTime = _defaultStartTime;
@@ -136,36 +228,44 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     _currentGameName = widget.gameName;
     _currentGameEntity = widget.gameEntity;
     widget.matchmakingCubit.loadGameDetail(gameId: _currentGameId);
-    // Load quote ngay khi mở trang để đảm bảo có data khi vào tab 4
-    _loadQuotePreview();
+    // Bắt đầu timer refresh buffer mỗi 30 giây. Nếu widget unmount,
+    // timer tự cancel trong dispose(). Lý do: buffer là getter dùng
+    // DateTime.now() — nếu widget không rebuild trong vài phút (user
+    // chỉ đọc thông tin, không tương tác), giá trị hiển thị sẽ
+    // stale, lệch với đồng hồ thực. Tần suất 30s đủ để giữ giá trị
+    // tươi (max drift = 30s, không đáng kể so với đơn vị phút của UI)
+    // mà không tốn pin/CPU.
+    //
+    // BR §XXI-B.6 (cập nhật 2026-10-01): sau khi bỏ Tab 4 (Đặt cọc),
+    // tạo quote / lobby diễn ra ở `ReservationQuotePage` riêng biệt —
+    // widget này chỉ host 3 tab config, không cần state
+    // `_isCreatingLobby` nữa. Timer chỉ skip khi scheduled time đã
+    // ở quá khứ (buffer không còn ý nghĩa hiển thị).
+    _bufferRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (!mounted) return;
+        if (_isScheduledInPast) return;
+        setState(() {});
+      },
+    );
   }
 
-  /// Khi user chuyển sang tab Đặt cọc (index 3) và cubit đang ở state
-  /// settled (Initial / QuoteError / QuoteLoaded) — tức không phải đang
-  /// load — thì trigger reload quote để lấy dữ liệu mới nhất (tránh
-  /// trường hợp user mở trang từ session trước, cubit còn giữ state
-  /// cũ từ session trước đó).
+  /// Timer đánh thức widget mỗi 30 giây để buffer info được refresh
+  /// real-time. Nếu không, Flutter chỉ rebuild khi `setState()` được
+  /// gọi — buffer hiển thị sẽ bị "đứng" ở giá trị tại lần build
+  /// trước, lệch so với `DateTime.now()` thực tế khi user nhìn lại
+  /// sau vài phút.
   ///
-  /// Dùng `indexIsChanging` để tránh trigger khi tab chưa thực sự đổi.
-  void _onTabChanged() {
-    if (!_tabController.indexIsChanging) return;
-    if (_tabController.index != 3) return;
-    final cubit = GetIt.instance<ReservationCubit>();
-    if (cubit.state is ReservationInitial ||
-        cubit.state is ReservationQuoteError ||
-        cubit.state is ReservationQuoteLoaded ||
-        cubit.state is ReservationInsufficientBalance ||
-        cubit.state is ReservationQuoteExpired) {
-      // Đã settle → reload để có data mới nhất.
-      debugPrint('[LobbyConfig] tab3 activated → reload quote');
-      _loadQuotePreview();
-    }
-  }
+  /// Ví dụ: mở page lúc 18:00 với `scheduledTime = 20:00`, buffer =
+  /// 120p. Không tương tác 20 phút, nhìn lại lúc 18:20 — UI vẫn hiển
+  /// thị 120p (stale) dù thực tế buffer = 100p. Bug UX: player thấy
+  /// buffer không khớp với đồng hồ.
+  Timer? _bufferRefreshTimer;
 
   @override
   void dispose() {
-    _quoteSubscription?.cancel();
-    _tabController.removeListener(_onTabChanged);
+    _bufferRefreshTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -223,6 +323,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
 
   void _onDateSelected(DateTime date) {
     setState(() => _selectedDate = date);
+    // Lưu ý: không cần reset quote ở đây nữa — quote chỉ được tạo
+    // khi user sang `ReservationQuotePage` (sau Tab 3), lúc đó cubit
+    // sẽ tự dùng date mới nhất qua `createQuote(...)`.
   }
 
   Future<void> _openDatePicker(BuildContext context) async {
@@ -260,6 +363,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     if (picked != null && mounted) {
       setState(() {
         _preferredStartTime = picked;
+        // Đổi giờ → quote sẽ được tạo lại trên `ReservationQuotePage`
+        // qua `createQuote(...)` với giờ mới nhất. Không cần refetch ở
+        // đây — quote chỉ được tạo khi user sang tab xác nhận đặt cọc.
       });
     }
   }
@@ -310,6 +416,8 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
 
     setState(() {
       _preferredEndTime = picked;
+      // Quote sẽ được tạo lại trên `ReservationQuotePage` sau khi
+      // user xong Tab 3 (Cấu hình), không cần refetch ở đây.
     });
   }
 
@@ -391,9 +499,9 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
       _currentGameEntity = picked;
     });
 
-    // Load game detail mới + reload quote preview vì gameId đã đổi.
+    // Load game detail mới. Quote sẽ được tạo sau khi user xong
+    // Tab 3 (Cấu hình) và bấm "Tiếp tục" → `ReservationQuotePage`.
     matchmakingCubit.loadGameDetail(gameId: picked.id);
-    _loadQuotePreview();
   }
 
   void _goToTab(int tabIndex) {
@@ -410,99 +518,37 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     _tabController.animateTo(current - 1);
   }
 
-  // Lắng nghe trực tiếp ReservationCubit stream để cập nhật _quotePreview
-  StreamSubscription<ReservationState>? _quoteSubscription;
+  // ══════════════════════════════════════════════════════════════════
+  // ĐÃ BỎ (BR §XXI-B.6, cập nhật 2026-10-01):
+  //   - `_quotePreview` / `_quoteError` / `_isQuoteLoading` state.
+  //   - `_loadQuotePreview()` method.
+  //   - `_quoteSubscription` stream listener.
+  //   - `_onTabChanged` reload-on-tab-activate hook.
+  //
+  // Lý do: Tab 4 (Đặt cọc) đã được xoá khỏi flow 3 bước. Quote chỉ
+  // được tạo tại thời điểm user bấm "Tiếp tục" ở Tab 3 (Cấu hình) →
+  // chuyển sang `ReservationQuotePage` (trang xác nhận đặt cọc RIÊNG).
+  // Trang đó tự quản lý quote state qua `ReservationCubit` + hiển thị
+  // loading/error/loaded tương ứng. Widget này không cần pre-fetch nữa.
+  // ══════════════════════════════════════════════════════════════════
 
-  Future<void> _loadQuotePreview() async {
-    final reservationCubit = GetIt.instance<ReservationCubit>();
-
-    // Helper: chỉ setState khi widget đã mounted VÀ không đang trong build phase.
-    // Nếu đang build (frame đầu tiên), defer ra post-frame để tránh crash.
-    void safeSetState(VoidCallback fn) {
-      if (!mounted) return;
-      final phase = WidgetsBinding.instance.schedulerPhase;
-      final isBuilding = phase == SchedulerPhase.transientCallbacks ||
-          phase == SchedulerPhase.midFrameMicrotasks ||
-          phase == SchedulerPhase.persistentCallbacks;
-      if (isBuilding) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(fn);
-        });
-      } else {
-        setState(fn);
-      }
-    }
-
-    // Set loading state
-    safeSetState(() {
-      _quoteError = null;
-      _quotePreview = null;
-      _isQuoteLoading = true;
-    });
-
-    // Subscribe trước khi trigger createQuote để không miss event
-    await _quoteSubscription?.cancel();
-    _quoteSubscription = reservationCubit.stream.listen((state) {
-      debugPrint('[LobbyConfig] ReservationState changed: ${state.runtimeType}');
-      if (state is ReservationQuoteLoaded) {
-        safeSetState(() {
-          _quotePreview = state.quote;
-          _isQuoteLoading = false;
-        });
-      } else if (state is ReservationInsufficientBalance) {
-        safeSetState(() {
-          _quotePreview = state.quote;
-          _isQuoteLoading = false;
-        });
-      } else if (state is ReservationQuoteError) {
-        safeSetState(() {
-          _quoteError = state.message;
-          _isQuoteLoading = false;
-        });
-      }
-    });
-
-    reservationCubit.reset();
-    reservationCubit.createQuote(
-      cafeId: widget.cafeId,
-      gameId: _currentGameId,
-      playDate: _selectedDate,
-      preferredStartTime: _formatTimeOfDayAsHHMMSS(
-          _preferredStartTime ?? _defaultStartTime),
-      preferredEndTime:
-          _formatTimeOfDayAsHHMMSS(_preferredEndTime ?? _defaultEndTime),
-      minPlayers: 2,
-      maxPlayers: _maxPlayers,
-      isPrivate: !_isPublic,
-    );
-  }
-
+  /// Bước cuối cùng của LobbyConfigPage — tạo quote và chuyển sang
+  /// trang xác nhận đặt cọc RIÊNG (ReservationQuotePage).
+  ///
+  /// BR §XXI-B.6 (cập nhật 2026-10-01): bỏ Tab 4 (Đặt cọc) khỏi flow
+  /// 3 bước của LobbyConfigPage. Sau khi user xong Tab 3 (Cấu hình) và
+  /// bấm "Tiếp tục":
+  ///   1. Reset `ReservationCubit` để clear state cũ (nếu có từ
+  ///      session trước).
+  ///   2. Trigger `createQuote(...)` với current config (date, time,
+  ///      players, private/public...).
+  ///   3. Push `ReservationQuotePage` lên navigation stack — trang
+  ///      này tự subscribe cubit, hiển thị loading → loaded quote với
+  ///      countdown + button "Xác nhận & Tạo lobby".
+  ///
+  /// Trang confirmation này TÁCH BIỆT khỏi LobbyConfigPage, không
+  /// phải 1 tab nữa — tránh UX lặp lại thông tin cọc nhiều lần.
   Future<void> _confirmAndCreateLobby() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => LobbyConfigConfirmDialog(
-        cafeName: widget.cafeName,
-        gameName: _currentGameName,
-        selectedDate: _selectedDate,
-        preferredStartTime: _preferredStartTime,
-        preferredEndTime: _preferredEndTime,
-        endCrossesMidnight: _endCrossesMidnight,
-        maxPlayers: _maxPlayers,
-        isPublic: _isPublic,
-        minimumKarma: _minimumKarma,
-        searchRadiusKm: _searchRadiusKm,
-        quotePreview: _quotePreview ?? GetIt.instance<ReservationCubit>().currentQuote,
-        formatDate: _formatDate,
-        formatTime: _formatTimeOfDay,
-        formatBuffer: _formatBuffer,
-        bufferMinutes: _bufferMinutes,
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isCreatingLobby = true);
-
     final reservationCubit = GetIt.instance<ReservationCubit>();
     reservationCubit.reset();
     reservationCubit.createQuote(
@@ -519,15 +565,13 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
     );
 
     if (!mounted) return;
-    LobbyFlowNavigator.push(
+    await LobbyFlowNavigator.push(
       context,
       BlocProvider.value(
         value: reservationCubit,
         child: const ReservationQuotePage(),
       ),
-    ).then((_) {
-      if (mounted) setState(() => _isCreatingLobby = false);
-    });
+    );
   }
 
   /// Confirm trước khi thoát flow lobby nếu user đã nhập thông tin
@@ -618,7 +662,7 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                 animation: _tabController,
                 builder: (context, _) => _LobbyConfigHeader(
                   stepIndex: _tabController.index,
-                  totalSteps: 4,
+                  totalSteps: 3,
                   // Nút X (Đóng) — player thoát flow về MainScaffold
                   // khi đổi ý (có việc bận, muốn khám phá thêm...).
                   onExit: _onRequestExit,
@@ -640,7 +684,15 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                         _currentGameEntity?.minPlayers ?? 2;
 
                     return TabBarView(
+                      // BR §XXI-B.6 (cập nhật 2026-10-01): vô hiệu hoá
+                      // lướt ngang giữa các bước — player chỉ chuyển tab
+                      // qua nút "Quay lại" / "Tiếp tục" ở bottom action
+                      // bar. Tránh lướt nhầm khi đang cuộn dọc trong form
+                      // (date picker, time picker, slider player count...).
+                      // Lưu ý: KHÔNG đổi sang IndexedStack — TabController
+                      // vẫn hoạt động bình thường, chỉ tắt gesture swipe.
                       controller: _tabController,
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         // Tab 1: Quán & Game — không có nút Quay lại
                         // (đây là bước đầu tiên trong flow).
@@ -670,6 +722,14 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                           bufferMinutes: _bufferMinutes,
                           isScheduledInPast: _isScheduledInPast,
                           hasBufferWarning: _hasBufferWarning,
+                          isBufferInsufficient: _isBufferInsufficient,
+                          // Disable NẾU quá khứ, buffer < 30p, HOẶC
+                          // endTime == startTime (xem [_canProceed],
+                          // BR §XXI-B.6 cập nhật 2026-10-01). Khi
+                          // disable, hiển thị banner lý do ngay trên
+                          // nút để họ hiểu tại sao không bấm được.
+                          canProceed: _canProceed,
+                          cannotProceedReason: _cannotProceedReason,
                           formatBuffer: _formatBuffer,
                           onPrev: _onPreviousTab,
                           onNext: () => _goToTab(2),
@@ -690,36 +750,11 @@ class _LobbyConfigPageState extends State<LobbyConfigPage>
                           onKarmaChanged: (v) => setState(() => _minimumKarma = v),
                           onRadiusChanged: (v) => setState(() => _searchRadiusKm = v),
                           onPrev: _onPreviousTab,
-                          onNext: () {
-                            _loadQuotePreview();
-                            _goToTab(3);
-                          },
-                        ),
-
-                        // Tab 4: Đặt cọc — có Quay lại + Xác nhận & Đặt cọc
-                        LobbyConfigTabDatCoc(
-                          cafeName: widget.cafeName,
-                          gameName: _currentGameName,
-                          selectedDate: _selectedDate,
-                          preferredStartTime: _preferredStartTime,
-                          preferredEndTime: _preferredEndTime,
-                          endCrossesMidnight: _endCrossesMidnight,
-                          maxPlayers: _maxPlayers,
-                          isPublic: _isPublic,
-                          minimumKarma: _minimumKarma,
-                          quotePreview: _quotePreview,
-                          quoteError: _quoteError,
-                          isQuoteLoading: _isQuoteLoading,
-                          isCreatingLobby: _isCreatingLobby,
-                          bufferMinutes: _bufferMinutes,
-                          hasBufferWarning: _hasBufferWarning,
-                          formatDate: _formatDate,
-                          formatTime: _formatTimeOfDay,
-                          formatBuffer: _formatBuffer,
-                          onPrev: _onPreviousTab,
-                          onConfirm: _confirmAndCreateLobby,
-                          onRefreshQuote: _loadQuotePreview,
-                          onLoadQuote: _loadQuotePreview,
+                          // Tab cuối (Cấu hình) — bấm "Tiếp tục" sẽ
+                          // tạo quote + push sang `ReservationQuotePage`
+                          // (trang xác nhận đặt cọc RIÊNG). KHÔNG còn
+                          // Tab 4 (Đặt cọc) trong flow này nữa.
+                          onNext: _confirmAndCreateLobby,
                         ),
                       ],
                     );
@@ -769,8 +804,11 @@ class _LobbyConfigHeader extends StatelessWidget {
     this.onExit,
   });
 
-  /// Tab labels — khớp thứ tự với TabController (length = 4).
-  static const _stepLabels = ['Quán & Game', 'Thời gian', 'Cấu hình', 'Đặt cọc'];
+  /// Tab labels — khớp thứ tự với TabController (length = 3).
+  /// BR §XXI-B.6 (cập nhật 2026-10-01): bỏ Tab 4 (Đặt cọc) — trang
+  /// xác nhận đặt cọc giờ là `ReservationQuotePage` RIÊNG biệt, push
+  /// sau khi user xong bước Cấu hình.
+  static const _stepLabels = ['Quán & Game', 'Thời gian', 'Cấu hình'];
 
   @override
   Widget build(BuildContext context) {

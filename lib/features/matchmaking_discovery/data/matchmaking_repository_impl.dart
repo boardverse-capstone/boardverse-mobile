@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../core/cache/cacheable_repository.dart';
 import '../../../core/error/exceptions.dart';
 import '../../../core/error/failures.dart';
+import '../domain/entities/board_game_active_cafe_entity.dart';
 import '../domain/entities/board_game_detail_entity.dart';
 import '../domain/entities/board_game_entity.dart';
 import '../domain/entities/cafe_detail_entity.dart';
@@ -15,6 +16,7 @@ import '../domain/entities/search_filter_entity.dart';
 import '../domain/entities/game_category_entity.dart';
 import '../domain/repositories/matchmaking_repository.dart';
 import 'datasources/base/matchmaking_datasource.dart';
+import 'models/active_cafes_paginated_result_model.dart';
 import 'models/board_game_model.dart';
 import 'models/nearby_cafes_search_result_model.dart';
 
@@ -157,6 +159,16 @@ class MatchmakingRepositoryImpl extends CacheableRepository
     }
   }
 
+  @override
+  Future<Either<Failure, List<BoardGameEntity>>> getTopPlayedBoardGames() async {
+    try {
+      final results = await datasource.getTopPlayedBoardGames();
+      return Right(results.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return Left(_mapExceptionToFailure(e, 'Lỗi lấy top 5 board game'));
+    }
+  }
+
   // ─── Cafes ─────────────────────────────────────────────────────────
 
   @override
@@ -258,6 +270,29 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       return Right(result.toEntity());
     } catch (e) {
       return Left(_mapExceptionToFailure(e, 'Lỗi tìm kiếm quán'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, NearbyCafesSearchResultEntity>> getAllActiveCafes({
+    int pageNumber = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      // Cache key theo pageSize để mobile có thể dùng lại nếu user đã
+      // mở "Trong thành phố" trong 30s gần đây. TTL 30s đủ ngắn để data
+      // mới (quán mới mở) reflect kịp.
+      final key = 'cafes-all-active:$pageNumber:$pageSize';
+      final result = await cache<NearbyCafesSearchResultModel>(
+        key,
+        () => datasource.getAllActiveCafes(
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        ),
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(_mapExceptionToFailure(e, 'Lỗi tải danh sách quán'));
     }
   }
 
@@ -415,6 +450,44 @@ class MatchmakingRepositoryImpl extends CacheableRepository
       return Right(result.toEntity());
     } catch (e) {
       return Left(_mapExceptionToFailure(e, 'Lỗi điều hướng chế độ chơi'));
+    }
+  }
+
+  // ─── Active Cafes (board-game-centric search) ──────────────────────
+
+  @override
+  Future<Either<Failure, ActiveCafesSearchResultEntity>>
+      getBoardGameActiveCafes(
+    String boardgameId, {
+    String? name,
+    double? latitude,
+    double? longitude,
+    int pageNumber = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      // Cache key: theo boardgame + filter (name optional) + location +
+      // pagination. Location ảnh hưởng sort order, nên phải nằm trong key
+      // — player đổi vị trí → gọi lại để backend sort lại theo khoảng
+      // cách mới (TTL 30s đủ ngắn).
+      final locKey =
+          (latitude != null && longitude != null) ? '${latitude}_$longitude' : '_';
+      final cacheKey = 'bg-active-cafes:$boardgameId:${name ?? '_'}:$locKey:'
+          '$pageNumber:$pageSize';
+      final result = await cache<ActiveCafesPaginatedResultModel>(
+        cacheKey,
+        () => datasource.getBoardGameActiveCafes(
+          boardgameId,
+          name: name,
+          latitude: latitude,
+          longitude: longitude,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        ),
+      );
+      return Right(result.toEntity());
+    } catch (e) {
+      return Left(_mapExceptionToFailure(e, 'Lỗi tải danh sách quán có game'));
     }
   }
 

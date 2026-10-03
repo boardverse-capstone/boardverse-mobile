@@ -8,6 +8,7 @@ import 'package:boardverse/core/theme/app_colors.dart';
 import 'package:boardverse/core/theme/app_icons.dart';
 import 'package:boardverse/core/theme/app_shimmer.dart';
 import 'package:boardverse/core/theme/app_spacing.dart';
+import 'package:boardverse/core/widgets/safe_network_image.dart';
 import '../../../matchmaking_discovery/presentation/cubit/cafe_detail_cubit.dart';
 import '../../../matchmaking_discovery/presentation/cubit/cafe_detail_state.dart';
 import '../../domain/entities/lobby_entity.dart';
@@ -56,6 +57,14 @@ class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
   // ignore: prefer_final_fields
   bool _joining = false;
 
+  /// Lobby chi tiết từ `GET /api/v1/lobbies/{id}` — chứa `scheduledEndTime`
+  /// và `members[]` đầy đủ (host avatar/karma). Endpoint `/discoverable`
+  /// không trả về những field này (chỉ trả summary), nên preview page
+  /// phải fetch thêm để hiển thị giờ kết thúc + thông tin host.
+  /// `null` = chưa load xong (hoặc load fail) → UI fallback dùng
+  /// `widget.lobby` (basic data từ discoverable).
+  LobbyEntity? _detailedLobby;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +77,27 @@ class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
     if (widget.lobby.cafeId.isNotEmpty) {
       _cafeCubit?.loadCafeDetail(widget.lobby.cafeId);
     }
+    // Fetch lobby chi tiết để có `scheduledEndTime` + host info (avatar/karma
+  // từ `members[]`). Nếu fail → fallback về data từ discoverable list.
+    _loadLobbyDetail();
+  }
+
+  /// Gọi `GET /api/v1/lobbies/{id}` qua `LobbyCubit` để lấy thông tin chi
+  /// tiết. Kết quả được cache local trong `_detailedLobby` — UI dùng
+  /// `detailed ?? widget.lobby` để luôn có data để hiển thị (kể cả khi
+  /// network fail).
+  Future<void> _loadLobbyDetail() async {
+    final result = await widget.lobbyCubit.getLobbyById(widget.lobby.id);
+    if (!mounted) return;
+    result.fold(
+      (_) {
+        // Silent fail — UI vẫn render với data từ discoverable list.
+      },
+      (lobby) {
+        if (!mounted || lobby == null) return;
+        setState(() => _detailedLobby = lobby);
+      },
+    );
   }
 
   /// Khởi tạo `_cafeCubit` theo thứ tự ưu tiên:
@@ -93,7 +123,7 @@ class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final lobby = widget.lobby;
+    final lobby = _detailedLobby ?? widget.lobby;
     final lobbyCubit = widget.lobbyCubit;
     final cafeCubit = _cafeCubit;
 
@@ -136,12 +166,21 @@ class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
                   AppSpacing.md,
                   AppSpacing.md,
                   AppSpacing.md,
-                  160, // extra space cho bottom CTA + back button stack
+                  56, // bottom CTA bar tự nằm sát mép dưới qua Scaffold
                 ),
                 child: Column(
                   children: [
                     // ── Hero Card ──────────────────────────────────────
                     _NeoHeroCard(lobby: lobby),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // ── Host Info Card (avatar + tên + karma) ─────────
+                    // Lookup từ `members[]` của lobby chi tiết (fetch qua
+                    // `GET /api/v1/lobbies/{id}`). Endpoint `/discoverable`
+                    // không trả hostName/avatar/karma — chỉ trả `hostUserId`.
+                    // Fallback về `widget.lobby.hostName` nếu members rỗng.
+                    _HostInfoCard(lobby: lobby),
 
                     const SizedBox(height: AppSpacing.md),
 
@@ -163,8 +202,6 @@ class _LobbyPreviewPageState extends State<LobbyPreviewPage> {
 
                     // ── Status Banner ───────────────────────────────────
                     _StatusBanner(lobby: lobby),
-
-                    const SizedBox(height: AppSpacing.xxl),
                   ],
                 ),
               ),
@@ -319,6 +356,13 @@ class _NeoHeroCard extends StatelessWidget {
     final scheduled = lobby.scheduledTime;
     final hh = scheduled.hour.toString().padLeft(2, '0');
     final mm = scheduled.minute.toString().padLeft(2, '0');
+    // Hiển thị giờ kết thúc nếu backend `/lobbies/{id}` trả về
+    // `scheduledEndTime` (BR-NEW-15 / 2026-09-14). Khi null (vd: dữ liệu
+    // từ `/discoverable` summary), chỉ show giờ bắt đầu.
+    final endTime = lobby.scheduledEndTime;
+    final hasEndTime = endTime != null;
+    final endHh = hasEndTime ? endTime.hour.toString().padLeft(2, '0') : '';
+    final endMm = hasEndTime ? endTime.minute.toString().padLeft(2, '0') : '';
 
     return Container(
       decoration: BoxDecoration(
@@ -412,53 +456,21 @@ class _NeoHeroCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Time pill
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark ? AppColors.borderDark : AppColors.border,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.black.withValues(alpha: 0.4),
-                        blurRadius: 0,
-                        offset: const Offset(2, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: AppColors.white,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$hh:$mm',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          color: AppColors.white,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
+                // Compact time range: "16:00 – 20:00" hoặc chỉ "16:00"
+                // khi backend không trả end time. Dạng này tiết kệm
+                // width so với 2 pill "Bắt đầu 16:00" + "Kết thúc 20:00"
+                // (gây RenderFlex overflow ~63px trên màn hình nhỏ).
+                _TimeRangeBadge(
+                  start: '$hh:$mm',
+                  end: hasEndTime ? '$endHh:$endMm' : null,
+                  hasEnd: hasEndTime,
+                  isDark: isDark,
                 ),
 
-                const Spacer(),
+                const SizedBox(width: AppSpacing.sm),
 
                 // Capacity
-                _CapacityBadge(lobby: lobby),
+                Flexible(child: _CapacityBadge(lobby: lobby)),
               ],
             ),
           ),
@@ -495,6 +507,64 @@ class _GameInitial extends StatelessWidget {
             color: AppColors.white,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Hiển thị gọn khoảng thời gian của lobby: "16:00 – 20:00" hoặc "16:00"
+/// nếu backend không trả end time. Compact 1 pill thay vì 2 pill
+/// riêng để tránh RenderFlex overflow khi hero card hẹp.
+class _TimeRangeBadge extends StatelessWidget {
+  final String start;
+  final String? end;
+  final bool hasEnd;
+  final bool isDark;
+
+  const _TimeRangeBadge({
+    required this.start,
+    required this.end,
+    required this.hasEnd,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final bg = isDark ? AppColors.surfaceDark : AppColors.surface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.schedule_rounded,
+            size: 14,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            hasEnd ? '$start – $end' : start,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: fg,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -562,6 +632,212 @@ class _StatusChip extends StatelessWidget {
       reservationStatus: lobby.reservationStatus,
     );
     return LobbyStatusBadge(variant: variant, dense: true);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  HOST INFO CARD — Neo-brutalism
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// Card hiển thị thông tin cơ bản của host (avatar + tên + karma) để
+/// player khác quyết định có muốn tham gia phòng hay không.
+///
+/// Dữ liệu lấy từ `lobby.players` (đã được populate bằng response
+/// `/api/v1/lobbies/{id}` qua `_loadLobbyDetail()`). Endpoint
+/// `/discoverable` không trả `members[]` chi tiết — chỉ trả
+/// `hostUserId` + summary. Khi `_detailedLobby` chưa load xong (hoặc
+/// members rỗng), card fallback hiển thị tên từ `lobby.hostName`
+/// (đôi khi rỗng từ `/discoverable`).
+class _HostInfoCard extends StatelessWidget {
+  final LobbyEntity lobby;
+
+  const _HostInfoCard({required this.lobby});
+
+  /// Tìm host record trong `lobby.players`. Trả `null` nếu:
+  /// - players rỗng (data từ `/discoverable` summary chưa kịp fetch detail).
+  /// - host chưa có record trong members (rare).
+  LobbyPlayer? get _host {
+    for (final p in lobby.players) {
+      if (p.isHost) return p;
+    }
+    // Fallback: so khớp `player.userId == lobby.hostId` phòng trường hợp
+    // `isHost` flag bị sai schema. Cuối cùng trả null để caller quyết định.
+    for (final p in lobby.players) {
+      if (p.userId == lobby.hostId) return p;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final host = _host;
+
+    // Nếu không có data host (players rỗng + hostName cũng rỗng) → skip
+    // card luôn để tránh render rỗng gây khó chịu.
+    final hasAnyHostInfo = host != null ||
+        (lobby.hostName.isNotEmpty && lobby.hostId.isNotEmpty);
+    if (!hasAnyHostInfo) return const SizedBox.shrink();
+
+    final displayName = host?.name.isNotEmpty == true
+        ? host!.name
+        : (lobby.hostName.isNotEmpty ? lobby.hostName : 'Chủ phòng');
+    final avatarUrl = host?.avatarUrl ?? '';
+    final karma = host?.karma ?? 0;
+    final hasAvatar = avatarUrl.isNotEmpty && avatarUrl.startsWith('http');
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.4),
+            blurRadius: 0,
+            offset: const Offset(3, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // ── Avatar (network image + initials fallback) ───────────
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary,
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.border,
+                width: 2,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: hasAvatar
+                ? SafeNetworkImage(
+                    url: avatarUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _HostInitials(name: displayName),
+                  )
+                : _HostInitials(name: displayName),
+          ),
+          const SizedBox(width: AppSpacing.md),
+
+          // ── Tên + Karma ─────────────────────────────────────────
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        displayName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.border,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Text(
+                        'CHỦ PHÒNG',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 9,
+                          color: AppColors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    const Icon(
+                      AppIcons.karma,
+                      size: 14,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${karma.toInt()} Karma',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Avatar fallback hiển thị chữ cái đầu của tên host khi không có ảnh.
+class _HostInitials extends StatelessWidget {
+  final String name;
+
+  const _HostInitials({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final initial =
+        name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.primaryLight],
+        ),
+      ),
+      child: Text(
+        initial,
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          color: AppColors.white,
+          fontSize: 22,
+        ),
+      ),
+    );
   }
 }
 

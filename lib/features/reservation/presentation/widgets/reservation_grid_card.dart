@@ -180,6 +180,7 @@ class ReservationCardModern extends StatelessWidget {
         case ReservationStatus.expired:
           return _CardVariant.expired;
         case ReservationStatus.noShow:
+          return _CardVariant.noShow;
         case ReservationStatus.completed:
         case ReservationStatus.earlyCheckout:
           return _CardVariant.completed;
@@ -227,6 +228,7 @@ enum _CardVariant {
   playing,
   rating,
   completed,
+  noShow,
   cancelled,
   rejected,
   expired,
@@ -379,6 +381,17 @@ class _CardStyleModern {
           statusBadgeBg: Color(0xFFFFFFFF),
           statusBadgeFg: Color(0xFF3949AB),
           decorIcon: Icons.emoji_events_rounded,
+        );
+
+      case _CardVariant.noShow:
+        return const _CardStyleModern(
+          gradientColors: [Color(0xFFEF5350), Color(0xFFC62828)],
+          accent: Color(0xFFEF5350),
+          statusLabel: 'Vắng mặt',
+          statusIcon: Icons.person_off_rounded,
+          statusBadgeBg: Color(0xFFFFFFFF),
+          statusBadgeFg: Color(0xFFC62828),
+          decorIcon: Icons.person_off_rounded,
         );
 
       case _CardVariant.cancelled:

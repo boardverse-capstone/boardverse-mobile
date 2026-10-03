@@ -35,6 +35,12 @@ class BoardGameEntity extends Equatable {
   /// `category_ids`. Có thể rỗng nếu game catalog chưa gắn category.
   final List<GameCategoryEntity> categories;
 
+  /// Tổng số lượt chơi trong hệ thống — chỉ trả về bởi
+  /// `GET /api/v1/board-games/top5` (build 2026-09-10). `null` cho
+  /// response từ các endpoint khác (vd: `GET /api/v1/board-games`).
+  /// UI dùng để hiển thị badge "Hot" hoặc icon 🔥 khi `playCount > N`.
+  final int? playCount;
+
   const BoardGameEntity({
     required this.id,
     required this.name,
@@ -49,6 +55,7 @@ class BoardGameEntity extends Equatable {
     required this.rating,
     this.componentCount = 0,
     this.categories = const [],
+    this.playCount,
   });
 
   /// Định dạng hiển thị số người chơi:
@@ -62,6 +69,18 @@ class BoardGameEntity extends Equatable {
   /// Phiên bản không có đuôi " người" — dùng cho pill nhỏ (icon + text).
   String get playerRangeRaw =>
       minPlayers == maxPlayers ? '$minPlayers' : '$minPlayers-$maxPlayers';
+
+  /// Hiển thị số lượt chơi dạng compact (vd: `1.2k`, `127`). Trả `null` nếu
+  /// không có `playCount` (vd: response từ endpoint list thường).
+  String? get playCountDisplay {
+    if (playCount == null) return null;
+    final n = playCount!;
+    if (n >= 1000) {
+      final k = (n / 1000).toStringAsFixed(n >= 10000 ? 0 : 1);
+      return '${k}k';
+    }
+    return n.toString();
+  }
 
   @override
   List<Object?> get props => [
@@ -78,5 +97,6 @@ class BoardGameEntity extends Equatable {
         rating,
         componentCount,
         categories,
+        playCount,
       ];
 }

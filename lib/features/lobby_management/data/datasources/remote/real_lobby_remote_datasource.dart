@@ -6,6 +6,7 @@ import 'package:boardverse/core/constants/api_endpoints.dart';
 import 'package:boardverse/core/error/failures.dart';
 import 'package:boardverse/features/friend_management/data/models/friend_model.dart';
 import 'package:boardverse/features/friend_management/domain/entities/friend_entity.dart';
+import '../../../domain/entities/dissolve_lobby_result.dart';
 import '../../../domain/entities/lobby_entity.dart';
 import '../../../domain/entities/lobby_invite_entity.dart';
 import '../../../domain/entities/lobby_invitable_friend.dart';
@@ -280,7 +281,11 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
       if (preferredEndTime != null) {
         body['preferredEndTime'] = preferredEndTime;
       }
-      final path = ApiEndpoints.lobbyChangeTimeslot(lobbyId);
+      // Endpoint swagger.json = `/api/v1/lobbies/{id}/change-time` (2026-10-03).
+      // Trước đây code gọi nhầm `lobbyChangeTimeslot` trả về path
+      // `/change-timeslot` không tồn tại → server 500 → nút "Đổi giờ"
+      // trên UI bị đứng im.
+      final path = ApiEndpoints.lobbyChangeTime(lobbyId);
       final res = await _dio.post<Map<String, dynamic>>(path, data: body);
       final model = LobbyModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyEntity>(model.toEntity());
@@ -294,38 +299,63 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
   }
 
   @override
-  Future<Either<Failure, void>> dissolveLobby({
+  Future<Either<Failure, DissolveLobbyResult>> dissolveLobby({
     required String lobbyId,
     String? reason,
   }) async {
     try {
       final path = ApiEndpoints.lobbyDissolve(lobbyId);
       final body = reason != null ? {'reason': reason} : null;
-      await _dio.delete<Map<String, dynamic>>(
-        path,
-        data: body,
+      // Backend trả `DissolveLobbyResponseDto` (200 OK):
+      //   {
+      //     "lobbyId": "<guid>",
+      //     "reservationId": "<guid>" | null,
+      //     "reason": "string" | null,
+      //     "dissolvedAt": "2026-08-04T10:00:00Z"
+      //   }
+      // Lobby được soft-delete (status = Dissolved) thay vì xoá cứng —
+      // BR §XXI-A.6, fix 2026-08-27.
+      final res = await _dio.delete<Map<String, dynamic>>(path, data: body);
+      final data = _unwrap(res.data);
+      final result = DissolveLobbyResult(
+        lobbyId: (data['lobbyId'] ?? lobbyId) as String,
+        reservationId: data['reservationId'] as String?,
+        reason: data['reason'] as String?,
+        dissolvedAt: _parseDissolvedAt(data['dissolvedAt']),
       );
-      // 200: lobby đã giải tán (hard delete thành công).
-      return const Right<Failure, void>(null);
+      return Right<Failure, DissolveLobbyResult>(result);
     } on DioException catch (e) {
-      // 409: lobby đã booking thành công / đang trong phiên chơi /
-      // đã đóng — không thể giải tán.
+      // 409: lobby không ở trạng thái cho phép dissolve (đang InProgress,
+      // đã đóng, đã terminal, hoặc đã booking thành công).
       if (e.response?.statusCode == 409) {
         final apiMsg = e.response?.data is Map
             ? (e.response!.data as Map)['message'] as String?
             : null;
-        return Left<Failure, void>(ServerFailure(
+        return Left<Failure, DissolveLobbyResult>(ServerFailure(
           message: apiMsg ??
-              'Phòng đã đặt cọc hoặc đang trong phiên chơi, không thể giải tán.',
+              'Không thể giải tán lobby ở trạng thái hiện tại. Phòng đã đóng hoặc đang trong phiên chơi.',
           statusCode: 409,
         ));
       }
-      return Left<Failure, void>(_mapDioError(e));
+      return Left<Failure, DissolveLobbyResult>(_mapDioError(e));
     } catch (e) {
-      return Left<Failure, void>(
+      return Left<Failure, DissolveLobbyResult>(
         ServerFailure(message: 'Lỗi không xác định: $e'),
       );
     }
+  }
+
+  /// Parse `dissolvedAt` ISO 8601 từ backend. Fallback `DateTime.now()` nếu
+  /// backend không trả field này (vd: spec cũ trước fix 2026-08-27).
+  static DateTime _parseDissolvedAt(dynamic raw) {
+    if (raw is String && raw.isNotEmpty) {
+      final normalized = raw.endsWith('Z')
+          ? raw.substring(0, raw.length - 1)
+          : raw;
+      final parsed = DateTime.tryParse(normalized);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
   }
 
   @override
@@ -372,6 +402,33 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     try {
       final path = ApiEndpoints.lobbyShareInfo.replaceAll('{lobbyId}', lobbyId);
       final res = await _dio.get<Map<String, dynamic>>(path);
+      final model = LobbyShareInfoModel.fromJson(_unwrap(res.data));
+      return Right<Failure, LobbyShareInfo>(model.toEntity());
+    } on DioException catch (e) {
+      return Left<Failure, LobbyShareInfo>(_mapDioError(e));
+    } catch (e) {
+      return Left<Failure, LobbyShareInfo>(
+        ServerFailure(message: 'Lỗi không xác định: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, LobbyShareInfo>> regenerateShareCode(
+    String lobbyId,
+  ) async {
+    try {
+      // POST /api/v1/lobbies/{lobbyId}/share-code/regenerate
+      // Response 200:
+      //   { statusCode, message, data: { lobbyId, shareCode, regeneratedAt } }
+      // Lưu ý: response trả envelope `{ data: { ... } }` (giống các
+      // endpoint lobby khác), KHÔNG phải `{ shareCode, ... }` thẳng.
+      final path = ApiEndpoints.lobbyShareCodeRegenerate(lobbyId);
+      final res = await _dio.post<Map<String, dynamic>>(path);
+      // Tận dụng model LobbyShareInfoModel — backend trả cùng shape
+      // (lobbyId, shareCode) cho cả GET /share-info và
+      // POST /share-code/regenerate (chỉ regenerate trả thêm
+      // `regeneratedAt` mà entity không cần dùng).
       final model = LobbyShareInfoModel.fromJson(_unwrap(res.data));
       return Right<Failure, LobbyShareInfo>(model.toEntity());
     } on DioException catch (e) {
@@ -980,13 +1037,12 @@ class RealLobbyRemoteDatasource implements LobbyRemoteDatasource {
     String? statusFilter,
   }) async {
     try {
-      // BR-NEW-MY-LOBBY-SORT (2026-09-14): backend hỗ trợ lọc + sắp xếp
-      // qua query params:
-      //   ?statuses=4&statuses=16&statuses=14&statuses=1&statuses=0
-      //   &statuses=6
-      //   &statusFilter=InProgress,WaitingCheckIn,Viable,Full,Open,RatingOpen
-      // Backend tự sắp xếp: active trước → terminal sau, trong mỗi
-      // nhóm theo thời gian mới nhất.
+      // BR-NEW-MY-LOBBY-SORT (2026-09-14): backend hỗ trợ lọc + sắp xếp.
+      // BR-NEW-MY-LOBBY-FILTER-FIX (2026-10-02): `statuses` bind là
+      // `List<int>` chỉ whitelist per contract (loại 7=TimeoutFailed
+      // và 8=HostCancelled). BE union 2 param nếu cùng truyền, sort:
+      // active trước → terminal sau, trong mỗi nhóm theo thời gian mới nhất.
+      // Ví dụ request: ?statuses=4,16,1,0,6,14&statusFilter=TimeoutFailed
       final query = <String, dynamic>{};
       if (statuses != null && statuses.isNotEmpty) {
         query['statuses'] = statuses;

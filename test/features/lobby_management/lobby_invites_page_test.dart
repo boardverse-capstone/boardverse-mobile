@@ -14,6 +14,7 @@ import 'package:boardverse/features/friend_management/domain/entities/friend_ent
 import 'package:boardverse/features/lobby_management/data/datasources/base/lobby_remote_datasource.dart';
 import 'package:boardverse/features/lobby_management/data/models/elo_update_model.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_entity.dart';
+import 'package:boardverse/features/lobby_management/domain/entities/dissolve_lobby_result.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invite_entity.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_invitable_friend.dart';
 import 'package:boardverse/features/lobby_management/domain/entities/lobby_share_info.dart';
@@ -141,11 +142,17 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       throw UnimplementedError();
 
   @override
-  Future<Either<Failure, void>> dissolveLobby({
+  Future<Either<Failure, DissolveLobbyResult>> dissolveLobby({
     required String lobbyId,
     String? reason,
-  }) async =>
-      Right<Failure, void>(null);
+  }) async => Right<Failure, DissolveLobbyResult>(
+        DissolveLobbyResult(
+          lobbyId: lobbyId,
+          reservationId: null,
+          reason: reason,
+          dissolvedAt: DateTime.utc(2026, 8, 18),
+        ),
+      );
 
   @override
   Future<Either<Failure, LobbyEntity>> lockLobby(String lobbyId) async =>
@@ -168,8 +175,10 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
       rightOf<Failure, Lst<LobbyEntity>>(const []);
 
   @override
-  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies() async =>
-      rightOf<Failure, Lst<LobbyEntity>>(const []);
+  Future<Either<Failure, List<LobbyEntity>>> getMyLobbies({
+    List<int>? statuses,
+    String? statusFilter,
+  }) async => rightOf<Failure, Lst<LobbyEntity>>(const []);
 
   @override
   Future<Either<Failure, List<LobbyEntity>>> discoverableLobbies({
@@ -210,6 +219,11 @@ class _FakeLobbyRemoteDatasource implements LobbyRemoteDatasource {
   @override
   Future<Either<Failure, LobbyShareInfo>> getShareInfo(String lobbyId) async =>
       throw UnimplementedError();
+
+  @override
+  Future<Either<Failure, LobbyShareInfo>> regenerateShareCode(
+    String lobbyId,
+  ) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, LobbyChatMessage>> sendChatMessage({

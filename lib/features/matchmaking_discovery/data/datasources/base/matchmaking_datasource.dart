@@ -1,3 +1,4 @@
+import '../../models/active_cafes_paginated_result_model.dart';
 import '../../models/board_game_model.dart';
 import '../../models/cafe_active_game_model.dart';
 import '../../models/cafe_model.dart';
@@ -44,13 +45,40 @@ abstract class MatchmakingDatasource {
   /// Lấy danh mục game categories — `GET /api/v1/board-games/categories`
   Future<List<GameCategoryModel>> getGameCategories();
 
+  /// Lấy Top 5 board game được chơi nhiều nhất trong hệ thống.
+  /// Map thẳng vào `GET /api/v1/board-games/top5` (build 2026-09-10).
+  /// Public — không cần token. Response trả mảng `TopBoardGameDto[]` với
+  /// field `playCount` (tổng số lượt chơi trong hệ thống).
+  Future<List<BoardGameModel>> getTopPlayedBoardGames();
+
   /// `GET /api/v1/board-games/{id}/play-configuration`
   Future<GamePlayConfigurationModel?> getGamePlayConfiguration(String gameId);
 
-  /// `POST /api/v1/board-games/{id}/play-navigation`
+  /// `GET /api/v1/board-games/{id}/play-navigation`
   Future<GamePlayNavigationModel> resolvePlayNavigation({
     required String gameId,
     required PlayMode mode,
+  });
+
+  /// `GET /api/v1/board-games/{boardgameId}/active-cafes` — chiều ngược
+  /// của `/api/cafes/{cafeId}/active-games`. Trả danh sách quán cafe ACTIVE
+  /// có board game này trong kho (status Available/InUse).
+  ///
+  /// Public — không cần token. Query params:
+  /// - `name`: lọc theo tên quán (case-insensitive partial).
+  /// - `latitude`/`longitude`: nếu truyền → sort theo khoảng cách.
+  ///   Bỏ trống → sort theo tên A→Z (`distanceMeters = null`).
+  /// - `pageNumber`/`pageSize`: phân trang.
+  ///
+  /// Docs: `.agents/docs/apis_docs/board-games.md`
+  /// §GET /api/v1/board-games/{id}/active-cafes
+  Future<ActiveCafesPaginatedResultModel> getBoardGameActiveCafes(
+    String boardgameId, {
+    String? name,
+    double? latitude,
+    double? longitude,
+    int pageNumber = 1,
+    int pageSize = 20,
   });
 
   // BR-NEW (2026-08-27): `getDefaultTimeSlots()` đã bị xoá — backend không
@@ -109,6 +137,21 @@ abstract class MatchmakingDatasource {
     double radiusKm = 15.0,
     int pageNumber = 1,
     int pageSize = 20,
+  });
+
+  /// `GET /api/cafes?pageNumber=...&pageSize=...` — Lấy danh sách tất cả
+  /// quán ACTIVE trên toàn hệ thống (không filter theo vị trí, sắp xếp
+  /// theo `name` A→Z). Yêu cầu auth Player.
+  ///
+  /// Dùng cho "Trong thành phố" filter — sau khi có list ACTIVE, mobile
+  /// sẽ filter client-side theo `PlayerLocationEntity.city` vì backend
+  /// không hỗ trợ filter `city` trực tiếp (xem `.agents/docs/swagger.json`
+  /// — không có field `city`/`district`/`province` trong CafeDto).
+  ///
+  /// Docs: `.agents/docs/apis_docs/cafe.md` §GET /api/cafes.
+  Future<NearbyCafesSearchResultModel> getAllActiveCafes({
+    int pageNumber = 1,
+    int pageSize = 100,
   });
 
   /// Lấy thông tin quán theo ID — `GET /api/cafes/{id}`

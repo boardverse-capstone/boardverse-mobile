@@ -26,6 +26,10 @@ class BoardGameModel {
   final int componentCount;
   final List<GameCategoryModel> categories;
 
+  /// Tổng số lượt chơi — chỉ có trong response của `GET /api/v1/board-games/top5`
+  /// (build 2026-09-10). `null` cho response từ các endpoint khác.
+  final int? playCount;
+
   const BoardGameModel({
     required this.id,
     required this.name,
@@ -42,10 +46,11 @@ class BoardGameModel {
     required this.rating,
     this.componentCount = 0,
     this.categories = const [],
+    this.playCount,
   });
 
-  /// Parse từ response `GET /api/v1/board-games` (list) — JSON đã qua
-  /// `ApiResponse.data.data[]`.
+  /// Parse từ response `GET /api/v1/board-games` (list) hoặc
+  /// `GET /api/v1/board-games/top5` — JSON đã qua `ApiResponse.data[]`.
   factory BoardGameModel.fromJson(Map<String, dynamic> json) {
     final categories = (json['categories'] as List?)
             ?.cast<Map<String, dynamic>>()
@@ -79,6 +84,7 @@ class BoardGameModel {
       rating: ((json['rating'] as num?) ?? 0).toDouble(),
       componentCount: (json['componentCount'] as num?)?.toInt() ?? 0,
       categories: categories,
+      playCount: (json['playCount'] as num?)?.toInt(),
     );
   }
 
@@ -99,6 +105,7 @@ class BoardGameModel {
       'rating': rating,
       'componentCount': componentCount,
       'categories': categories.map((c) => c.toJson()).toList(),
+      'playCount': playCount,
     };
   }
 
@@ -116,5 +123,6 @@ class BoardGameModel {
         rating: rating,
         componentCount: componentCount,
         categories: categories.map((c) => c.toEntity()).toList(),
+        playCount: playCount,
       );
 }

@@ -46,282 +46,286 @@ class CafeDetailView extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // Chiều cao cố định cho vùng button ở dưới
+    const double bottomButtonAreaHeight = 140.0;
+
     return Stack(
       children: [
-        CustomScrollView(
-          slivers: [
-            // SliverAppBar với neo-brutalism back button
-            SliverAppBar(
-              expandedHeight: 220,
-              pinned: true,
-              backgroundColor:
-                  isDark ? AppColors.surfaceDark : AppColors.surface,
-              iconTheme: IconThemeData(
-                color: AppColors.white,
-              ),
-              leading: Container(
-                margin: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.black,
-                    width: 2,
+        // CustomScrollView được wrap trong Padding để không bị button che
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomButtonAreaHeight),
+            child: CustomScrollView(
+              slivers: [
+                // SliverAppBar với neo-brutalism back button
+                SliverAppBar(
+                  expandedHeight: 220,
+                  pinned: true,
+                  backgroundColor:
+                      isDark ? AppColors.surfaceDark : AppColors.surface,
+                  iconTheme: const IconThemeData(
+                    color: AppColors.white,
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppColors.black,
-                      blurRadius: 0,
-                      offset: Offset(2, 2),
+                  leading: Container(
+                    margin: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.black,
+                        width: 2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.black,
+                          blurRadius: 0,
+                          offset: Offset(2, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back,
-                    color: AppColors.black,
-                    size: 18,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.black,
+                        size: 18,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    SafeNetworkImage(
-                      url: cafe.imageUrl ?? '',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.storefront,
-                          size: 80,
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: 80,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              AppColors.black.withValues(alpha: 0.6),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: AppSpacing.paddingAllMd,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ─── Header: name + distance ─────────────────────
-                    Text(
-                      cafe.name,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (cafe.distanceKm != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.near_me_rounded,
-                            size: 14,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${cafe.distanceKm!.toStringAsFixed(1)} km từ bạn',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w800,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        SafeNetworkImage(
+                          url: cafe.imageUrl ?? '',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.storefront,
+                              size: 80,
+                              color: theme.colorScheme.outline,
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-
-                    // ─── Operational status (BR-05) ──────────────────
-                    OperationalStatusCard(cafe: cafe),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // ─── Pricing card ────────────────────────────────
-                    PricingCard(cafe: cafe),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // ─── Seat capacity (live) ────────────────────────
-                    SeatCapacityCard(cafe: cafe),
-
-                    // ─── Ghế trống theo khung giờ ────────────────────
-                    TimeSlotGrid(
-                      availableSeatsByTimeSlot: cafe.availableSeatsByTimeSlot,
-                      totalSeats: cafe.totalSeats,
-                    ),
-
-                    // ─── Tiện ích ────────────────────────────────────
-                    if ((cafe.numberOfTables > 0 ||
-                            cafe.numberOfPrivateRooms > 0 ||
-                            cafe.numberOfGamesOwned > 0 ||
-                            cafe.hasGameMaster)) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      const CafeSectionTitle(
-                        title: 'Tiện ích',
-                        icon: Icons.dashboard_customize_rounded,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      AmenitiesCard(
-                        numberOfTables: cafe.numberOfTables,
-                        numberOfPrivateRooms: cafe.numberOfPrivateRooms,
-                        numberOfGamesOwned: cafe.numberOfGamesOwned,
-                        hasGameMaster: cafe.hasGameMaster,
-                      ),
-                    ],
-
-                    // ─── Đặt cọc ─────────────────────────────────────
-                    if (cafe.depositPercentage > 0 ||
-                        cafe.depositRatePerPerson > 0 ||
-                        (cafe.minDeposit != null && cafe.minDeposit! > 0)) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      const CafeSectionTitle(
-                        title: 'Đặt cọc',
-                        icon: Icons.account_balance_wallet_rounded,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      DepositCard(cafe: cafe),
-                    ],
-
-                    // ─── Refund policy ───────────────────────────────
-                    const SizedBox(height: AppSpacing.lg),
-                    const CafeSectionTitle(
-                      title: 'Chính sách hoàn tiền',
-                      icon: Icons.replay_circle_filled_rounded,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    RefundPolicyCard(cafe: cafe),
-
-                    // ─── Lobby config ────────────────────────────────
-                    if (cafe.cafeConfig != null) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      const CafeSectionTitle(
-                        title: 'Quy định lobby',
-                        icon: Icons.groups_rounded,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      LobbyConfigCard(cafe: cafe),
-                    ],
-
-                    // ─── Liên hệ ────────────────────────────────────
-                    const SizedBox(height: AppSpacing.lg),
-                    const CafeSectionTitle(
-                      title: 'Liên hệ',
-                      icon: Icons.contact_phone,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    CafeInfoRow(
-                      icon: Icons.place_outlined,
-                      text: cafe.address,
-                    ),
-                    if (cafe.phoneNumber != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      TappableInfoRow(
-                        icon: Icons.phone_outlined,
-                        text: cafe.phoneNumber!,
-                        onTap: () => _callPhone(cafe.phoneNumber!),
-                      ),
-                    ],
-                    if (cafe.latitude != null && cafe.longitude != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      TappableInfoRow(
-                        icon: Icons.map_outlined,
-                        text: 'Xem trên bản đồ',
-                        onTap: () =>
-                            _openMap(cafe.latitude!, cafe.longitude!),
-                      ),
-                    ],
-
-                    // ─── Giới thiệu ──────────────────────────────────
-                    if (cafe.description != null &&
-                        cafe.description!.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      const CafeSectionTitle(
-                        title: 'Giới thiệu',
-                        icon: Icons.info_outline,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Container(
-                        padding: AppSpacing.paddingAllMd,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.surfaceDark
-                              : AppColors.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.borderDark
-                                : AppColors.border,
-                            width: NeoBrutalismTheme.borderWidth,
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 80,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  AppColors.black.withValues(alpha: 0.6),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          cafe.description!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            height: 1.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // ─── Thông tin thêm ──────────────────────────────
-                    const SizedBox(height: AppSpacing.lg),
-                    const CafeSectionTitle(
-                      title: 'Thông tin thêm',
-                      icon: Icons.more_horiz,
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    CafeInfoRow(
-                      icon: Icons.calendar_today_outlined,
-                      text: 'Tham gia: ${_formatDate(cafe.createdAt)}',
-                    ),
-                    if (cafe.totalSeats != null && cafe.totalSeats! > 0) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      CafeInfoRow(
-                        icon: Icons.event_seat_outlined,
-                        text: 'Sức chứa: ${cafe.totalSeats} ghế',
-                      ),
-                    ],
-                    if (cafe.hasSePayConfigured) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      const SePayBadge(),
-                    ],
-                    // Bottom safe-area cho CTA.
-                    const SizedBox(height: AppSpacing.huge + AppSpacing.lg),
-                  ],
+                  ),
                 ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                  // ─── Header: name + distance ─────────────────────
+                  Text(
+                    cafe.name,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (cafe.distanceKm != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.near_me_rounded,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${cafe.distanceKm!.toStringAsFixed(1)} km từ bạn',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ─── Operational status (BR-05) ──────────────────
+                  OperationalStatusCard(cafe: cafe),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ─── Pricing card ────────────────────────────────
+                  PricingCard(cafe: cafe),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ─── Seat capacity (live) ────────────────────────
+                  SeatCapacityCard(cafe: cafe),
+
+                  // ─── Ghế trống theo khung giờ ────────────────────
+                  TimeSlotGrid(
+                    availableSeatsByTimeSlot: cafe.availableSeatsByTimeSlot,
+                    totalSeats: cafe.totalSeats,
+                  ),
+
+                  // ─── Tiện ích ────────────────────────────────────
+                  if ((cafe.numberOfTables > 0 ||
+                          cafe.numberOfPrivateRooms > 0 ||
+                          cafe.numberOfGamesOwned > 0 ||
+                          cafe.hasGameMaster)) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    const CafeSectionTitle(
+                      title: 'Tiện ích',
+                      icon: Icons.dashboard_customize_rounded,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    AmenitiesCard(
+                      numberOfTables: cafe.numberOfTables,
+                      numberOfPrivateRooms: cafe.numberOfPrivateRooms,
+                      numberOfGamesOwned: cafe.numberOfGamesOwned,
+                      hasGameMaster: cafe.hasGameMaster,
+                    ),
+                  ],
+
+                  // ─── Đặt cọc ─────────────────────────────────────
+                  if (cafe.depositPercentage > 0 ||
+                      cafe.depositRatePerPerson > 0 ||
+                      (cafe.minDeposit != null && cafe.minDeposit! > 0)) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    const CafeSectionTitle(
+                      title: 'Đặt cọc',
+                      icon: Icons.account_balance_wallet_rounded,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DepositCard(cafe: cafe),
+                  ],
+
+                  // ─── Refund policy ───────────────────────────────
+                  const SizedBox(height: AppSpacing.lg),
+                  const CafeSectionTitle(
+                    title: 'Chính sách hoàn tiền',
+                    icon: Icons.replay_circle_filled_rounded,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  RefundPolicyCard(cafe: cafe),
+
+                  // ─── Lobby config ────────────────────────────────
+                  if (cafe.cafeConfig != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    const CafeSectionTitle(
+                      title: 'Quy định lobby',
+                      icon: Icons.groups_rounded,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    LobbyConfigCard(cafe: cafe),
+                  ],
+
+                  // ─── Liên hệ ────────────────────────────────────
+                  const SizedBox(height: AppSpacing.lg),
+                  const CafeSectionTitle(
+                    title: 'Liên hệ',
+                    icon: Icons.contact_phone,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  CafeInfoRow(
+                    icon: Icons.place_outlined,
+                    text: cafe.address,
+                  ),
+                  if (cafe.phoneNumber != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    TappableInfoRow(
+                      icon: Icons.phone_outlined,
+                      text: cafe.phoneNumber!,
+                      onTap: () => _callPhone(cafe.phoneNumber!),
+                    ),
+                  ],
+                  if (cafe.latitude != null && cafe.longitude != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    TappableInfoRow(
+                      icon: Icons.map_outlined,
+                      text: 'Xem trên bản đồ',
+                      onTap: () =>
+                          _openMap(cafe.latitude!, cafe.longitude!),
+                    ),
+                  ],
+
+                  // ─── Giới thiệu ──────────────────────────────────
+                  if (cafe.description != null &&
+                      cafe.description!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    const CafeSectionTitle(
+                      title: 'Giới thiệu',
+                      icon: Icons.info_outline,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: AppSpacing.paddingAllMd,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.surfaceDark
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.border,
+                          width: NeoBrutalismTheme.borderWidth,
+                        ),
+                      ),
+                      child: Text(
+                        cafe.description!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // ─── Thông tin thêm ──────────────────────────────
+                  const SizedBox(height: AppSpacing.lg),
+                  const CafeSectionTitle(
+                    title: 'Thông tin thêm',
+                    icon: Icons.more_horiz,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  CafeInfoRow(
+                    icon: Icons.calendar_today_outlined,
+                    text: 'Tham gia: ${_formatDate(cafe.createdAt)}',
+                  ),
+                  if (cafe.totalSeats != null && cafe.totalSeats! > 0) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    CafeInfoRow(
+                      icon: Icons.event_seat_outlined,
+                      text: 'Sức chứa: ${cafe.totalSeats} ghế',
+                    ),
+                  ],
+                  if (cafe.hasSePayConfigured) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    const SePayBadge(),
+                  ],
+                ]),
               ),
             ),
           ],
         ),
+      ),
+    ),
 
         // ─── Sticky bottom CTA — luôn hiển thị ─────────────────────
         // Player có thể chọn quán trước (từ tab Cafe) → ấn "Đặt chỗ"

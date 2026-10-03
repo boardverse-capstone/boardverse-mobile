@@ -106,7 +106,10 @@ Lấy chi tiết một reservation.
     "walkInWindowId": null,
     "cancelledBy": null,
     "cancelReason": null,
-    "tableNumber": null
+    "tableNumber": null,
+    "isAbsorbed": false,
+    "absorbedIntoReservationId": null,
+    "absorbedAt": null
   }
 }
 ```
@@ -124,10 +127,32 @@ Lấy chi tiết một reservation.
     "cafeRejectionReason": "Quán đông, không nhận thêm khách",
     "depositAmount": 120000,
     "refundPolicyApplied": "BR-REFUND-04",
+    "isAbsorbed": false,
+    "absorbedIntoReservationId": null,
+    "absorbedAt": null,
     ...
   }
 }
 ```
+
+**Ví dụ khi reservation bị absorb vào reservation khác (lobby merge):**
+
+```json
+{
+  "statusCode": 200,
+  "message": "ReservationRetrieved",
+  "data": {
+    "id": "reservation-guid-nhom-a",
+    "status": "Completed",
+    "isAbsorbed": true,
+    "absorbedIntoReservationId": "reservation-guid-nhom-b",
+    "absorbedAt": "2026-09-23T11:45:00Z",
+    ...
+  }
+}
+```
+
+> **Lưu ý:** Khi `isAbsorbed = true`, reservation này đã bị hấp thu vào reservation đích (`absorbedIntoReservationId`) trong luồng ghép nhóm lobby. Xem [lobby-merge.md](./lobby-merge.md) để biết chi tiết luồng ghép nhóm (Lobby Merge).Xem thêm [lobby-merge.md](./lobby-merge.md) — ghép nhóm lobby (Lobby Merge) với luồng `POST /merge-requests` → `approve`.
 
 > **Lưu ý:** Khi `status = CancelledByCafe`, `cafeRejectionReason` chứa lý do cafe từ chối. Player có thể filter `GET /reservations?statuses=CancelledByCafe` để xem danh sách reservation bị từ chối.
 
@@ -234,7 +259,7 @@ Khác với `GET /api/v1/reservations` (mặc định chỉ host + 1 ngày):
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `participationType` | enum | No | `Host` \| `Member`. Null = lấy cả hai. |
-| `statuses` | enum[] | No | Filter theo trạng thái (vd: `Holding`, `Confirmed`, `Completed`, `CancelledByPlayer`). |
+| `statuses` | enum[] | No | Filter theo trạng thái (vd: `Holding`, `Confirmed`, `Completed`, `CancelledByPlayer`, `AbsorbedByMerge`). |
 | `cafeId` | guid | No | Filter theo cafe. |
 | `fromDate` | date | No | Ngày bắt đầu (inclusive). Null = không giới hạn dưới. |
 | `toDate` | date | No | Ngày kết thúc (inclusive). Null = không giới hạn trên. |
@@ -290,7 +315,8 @@ Response bao gồm 2 summary count (`hostedCount`, `joinedCount`) để FE rende
         "createdAt": "2026-09-02T15:30:00Z",
         "isHost": true,
         "participationType": "Host",
-        "tableNumber": null
+        "tableNumber": null,
+        "isAbsorbed": false
       },
       {
         "id": "22222222-2222-2222-2222-222222222222",
@@ -1011,6 +1037,15 @@ Cafe **chấp nhận** (`approve: true`) hoặc **từ chối** (`approve: false
 ```
 
 > Khi từ chối: lobby chuyển sang `RejectedByCafe`, refund **100% BVC** về ví host.
+
+### Host được thêm làm LobbyMember khi cafe approve (fix 2026-09-08)
+
+Trước fix: với lobby ở trạng thái `PendingCafeApproval`, step 18 của `ConfirmAsync` skip việc insert host vào `LobbyMember`. Sau khi cafe approve, host chưa có record `LobbyMember` → `GET /api/v1/users/ratings/karma/lobbies/{lobbyId}` và `POST /api/v1/users/ratings/karma` trả **403 "Bạn không phải thành viên của phòng này nên không thể đánh giá"** vì `RequireLobbyMemberContextAsync` filter `IsActive=true` mà không có member record.
+
+Sau fix: `HandleCafeApprovalAsync` (approve branch) tự động thêm host làm `LobbyMember` với `IsHost=true, IsActive=true, Status=Joined` nếu chưa tồn tại (idempotent — không tạo duplicate khi re-approve). Host sau đó có thể:
+
+- `GET /api/v1/users/ratings/karma/lobbies/{lobbyId}` → 200 với `canSubmitRatings=true` (khi lobby đạt `InProgress`/`Closed`/`RatingOpen`).
+- `POST /api/v1/users/ratings/karma` → 200, không bị 403.
 
 ### Lỗi thường gặp
 

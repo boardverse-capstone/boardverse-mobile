@@ -65,6 +65,7 @@ class ReservationCardNeo extends StatelessWidget {
         case ReservationStatus.expired:
           return _CardVariant.expired;
         case ReservationStatus.noShow:
+          return _CardVariant.noShow;
         case ReservationStatus.completed:
         case ReservationStatus.earlyCheckout:
           return _CardVariant.closed;
@@ -167,6 +168,7 @@ enum _CardVariant {
   inProgress,
   ratingOpen,
   closed,
+  noShow,
   hostCancelled,
   rejectedByCafe,
   expired,
@@ -284,6 +286,16 @@ class _CardStyle {
           statusBg: AppColors.textTertiary,
           statusFg: Colors.white,
           accent: AppColors.textTertiary,
+        );
+      case _CardVariant.noShow:
+        return const _CardStyle(
+          sidebarColor: AppColors.error,
+          sidebarShadow: AppColors.error,
+          statusLabel: 'Vắng mặt',
+          statusIcon: Icons.person_off_outlined,
+          statusBg: AppColors.error,
+          statusFg: Colors.white,
+          accent: AppColors.error,
         );
       case _CardVariant.hostCancelled:
       case _CardVariant.rejectedByCafe:

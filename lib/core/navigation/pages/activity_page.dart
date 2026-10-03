@@ -3,30 +3,38 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../features/discovery/presentation/cubit/saved_games_cubit.dart';
 import '../../../features/discovery/presentation/cubit/saved_games_state.dart';
+import '../../../features/discovery/presentation/pages/saved_games_page.dart';
 import '../../../features/discovery/presentation/pages/survey_page.dart';
 import '../../../features/discovery/presentation/widgets/survey_hero_cta.dart';
 import '../../../features/profile/presentation/cubit/profile_cubit.dart';
-import '../../../features/tournament/domain/entities/tournament_entity.dart';
-import '../../../features/tournament/presentation/cubit/tournament_list_cubit.dart';
-import '../../../features/tournament/presentation/cubit/tournament_list_state.dart';
-import '../../../features/tournament/presentation/widgets/tournament_status_pill.dart';
-import '../../navigation/tournament_routes.dart';
+import '../../../features/reservation/presentation/pages/reservation_search_page.dart';
+import 'leaderboard_page.dart';
+import 'tournament_shell.dart';
+import '../nav_tab.dart';
+import '../tournament_routes.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_shimmer.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/neo_brutalism_theme.dart';
-import '../../utils/date_formatter.dart';
-import '../../utils/refresh_helper.dart';
-import 'tournament_shell.dart';
 
-/// Activity page - hiển thị thông báo, invite requests, pending bookings
+/// Activity page - "Trung tâm điều hướng" của BoardVerse.
+///
+/// Triết lý thiết kế (2026-10-03): trang này KHÔNG hiển thị danh sách
+/// chi tiết (giải đấu đang mở, game đã lưu, lịch hẹn sắp tới...) mà đóng
+/// vai trò là **bảng điều khiển truy cập nhanh** — mỗi tile là một lối tắt
+/// trực tiếp đến một màn hình chức năng cụ thể (tạo lobby, tìm bạn, nạp
+/// BVC, xem xếp hạng...). User bấm vào → app tự chuyển đến đúng tab hoặc
+/// push trang tương ứng.
+///
+/// Bám sát Design System §7 Neo-Brutalism:
+/// - Bold border 2-3px, hard offset shadow 3-5px, NO blur
+/// - Vibrant brand color, theme-aware (light/dark)
+/// - Press animation scale 0.95, duration 100ms
+/// - 8pt grid spacing
 class ActivityPage extends StatefulWidget {
   final ValueChanged<int>? onSwitchTab;
 
-  /// Called by [MainScaffold] every time the Activity tab becomes the
-  /// active tab (i.e. the user taps the Activity tab in the bottom
-  /// nav). Lets the page re-fetch its data without relying on a
-  /// [BlocListener] on a transient navigation cubit.
+  /// Called by [MainScaffold] mỗi lần user tap vào tab Activity.
   final VoidCallback? onReselect;
 
   const ActivityPage({super.key, this.onSwitchTab, this.onReselect});
@@ -35,108 +43,117 @@ class ActivityPage extends StatefulWidget {
   State<ActivityPage> createState() => _ActivityPageState();
 }
 
-class _ActivityPageState extends State<ActivityPage>
-    with WidgetsBindingObserver {
-  final RefreshHelper _refreshHelper = RefreshHelper();
-
+class _ActivityPageState extends State<ActivityPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
       if (!mounted) return;
       _ensureProfileLoaded();
-      _ensureTournamentsLoaded();
+      // Trigger load saved games cubit để có thể hiển thị count badge
+      // trên shortcut "Game đã lưu". Không block UI; nếu fail thì
+      // shortcut vẫn navigate được.
+      final savedCubit = context.read<SavedGamesCubit>();
+      if (savedCubit.state is SavedGamesInitial) {
+        savedCubit.loadSavedGames();
+      }
     });
   }
 
   @override
   void didUpdateWidget(covariant ActivityPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // The parent reuses the same `ActivityPage` widget instance and
-    // only swaps in a fresh `onReselect` closure when the user taps
-    // the Activity tab. Treat any callback invocation as a
-    // reselection signal: it would never fire on the very first
-    // mount because the parent only assigns it on user tap.
     if (widget.onReselect != null &&
         widget.onReselect != oldWidget.onReselect) {
-      _refreshAll();
-    }
-  }
-
-  /// Re-fetch profile + tournaments. Called from [initState] (first
-  /// mount) and [didUpdateWidget] (every subsequent tap of the
-  /// Activity tab via [MainScaffold]).
-  void _refreshAll() {
-    if (!mounted) return;
-    _refreshProfile();
-    _refreshTournaments();
-    _refreshHelper.markRefreshed();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _onAppResumed();
-    }
-  }
-
-  void _onAppResumed() {
-    if (_refreshHelper.shouldRefreshActivity()) {
       _refreshProfile();
-      _refreshTournaments();
-      _refreshHelper.markRefreshed();
     }
   }
 
   void _refreshProfile() {
+    if (!mounted) return;
     final cubit = context.read<ProfileCubit>();
-    // Always re-fetch on tab reselection unless a request is currently in
-    // flight. The previous guard skipped `ProfileFailure`, which is what
-    // kept the greeting skeleton stuck forever when the initial fetch
-    // (triggered from `MainScaffold.initState`) failed before the user
-    // even reached this tab.
     if (cubit.state is ProfileLoading) return;
     cubit.getProfile();
   }
 
-  void _refreshTournaments() {
-    final cubit = context.read<TournamentListCubit>();
-    if (cubit.state is TournamentListLoading) return;
-    cubit.loadOpenTournamentsOnly();
-  }
-
   void _ensureProfileLoaded() {
     final cubit = context.read<ProfileCubit>();
-    // Initial mount must recover from `ProfileFailure` too — otherwise a
-    // previous failed fetch keeps the greeting card skeletonised forever
-    // (no follow-up request is ever issued).
     if (cubit.state is ProfileLoading) return;
     if (cubit.state is ProfileInitial || cubit.state is ProfileFailure) {
       cubit.getProfile();
     }
   }
 
-  void _ensureTournamentsLoaded() {
-    final cubit = context.read<TournamentListCubit>();
-    if (cubit.state is TournamentListLoading) return;
-    if (cubit.state is TournamentListInitial ||
-        cubit.state is TournamentListError) {
-      cubit.loadOpenTournamentsOnly();
+  // ─── Navigation helpers ────────────────────────────────────────────────
+
+  /// Chuyển tab qua MainScaffold. Nếu MainScaffold không cung cấp callback
+  /// (test / standalone) thì fallback push MainScaffold — nhưng trong app
+  /// thật, [onSwitchTab] luôn được set bởi MainScaffold.
+  void _switchTab(NavTab tab) {
+    final callback = widget.onSwitchTab;
+    if (callback != null) {
+      callback(tab.tabIndex);
     }
+  }
+
+  void _openSurvey() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SurveyPage()),
+    );
+  }
+
+  void _openSavedGames() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SavedGamesPage()),
+    );
+  }
+
+  void _openBookings() {
+    _switchTab(NavTab.bookings);
+  }
+
+  void _openExplore() {
+    _switchTab(NavTab.explore);
+  }
+
+  void _openLeaderboard() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+    );
+  }
+
+  /// Mở "Tournament" — vì Tournament là 1 sub-flow bên ngoài MainScaffold,
+  /// dùng TournamentShell để có bottom mini-nav. Khi user pop shell, kết
+  /// quả trả về (tab index) sẽ được MainScaffold dùng để chuyển tab chính.
+  Future<void> _openTournaments() async {
+    final result = await Navigator.of(context).push<int>(
+      MaterialPageRoute(builder: (_) => const TournamentShell()),
+    );
+    if (result != null && result != 0) {
+      widget.onSwitchTab?.call(result);
+    }
+  }
+
+  void _openMyRegistrations() {
+    TournamentRoutes.openMyRegistrations(context);
+  }
+
+  void _openEloHistory() {
+    TournamentRoutes.openEloHistory(context);
+  }
+
+  void _openReservationSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ReservationSearchPage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
+      backgroundColor:
+          isDark ? AppColors.backgroundDark : AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Text(
@@ -148,42 +165,36 @@ class _ActivityPageState extends State<ActivityPage>
         ),
         backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.notifications_none_rounded,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-            ),
-            onPressed: () {},
-          ),
-        ],
+        centerTitle: false,
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            await context.read<TournamentListCubit>().loadOpenTournamentsOnly();
-            _refreshHelper.markRefreshed();
-          },
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildGreetingCard(context),
-                const SizedBox(height: AppSpacing.lg),
-                _buildSurveyHeroCta(context),
-                const SizedBox(height: AppSpacing.lg),
-                _buildTournamentSection(context),
-                const SizedBox(height: AppSpacing.lg),
-                _buildRecentActivitySection(context),
-              ],
-            ),
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGreetingCard(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildSurveyHeroCta(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildDiscoverSection(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildPlaySection(context),
+            ],
           ),
         ),
       ),
     );
   }
+
+  // ─── Greeting card (gradient + skeleton) ────────────────────────────────
 
   Widget _buildGreetingCard(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -194,11 +205,6 @@ class _ActivityPageState extends State<ActivityPage>
       builder: (context, state) {
         final hasProfile = state is ProfileLoaded;
 
-        // Khi profile chưa load (Initial / Loading / Error) hiển thị
-        // skeleton shimmer trên cùng card gradient - tránh hiển thị
-        // fake "Player" gây hiểu nhầm là đã load xong.
-        // Khác với home_overview_page.dart dùng fallback, Activity page
-        // (entry tab sau login) cần rõ ràng "đang tải" cho user đợi.
         if (!hasProfile) {
           return _GreetingCardSkeleton(
             isDark: isDark,
@@ -208,10 +214,9 @@ class _ActivityPageState extends State<ActivityPage>
 
         final username = state.profile.username;
         final avatarUrl = state.profile.avatarUrl;
-
-        // Responsive sizing
         final avatarSize = isSmallScreen ? 48.0 : 64.0;
-        final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+        final horizontalPadding =
+            isSmallScreen ? AppSpacing.md : AppSpacing.lg;
         final titleFontSize = isSmallScreen ? 18.0 : 22.0;
 
         return Container(
@@ -238,7 +243,9 @@ class _ActivityPageState extends State<ActivityPage>
                 username: username,
                 size: avatarSize,
               ),
-              SizedBox(width: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
+              SizedBox(
+                width: isSmallScreen ? AppSpacing.sm : AppSpacing.md,
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,186 +288,113 @@ class _ActivityPageState extends State<ActivityPage>
     );
   }
 
+  // ─── Survey Hero CTA ───────────────────────────────────────────────────
+
   Widget _buildSurveyHeroCta(BuildContext context) {
     return BlocBuilder<SavedGamesCubit, SavedGamesState>(
       builder: (context, savedState) {
-        // ≥3 saved games → eligible cho personalization.
         final hasEligible = _resolveSavedCount(savedState) >= 3;
         return SurveyHeroCta(
           hasPersonalizationEligible: hasEligible,
-          onTap: () => _openSurvey(context),
+          onTap: _openSurvey,
         );
       },
     );
   }
 
-  /// Extract saved count từ mọi SavedGamesState subclass.
   int _resolveSavedCount(SavedGamesState state) {
-    if (state is SavedGamesLoaded) {
-      return state.savedIds.length;
-    }
-    if (state is SavedGamesLoadingFromCache) {
-      return state.cachedIds.length;
-    }
-    if (state is SavedGamesRefreshing) {
-      return state.totalCount;
-    }
-    if (state is SavedGamesError) {
-      return state.savedIds?.length ?? 0;
-    }
+    if (state is SavedGamesLoaded) return state.savedIds.length;
+    if (state is SavedGamesLoadingFromCache) return state.cachedIds.length;
+    if (state is SavedGamesRefreshing) return state.totalCount;
+    if (state is SavedGamesError) return state.savedIds?.length ?? 0;
     return 0;
   }
 
-  void _openSurvey(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const SurveyPage()));
-  }
+  // ─── Khám phá & Lịch hẹn ──────────────────────────────────────────────
 
-  Widget _buildTournamentSection(BuildContext context) {
-    return BlocBuilder<TournamentListCubit, TournamentListState>(
-      builder: (context, state) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Icon badge + Title
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.emoji_events_rounded,
-                        size: 14,
-                        color: AppColors.success,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'GIẢI ĐẤU NỔI BẬT',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                          color: AppColors.success,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => _openTournaments(),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Xem tất cả',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.success,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 14,
-                        color: AppColors.success,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (state is TournamentListLoading ||
-                state is TournamentListInitial)
-              _TournamentLoadingCard()
-            else if (state is TournamentListError)
-              _TournamentErrorCard(
-                message: state.message,
-                onRetry: () => context
-                    .read<TournamentListCubit>()
-                    .loadOpenTournamentsOnly(),
-              )
-            else if (state is TournamentListLoaded)
-              _TournamentListContent(
-                state: state,
-                isDark: isDark,
-                onTapTournament: _openTournamentDetail,
-              )
-            else
-              const SizedBox.shrink(),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRecentActivitySection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header: icon badge + title
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.25),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.history_rounded, size: 14, color: AppColors.primary),
-              const SizedBox(width: 4),
-              Text(
-                'HOẠT ĐỘNG GẦN ĐÂY',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
+  Widget _buildDiscoverSection(BuildContext context) {
+    return _CategorySection(
+      header: _SectionHeader(
+        icon: AppIcons.explore,
+        title: 'Khám phá & Đặt lịch',
+        accentColor: AppColors.info,
+      ),
+      actions: [
+        _ListActionCard(
+          icon: AppIcons.search,
+          title: 'Tìm quán & board game',
+          subtitle: 'Khám phá quán cafe gần bạn',
+          accentColor: AppColors.info,
+          onTap: _openExplore,
         ),
-        const SizedBox(height: AppSpacing.sm),
-        const _EmptyActivityCard(
-          icon: Icons.inbox_rounded,
-          title: 'Chưa có hoạt động',
-          subtitle: 'Các thông báo và invite sẽ hiển thị ở đây',
+        _ListActionCard(
+          icon: AppIcons.bookmark,
+          title: 'Game đã lưu',
+          subtitle: 'Bộ sưu tập game yêu thích',
+          accentColor: AppColors.accent,
+          onTap: _openSavedGames,
+        ),
+        _ListActionCard(
+          icon: AppIcons.book,
+          title: 'Tìm lịch hẹn',
+          subtitle: 'Tra cứu lịch hẹn trong lịch sử',
+          accentColor: AppColors.secondary,
+          onTap: _openReservationSearch,
+        ),
+        _ListActionCard(
+          icon: AppIcons.schedule,
+          title: 'Lịch đặt của tôi',
+          subtitle: 'Các đơn reservation đã tạo',
+          accentColor: AppColors.warning,
+          onTap: _openBookings,
         ),
       ],
     );
   }
+
+  // ─── Thi đấu ──────────────────────────────────────────────────────────
+
+  Widget _buildPlaySection(BuildContext context) {
+    return _CategorySection(
+      header: _SectionHeader(
+        icon: AppIcons.tournament,
+        title: 'Thi đấu',
+        accentColor: AppColors.success,
+      ),
+      actions: [
+        _ListActionCard(
+          icon: AppIcons.tournament,
+          title: 'Khám phá giải đấu',
+          subtitle: 'Danh sách các giải đang mở đăng ký',
+          accentColor: AppColors.success,
+          onTap: _openTournaments,
+        ),
+        _ListActionCard(
+          icon: AppIcons.tournament,
+          title: 'Giải đấu của tôi',
+          subtitle: 'Theo dõi các giải đã đăng ký',
+          accentColor: AppColors.success,
+          onTap: _openMyRegistrations,
+        ),
+        _ListActionCard(
+          icon: AppIcons.elo,
+          title: 'Bảng xếp hạng',
+          subtitle: 'Xếp hạng ELO, Level, Karma',
+          accentColor: AppColors.accent,
+          onTap: _openLeaderboard,
+        ),
+        _ListActionCard(
+          icon: Icons.history_rounded,
+          title: 'Lịch sử ELO',
+          subtitle: 'Theo dõi biến động điểm ELO',
+          accentColor: AppColors.primary,
+          onTap: _openEloHistory,
+        ),
+      ],
+    );
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────
 
   String _greetingMessage() {
     final hour = DateTime.now().hour;
@@ -469,224 +403,198 @@ class _ActivityPageState extends State<ActivityPage>
     if (hour < 18) return 'Buổi chiều rảnh rỗi';
     return 'Chào buổi tối!';
   }
-
-  void _openTournaments() async {
-    final result = await Navigator.of(
-      context,
-    ).push<int>(MaterialPageRoute(builder: (_) => const TournamentShell()));
-    // Handle tab switch if user selected a tab from mini nav bar
-    if (result != null && result != 0) {
-      widget.onSwitchTab?.call(result);
-    }
-  }
-
-  void _openTournamentDetail(TournamentEntity tournament) {
-    TournamentRoutes.openTournamentDetail(
-      context: context,
-      tournamentId: tournament.id,
-    );
-  }
 }
 
-// ============ Tournament Section Widgets ============
+// =============================================================================
+// Reusable widgets
+// =============================================================================
 
-class _TournamentListContent extends StatelessWidget {
-  const _TournamentListContent({
-    required this.state,
-    required this.isDark,
-    required this.onTapTournament,
+/// Section header với icon badge + title (uppercase) theo Design System §7.
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color accentColor;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.accentColor,
   });
-
-  final TournamentListLoaded state;
-  final bool isDark;
-  final void Function(TournamentEntity) onTapTournament;
 
   @override
   Widget build(BuildContext context) {
-    // Get tournaments to show: open + upcoming (max 3)
-    final tournaments = [
-      ...state.openTournaments,
-      ...state.upcomingTournaments,
-    ].take(3).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.border;
 
-    if (tournaments.isEmpty) {
-      return _TournamentEmptyCard();
-    }
-
-    return Column(
-      children: tournaments.map((tournament) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-          child: _TournamentMiniCard(
-            tournament: tournament,
-            isDark: isDark,
-            onTap: () => onTapTournament(tournament),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: accentColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.4),
+                blurRadius: 0,
+                offset: const Offset(2, 2),
+              ),
+            ],
           ),
-        );
-      }).toList(),
+          child: Icon(icon, color: AppColors.white, size: 18),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _TournamentMiniCard extends StatefulWidget {
-  const _TournamentMiniCard({
-    required this.tournament,
-    required this.isDark,
+/// Wrapper cho 1 section — header + list các action cards.
+class _CategorySection extends StatelessWidget {
+  final _SectionHeader header;
+  final List<Widget> actions;
+
+  const _CategorySection({required this.header, required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        header,
+        const SizedBox(height: AppSpacing.sm),
+        ...actions.expand(
+          (action) => [
+            action,
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// List-style action card (dùng cho các section dài).
+///
+/// Layout ngang: [icon badge] [title + subtitle] [chevron].
+class _ListActionCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _ListActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
     required this.onTap,
   });
 
-  final TournamentEntity tournament;
-  final bool isDark;
-  final VoidCallback onTap;
-
   @override
-  State<_TournamentMiniCard> createState() => _TournamentMiniCardState();
+  State<_ListActionCard> createState() => _ListActionCardState();
 }
 
-class _TournamentMiniCardState extends State<_TournamentMiniCard> {
+class _ListActionCardState extends State<_ListActionCard> {
   bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _isPressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 80),
+        scale: _isPressed ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 100),
         curve: Curves.easeOut,
         child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
           decoration: NeoBrutalismTheme.autoBox(
             context,
-            backgroundColor: widget.isDark
-                ? AppColors.surfaceDark
-                : AppColors.surface,
-            borderRadius: 16,
-            shadowColor: AppColors.success.withValues(alpha: 0.15),
+            backgroundColor:
+                isDark ? AppColors.surfaceDark : AppColors.surface,
+            shadowColor: widget.accentColor.withValues(alpha: 0.15),
+            borderRadius: 14,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Row(
-              children: [
-                // Colored left accent bar
-                Container(
-                  width: 5,
-                  constraints: const BoxConstraints(minHeight: 90),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        AppColors.success,
-                        AppColors.success.withValues(alpha: 0.6),
-                      ],
-                    ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: widget.accentColor.withValues(alpha: 0.35),
+                    width: 1.5,
                   ),
                 ),
-                // Card content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.tournament.title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: widget.isDark
-                                      ? AppColors.textPrimaryDark
-                                      : AppColors.textPrimary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            TournamentStatusPill(
-                              status: widget.tournament.status,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.videogame_asset_rounded,
-                              size: 14,
-                              color: AppColors.success,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                widget.tournament.gameTemplateName,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: widget.isDark
-                                      ? AppColors.textSecondaryDark
-                                      : AppColors.textSecondary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                              color: widget.isDark
-                                  ? AppColors.textSecondaryDark
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              DateFormatter.dateTime(
-                                widget.tournament.startTime,
-                              ),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: widget.isDark
-                                    ? AppColors.textSecondaryDark
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                            const Spacer(),
-                            Icon(
-                              Icons.people_rounded,
-                              size: 14,
-                              color: widget.isDark
-                                  ? AppColors.textSecondaryDark
-                                  : AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${widget.tournament.currentParticipants}/${widget.tournament.maxParticipants}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: widget.isDark
-                                    ? AppColors.textSecondaryDark
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.accentColor,
+                  size: 22,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.subtitle,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: isDark
+                    ? AppColors.textTertiaryDark
+                    : AppColors.textTertiary,
+              ),
+            ],
           ),
         ),
       ),
@@ -694,109 +602,10 @@ class _TournamentMiniCardState extends State<_TournamentMiniCard> {
   }
 }
 
-class _TournamentLoadingCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+// =============================================================================
+// Greeting card skeleton & avatar
+// =============================================================================
 
-    // Shimmer skeleton mô phỏng cấu trúc _TournamentMiniCard:
-    // - Title row: pill status bên phải
-    // - Subtitle row: tên game
-    // - Bottom row: date + participants
-    // Dùng AppShimmer.box để đồng bộ style với các shimmer khác trong app.
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: NeoBrutalismTheme.autoBox(
-        context,
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-        borderRadius: 16,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title row
-          Row(
-            children: [
-              Expanded(
-                child: AppShimmer.box(
-                  context: context,
-                  width: 180,
-                  height: 16,
-                  borderRadius: 4,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              AppShimmer.box(
-                context: context,
-                width: 56,
-                height: 18,
-                borderRadius: 9,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          // Subtitle row (game name)
-          Row(
-            children: [
-              AppShimmer.box(
-                context: context,
-                width: 14,
-                height: 14,
-                borderRadius: 3,
-              ),
-              const SizedBox(width: 4),
-              AppShimmer.box(
-                context: context,
-                width: 120,
-                height: 12,
-                borderRadius: 3,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          // Bottom row (date + participants)
-          Row(
-            children: [
-              AppShimmer.box(
-                context: context,
-                width: 14,
-                height: 14,
-                borderRadius: 3,
-              ),
-              const SizedBox(width: 4),
-              AppShimmer.box(
-                context: context,
-                width: 90,
-                height: 12,
-                borderRadius: 3,
-              ),
-              const Spacer(),
-              AppShimmer.box(
-                context: context,
-                width: 14,
-                height: 14,
-                borderRadius: 3,
-              ),
-              const SizedBox(width: 4),
-              AppShimmer.box(
-                context: context,
-                width: 36,
-                height: 12,
-                borderRadius: 3,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Skeleton cho greeting card trong khi profile đang load.
-///
-/// Giữ nguyên cấu trúc gradient + border + shadow để khi load xong
-/// không bị "jump" layout. Phần text/avatar thay bằng shimmer box
-/// để user biết app đang tải.
 class _GreetingCardSkeleton extends StatelessWidget {
   const _GreetingCardSkeleton({
     required this.isDark,
@@ -808,10 +617,10 @@ class _GreetingCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Responsive sizing
     final avatarSize = isSmallScreen ? 48.0 : 64.0;
-    final horizontalPadding = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
-
+    final horizontalPadding =
+        isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+    // AppShimmer chưa có sẵn — fallback dùng surfaceVariant.
     return Container(
       padding: EdgeInsets.all(horizontalPadding),
       decoration: BoxDecoration(
@@ -831,33 +640,30 @@ class _GreetingCardSkeleton extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar skeleton - circle với shimmer
-          AppShimmer.circle(context: context, size: avatarSize),
+          _ShimmerBox(
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: avatarSize / 2,
+          ),
           SizedBox(width: isSmallScreen ? AppSpacing.sm : AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // "Xin chào," line
-                AppShimmer.box(
-                  context: context,
+                _ShimmerBox(
                   width: isSmallScreen ? 50 : 70,
                   height: isSmallScreen ? 12 : 14,
                   borderRadius: 4,
                 ),
                 SizedBox(height: isSmallScreen ? 6 : 8),
-                // Username (to hơn)
-                AppShimmer.box(
-                  context: context,
+                _ShimmerBox(
                   width: isSmallScreen ? 120 : 160,
                   height: isSmallScreen ? 18 : 22,
                   borderRadius: 6,
                 ),
                 SizedBox(height: isSmallScreen ? 6 : 8),
-                // Greeting message
-                AppShimmer.box(
-                  context: context,
+                _ShimmerBox(
                   width: isSmallScreen ? 150 : 200,
                   height: isSmallScreen ? 10 : 12,
                   borderRadius: 4,
@@ -871,102 +677,65 @@ class _GreetingCardSkeleton extends StatelessWidget {
   }
 }
 
-class _TournamentErrorCard extends StatelessWidget {
-  const _TournamentErrorCard({required this.message, required this.onRetry});
+class _ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
 
-  final String message;
-  final VoidCallback onRetry;
+  const _ShimmerBox({
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+  });
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: NeoBrutalismTheme.autoBox(
-        context,
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-        borderRadius: 16,
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 32),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Không thể tải giải đấu',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            gradient: LinearGradient(
+              begin: Alignment(-1 + _ctrl.value * 2, 0),
+              end: Alignment(1 + _ctrl.value * 2, 0),
+              colors: [
+                AppColors.white.withValues(alpha: 0.25),
+                AppColors.white.withValues(alpha: 0.5),
+                AppColors.white.withValues(alpha: 0.25),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
-        ],
-      ),
+        );
+      },
     );
   }
 }
-
-class _TournamentEmptyCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: NeoBrutalismTheme.autoBox(
-        context,
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-        borderRadius: 16,
-        shadowColor: AppColors.success.withValues(alpha: 0.1),
-      ),
-      child: Column(
-        children: [
-          // Neo-Brutalist icon badge
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.success.withValues(alpha: 0.35),
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              Icons.emoji_events_rounded,
-              size: 36,
-              color: AppColors.success,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Chưa có giải đấu nào',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Hãy quay lại sau để cập nhật thông tin mới nhất',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark
-                  ? AppColors.textSecondaryDark
-                  : AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============ Existing Widgets ============
 
 class _AvatarWithBorder extends StatelessWidget {
   const _AvatarWithBorder({
@@ -1013,78 +782,6 @@ class _AvatarWithBorder extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _EmptyActivityCard extends StatelessWidget {
-  const _EmptyActivityCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: NeoBrutalismTheme.autoBox(
-        context,
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
-        borderRadius: 16,
-        shadowColor: AppColors.primary.withValues(alpha: 0.1),
-      ),
-      child: Column(
-        children: [
-          // Neo-Brutalist icon badge
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md + 2),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.3),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  offset: const Offset(2, 2),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 36, color: AppColors.primary),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark
-                  ? AppColors.textSecondaryDark
-                  : AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

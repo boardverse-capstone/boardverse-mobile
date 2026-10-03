@@ -32,6 +32,7 @@ enum LobbyCardVariant {
   inProgress,
   ratingOpen,
   closed,
+  noShow,
   timeoutFailed,
   hostCancelled,
   expired,
@@ -55,7 +56,7 @@ LobbyCardVariant resolveLobbyCardVariant({
       case res.ReservationStatus.expired:
         return LobbyCardVariant.expiredByCafe;
       case res.ReservationStatus.noShow:
-        return LobbyCardVariant.closed;
+        return LobbyCardVariant.noShow;
       case res.ReservationStatus.completed:
         return LobbyCardVariant.closed;
       default:
@@ -235,6 +236,7 @@ class LobbyCardBase extends StatelessWidget {
       case LobbyCardVariant.inProgress:
       case LobbyCardVariant.ratingOpen:
       case LobbyCardVariant.closed:
+      case LobbyCardVariant.noShow:
       case LobbyCardVariant.timeoutFailed:
       case LobbyCardVariant.hostCancelled:
       case LobbyCardVariant.rejectedByCafe:
@@ -565,6 +567,7 @@ class LobbyCardBase extends StatelessWidget {
         return isDark ? AppColors.accentDark : AppColors.accent;
       case LobbyCardVariant.closed:
         return AppColors.textTertiary;
+      case LobbyCardVariant.noShow:
       case LobbyCardVariant.rejectedByCafe:
       case LobbyCardVariant.hostCancelled:
       case LobbyCardVariant.expiredByCafe:
@@ -681,6 +684,14 @@ class _CardStyleModern {
           statusLabel: 'Đã đóng',
           statusIcon: Icons.lock_rounded,
           decorIcon: Icons.history_rounded,
+        );
+      case LobbyCardVariant.noShow:
+        return const _CardStyleModern(
+          gradientColors: [Color(0xFFEF5350), Color(0xFFC62828)],
+          accent: Color(0xFFEF5350),
+          statusLabel: 'Vắng mặt',
+          statusIcon: Icons.person_off_rounded,
+          decorIcon: Icons.person_off_rounded,
         );
       case LobbyCardVariant.timeoutFailed:
         return const _CardStyleModern(

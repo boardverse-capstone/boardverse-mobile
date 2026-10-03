@@ -40,7 +40,8 @@ enum LobbyStatusModel {
   timeoutFailed,
   hostCancelled,
   rejectedByCafe,
-  expiredByCafe;
+  expiredByCafe,
+  dissolved;
 
   static LobbyStatusModel fromWire(String? value) {
     if (value == null) return LobbyStatusModel.open;
@@ -77,6 +78,8 @@ enum LobbyStatusModel {
       case 'expiredbycafe':
       case 'expired_by_cafe':
         return LobbyStatusModel.expiredByCafe;
+      case 'dissolved':
+        return LobbyStatusModel.dissolved;
     }
     return LobbyStatusModel.open;
   }
@@ -97,6 +100,11 @@ class LobbyPlayerModel {
   final String? readyAt;
   final double karma;
 
+  /// Lobby Merge (2026-09-23): ID của lobby gốc mà member tham gia trước
+  /// khi được ghép vào lobby đích. `null` cho member không qua merge.
+  /// UI dùng để hiển thị badge "Từ phòng khác" cho member này.
+  final String? previousLobbyId;
+
   const LobbyPlayerModel({
     required this.id,
     required this.userId,
@@ -106,6 +114,7 @@ class LobbyPlayerModel {
     required this.joinedAt,
     this.readyAt,
     this.karma = 70,
+    this.previousLobbyId,
   });
 
   factory LobbyPlayerModel.fromJson(Map<String, dynamic> json) {
@@ -133,6 +142,9 @@ class LobbyPlayerModel {
       karma: (json['karma'] as num?)?.toDouble() ??
           (json['karmaPoints'] as num?)?.toDouble() ??
           70,
+      // Lobby Merge: backend trả `previousLobbyId` cho member ghép nhóm.
+      // null cho member không qua merge (case phổ biến).
+      previousLobbyId: json['previousLobbyId'] as String?,
     );
   }
 
@@ -145,6 +157,7 @@ class LobbyPlayerModel {
     'joinedAt': joinedAt,
     'readyAt': readyAt,
     'karma': karma,
+    'previousLobbyId': previousLobbyId,
   };
 
   LobbyPlayer toEntity() {
@@ -165,6 +178,7 @@ class LobbyPlayerModel {
       joinedAt: _parseDateTime(joinedAt),
       readyAt: parsedReady,
       karma: karma,
+      previousLobbyId: previousLobbyId,
     );
   }
 }
@@ -669,6 +683,8 @@ class LobbyModel {
         return LobbyStatus.rejectedByCafe;
       case LobbyStatusModel.expiredByCafe:
         return LobbyStatus.expiredByCafe;
+      case LobbyStatusModel.dissolved:
+        return LobbyStatus.dissolved;
     }
   }
 }

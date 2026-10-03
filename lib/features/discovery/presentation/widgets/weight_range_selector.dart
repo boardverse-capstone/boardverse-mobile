@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 
-/// Widget chọn weight range — multi-select chips 1-5.
+/// Widget chọn weight range — single-select chips 1-5.
 ///
-/// Hiển thị 5 chip cho Light → Heavy.
-/// Dùng trong SurveyFilterSheet.
+/// Hiển thị 5 chip cho Light → Heavy. Chỉ cho phép chọn 1 ô tại một
+/// thời điểm — bấm vào chip khác sẽ thay thế lựa chọn hiện tại, bấm
+/// vào chip đang chọn sẽ bỏ chọn.
 class WeightRangeSelector extends StatelessWidget {
   final List<int> selectedValues; // Backend enum values: 1-5
   final ValueChanged<List<int>> onChanged;
@@ -37,13 +38,13 @@ class WeightRangeSelector extends StatelessWidget {
           range: opt.range,
           isSelected: isSelected,
           onTap: () {
-            final next = List<int>.from(selectedValues);
+            // Single-select: bấm lại chip đang chọn sẽ bỏ chọn,
+            // bấm chip khác sẽ thay thế lựa chọn cũ.
             if (isSelected) {
-              next.remove(opt.value);
+              onChanged(const <int>[]);
             } else {
-              next.add(opt.value);
+              onChanged(<int>[opt.value]);
             }
-            onChanged(next);
           },
         );
       }).toList(),
@@ -94,8 +95,8 @@ class _WeightChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                 color: isSelected
                     ? AppColors.primary
                     : (isDark
@@ -103,11 +104,11 @@ class _WeightChip extends StatelessWidget {
                         : AppColors.textPrimary),
               ),
             ),
-            const SizedBox(height: 1),
+            const SizedBox(height: 2),
             Text(
               range,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.8)
                     : (isDark

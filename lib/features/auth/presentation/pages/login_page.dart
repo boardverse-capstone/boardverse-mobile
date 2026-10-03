@@ -1,8 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/navigation/pages/main_scaffold.dart';
@@ -30,27 +27,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
-
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
-    serverClientId: _serverClientId,
-  );
-
-  /// Trả về serverClientId dùng cho cả Android & iOS.
-  /// - Web: null (không cần)
-  /// - Android/iOS: GOOGLE_SERVER_CLIENT_ID (Web OAuth Client ID)
-  ///
-  /// Lý do dùng Web Client ID cho mobile:
-  /// `google_sign_in` Flutter plugin yêu cầu Web OAuth Client ID làm
-  /// serverClientId để Firebase Auth xác thực idToken phía backend.
-  static String? get _serverClientId {
-    if (kIsWeb) return null;
-    return dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
-  }
-
-  late final GoogleAuthHelper _googleAuthHelper = GoogleAuthHelper(
-    googleSignIn: _googleSignIn,
-  );
 
   @override
   void initState() {
@@ -86,18 +62,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           usernameOrEmail: _emailController.text.trim(),
           password: _passwordController.text,
         );
-  }
-
-  Future<void> _onGoogleLogin() async {
-    await _googleAuthHelper.signIn(
-      context: context,
-      onLoadingChanged: (loading) {
-        if (mounted) setState(() => _isLoggingIn = loading);
-      },
-      onError: (msg) {
-        if (mounted) AppToast.showError(context, msg);
-      },
-    );
   }
 
   @override
@@ -223,14 +187,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 icon: Icons.login,
                 onPressed: _onLogin,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const _SocialDivider(),
-              const SizedBox(height: AppSpacing.lg),
-              AuthSocialButton(
-                icon: Icons.g_mobiledata,
-                label: 'Đăng nhập với Google',
-                onPressed: _onGoogleLogin,
-              ),
               const SizedBox(height: AppSpacing.xl),
               AuthLinkText(
                 text: 'Chưa có tài khoản? ',
@@ -242,35 +198,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SocialDivider extends StatelessWidget {
-  const _SocialDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(color: theme.colorScheme.outlineVariant),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            'hoặc',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(color: theme.colorScheme.outlineVariant),
         ),
       ],
     );

@@ -14,7 +14,10 @@ class LobbyConfigTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    const tabs = ['Quán & Game', 'Thời gian', 'Cấu hình', 'Đặt cọc'];
+    // BR §XXI-B.6 (cập nhật 2026-10-01): flow chỉ còn 3 tab. Trang
+    // "Xác nhận đặt cọc" đã được tách thành `ReservationQuotePage`
+    // riêng biệt, push sau khi user xong bước Cấu hình (Tab 3).
+    const tabs = ['Quán & Game', 'Thời gian', 'Cấu hình'];
 
     return Container(
       decoration: BoxDecoration(

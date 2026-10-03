@@ -310,7 +310,7 @@ class _LobbyHubPageState extends State<LobbyHubPage>
       MaterialPageRoute(
         builder: (_) => BlocProvider<LobbyReservationCubit>(
           create: (_) => getIt<LobbyReservationCubit>()
-            ..startWatching(reservationId: lobby.reservationId),
+            ..startWatching(reservationId: lobby.bookingId),
           child: BlocProvider.value(
             value: _lobbyCubit,
             child: LobbyPage(lobbyId: lobby.id, lobbyCubit: _lobbyCubit),

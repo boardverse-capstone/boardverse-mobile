@@ -16,7 +16,6 @@ import 'package:boardverse/features/lobby_management/domain/entities/lobby_invit
 import 'package:boardverse/features/lobby_management/lobby_routes.dart';
 import 'package:boardverse/features/reservation/domain/entities/entities.dart' as res;
 import 'package:boardverse/features/reservation/presentation/pages/reservation_detail_page.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../domain/entities/lobby_entity.dart';
 import '../../domain/entities/lobby_chat_message.dart';
 import '../cubit/lobby_cubit.dart';
@@ -36,7 +35,6 @@ import '../widgets/lobby_sheets.dart';
 import '../widgets/lobby_friends_sheet.dart';
 import '../widgets/change_lobby_time_sheet.dart';
 import '../widgets/lobby_friends_shimmer.dart';
-import '../widgets/lobby_share_section.dart';
 import '../widgets/lobby_status_badge.dart';
 import '../widgets/lobby_invitable_friends_sheet.dart';
 import '../widgets/members_arrival_checklist.dart';
@@ -74,28 +72,6 @@ class _LobbyPageState extends State<LobbyPage> {
   /// "Đã mời" thay vì "Mời" (local cache không biết).
   final Set<String> _serverInvitedFriendIds = <String>{};
 
-  // ─── Share code + sent invites ─────────────────────────────────────
-  /// Mã share code của lobby — ưu tiên lấy từ [LobbyEntity.inviteCode]
-  /// (response `GET /api/v1/lobbies/{id}` đã có sẵn) thay vì gọi thêm
-  /// `GET /share-info` mỗi lần vào page.
-  ///
-  /// Lý do: endpoint `/share-info` đang trả 500 ở server (bug BE chưa
-  /// fix), gây log spam + delay UI mỗi lần vào LobbyPage. Hiện tại
-  /// `inviteCode` từ `LobbyResponseDto` đã đủ dùng cho UI sao chép.
-  String? _shareCode;
-
-  /// Lobby có phải private không — lấy từ `LobbyEntity.isPublic`
-  /// (response `GET /api/v1/lobbies/{id}` đã có sẵn).
-  bool _isPrivate = false;
-
-  /// Track đã thử gọi `/share-info` on-demand lần nào chưa — tránh
-  /// auto retry liên tục khi user đã ấn refresh mà server vẫn 500.
-  bool _shareInfoFetchedOnce = false;
-
-  /// Danh sách lời mời đã gửi đang còn pending (cache local để re-render
-  /// LobbyShareSection khi cancel thành công).
-  List<LobbyInviteEntity> _sentPendingInvites = const [];
-
   LobbyState? _lastGoodLobbyState;
 
   /// Map userId → arrival status cho MembersArrivalChecklist.
@@ -123,137 +99,34 @@ class _LobbyPageState extends State<LobbyPage> {
     await widget.lobbyCubit.initLobbyState(widget.lobbyId, userId ?? '');
     if (!mounted) return;
     // KHÔNG gọi /share-info ở đây — endpoint đang lỗi 500 phía server.
-    // Share code lấy trực tiếp từ `LobbyEntity.inviteCode` (đã được
-    // trả về trong `GET /api/v1/lobbies/{id}`).
-    // Load pending outgoing invites song song để hiển thị trong
-    // LobbyShareSection — endpoint này hoạt động bình thường.
-    _loadPendingInvites();
+    // Share code hiển thị trực tiếp trong LobbyHeroHeader từ
+    // `LobbyEntity.inviteCode` (đã được trả về trong
+    // `GET /api/v1/lobbies/{id}`) — không cần cache local.
+    // [TO-LobbyShareSection-removed-2026-10-02]: pending outgoing
+    // invites cũng không cần load nữa vì section "Mời & Chia sẻ" +
+    // danh sách "Lời mời đang chờ" đã được xoá. Friend invite vẫn
+    // được track qua `_serverInvitedFriendIds` (_loadServerPendingInvites
+    // ở chỗ khác) cho FriendsSheet.
   }
 
   /// Load pending outgoing invites cho LobbyShareSection.
   ///
   /// Tách riêng khỏi share-info vì endpoint `/share-info` đang trả 500
-  /// (server bug). Share code lấy trực tiếp từ `LobbyEntity.inviteCode`
-  /// — không cần gọi thêm API.
-  ///
-  /// Endpoint `GET /api/v1/lobbies/invites/me?status=Pending` hoạt động
-  /// bình thường → dùng để populate danh sách "Lời mời đang chờ".
-  Future<void> _loadPendingInvites() async {
-    final remote = sl<LobbyRemoteDatasource>();
-    final result = await remote.getAllInvites(LobbyInviteStatus.pending);
-    if (!mounted) return;
-
-    final pending = <LobbyInviteEntity>[];
-    result.fold(
-      (_) {
-        // Best-effort: lỗi → giữ list rỗng.
-      },
-      (invites) {
-        final userId = _currentUserId ?? '';
-        pending.addAll(
-          invites.where((inv) =>
-              inv.lobbyId == widget.lobbyId &&
-              inv.status == LobbyInviteStatus.pending &&
-              (userId.isEmpty || inv.inviterId == userId)),
-        );
-      },
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _sentPendingInvites = pending;
-    });
-  }
-
-  /// On-demand fetch share-info từ `GET /api/v1/lobbies/{lobbyId}/share-info`.
-  /// Chỉ gọi khi user chủ động ấn nút "Làm mới" trong LobbyShareSection.
-  /// Endpoint này hiện đang trả 500 (server bug) — code vẫn gọi để thử,
-  /// và fallback về `LobbyEntity.inviteCode` nếu fail.
-  Future<void> _fetchShareInfoOnDemand() async {
-    if (_shareInfoFetchedOnce) return;
-    _shareInfoFetchedOnce = true;
-
-    final remote = sl<LobbyRemoteDatasource>();
-    final result = await remote.getShareInfo(widget.lobbyId);
-    if (!mounted) return;
-
-    result.fold(
-      (_) {
-        // Lỗi → giữ nguyên share code hiện tại (từ LobbyEntity.inviteCode).
-      },
-      (info) {
-        if (!mounted) return;
-        setState(() {
-          _shareCode = info.shareCode;
-          _isPrivate = info.isPrivate;
-        });
-      },
-    );
-  }
-
-  /// Sync share code + isPrivate từ [LobbyEntity] (response
-  /// `GET /api/v1/lobbies/{id}`). Đây là nguồn chính — tránh gọi
-  /// `/share-info` (đang lỗi 500).
-  ///
-  /// Logic:
-  /// - Nếu [LobbyEntity.inviteCode] có giá trị → set `_shareCode` = đó.
-  /// - Nếu `_shareCode` đã có (từ lần mở trước) → giữ nguyên (không
-  ///   overwrite bằng null khi lobby chưa load xong).
-  /// - `_isPrivate` lấy từ `!lobby.isPublic` (entity luôn có).
-  void _syncShareCodeFromLobby(LobbyEntity lobby) {
-    final newCode = lobby.inviteCode;
-    final newIsPrivate = !lobby.isPublic;
-    if (_shareCode != newCode || _isPrivate != newIsPrivate) {
-      setState(() {
-        // Chỉ set khi entity có giá trị; nếu null giữ state cũ để
-        // tránh "đang tải mã chia sẻ..." flash lúc lobby vừa load.
-        if (newCode != null && newCode.isNotEmpty) {
-          _shareCode = newCode;
-        }
-        _isPrivate = newIsPrivate;
-      });
-    }
-  }
-
-  /// Handler cho `onRefresh` của [LobbyShareSection] (pull-to-refresh
-  /// + nút "Làm mới"). Refresh cả pending invites lẫn share-info.
-  /// Reset cờ `_shareInfoFetchedOnce` để cho phép retry endpoint
-  /// `/share-info` khi user chủ động yêu cầu.
-  Future<void> _handleShareSectionRefresh() async {
-    _shareInfoFetchedOnce = false;
-    await Future.wait([
-      _loadPendingInvites(),
-      _fetchShareInfoOnDemand(),
-    ]);
-  }
-
-  /// Cancel 1 invite đã gửi. Trả về true nếu thành công.
-  Future<bool> _cancelSentInvite(String inviteId) async {
-    final remote = sl<LobbyRemoteDatasource>();
-    final result = await remote.cancelInvite(inviteId);
-    return result.fold(
-      (_) => false,
-      (_) {
-        if (!mounted) return true;
-        setState(() {
-          _sentPendingInvites =
-              _sentPendingInvites.where((i) => i.inviteId != inviteId).toList();
-        });
-        return true;
-      },
-    );
-  }
-
   /// Handler cho pull-to-refresh ở lobby detail (RefreshIndicator bao
   /// CustomScrollView bên dưới).
   ///
-  /// Refresh song song 3 nguồn:
+  /// Refresh song song 2 nguồn:
   /// 1. **Lobby state** — `cubit.refreshLobby()` (KHÔNG emit LobbyLoading
   ///    để tránh flicker UI, chỉ update state khi API trả về).
   /// 2. **Chat messages** — `cubit.loadChatMessages()` (luôn fetch lại,
   ///    không có flag như `_chatLoaded` để bypass lần refresh này).
-  /// 3. **Pending outgoing invites** — `_loadPendingInvites()` cho
-  ///    LobbyShareSection hiển thị invite mới nhất.
+  ///
+  /// [TO-LobbyShareSection-removed-2026-10-02]: pending outgoing invites
+  /// đã được xoá khỏi refresh vì section "Mời & Chia sẻ" / "Lời mời
+  /// đang chờ" không còn trên page. Friend invite state vẫn được track
+  /// qua `_serverInvitedFriendIds` (_loadServerPendingInvites) cho
+  /// FriendsSheet — chạy riêng khi mở FriendsSheet, không cần fetch
+  /// lại ở pull-to-refresh.
   ///
   /// Lỗi ở bất kỳ nguồn nào KHÔNG chặn các nguồn khác (Future.wait
   /// không short-circuit). RefreshIndicator spinner sẽ tự ẩn khi tất cả
@@ -262,7 +135,6 @@ class _LobbyPageState extends State<LobbyPage> {
     await Future.wait<void>([
       widget.lobbyCubit.refreshLobby(widget.lobbyId),
       widget.lobbyCubit.loadChatMessages(widget.lobbyId),
-      _loadPendingInvites(),
     ]);
   }
 
@@ -391,7 +263,8 @@ class _LobbyPageState extends State<LobbyPage> {
   ///    FriendsSheet ngay lập tức (thay đổi nút "Mời" → "Đã mời").
   /// 2. Gọi `setState()` để cập nhật `_invitedFriendIds` (backup state).
   /// 3. Show success toast.
-  /// 4. Refresh pending invites để LobbyShareSection hiển thị invite mới.
+  /// [TO-LobbyShareSection-removed-2026-10-02]: bước "refresh pending
+  /// invites cho share section" đã được xoá vì section không còn.
   Future<void> _completeFriendAction(
     FriendEntity friend,
     LobbyEntity lobby, {
@@ -429,9 +302,8 @@ class _LobbyPageState extends State<LobbyPage> {
         overlayContext.showTopSnackBar(
           'Đã gửi lời mời đến ${friend.username}',
         );
-
-        // 4. Refresh pending invites để LobbyShareSection hiển thị invite mới.
-        _loadPendingInvites();
+        // [TO-LobbyShareSection-removed-2026-10-02]: Bước refresh
+        // pending invites cho share section đã xoá.
       },
     );
   }
@@ -511,8 +383,18 @@ class _LobbyPageState extends State<LobbyPage> {
   /// Nếu host xác nhận → gọi `lobbyCubit.kickMember`.
   ///
   /// Backend endpoint: POST /api/v1/lobbies/{lobbyId}/kick
-  /// Validate: host không thể kick chính mình (400).
+  /// Validate:
+  ///   - 400: host không thể kick chính mình.
+  ///   - 403: không phải Host.
+  ///   - 404: target không tìm thấy.
+  ///   - 409: lobby đã đóng / đang chơi / đã terminal
+  ///          (vd: "Không thể kick thành viên khi phòng đã đóng.").
   /// Side effect: member bị kick nhận SignalR MemberKicked.
+  ///
+  /// **Fix 2026-10-03:** Lỗi từ backend được hiển thị qua SnackBar nổi
+  /// (`SnackBarBehavior.floating`, duration 4s, màu error) thay vì chỉ
+  /// top-snackbar 2s. Trước đây user dễ bỏ lỡ top-snackbar và lầm
+  /// tưởng thao tác thành công.
   Future<void> _onKickMember(
     BuildContext context,
     LobbyEntity lobby,
@@ -541,10 +423,59 @@ class _LobbyPageState extends State<LobbyPage> {
 
     if (confirmed != true || !context.mounted) return;
 
-    await widget.lobbyCubit.kickMember(
+    final messenger = ScaffoldMessenger.of(context);
+    final theme = Theme.of(context);
+
+    final result = await widget.lobbyCubit.kickMember(
       lobby.id,
       player.userId,
       reason: 'Bị chủ phòng xóa khỏi phòng chờ.',
+    );
+
+    if (!context.mounted) return;
+
+    // Hiển thị message backend trả về (kể cả thành công lẫn thất bại).
+    // Trước đây chỉ hiện top-snackbar cho failure và bottom-snackbar cho
+    // success → user dễ bỏ lỡ. Giờ gộp về 1 luồng floating SnackBar.
+    result.fold(
+      (failure) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    color: theme.colorScheme.onErrorContainer,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      failure.message,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: theme.colorScheme.errorContainer,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(12),
+            ),
+          );
+      },
+      (_) {
+        // Success đã được MultiBlocListener phía trên xử lý (snackbar
+        // "Đã xóa thành viên khỏi phòng.") — không show duplicate ở đây.
+      },
     );
   }
 
@@ -567,7 +498,7 @@ class _LobbyPageState extends State<LobbyPage> {
                 : cached is LobbyUpdatedRealtime
                     ? cached.lobby
                     : null;
-            cubit.startWatching(reservationId: cachedLobby?.reservationId);
+            cubit.startWatching(reservationId: cachedLobby?.bookingId);
             return cubit;
           },
         ),
@@ -591,6 +522,10 @@ class _LobbyPageState extends State<LobbyPage> {
                   ),
                 );
               }
+              // [TO-LobbyShareSection-removed-2026-10-02]: case
+              // LobbyShareCodeRegenerated đã xoá vì section tương ứng
+              // không còn trên UI. Cubit vẫn emit state này nhưng được
+              // nuốt — không có consumer nào.
               if (state is LobbyChatLoaded) {
                 setState(() {
                   _chatMessages.clear();
@@ -606,30 +541,24 @@ class _LobbyPageState extends State<LobbyPage> {
                 context.showTopSnackBar(state.message, isError: true);
               }
 
-              // Cache last good lobby state + sync share code (cho
-              // LobbyShareSection). Đặt ở listener thay vì builder vì
-              // _syncShareCodeFromLobby gọi setState — gọi trong builder
-              // sẽ ném "setState() or markNeedsBuild() called during build".
+              // Cache last good lobby state — LobbyEntity.inviteCode được
+              // LobbyHeroHeader đọc trực tiếp nên KHÔNG cần sync share
+              // code vào local state nữa.
               if (state is LobbyCreated) {
                 _lastGoodLobbyState = state;
                 _currentLobby = state.lobby;
-                _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyUpdatedRealtime) {
                 _lastGoodLobbyState = state;
                 _currentLobby = state.lobby;
-                _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyReadyStatusChanged) {
                 // Cache state ready-status để dùng làm fallback khi
                 // LobbyFailure xảy ra ngay sau khi user bấm ready (vd
-                // network drop). Đồng thời sync share code vì lobby
-                // vẫn là entity đầy đủ.
+                // network drop).
                 _lastGoodLobbyState = state;
                 _currentLobby = state.lobby;
-                _syncShareCodeFromLobby(state.lobby);
               } else if (state is LobbyEnded) {
                 _lastGoodLobbyState = state;
                 _currentLobby = state.lobby;
-                _syncShareCodeFromLobby(state.lobby);
               }
 
               // Khi lobby load/realtime update → sync reservation watcher
@@ -641,7 +570,7 @@ class _LobbyPageState extends State<LobbyPage> {
                 // Restart watch với reservationId mới (nếu đổi so với trước).
                 final reservationCubit = context.read<LobbyReservationCubit>();
                 reservationCubit.startWatching(
-                  reservationId: lobby.reservationId,
+                  reservationId: lobby.bookingId,
                 );
               }
             },
@@ -779,7 +708,7 @@ class _LobbyPageState extends State<LobbyPage> {
       MaterialPageRoute<bool>(
         builder: (_) => LobbyRatingPage(
           lobbyId: lobby.id,
-          reservationId: lobby.reservationId,
+          reservationId: lobby.bookingId,
         ),
       ),
     );
@@ -839,9 +768,7 @@ class _LobbyPageState extends State<LobbyPage> {
         ),
         title: const Text('Rời phòng chờ?'),
         content: const Text(
-          'Bạn sẽ thoát khỏi màn hình phòng chờ và có thể dùng các '
-          'tính năng khác của app. Bạn vẫn là thành viên và có thể quay '
-          'lại bất cứ lúc nào qua tab "Đang tham gia".',
+          'Bạn vẫn là thành viên, có thể quay lại phòng bất cứ lúc nào.',
         ),
         actions: [
           TextButton(
@@ -926,7 +853,7 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context, rootNavigator: true).pushNamed(
       LobbyRoutes.inGameSession,
       arguments: InGameSessionPageArgs(
-        bookingId: reservation?.id ?? lobby.reservationId ?? lobby.id,
+        bookingId: reservation?.id ?? lobby.bookingId ?? lobby.id,
         cafeName: lobby.cafeName,
         gameName: lobby.gameName,
         tableNumber: 1,
@@ -939,9 +866,12 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   /// Navigate tới ReservationDetailPage.
-  /// Fallback về [lobby.reservationId] nếu [_currentReservation] chưa load.
+  /// Fallback về [lobby.bookingId] (BR-XXI-B.1: backend `LobbyResponseDto`
+  /// trả `bookingId` chứ không phải `reservationId` — field `reservationId`
+  /// trên LobbyEntity là vestigial, luôn null) nếu [_currentReservation]
+  /// chưa load.
   void _navigateToReservationDetail(BuildContext context) {
-    final reservationId = _currentReservation?.id ?? _currentLobby?.reservationId;
+    final reservationId = _currentReservation?.id ?? _currentLobby?.bookingId;
     if (reservationId == null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -954,9 +884,9 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   /// Navigate tới InGameSessionPage từ bottom bar button.
-  /// Fallback về [lobby.reservationId] nếu [_currentReservation] chưa load.
+  /// Fallback về [lobby.bookingId] nếu [_currentReservation] chưa load.
   void _navigateToInGameSession(BuildContext context) {
-    final reservationId = _currentReservation?.id ?? _currentLobby?.reservationId;
+    final reservationId = _currentReservation?.id ?? _currentLobby?.bookingId;
     if (reservationId == null) return;
     final inGameCubit = getIt<InGameCubit>();
     Navigator.of(context).push(
@@ -1006,26 +936,36 @@ class _LobbyPageState extends State<LobbyPage> {
           ),
 
           // ── Hero Header ────────────────────────────────────────────────
-          // Khi lobby ready (viable/full), header hiển thị QR mini của
-          // reservation ở góc phải (thay cho nút "Xem chi tiết") — liền
-          // mạch với flow check-in. Wrap trong BlocBuilder để QR cập nhật
-          // ngay khi reservation state đổi (vd: từ Holding → Confirmed).
+          // **Phase 4 2026-10-02 — Bidirectional linking:** hero header có
+          // 2 quick-access icon ở góc trên-phải:
+          //   1. Icon "Xem lịch hẹn chi tiết" (booking/calendar) → mở
+          //      `ReservationDetailPage`. Cặp với nút "Vào phòng chờ" trong
+          //      `ReservationDetailPage._PrimaryActionStrip` (đường về).
+          //   2. Icon "Xem chi tiết phòng" (info) → mở `LobbyDetailsSheet`
+          //      (overview mô tả, địa chỉ, thành viên, ...).
+          //
+          // Icon booking chỉ hiển thị khi `lobby.bookingId != null`
+          // (BR-XXI-B.1: backend `LobbyResponseDto.bookingId` là ID
+          // reservation — field `reservationId` trên LobbyEntity là
+          // vestigial, luôn null) — ẩn khi lobby draft (chưa reserve)
+          // hoặc đã terminal chưa map vào reservation, tránh bấm vào noop.
+          //
+          // Trước đây khi lobby ready (viable/full), header tự render QR
+          // mini code ở góc phải — user feedback 2026-10-02: icon "Xem chi
+          // tiết" là nút duy nhất để player mở bảng tổng quan; bị thay
+          // thành QR khiến player không truy cập được. Giữ nguyên icon info
+          // (xem `LobbyHeroHeader` comment) — QR full-screen vẫn truy cập
+          // được từ `_LobbyCheckInSection` ở dưới.
           SliverToBoxAdapter(
-            child: BlocBuilder<LobbyReservationCubit, LobbyReservationState>(
-              builder: (context, reservationState) {
-                final reservation = reservationState is LobbyReservationLoaded
-                    ? reservationState.reservation
-                    : null;
-                return LobbyHeroHeader(
-                  lobby: lobby,
-                  theme: theme,
-                  reservation: reservation,
-                  onShowDetails: () => _showLobbyDetails(context, lobby),
-                  onShareInviteCode: () =>
-                      _shareInviteCode(context, lobby.inviteCode),
-                  onShowFullScreenQr: () => _showQrFullScreen(context, reservation),
-                );
-              },
+            child: LobbyHeroHeader(
+              lobby: lobby,
+              theme: theme,
+              onShowDetails: () => _showLobbyDetails(context, lobby),
+              onShareInviteCode: () =>
+                  _shareInviteCode(context, lobby.inviteCode),
+              onShowReservation: lobby.bookingId != null
+                  ? () => _navigateToReservationDetail(context)
+                  : null,
             ),
           ),
 
@@ -1079,26 +1019,14 @@ class _LobbyPageState extends State<LobbyPage> {
                   isReady: isReady,
                 );
               },
-              onFullGuidanceSecondary: () =>
-                  _showLobbyDetails(context, lobby),
               onKickMember: (player) => _onKickMember(context, lobby, player),
             ),
           ),
 
-          // ── Share & Invites Section ─────────────────────────────────────
-          SliverToBoxAdapter(
-            child: LobbyShareSection(
-              lobbyId: widget.lobbyId,
-              currentUserId: _currentUserId ?? '',
-              shareCode: _shareCode ?? lobby.inviteCode,
-              isPrivate: _isPrivate,
-              pendingInvites: _sentPendingInvites,
-              onCancelInvite: _cancelSentInvite,
-              onRefresh: _handleShareSectionRefresh,
-              onInviteFriends: () =>
-                  LobbyInvitableFriendsSheet.show(context, widget.lobbyId),
-            ),
-          ),
+          // [TO-LobbyShareSection-removed-2026-10-02]: Card "Mời & Chia sẻ"
+          // + "Lời mời đang chờ" đã được xoá khỏi UI vì trùng chức năng
+          // với share code đã hiển thị trong LobbyHeroHeader và nút
+          // "Mời bạn bè" đã có trong PlayersSection.
 
           // ── Chat Section ───────────────────────────────────────────────
           SliverToBoxAdapter(
@@ -1149,10 +1077,10 @@ class _LobbyPageState extends State<LobbyPage> {
           //      không bị "stale" sau khi rời lobby.
           LobbyLeftSignal.instance.request();
         },
-        onViewReservation: lobby.reservationId != null
+        onViewReservation: lobby.bookingId != null
             ? () => _navigateToReservationDetail(context)
             : null,
-        onViewInGameSession: lobby.reservationId != null &&
+        onViewInGameSession: lobby.bookingId != null &&
                 (_currentReservation?.checkedInAt != null ||
                     _currentReservation?.status == res.ReservationStatus.checkedIn)
             ? () => _navigateToInGameSession(context)
@@ -1210,121 +1138,11 @@ class _LobbyPageState extends State<LobbyPage> {
     );
   }
 
-  /// Mở full-screen QR code của reservation — dùng khi user bấm vào
-  /// QR mini badge ở hero header. Delegate xuống [LobbyCheckInSection]
-  /// helper để tránh duplicate logic.
-  void _showQrFullScreen(
-    BuildContext context,
-    res.ReservationEntity? reservation,
-  ) {
-    // Tính payload ở đây fallback giống [_qrPayload] của LobbyHeroHeader —
-    // ưu tiên reservation.id, fallback lobby.reservationId, cuối cùng
-    // lobby.id. Đảm bảo full-screen QR luôn mở được kể cả khi
-    // LobbyReservationCubit chưa load xong.
-    final reservationId = _lastGoodLobbyState is LobbyCreated
-        ? (_lastGoodLobbyState as LobbyCreated).lobby.reservationId
-        : _lastGoodLobbyState is LobbyUpdatedRealtime
-            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby.reservationId
-            : null;
-    final fallback = _lastGoodLobbyState is LobbyCreated
-        ? (_lastGoodLobbyState as LobbyCreated).lobby
-        : _lastGoodLobbyState is LobbyUpdatedRealtime
-            ? (_lastGoodLobbyState as LobbyUpdatedRealtime).lobby
-            : null;
-    final code = reservation?.lobbyShareCode ??
-        reservation?.id ??
-        reservationId ??
-        fallback?.id ??
-        '';
-    if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Chưa có mã QR — vui lòng đợi lobby load xong.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    if (reservation != null) {
-      LobbyCheckInSection.showQrFullScreenPublic(
-        context: context,
-        reservation: reservation,
-      );
-    } else {
-      // Inline full-screen QR khi reservation detail chưa load.
-      Navigator.of(context).push(
-        PageRouteBuilder(
-          opaque: false,
-          barrierColor: Colors.black87,
-          pageBuilder: (_, _, _) => _FallbackQrFullScreen(code: code),
-        ),
-      );
-    }
-  }
-}
-
-class _FallbackQrFullScreen extends StatelessWidget {
-  final String code;
-  const _FallbackQrFullScreen({required this.code});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 32),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      QrImageView(
-                        data: code,
-                        version: QrVersions.auto,
-                        size: 280,
-                        backgroundColor: Colors.white,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        code,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 22,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'Chạm vào màn hình để đóng',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Phase 4 2026-10-02: Bỏ `_showQrFullScreen` + `_FallbackQrFullScreen`
+  // khỏi LobbyPage (hero header không còn dùng QR mini code nữa — xem
+  // comment ở LobbyHeroHeader). QR full-screen vẫn truy cập được qua
+  // `LobbyCheckInSection.showQrFullScreenPublic` từ các entry point
+  // khác (vd: bottom action bar, _LobbyCheckInSection).
 }
 
 /// Players section — header + player grid + invite button.
@@ -1343,9 +1161,6 @@ class PlayersSection extends StatelessWidget {
   /// tương thích ngược.
   final VoidCallback? onFullGuidancePrimary;
 
-  /// Optional callback khi player bấm "Chi tiết" trong banner.
-  final VoidCallback? onFullGuidanceSecondary;
-
   /// Callback toggle Ready/Unready — được gọi khi user bấm nút "Sẵn sàng".
   /// Implement ở `LobbyPage` (nơi có `widget.lobbyCubit.setReady`).
   final Future<void> Function(bool isReady)? onToggleReady;
@@ -1361,7 +1176,6 @@ class PlayersSection extends StatelessWidget {
     required this.isHost,
     required this.onInvite,
     this.onFullGuidancePrimary,
-    this.onFullGuidanceSecondary,
     this.onToggleReady,
     this.onKickMember,
   });
@@ -1415,6 +1229,19 @@ class PlayersSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
 
+          // Banner hướng dẫn & nút bấm "Sẵn sàng" — đặt TRƯỚC player grid
+          // để user thấy ngay hành động cần làm mà không phải cuộn qua
+          // danh sách thành viên. Banner chỉ hiện với lobby active (open /
+          // viable / full / chờ duyệt) — đã có guard ở trong
+          // LobbyFullGuidanceBanner.build.
+          LobbyFullGuidanceBanner(
+            lobby: lobby,
+            currentUserId: currentUserId,
+            onToggleReady: onToggleReady,
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
           // Player grid
           LobbyPlayerGrid(
             players: lobby.players,
@@ -1423,16 +1250,6 @@ class PlayersSection extends StatelessWidget {
             currentUserId: currentUserId,
             isCurrentUserHost: isHost,
             onKickMember: onKickMember,
-          ),
-
-          // Banner hướng dẫn khi lobby đầy — chỉ hiện nếu currentPlayers ==
-          // maxPlayers và lobby chưa kết thúc. Banner đã có sẵn nút
-          // "Sẵn sàng" cho cả host và member.
-          LobbyFullGuidanceBanner(
-            lobby: lobby,
-            currentUserId: currentUserId,
-            onToggleReady: onToggleReady,
-            onSecondaryAction: onFullGuidanceSecondary,
           ),
         ],
       ),
@@ -1690,7 +1507,7 @@ class _LobbyStatusStrip extends StatelessWidget {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => LobbyPendingCafeApprovalPage(
-          reservationId: reservation?.id ?? lobby.reservationId ?? '',
+          reservationId: reservation?.id ?? lobby.bookingId ?? '',
           cafeId: lobby.cafeId,
           cafeName: lobby.cafeName,
           cafeApprovalDeadline: reservation?.cafeApprovalDeadline,
@@ -2055,3 +1872,4 @@ class _LobbyFriendsLoadingSheet extends StatelessWidget {
     );
   }
 }
+

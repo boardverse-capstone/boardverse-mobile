@@ -15,6 +15,21 @@ class BoardGameDetailModel {
   final List<GameCategoryModel> categories;
   final List<GameComponentModel> components;
 
+  /// Game có nằm trong danh sách yêu thích của user hay không.
+  /// Lấy từ field `isSaved` trong response `GET /api/v1/board-games/{id}`
+  /// (build 2026-10-03+). Mặc định `false` khi:
+  /// - User chưa đăng nhập (endpoint vẫn trả 200, field = false).
+  /// - Backend cũ chưa hỗ trợ field này.
+  ///
+  /// **Source of truth ưu tiên**:
+  /// - 1. `BoardGameDetail.isSaved` (endpoint `/board-games/{id}`) — luôn
+  ///   fetch mỗi lần mở trang chi tiết, không cache → đảm bảo freshness
+  ///   ngay cả khi user vừa save/unsave ở tab khác.
+  /// - 2. `ActiveCafesSearchResult.isSaved` (endpoint `.../active-cafes`)
+  ///   — fallback. Cached 30s nên có thể stale, chỉ dùng khi detail
+  ///   thiếu field (backward compat).
+  final bool isSaved;
+
   const BoardGameDetailModel({
     required this.id,
     required this.name,
@@ -27,6 +42,7 @@ class BoardGameDetailModel {
     this.updatedAt,
     this.categories = const [],
     this.components = const [],
+    this.isSaved = false,
   });
 
   factory BoardGameDetailModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +70,9 @@ class BoardGameDetailModel {
               .map(GameComponentModel.fromJson)
               .toList() ??
           const <GameComponentModel>[],
+      // Build 2026-10-03+ thêm `isSaved` top-level. Default `false` khi
+      // user chưa login hoặc backend cũ chưa hỗ trợ.
+      isSaved: (json['isSaved'] as bool?) ?? false,
     );
   }
 
@@ -70,6 +89,7 @@ class BoardGameDetailModel {
       'updatedAt': updatedAt?.toIso8601String(),
       'categories': categories.map((c) => c.toJson()).toList(),
       'components': components.map((c) => c.toJson()).toList(),
+      'isSaved': isSaved,
     };
   }
 
@@ -85,5 +105,6 @@ class BoardGameDetailModel {
         updatedAt: updatedAt,
         categories: categories.map((c) => c.toEntity()).toList(),
         components: components.map((c) => c.toEntity()).toList(),
+        isSaved: isSaved,
       );
 }

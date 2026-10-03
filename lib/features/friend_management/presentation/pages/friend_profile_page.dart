@@ -130,10 +130,7 @@ class _FriendProfileView extends StatelessWidget {
             onRefresh: () => context.read<FriendProfileCubit>().refresh(),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.md,
-              ),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -228,7 +225,7 @@ class _ProfileHeader extends StatelessWidget {
     final tierColor = profile.gamerTier?.color ?? AppColors.primary;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -260,11 +257,11 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
           if (profile.gamerTier != null) ...[
-            const SizedBox(height: AppSpacing.xxs),
+            const SizedBox(height: AppSpacing.xs),
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.sm,
-                vertical: 4,
+                vertical: AppSpacing.xxs,
               ),
               decoration: BoxDecoration(
                 color: tierColor,
@@ -290,7 +287,7 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ],
           if (profile.friendsSince != null) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               'BẠN BÈ TỪ ${_formatDate(profile.friendsSince!)}',
               style: const TextStyle(
@@ -416,7 +413,7 @@ class _StatCell extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(AppSpacing.xxs + 2),
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(8),
@@ -424,7 +421,7 @@ class _StatCell extends StatelessWidget {
         ),
           child: Icon(icon, color: AppColors.white, size: AppIcons.md),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           value,
           style: TextStyle(

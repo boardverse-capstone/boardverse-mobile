@@ -14,7 +14,7 @@ import '../../domain/entities/lobby_entity.dart';
 /// - Lobby `waitingCheckIn` → tất cả đã sẵn sàng, chờ staff check-in.
 /// - Lobby `inProgress`/`ratingOpen` → phiên tại quán đã bắt đầu hoặc đang đánh giá.
 /// - Lobby `pendingActivation`/`pendingCafeApproval` → "Thành viên".
-/// - Lobby `open`/`viable` → "Cần thêm người".
+/// - Lobby `open`/`viable`, player chưa bấm Ready → "Chưa sẵn sàng".
 ///
 /// Mapping này đảm bảo UI phản ánh đúng nghiệp vụ từ backend
 /// (`docs/apis/lobby.md` §State machine + BR-08 + BR-NEW-11).
@@ -99,7 +99,7 @@ class LobbyPlayerCard extends StatelessWidget {
     //    hiển thị "Sẵn sàng" ở mọi phase pre-game/check-in (`open` /
     //    `viable` / `full` / `pendingCafeApproval` / `inProgress` /
     //    `ratingOpen`). Trước đây chỉ phase `full`/`inProgress`/`ratingOpen`
-    //    mới flip → user thấy "Cần thêm người" dù đã bấm Ready ở lobby
+    //    mới flip → user thấy "Chưa sẵn sàng" dù đã bấm Ready ở lobby
     //    open/viable.
     if (player.readyAt != null &&
         (lobbyStatus == LobbyStatus.open ||
@@ -562,47 +562,37 @@ class LobbyPlayerGrid extends StatelessWidget {
           // Phase 4 2026-09-15: gap xs (8) → xxs (4) để cards rộng
           // hơn nữa. Trước: page 360 - padding 8 - gap 8 = 344, card
           // 344/2 = 172. Sau: page 360 - padding 8 - gap 4 = 348,
-          // card 348/2 = 174. Kết hợp với padding xxs (4) ở
+          // card 348/2 = 174. Kết hợp với padding 4 ở
           // PlayersSection → card 174dp (vs 168dp Phase 3, +6dp).
           const gap = AppSpacing.xxs; // 4 — khoảng cách giữa 2 card
           final avail =
               constraints.hasBoundedWidth ? constraints.maxWidth : 360.0;
           final cardSize = (avail - gap) / 2;
 
-          final rows = <Widget>[];
-          for (int i = 0; i < totalSlots; i += 2) {
-            // Padding giữa các rows (chỉ insert từ row thứ 2 trở đi).
-            if (i > 0) rows.add(const SizedBox(height: gap));
-
-            final firstCard = _buildSlot(i, players);
-            final hasSecond = i + 1 < totalSlots;
-            final secondCard =
-                hasSecond ? _buildSlot(i + 1, players) : null;
-
-            // Một row với 2 SizedBox tuyệt đối (width + height =
-            // cardSize). Không có `Expanded` nên không có risk bị
-            // shrink.
-            // Tổng: 2 * cardSize + gap = avail → fill chuẩn 100% row.
-            rows.add(
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  SizedBox(width: cardSize, height: cardSize, child: firstCard),
-                  SizedBox(width: gap),
-                  SizedBox(
-                    width: cardSize,
-                    height: cardSize,
-                    child: secondCard ?? const _EmptySlotCard(),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: rows,
+          // Phase 4 2026-10-02 (fix orphan card bug): đổi từ loop manual
+          // rows → `Wrap`. Trước đây, loop manual ở row lẻ (vd
+          // `totalSlots == 3`) luôn render thêm 1 `_EmptySlotCard()` ở
+          // cuối → grid hiển thị 4 card khi `maxPlayers = 3` và chỉ
+          // có 1 host (= `maxPlayers` slots, nhưng layout thừa 1
+          // phantom slot làm UI vượt quá maxPlayers).
+          //
+          // Wrap tự wrap khi hết width; row cuối lẻ sẽ chỉ render 1
+          // card duy nhất (orphan, left-aligned theo mặc định) — đúng
+          // với logic `totalSlots = players + emptySlots = maxPlayers`.
+          //
+          // Lưu ý: `Wrap` dùng `BoxConstraints` từ parent SizedBox
+          // (width: double.infinity) → mỗi child nhận max width theo
+          // `cardSize` đã tính, không bị Expanded/Flexible shrink.
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: List.generate(totalSlots, (i) {
+              return SizedBox(
+                width: cardSize,
+                height: cardSize,
+                child: _buildSlot(i, players),
+              );
+            }),
           );
         },
       ),
@@ -713,18 +703,23 @@ class _EmptySlotCard extends StatelessWidget {
   }
 }
 
-/// Banner hỗ trợ chỉ dẫn hiển thị khi lobby đã đầy (currentPlayers == maxPlayers).
+/// Banner hỗ trợ chỉ dẫn & nút bấm "Sẵn sàng" hiển thị cho lobby đang hoạt
+/// động (open / viable / full / chờ quán duyệt).
 ///
-/// Theo nghiệp vụ BoardVerse (BR §17.5, lobby.md):
-/// - Sau khi lobby chuyển sang `Full` → member & host **đều phải bấm "Sẵn
-///   sàng" (POST /lobbies/{id}/ready)**.
-/// - Khi tất cả member ready → lobby chuyển sang `InProgress` (POS check-in).
+/// Theo nghiệp vụ BoardVerse (`docs/apis/lobby.md` + BR-LOBBY-READY-01):
+/// - Mỗi thành viên (gồm cả chủ phòng) bấm "Sẵn sàng" để xác nhận đã chuẩn bị
+///   xong — gọi `POST /api/v1/lobbies/{id}/ready`.
+/// - Player có thể bấm từ sớm, không cần đợi phòng đủ người.
+/// - Khi tất cả thành viên đã sẵn sàng → phòng chuyển sang giai đoạn tiếp
+///   theo (chờ quán duyệt hoặc chờ check-in).
 ///
-/// UX: khi slot cuối cùng vừa được lấp, player chưa biết phải làm gì tiếp.
-/// Banner này:
-/// - Hiển thị progress ready: "X/Y đã sẵn sàng".
-/// - Cho phép current user toggle Ready/Unready.
-/// - Cập nhật real-time khi member khác bấm (qua SignalR + cubit).
+/// UX: banner luôn nằm **phía trên** player grid để user thấy ngay hành
+/// động cần làm. Trên banner có:
+/// - Tiêu đề trạng thái phòng (đang tuyển / đã đủ người).
+/// - Chip tiến độ "Sẵn sàng: X/Y".
+/// - Hướng dẫn tiếng Việt theo từng giai đoạn phòng.
+/// - Nút "Bấm Sẵn sàng" / "Đã sẵn sàng" để toggle cho cả host & member
+///   (kèm icon check/clock ở đầu, không cần thêm ký tự tick trong text).
 class LobbyFullGuidanceBanner extends StatefulWidget {
   /// Lobby hiện tại.
   final LobbyEntity lobby;
@@ -735,15 +730,11 @@ class LobbyFullGuidanceBanner extends StatefulWidget {
   /// Bấm để toggle ready (host + member đều dùng).
   final Future<void> Function(bool isReady)? onToggleReady;
 
-  /// Optional callback mở bottom sheet chi tiết lobby.
-  final VoidCallback? onSecondaryAction;
-
   const LobbyFullGuidanceBanner({
     super.key,
     required this.lobby,
     required this.currentUserId,
     this.onToggleReady,
-    this.onSecondaryAction,
   });
 
   @override
@@ -803,7 +794,9 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
     return Semantics(
       container: true,
-      label: 'Phòng ${isFull ? "đã đầy" : "đang tuyển"}. ${showReadySection ? "Sẵn sàng: $readyCount/$totalMembers" : ""}',
+      label:
+          'Phòng ${isFull ? "đã đủ người" : "đang tuyển thành viên"}. '
+              '${showReadySection ? "Sẵn sàng: $readyCount/$totalMembers" : ""}',
       child: Container(
         margin: const EdgeInsets.only(top: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -866,9 +859,11 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
+                    // Tiêu đề ngắn gọn, bằng tiếng Việt, phản ánh trạng
+                    // thái phòng hiện tại để user hiểu ngay bối cảnh.
                     isFull
-                        ? 'Phòng đã đầy • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}'
-                        : 'Phòng đang tuyển • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
+                        ? 'Phòng đã đủ người • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}'
+                        : 'Phòng đang tuyển thành viên • ${widget.lobby.currentPlayers}/${widget.lobby.maxPlayers}',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       color: isDark
@@ -963,7 +958,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                               const SizedBox(width: AppSpacing.xs),
                               Text(
                                 isCurrentUserReady
-                                    ? 'Đã sẵn sàng ✓'
+                                    ? 'Đã sẵn sàng'
                                     : 'Bấm Sẵn sàng',
                                 style: TextStyle(
                                   color: isCurrentUserReady
@@ -979,85 +974,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
                       ),
                     ),
                   ),
-                  if (widget.onSecondaryAction != null) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: widget.onSecondaryAction,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.surfaceDark
-                                : AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.borderDark
-                                  : AppColors.border,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Text(
-                            'Chi tiết',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
-              ),
-            ] else if (widget.onSecondaryAction != null) ...[
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: widget.onSecondaryAction,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.surfaceDark
-                          : AppColors.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.borderDark
-                            : AppColors.border,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(AppIcons.info,
-                            size: 16, color: AppColors.info),
-                        const SizedBox(width: AppSpacing.xs),
-                        const Text(
-                          'Xem chi tiết',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
             ],
           ],
@@ -1084,14 +1001,26 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
     required bool isCurrentUserHost,
   }) {
     final allReady = readyCount >= totalMembers && totalMembers > 0;
-    final nextStep = allReady
-        ? 'Tất cả đã sẵn sàng! Đợi đến ngày chơi — bấm "Đã tới quán" để check-in.'
-        : isCurrentUserReady
-            ? 'Đang đợi các thành viên khác bấm Sẵn sàng. Khi cả nhóm ready, '
-                'lobby sẽ chuyển sang "Đang chơi" (InProgress).'
-            : 'Mỗi thành viên${isCurrentUserHost ? " (bao gồm host)" : ""} '
-                'bấm "Sẵn sàng" để xác nhận đã chuẩn bị xong. Khi tất cả ready, '
-                'lobby sẽ chuyển sang "Đang chơi".';
+    // 1. Tất cả thành viên đã bấm "Sẵn sàng" → phòng sẵn sàng khởi động.
+    // 2. Mình (current user) đã bấm rồi → đang chờ người khác xác nhận.
+    // 3. Chưa bấm → giải thích bằng tiếng Việt để user biết phải làm gì.
+    final String nextStep;
+    if (allReady) {
+      nextStep =
+          'Tuyệt vời! Cả nhóm đã sẵn sàng. Khi tới ngày chơi, đến quán và '
+          'bấm "Đã tới quán" để nhân viên xác nhận có mặt.';
+    } else if (isCurrentUserReady) {
+      nextStep =
+          'Bạn đã xác nhận sẵn sàng. Đang chờ các thành viên còn lại xác nhận '
+          '— khi tất cả đồng ý, phòng sẽ chuyển sang bước tiếp theo.';
+    } else {
+      nextStep = isCurrentUserHost
+          ? 'Khi đã chuẩn bị xong, bấm "Sẵn sàng" để xác nhận. Mỗi thành '
+              'viên đều cần xác nhận để phòng có thể bắt đầu.'
+          : 'Khi đã chuẩn bị xong, bấm "Sẵn sàng" để xác nhận với cả nhóm. '
+              'Khi tất cả thành viên đều xác nhận, phòng sẽ chuyển sang bước '
+              'tiếp theo.';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1159,7 +1088,8 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
   Widget _bodyWaitingCheckIn(bool isDark) {
     return Text(
-      'Cả nhóm đã sẵn sàng. Hãy đến quán và chờ staff check-in để bắt đầu phiên chơi.',
+      'Cả nhóm đã xác nhận sẵn sàng. Hãy đến quán đúng giờ và chờ nhân viên '
+      'quán xác nhận có mặt để bắt đầu phiên chơi.',
       style: TextStyle(
         color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
         fontWeight: FontWeight.w600,
@@ -1169,9 +1099,9 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
   Widget _bodyInProgress(bool isDark) {
     return Text(
-      'Lobby đã chuyển sang "Đang chơi". Đến quán đúng giờ và bấm "Đã tới '
-      'quán" để nhận mã QR check-in. Đừng quên đánh giá Karma sau khi chơi '
-      'xong!',
+      'Phòng đã chuyển sang giai đoạn chơi. Đến quán đúng giờ và bấm '
+      '"Đã tới quán" để nhân viên quán xác nhận. Đừng quên đánh giá Karma '
+      'cho nhóm sau khi chơi xong nhé!',
       style: TextStyle(
         color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
         fontSize: 13,
@@ -1183,8 +1113,8 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
   Widget _bodyPendingCafeApproval(bool isDark) {
     return Text(
-      'Chủ phòng đang chờ quán duyệt. Bạn có thể bấm "Sẵn sàng" từ '
-      'giờ để báo đã sẵn sàng chơi — quán sẽ được duyệt sớm thôi!',
+      'Chủ phòng đang chờ quán duyệt lịch chơi. Bạn có thể bấm "Sẵn sàng" '
+      'ngay từ bây giờ để báo đã chuẩn bị xong — quán sẽ sớm phản hồi thôi!',
       style: TextStyle(
         color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
         fontSize: 13,
@@ -1196,7 +1126,7 @@ class _LobbyFullGuidanceBannerState extends State<LobbyFullGuidanceBanner> {
 
   Widget _bodyFallback(bool isDark) {
     return Text(
-      'Phòng đã đầy. Theo dõi để cập nhật tiếp theo từ chủ phòng.',
+      'Phòng đang chờ cập nhật tiếp theo từ chủ phòng.',
       style: TextStyle(
         color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
         fontSize: 13,

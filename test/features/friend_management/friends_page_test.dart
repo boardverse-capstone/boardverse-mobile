@@ -232,13 +232,50 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Verify text widget tồn tại — kể cả khi đứng một mình.
-      // AppBar title + TabBar label đều có "BẠN BÈ" nên có 2 instances.
-      expect(find.text('BẠN BÈ'), findsWidgets,
+      // Verify AppBar title "BẠN BÈ" tồn tại và render đầy đủ.
+      // (Tab đầu tiên đổi label sang "DANH SÁCH" để tránh duplicate
+      // với AppBar title — chỉ còn 1 instance "BẠN BÈ" trên screen.)
+      expect(find.text('BẠN BÈ'), findsOneWidget,
           reason: 'Title "BẠN BÈ" phải hiển thị trên AppBar');
-      expect(find.text('BẠN BÈ').hitTestable(), findsWidgets,
+      expect(find.text('BẠN BÈ').hitTestable(), findsOneWidget,
           reason: 'Title phải render đầy đủ, không bị overflow làm mất text');
+
+      // Verify tab đầu đã đổi label sang "DANH SÁCH".
+      expect(find.text('DANH SÁCH'), findsOneWidget,
+          reason: 'Tab đầu phải label "DANH SÁCH" (tránh trùng với '
+              'AppBar title)');
     });
+
+    testWidgets(
+      'AppBar title có icon badge + khoảng trống giữa title và TabBar',
+      (tester) async {
+        // Fake status bar inset = 30dp.
+        tester.view.padding = const FakeViewPadding(top: 30);
+        addTearDown(tester.view.reset);
+
+        final repo = _StubFriendRepository();
+        repo.stubFriends([]);
+        await tester.pumpWidget(_wrapWithCubit(repo));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final appBar = tester.widget<AppBar>(find.byType(AppBar));
+        // toolbarHeight phải > kToolbarHeight (56) — fix bug title "dính"
+        // TabBar: thêm `titleBottomGap` (AppSpacing.lg = 20) tạo
+        // breathing room giữa title và heading đầu tiên. Test này
+        // đảm bảo toolbarHeight > kToolbarHeight regardless of
+        // MediaQuery propagation trong widget test env.
+        expect(appBar.toolbarHeight, isNotNull,
+            reason: 'toolbarHeight phải được set (không null)');
+        expect(appBar.toolbarHeight! > kToolbarHeight, isTrue,
+            reason: 'BUG FIX: toolbarHeight phải > kToolbarHeight (56) để '
+                'tạo khoảng trống giữa title và TabBar (tránh "dính")');
+
+        // Icon badge trước title (neo-brutalism accent) phải hiện tại.
+        expect(find.byIcon(Icons.groups_rounded), findsOneWidget,
+            reason: 'Title phải có icon groups_rounded làm badge');
+      },
+    );
   });
 
   group('FriendsPage — bug fix: tab switching giữ data', () {
